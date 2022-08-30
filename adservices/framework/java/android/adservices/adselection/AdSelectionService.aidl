@@ -18,7 +18,7 @@ package android.adservices.adselection;
 
 import android.adservices.adselection.AdSelectionCallback;
 import android.adservices.adselection.AdSelectionConfig;
-import android.adservices.adselection.ReportImpressionRequest;
+import android.adservices.adselection.ReportImpressionInput;
 import android.adservices.adselection.ReportImpressionCallback;
 import android.adservices.adselection.AdSelectionOverrideCallback;
 
@@ -69,8 +69,8 @@ interface AdSelectionService {
     *
     * The call will fail with a status of
     * {@link FledgeErrorResponse#STATUS_INVALID_ARGUMENT} if there is no
-    * auction matching the provided {@link ReportImpressionRequest#getAdSelectionId()} or if
-    * the supplied {@link ReportImpressionRequest#getAdSelectionConfig()} is invalid.
+    * auction matching the provided {@link ReportImpressionInput#getAdSelectionId()} or if
+    * the supplied {@link ReportImpressionInput#getAdSelectionConfig()} is invalid.
     * The call will fail with status
     * {@link FledgeErrorResponse#STATUS_INTERNAL_ERROR} if an
     * internal server error is encountered.
@@ -82,7 +82,7 @@ interface AdSelectionService {
     * {@hide}
     */
     void reportImpression(
-        in ReportImpressionRequest request,
+        in ReportImpressionInput request,
         in ReportImpressionCallback callback);
 
    /**
@@ -92,8 +92,7 @@ interface AdSelectionService {
     * PPAPI to avoid to fetch info from remote servers and use the
     * data provided.
     *
-    * The call will fail with status
-    * {@link FledgeErrorResponse#STATUS_UNAUTHORIZED} if the API hasn't been enabled
+    * The call will throw an IllegalStateException if the API hasn't been enabled
     * by developer options or by an adb command or if the calling
     * application manifest is not setting Android:debuggable to true.
     */
@@ -107,8 +106,7 @@ interface AdSelectionService {
     * {@code overrideAdSelectionConfigRemoteInfo} for the given
     * AdSelectionConfig
     *
-    * The call will fail with status
-    * {@link FledgeErrorResponse#STATUS_UNAUTHORIZED} if:
+    * The call will throw an IllegalStateException if:
     * the API hasn't been enabled by developer options or by an adb command
     * or if the calling application manifest is not setting Android:debuggable to true.
     */
@@ -120,8 +118,7 @@ interface AdSelectionService {
     * Deletes any override created by calling
     * {@code overrideAdSelectionConfigRemoteInfo} from this application
     *
-    * The call will fail with status
-    * {@link FledgeErrorResponse#STATUS_UNAUTHORIZED} if:
+    * The call will throw an IllegalStateException if:
     * the API hasn't been enabled by developer options or by an adb command
     * or if the calling application manifest is not setting Android:debuggable to true.
     */

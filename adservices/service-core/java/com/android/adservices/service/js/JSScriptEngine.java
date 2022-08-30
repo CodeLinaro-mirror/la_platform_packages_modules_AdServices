@@ -16,6 +16,8 @@
 
 package com.android.adservices.service.js;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
 import android.annotation.NonNull;
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -25,10 +27,10 @@ import androidx.concurrent.futures.CallbackToFutureAdapter;
 import com.android.adservices.LogUtil;
 import com.android.adservices.service.exception.JSExecutionException;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 
 import org.chromium.android_webview.js_sandbox.client.AwJsIsolate;
 import org.chromium.android_webview.js_sandbox.client.AwJsSandbox;
@@ -36,6 +38,8 @@ import org.chromium.android_webview.js_sandbox.client.AwJsSandbox;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * A convenience class to execute JS scripts using a WebView. Because arguments to the {@link
@@ -49,30 +53,102 @@ public class JSScriptEngine {
     public static final String ENTRY_POINT_FUNC_NAME = "__rb_entry_point";
 
     private static final String TAG = JSScriptEngine.class.getSimpleName();
+    private static final JsSandboxProvider sJsSandboxProvider = new JsSandboxProvider();
 
     private final Context mContext;
-    private final FluentFuture<AwJsSandbox> mFutureSandbox;
+    private final JsSandboxProvider mJsSandboxProvider;
+
+    /**
+     * Closes the connection with WebView. Any running computation will be terminated. It is not
+     * necessary to recreate instances of {@link JSScriptEngine} after this call; new calls to
+     * {@code evaluate} for existing instance will cause the connection to WV to be restored if
+     * necessary.
+     */
+    public static void shutdown() {
+        sJsSandboxProvider.destroyCurrentInstance();
+    }
+
+    /**
+     * Extracting the logic to create the AwJsSandbox in a factory class for better testability.
+     * This factory class creates a single instance of `AwJsSandbox` until the instance is
+     * invalidated by calling {@link JsSandboxProvider#destroyCurrentInstance()}. The instance is
+     * returned wrapped in a {@code Future}
+     */
+    @VisibleForTesting
+    static class JsSandboxProvider {
+        private final Object mSandboxLock = new Object();
+
+        @GuardedBy("mSandboxLock")
+        private FluentFuture<AwJsSandbox> mFutureSandbox;
+
+        public FluentFuture<AwJsSandbox> getFutureInstance(Context context) {
+            synchronized (mSandboxLock) {
+                if (mFutureSandbox == null) {
+                    mFutureSandbox =
+                            FluentFuture.from(
+                                    CallbackToFutureAdapter.getFuture(
+                                            completer -> {
+                                                LogUtil.i("Creating AwJsSandbox");
+                                                AwJsSandbox.newConnectedInstance(
+                                                        // This instance will have the same lifetime
+                                                        // of the PPAPI process
+                                                        context.getApplicationContext(),
+                                                        awJsSandbox -> {
+                                                            completer.set(awJsSandbox);
+                                                        });
+                                                LogUtil.i("JSScriptEngine created.");
+
+                                                // This value is used only for debug purposes: it
+                                                // will
+                                                // be used
+                                                // in
+                                                // toString() of returned future or error cases.
+                                                return "JSSscriptEngine constructor";
+                                            }));
+                }
+                return mFutureSandbox;
+            }
+        }
+
+        /**
+         * Closes the connection with {@code AwJsSandbox}. Any running computation will fail. A new
+         * call to {@link #getFutureInstance(Context)} will create the instance again.
+         */
+        public void destroyCurrentInstance() {
+            synchronized (mSandboxLock) {
+                if (mFutureSandbox != null) {
+                    LogUtil.i("Closing connection from JSScriptEngine to WebView Sandbox");
+                    mFutureSandbox.addCallback(
+                            new FutureCallback<AwJsSandbox>() {
+                                @Override
+                                public void onSuccess(AwJsSandbox result) {
+                                    result.close();
+                                }
+
+                                @Override
+                                public void onFailure(Throwable t) {
+                                    LogUtil.i("AwJsSandbox initialization failed, won't close");
+                                }
+                            },
+                            directExecutor());
+                    mFutureSandbox = null;
+                }
+            }
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     public JSScriptEngine(@NonNull Context context) {
+        this(context, sJsSandboxProvider);
+    }
+
+    @SuppressWarnings("FutureReturnValueIgnored")
+    @VisibleForTesting
+    JSScriptEngine(@NonNull Context context, @NonNull JsSandboxProvider jsSandboxProvider) {
         this.mContext = context;
-
-        mFutureSandbox =
-                FluentFuture.from(
-                        CallbackToFutureAdapter.getFuture(
-                                completer -> {
-                                    AwJsSandbox.newConnectedInstance(
-                                            mContext,
-                                            awJsSandbox -> {
-                                                completer.set(awJsSandbox);
-                                            });
-                                    LogUtil.d("JSScriptEngine created.");
-
-                                    // This value is used only for debug purposes: it will be used
-                                    // in
-                                    // toString() of returned future or error cases.
-                                    return "JSSscriptEngine constructor";
-                                }));
+        this.mJsSandboxProvider = jsSandboxProvider;
+        // Forcing initialization of WebView
+        jsSandboxProvider.getFutureInstance(mContext);
     }
 
     /**
@@ -110,33 +186,76 @@ public class JSScriptEngine {
         String entryPointCall = callEntryPoint(args, entryFunctionName);
 
         String fullScript = jsScript + "\n" + entryPointCall;
-        LogUtil.v("Calling WebView for script %s", fullScript);
+        LogUtil.d("Calling WebView for script %s", fullScript);
 
         return CallbackToFutureAdapter.getFuture(
                 completer -> {
-                    mFutureSandbox.addCallback(
-                            new FutureCallback<AwJsSandbox>() {
-                                @Override
-                                public void onSuccess(AwJsSandbox jsSandbox) {
-                                    AwJsIsolate jsIsolate = jsSandbox.createIsolate();
-                                    ExecutionCallback callback =
-                                            new ExecutionCallback(jsIsolate, completer);
-                                    jsIsolate.evaluateJavascript(fullScript, callback);
-                                }
+                    mJsSandboxProvider
+                            .getFutureInstance(mContext)
+                            .addCallback(
+                                    new FutureCallback<AwJsSandbox>() {
+                                        @Override
+                                        public void onSuccess(AwJsSandbox jsSandbox) {
+                                            try {
+                                                AwJsIsolate jsIsolate = createIsolate(jsSandbox);
+                                                evaluateJavascript(
+                                                        jsIsolate, completer, fullScript);
+                                            } catch (RuntimeException isolateCreationFailure) {
+                                                LogUtil.w(
+                                                        "Error trying to create an isolate, it"
+                                                            + " looks like the WebView process is"
+                                                            + " not available.",
+                                                        isolateCreationFailure);
+                                                completer.setException(isolateCreationFailure);
+                                            }
+                                        }
 
-                                @Override
-                                public void onFailure(Throwable t) {
-                                    String error = "Failed executing JS script";
-                                    completer.setException(new JSExecutionException(error, t));
-                                }
-                            },
-                            MoreExecutors.directExecutor()); // This just starts the JS execution in
+                                        @Override
+                                        public void onFailure(Throwable t) {
+                                            LogUtil.w("Failure creating AwJsSandbox", t);
+                                            completer.setException(
+                                                    new JSExecutionException(
+                                                            "Failed creating AwJsSandbox", t));
+                                        }
+                                    },
+                                    directExecutor()); // This just starts the JS execution in
                     // another thread; it's a lightweight task.
 
                     // This value is used only for debug purposes: it will be used in toString()
                     // of returned future or error cases.
                     return "AwJsSandbox.addCallback operation";
                 });
+    }
+
+    private void evaluateJavascript(
+            AwJsIsolate jsIsolate,
+            CallbackToFutureAdapter.Completer<String> completer,
+            String fullScript) {
+        ExecutionCallback callback = new ExecutionCallback(jsIsolate, completer);
+        try {
+            jsIsolate.evaluateJavascript(fullScript, callback);
+        } catch (RuntimeException e) {
+            callback.reportError("Exception while evaluating JS in WebView: " + e);
+        }
+    }
+
+    /**
+     * Creates a new isolate. This method handles the case where the `AwJsSandbox` process has been
+     * terminated by closing this connection. The ongoing call will fail, we won't try to recover it
+     * to keep the code simple.
+     */
+    private AwJsIsolate createIsolate(AwJsSandbox jsSandbox) {
+        try {
+            AwJsIsolate jsIsolate = jsSandbox.createIsolate();
+            return jsIsolate;
+        } catch (RuntimeException jsSandboxIsDisconnected) {
+            LogUtil.e(
+                    "JSSandboxProcess is disconnected, cannot create an isolate to run JS code"
+                        + " into. Resetting connection with AwJsSandbox to enable future calls.");
+            mJsSandboxProvider.destroyCurrentInstance();
+            throw new JSScriptEngineConnectionException(
+                    "Unable to create isolate", jsSandboxIsDisconnected);
+        }
     }
 
     /**

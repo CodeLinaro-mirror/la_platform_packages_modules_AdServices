@@ -33,6 +33,17 @@ import java.util.Arrays;
 import java.util.Optional;
 
 public class TriggerTest {
+    private static final String TOP_LEVEL_FILTERS_JSON_STRING =
+            "{\n"
+                    + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
+                    + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
+                    + "}\n";
+
+    private static final String TOP_LEVEL_FILTERS_JSON_STRING_X =
+            "{\n"
+                    + "  \"key_1x\": [\"value_1\", \"value_2\"],\n"
+                    + "  \"key_2x\": [\"value_1\", \"value_2\"]\n"
+                    + "}\n";
 
     @Test
     public void testEqualsPass() throws JSONException {
@@ -53,7 +64,7 @@ public class TriggerTest {
 
         assertEquals(
                 new Trigger.Builder()
-                        .setReportTo(Uri.parse("https://example.com/rT"))
+                        .setAdTechDomain(Uri.parse("https://example.com"))
                         .setAttributionDestination(Uri.parse("https://example.com/aD"))
                         .setId("1")
                         .setEventTriggerData(1L)
@@ -64,9 +75,10 @@ public class TriggerTest {
                         .setRegistrant(Uri.parse("android-app://com.example.abc"))
                         .setAggregateTriggerData(aggregateTriggerDatas.toString())
                         .setAggregateValues(values.toString())
+                        .setFilters(TOP_LEVEL_FILTERS_JSON_STRING)
                         .build(),
                 new Trigger.Builder()
-                        .setReportTo(Uri.parse("https://example.com/rT"))
+                        .setAdTechDomain(Uri.parse("https://example.com"))
                         .setAttributionDestination(Uri.parse("https://example.com/aD"))
                         .setId("1")
                         .setEventTriggerData(1L)
@@ -77,6 +89,7 @@ public class TriggerTest {
                         .setRegistrant(Uri.parse("android-app://com.example.abc"))
                         .setAggregateTriggerData(aggregateTriggerDatas.toString())
                         .setAggregateValues(values.toString())
+                        .setFilters(TOP_LEVEL_FILTERS_JSON_STRING)
                         .build());
     }
 
@@ -89,8 +102,8 @@ public class TriggerTest {
                 new Trigger.Builder().setAttributionDestination(Uri.parse("1")).build(),
                 new Trigger.Builder().setAttributionDestination(Uri.parse("2")).build());
         assertNotEquals(
-                new Trigger.Builder().setReportTo(Uri.parse("1")).build(),
-                new Trigger.Builder().setReportTo(Uri.parse("2")).build());
+                new Trigger.Builder().setAdTechDomain(Uri.parse("1")).build(),
+                new Trigger.Builder().setAdTechDomain(Uri.parse("2")).build());
         assertNotEquals(
                 new Trigger.Builder().setPriority(1L).build(),
                 new Trigger.Builder().setPriority(2L).build());
@@ -138,21 +151,9 @@ public class TriggerTest {
         values2.put("geoValue", 1664);
         assertNotEquals(new Trigger.Builder().setAggregateValues(values1.toString()).build(),
                 new Trigger.Builder().setAggregateValues(values2.toString()).build());
-    }
-
-    @Test
-    public void testGetRandomizedTriggerData() {
-        Source source = new Source.Builder()
-                .setSourceType(Source.SourceType.NAVIGATION).build();
-        Trigger trigger = new Trigger.Builder().setEventTriggerData(2L).build();
-        int randomCount = 0;
-        for (int i = 0; i < 5000; i++) {
-            if (trigger.getEventTriggerData() != trigger.getRandomizedTriggerData(source)) {
-                randomCount++;
-            }
-        }
-        assertNotEquals(0, randomCount);
-        assertNotEquals(5000, randomCount);
+        assertNotEquals(
+                new Trigger.Builder().setFilters(TOP_LEVEL_FILTERS_JSON_STRING).build(),
+                new Trigger.Builder().setFilters(TOP_LEVEL_FILTERS_JSON_STRING_X).build());
     }
 
     @Test
@@ -219,10 +220,7 @@ public class TriggerTest {
         AggregatableAttributionTrigger aggregateTrigger = aggregatableAttributionTrigger.get();
         assertEquals(aggregateTrigger.getTriggerData().size(), 2);
         assertEquals(aggregateTrigger.getTriggerData().get(0).getSourceKeys().size(), 1);
-        assertEquals(aggregateTrigger.getTriggerData().get(0).getKey().getHighBits().longValue(),
-                0L);
-        assertEquals(aggregateTrigger.getTriggerData().get(0).getKey().getLowBits().longValue(),
-                1024L);
+        assertEquals(aggregateTrigger.getTriggerData().get(0).getKey().longValue(), 1024L);
         assertTrue(aggregateTrigger.getTriggerData().get(0)
                 .getSourceKeys().contains("campaignCounts"));
         assertTrue(aggregateTrigger.getTriggerData().get(0).getFilter().isPresent());
@@ -232,10 +230,7 @@ public class TriggerTest {
         assertEquals(aggregateTrigger.getTriggerData().get(0).getNotFilter()
                 .get().getAttributionFilterMap().size(), 2);
 
-        assertEquals(aggregateTrigger.getTriggerData().get(1).getKey().getHighBits().longValue(),
-                0L);
-        assertEquals(aggregateTrigger.getTriggerData().get(1).getKey().getLowBits().longValue(),
-                2688L);
+        assertEquals(aggregateTrigger.getTriggerData().get(1).getKey().longValue(), 2688L);
         assertEquals(aggregateTrigger.getTriggerData().get(1).getSourceKeys().size(), 2);
         assertTrue(aggregateTrigger.getTriggerData().get(1).getSourceKeys().contains("geoValue"));
         assertTrue(aggregateTrigger.getTriggerData().get(1).getSourceKeys().contains("noMatch"));
