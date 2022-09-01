@@ -15,13 +15,17 @@
  */
 package com.android.adservices.service.measurement;
 
-import android.adservices.measurement.DeletionRequest;
-import android.adservices.measurement.EmbeddedWebSourceRegistrationRequestInternal;
-import android.adservices.measurement.EmbeddedWebTriggerRegistrationRequestInternal;
+import static com.android.adservices.ResultCode.RESULT_OK;
+
+import android.adservices.measurement.DeletionParam;
 import android.adservices.measurement.IMeasurementApiStatusCallback;
 import android.adservices.measurement.IMeasurementCallback;
 import android.adservices.measurement.IMeasurementService;
+import android.adservices.measurement.MeasurementErrorResponse;
+import android.adservices.measurement.MeasurementManager.ResultCode;
 import android.adservices.measurement.RegistrationRequest;
+import android.adservices.measurement.WebSourceRegistrationRequestInternal;
+import android.adservices.measurement.WebTriggerRegistrationRequestInternal;
 import android.annotation.NonNull;
 import android.content.Context;
 import android.os.RemoteException;
@@ -52,8 +56,8 @@ public class MeasurementServiceImpl extends IMeasurementService.Stub {
     }
 
     @Override
-    public void register(@NonNull RegistrationRequest request,
-                         @NonNull IMeasurementCallback callback) {
+    public void register(
+            @NonNull RegistrationRequest request, @NonNull IMeasurementCallback callback) {
         Objects.requireNonNull(request);
         Objects.requireNonNull(callback);
 
@@ -61,8 +65,8 @@ public class MeasurementServiceImpl extends IMeasurementService.Stub {
                 () -> {
                     try {
                         LogUtil.d("MeasurementServiceImpl: register: ");
-                        callback.onResult(
-                                mMeasurementImpl.register(request, System.currentTimeMillis()));
+                        mMeasurementImpl.register(request, System.currentTimeMillis());
+                        callback.onResult();
                     } catch (RemoteException e) {
                         LogUtil.e("Unable to send result to the callback", e);
                     }
@@ -70,29 +74,63 @@ public class MeasurementServiceImpl extends IMeasurementService.Stub {
     }
 
     @Override
-    public void registerEmbeddedWebSource(
-            @NonNull EmbeddedWebSourceRegistrationRequestInternal registrationRequest,
-            @NonNull IMeasurementCallback iMeasurementCallback) {
-        // TODO: Implementation
+    public void registerWebSource(
+            @NonNull WebSourceRegistrationRequestInternal request,
+            @NonNull IMeasurementCallback callback) {
+        Objects.requireNonNull(request);
+        Objects.requireNonNull(callback);
+        sBackgroundExecutor.execute(
+                () -> {
+                    try {
+                        LogUtil.d("MeasurementServiceImpl: registerWebSource: ");
+                        mMeasurementImpl.registerWebSource(request, System.currentTimeMillis());
+                        callback.onResult();
+                    } catch (RemoteException e) {
+                        LogUtil.e("Unable to send result to the callback", e);
+                    }
+                });
     }
 
     @Override
-    public void registerEmbeddedWebTrigger(
-            @NonNull EmbeddedWebTriggerRegistrationRequestInternal registrationRequest,
-            @NonNull IMeasurementCallback iMeasurementCallback) {
-        // TODO: Implementation
+    public void registerWebTrigger(
+            @NonNull WebTriggerRegistrationRequestInternal request,
+            @NonNull IMeasurementCallback callback) {
+        Objects.requireNonNull(request);
+        Objects.requireNonNull(callback);
+        sBackgroundExecutor.execute(
+                () -> {
+                    try {
+                        LogUtil.d("MeasurementServiceImpl: registerWebTrigger: ");
+                        mMeasurementImpl.registerWebTrigger(request, System.currentTimeMillis());
+                        callback.onResult();
+                    } catch (RemoteException e) {
+                        LogUtil.e("Unable to send result to the callback", e);
+                    }
+                });
     }
 
     @Override
     public void deleteRegistrations(
-            @NonNull DeletionRequest request, @NonNull IMeasurementCallback callback) {
+            @NonNull DeletionParam request, @NonNull IMeasurementCallback callback) {
         Objects.requireNonNull(request);
         Objects.requireNonNull(callback);
 
         sBackgroundExecutor.execute(
                 () -> {
                     try {
-                        callback.onResult(mMeasurementImpl.deleteRegistrations(request));
+
+                        @ResultCode int resultCode = mMeasurementImpl.deleteRegistrations(request);
+                        if (resultCode == RESULT_OK) {
+                            callback.onResult();
+                        } else {
+                            callback.onFailure(
+                                    new MeasurementErrorResponse.Builder()
+                                            .setResultCode(resultCode)
+                                            .setErrorMessage(
+                                                    "Encountered failure during "
+                                                            + "Measurement deletion.")
+                                            .build());
+                        }
                     } catch (RemoteException e) {
                         LogUtil.e("Unable to send result to the callback", e);
                     }

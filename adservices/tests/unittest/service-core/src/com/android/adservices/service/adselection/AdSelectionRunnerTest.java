@@ -16,6 +16,10 @@
 
 package com.android.adservices.service.adselection;
 
+import static com.android.adservices.service.adselection.AdSelectionRunner.ERROR_AD_SELECTION_FAILURE;
+import static com.android.adservices.service.adselection.AdSelectionRunner.ERROR_NO_CA_AVAILABLE;
+import static com.android.adservices.service.adselection.AdSelectionRunner.ERROR_NO_VALID_BIDS_FOR_SCORING;
+import static com.android.adservices.service.adselection.AdSelectionRunner.ERROR_NO_WINNING_AD_FOUND;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_API_CALLED__API_NAME__RUN_AD_SELECTION;
 import static com.android.adservices.stats.FledgeApiCallStatsMatcher.aCallStatForFledgeApiWithStatus;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.any;
@@ -56,6 +60,7 @@ import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.customaudience.CustomAudienceDatabase;
 import com.android.adservices.data.customaudience.DBCustomAudience;
 import com.android.adservices.data.customaudience.DBTrustedBiddingData;
+import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.adservices.service.stats.AdServicesLoggerImpl;
@@ -65,6 +70,7 @@ import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.Futures;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -92,17 +98,17 @@ import java.util.stream.Collectors;
 public class AdSelectionRunnerTest {
     private static final String TAG = AdSelectionRunnerTest.class.getName();
 
-    private static final String FAILURE_RESPONSE = "Encountered failure during Ad Selection";
-
     private static final String BUYER_1 = AdSelectionConfigFixture.BUYER_1;
     private static final String BUYER_2 = AdSelectionConfigFixture.BUYER_2;
     private static final Long AD_SELECTION_ID = 1234L;
+    private static final String ERROR_INVALID_JSON = "Invalid Json Exception";
 
     private MockitoSession mStaticMockSession = null;
     @Mock private AdsScoreGenerator mMockAdsScoreGenerator;
     @Mock private AdBidGenerator mMockAdBidGenerator;
     @Mock private AdSelectionIdGenerator mMockAdSelectionIdGenerator;
     @Mock private Clock mClock;
+    @Mock private Flags mFlags;
 
     private Context mContext;
     private ExecutorService mExecutorService;
@@ -171,6 +177,7 @@ public class AdSelectionRunnerTest {
         mAdScoringOutcomeList =
                 Arrays.asList(mAdScoringOutcomeForBuyer1, mAdScoringOutcomeForBuyer2);
         when(mClock.instant()).thenReturn(Clock.systemUTC().instant());
+        when(mFlags.getAdSelectionConcurrentBiddingCount()).thenReturn(4);
     }
 
     private DBCustomAudience createDBCustomAudience(final String buyer) {
@@ -274,7 +281,8 @@ public class AdSelectionRunnerTest {
                         mMockAdBidGenerator,
                         mMockAdSelectionIdGenerator,
                         mClock,
-                        mAdServicesLoggerSpy);
+                        mAdServicesLoggerSpy,
+                        mFlags);
 
         assertFalse(mAdSelectionEntryDao.doesAdSelectionIdExist(AD_SELECTION_ID));
 
@@ -396,7 +404,8 @@ public class AdSelectionRunnerTest {
                         mMockAdBidGenerator,
                         mMockAdSelectionIdGenerator,
                         mClock,
-                        mAdServicesLoggerSpy);
+                        mAdServicesLoggerSpy,
+                        mFlags);
 
         assertFalse(mAdSelectionEntryDao.doesAdSelectionIdExist(AD_SELECTION_ID));
 
@@ -453,6 +462,9 @@ public class AdSelectionRunnerTest {
         // If there was no bidding then we should not even attempt to run scoring
         verifyZeroInteractions(mMockAdsScoreGenerator);
 
+        // We won't get to the part where we need to get the concurrent bidding count
+        Mockito.lenient().when(mFlags.getAdSelectionConcurrentBiddingCount()).thenReturn(4);
+
         mAdSelectionRunner =
                 new AdSelectionRunner(
                         mContext,
@@ -463,12 +475,14 @@ public class AdSelectionRunnerTest {
                         mMockAdBidGenerator,
                         mMockAdSelectionIdGenerator,
                         mClock,
-                        mAdServicesLoggerSpy);
+                        mAdServicesLoggerSpy,
+                        mFlags);
         AdSelectionTestCallback resultsCallback =
                 invokeRunAdSelection(mAdSelectionRunner, adSelectionConfig);
 
         assertFalse(resultsCallback.mIsSuccess);
-        assertEquals(FAILURE_RESPONSE, resultsCallback.mFledgeErrorResponse.getErrorMessage());
+        verifyErrorMessageIsCorrect(
+                resultsCallback.mFledgeErrorResponse.getErrorMessage(), ERROR_NO_CA_AVAILABLE);
 
         verify(mAdServicesLoggerSpy)
                 .logFledgeApiCallStats(
@@ -538,7 +552,8 @@ public class AdSelectionRunnerTest {
                         mMockAdBidGenerator,
                         mMockAdSelectionIdGenerator,
                         mClock,
-                        mAdServicesLoggerSpy);
+                        mAdServicesLoggerSpy,
+                        mFlags);
 
         assertFalse(mAdSelectionEntryDao.doesAdSelectionIdExist(AD_SELECTION_ID));
 
@@ -658,7 +673,8 @@ public class AdSelectionRunnerTest {
                         mMockAdBidGenerator,
                         mMockAdSelectionIdGenerator,
                         mClock,
-                        mAdServicesLoggerSpy);
+                        mAdServicesLoggerSpy,
+                        mFlags);
 
         AdSelectionTestCallback resultsCallback =
                 invokeRunAdSelection(mAdSelectionRunner, adSelectionConfig);
@@ -683,7 +699,9 @@ public class AdSelectionRunnerTest {
                         adSelectionConfig);
 
         assertFalse(resultsCallback.mIsSuccess);
-        assertEquals(FAILURE_RESPONSE, resultsCallback.mFledgeErrorResponse.getErrorMessage());
+        verifyErrorMessageIsCorrect(
+                resultsCallback.mFledgeErrorResponse.getErrorMessage(),
+                ERROR_NO_VALID_BIDS_FOR_SCORING);
 
         verify(mAdServicesLoggerSpy)
                 .logFledgeApiCallStats(
@@ -746,7 +764,8 @@ public class AdSelectionRunnerTest {
                         mMockAdBidGenerator,
                         mMockAdSelectionIdGenerator,
                         mClock,
-                        mAdServicesLoggerSpy);
+                        mAdServicesLoggerSpy,
+                        mFlags);
 
         AdSelectionTestCallback resultsCallback =
                 invokeRunAdSelection(mAdSelectionRunner, adSelectionConfig);
@@ -773,7 +792,8 @@ public class AdSelectionRunnerTest {
                 .runAdScoring(mAdBiddingOutcomeList, adSelectionConfig);
 
         assertFalse(resultsCallback.mIsSuccess);
-        assertEquals(FAILURE_RESPONSE, resultsCallback.mFledgeErrorResponse.getErrorMessage());
+        verifyErrorMessageIsCorrect(
+                resultsCallback.mFledgeErrorResponse.getErrorMessage(), ERROR_NO_WINNING_AD_FOUND);
 
         verify(mAdServicesLoggerSpy)
                 .logFledgeApiCallStats(
@@ -843,7 +863,8 @@ public class AdSelectionRunnerTest {
                         mMockAdBidGenerator,
                         mMockAdSelectionIdGenerator,
                         mClock,
-                        mAdServicesLoggerSpy);
+                        mAdServicesLoggerSpy,
+                        mFlags);
 
         AdSelectionTestCallback resultsCallback =
                 invokeRunAdSelection(mAdSelectionRunner, adSelectionConfig);
@@ -870,7 +891,8 @@ public class AdSelectionRunnerTest {
                 .runAdScoring(mAdBiddingOutcomeList, adSelectionConfig);
 
         assertFalse(resultsCallback.mIsSuccess);
-        assertEquals(FAILURE_RESPONSE, resultsCallback.mFledgeErrorResponse.getErrorMessage());
+        verifyErrorMessageIsCorrect(
+                resultsCallback.mFledgeErrorResponse.getErrorMessage(), ERROR_NO_WINNING_AD_FOUND);
 
         verify(mAdServicesLoggerSpy)
                 .logFledgeApiCallStats(
@@ -942,7 +964,8 @@ public class AdSelectionRunnerTest {
                         mMockAdBidGenerator,
                         mMockAdSelectionIdGenerator,
                         mClock,
-                        mAdServicesLoggerSpy);
+                        mAdServicesLoggerSpy,
+                        mFlags);
 
         assertFalse(mAdSelectionEntryDao.doesAdSelectionIdExist(AD_SELECTION_ID));
 
@@ -1051,8 +1074,8 @@ public class AdSelectionRunnerTest {
 
         // Getting ScoringOutcome-ForBuyerX corresponding to each BiddingOutcome-forBuyerX
         // In this case we expect a JSON validation exception
-        when(mMockAdsScoreGenerator.runAdScoring(Collections.EMPTY_LIST, adSelectionConfig))
-                .thenThrow(new AdServicesException("Invalid Json Exception"));
+        when(mMockAdsScoreGenerator.runAdScoring(mAdBiddingOutcomeList, adSelectionConfig))
+                .thenThrow(new AdServicesException(ERROR_INVALID_JSON));
 
         mAdSelectionRunner =
                 new AdSelectionRunner(
@@ -1064,7 +1087,8 @@ public class AdSelectionRunnerTest {
                         mMockAdBidGenerator,
                         mMockAdSelectionIdGenerator,
                         mClock,
-                        mAdServicesLoggerSpy);
+                        mAdServicesLoggerSpy,
+                        mFlags);
 
         AdSelectionTestCallback resultsCallback =
                 invokeRunAdSelection(mAdSelectionRunner, adSelectionConfig);
@@ -1089,7 +1113,8 @@ public class AdSelectionRunnerTest {
                         adSelectionConfig);
 
         assertFalse(resultsCallback.mIsSuccess);
-        assertEquals(FAILURE_RESPONSE, resultsCallback.mFledgeErrorResponse.getErrorMessage());
+        verifyErrorMessageIsCorrect(
+                resultsCallback.mFledgeErrorResponse.getErrorMessage(), ERROR_INVALID_JSON);
 
         verify(mAdServicesLoggerSpy)
                 .logFledgeApiCallStats(
@@ -1100,6 +1125,20 @@ public class AdSelectionRunnerTest {
                         aCallStatForFledgeApiWithStatus(
                                 AD_SERVICES_API_CALLED__API_NAME__RUN_AD_SELECTION,
                                 AdServicesStatusUtils.STATUS_INTERNAL_ERROR));
+    }
+
+    private void verifyErrorMessageIsCorrect(
+            final String actualErrorMassage, final String expectedErrorReason) {
+        Assert.assertTrue(
+                String.format(
+                        "Actual error [%s] does not begin with [%s]",
+                        actualErrorMassage, ERROR_AD_SELECTION_FAILURE),
+                actualErrorMassage.startsWith(ERROR_AD_SELECTION_FAILURE));
+        Assert.assertTrue(
+                String.format(
+                        "Actual error [%s] does not contain expected message: [%s]",
+                        actualErrorMassage, expectedErrorReason),
+                actualErrorMassage.contains(expectedErrorReason));
     }
 
     private AdSelectionTestCallback invokeRunAdSelection(
