@@ -34,21 +34,18 @@ import java.util.Objects;
 public abstract class Topic {
 
     /**
-     * @return a String represents the topic details
+     * @return an Integer represents the topic details
      */
-    @NonNull
-    public abstract String getTopic();
+    public abstract int getTopic();
 
     /**
      * @return the taxonomy version number
      */
-    @NonNull
     public abstract long getTaxonomyVersion();
 
     /**
      * @return the model version number
      */
-    @NonNull
     public abstract long getModelVersion();
 
     /**
@@ -69,7 +66,7 @@ public abstract class Topic {
      */
     @NonNull
     public static Topic create(
-            @NonNull String topic,
+            int topic,
             long taxonomyVersion,
             long modelVersion) {
         Objects.requireNonNull(topic);
@@ -85,13 +82,13 @@ public abstract class Topic {
     @AutoValue.Builder
     public abstract static class Builder {
         /** Set Topic */
-        public abstract Builder setTopic(@NonNull String topic);
+        public abstract Builder setTopic(int topic);
 
         /** Set Taxonomy Version */
-        public abstract Builder setTaxonomyVersion(@NonNull long taxonomyVersion);
+        public abstract Builder setTaxonomyVersion(long taxonomyVersion);
 
         /** Set Model Version */
-        public abstract Builder setModelVersion(@NonNull long modelVersion);
+        public abstract Builder setModelVersion(long modelVersion);
 
         /** Build a Topic instance */
         @NonNull

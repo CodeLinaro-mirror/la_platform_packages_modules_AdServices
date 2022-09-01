@@ -33,7 +33,6 @@ import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
 import org.junit.After;
-import org.junit.AssumptionViolatedException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -674,6 +673,31 @@ public final class SdkSandboxStorageHostTest extends BaseHostJUnit4Test {
     }
 
     @Test
+    public void testSdkDataSubDirectory_PerSdkStorageIsUsable() throws Exception {
+        installPackage(TEST_APP_STORAGE_APK);
+
+        // Verify that per-sdk storage exist
+        final String perSdkStorage = getSdkDataPerSdkPath(0, TEST_APP_STORAGE_PACKAGE,
+                SDK_NAME, true);
+        assertThat(getDevice().isDirectory(perSdkStorage)).isTrue();
+
+        // Write a file in the storage that code needs to read and write it back
+        // in another file
+        String fileToRead = perSdkStorage + "/readme.txt";
+        getDevice().executeShellCommand("echo something to read > " + fileToRead);
+        assertThat(getDevice().doesFileExist(fileToRead)).isTrue();
+
+        runPhase("testSdkDataSubDirectory_PerSdkStorageIsUsable");
+
+        // Assert that code was able to create file and directories
+        assertWithMessage("Failed to create directory in per-sdk storage").that(
+                getDevice().isDirectory(perSdkStorage + "/dir")).isTrue();
+        assertThat(getDevice().doesFileExist(perSdkStorage + "/dir/file")).isTrue();
+        String content = getDevice().executeShellCommand("cat " + perSdkStorage + "/dir/file");
+        assertThat(content).isEqualTo("something to read");
+    }
+
+    @Test
     public void testSdkData_CanBeMovedToDifferentVolume() throws Exception {
         assumeTrue(mAdoptableUtils.isAdoptableStorageSupported());
 
@@ -983,9 +1007,6 @@ public final class SdkSandboxStorageHostTest extends BaseHostJUnit4Test {
 
     private static class DeviceLockUtils {
 
-        private static final String FBE_MODE_EMULATED = "emulated";
-        private static final String FBE_MODE_NATIVE = "native";
-
         private final BaseHostJUnit4Test mTest;
 
         private boolean mIsDeviceLocked = false;
@@ -1012,16 +1033,7 @@ public final class SdkSandboxStorageHostTest extends BaseHostJUnit4Test {
             Thread.sleep(15000);
 
             // Follow DirectBootHostTest, reboot system into known state with keys ejected
-            if (isFbeModeEmulated()) {
-                final String res = mTest.getDevice().executeShellCommand("sm set-emulate-fbe true");
-                if (res != null && res.contains("Emulation not supported")) {
-                    throw new AssumptionViolatedException("FBE emulation is not supported");
-                }
-                mTest.getDevice().waitForDeviceNotAvailable(30000);
-                mTest.getDevice().waitForDeviceOnline(120000);
-            } else {
-                mTest.getDevice().rebootUntilOnline();
-            }
+            mTest.getDevice().rebootUntilOnline();
             waitForBootCompleted(mTest.getDevice());
 
             mIsDeviceLocked = true;
@@ -1037,13 +1049,7 @@ public final class SdkSandboxStorageHostTest extends BaseHostJUnit4Test {
                         "settings delete global require_password_to_decrypt");
             } finally {
                 // Get ourselves back into a known-good state
-                if (isFbeModeEmulated()) {
-                    mTest.getDevice().executeShellCommand("sm set-emulate-fbe false");
-                    mTest.getDevice().waitForDeviceNotAvailable(30000);
-                    mTest.getDevice().waitForDeviceOnline();
-                } else {
-                    mTest.getDevice().rebootUntilOnline();
-                }
+                mTest.getDevice().rebootUntilOnline();
                 mTest.getDevice().waitForDeviceAvailable();
             }
         }
@@ -1055,23 +1061,6 @@ public final class SdkSandboxStorageHostTest extends BaseHostJUnit4Test {
                         "testUnlockDevice")).isTrue();
             mIsDeviceLocked = false;
         }
-
-        private boolean isFbeModeEmulated() throws Exception {
-            String mode = "unknown";
-            for (int i = 0; i < 2; i++) {
-                mode = mTest.getDevice().executeShellCommand("sm get-fbe-mode").trim();
-                if (mode.equals(FBE_MODE_EMULATED)) {
-                    return true;
-                } else if (mode.equals(FBE_MODE_NATIVE)) {
-                    return false;
-                }
-                // Sometimes mount service takes time to get ready
-                Thread.sleep(5000);
-            }
-            fail("Unknown FBE mode: " + mode);
-            return false;
-        }
-
     }
 
 }

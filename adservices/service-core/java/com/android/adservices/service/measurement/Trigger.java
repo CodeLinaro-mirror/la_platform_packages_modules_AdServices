@@ -22,8 +22,6 @@ import android.net.Uri;
 import com.android.adservices.service.measurement.aggregation.AggregatableAttributionTrigger;
 import com.android.adservices.service.measurement.aggregation.AggregateFilterData;
 import com.android.adservices.service.measurement.aggregation.AggregateTriggerData;
-import com.android.adservices.service.measurement.aggregation.AttributionAggregatableKey;
-import com.android.adservices.service.measurement.attribution.RandomSelector;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -31,7 +29,6 @@ import org.json.JSONObject;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,7 +38,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.LongStream;
 
 /**
  * POJO for Trigger.
@@ -52,7 +48,7 @@ public class Trigger {
     private String mId;
     private Long mDedupKey;
     private Uri mAttributionDestination;
-    private Uri mReportTo;
+    private Uri mAdTechDomain;
     private long mTriggerTime;
     private long mPriority;
     private long mEventTriggerData;
@@ -61,6 +57,7 @@ public class Trigger {
     private String mAggregateTriggerData;
     private String mAggregateValues;
     private AggregatableAttributionTrigger mAggregatableAttributionTrigger;
+    private String mFilters;
 
     @IntDef(value = {
             Status.PENDING,
@@ -69,11 +66,11 @@ public class Trigger {
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface Status {
+
         int PENDING = 0;
         int IGNORED = 1;
         int ATTRIBUTED = 2;
     }
-
     private Trigger() {
         mDedupKey = null;
         mStatus = Status.PENDING;
@@ -85,9 +82,9 @@ public class Trigger {
             return false;
         }
         Trigger trigger = (Trigger) obj;
-        return  Objects.equals(mId, trigger.getId())
+        return Objects.equals(mId, trigger.getId())
                 && Objects.equals(mAttributionDestination, trigger.mAttributionDestination)
-                && Objects.equals(mReportTo, trigger.mReportTo)
+                && Objects.equals(mAdTechDomain, trigger.mAdTechDomain)
                 && mTriggerTime == trigger.mTriggerTime
                 && mEventTriggerData == trigger.mEventTriggerData
                 && mPriority == trigger.mPriority
@@ -96,15 +93,26 @@ public class Trigger {
                 && Objects.equals(mRegistrant, trigger.mRegistrant)
                 && Objects.equals(mAggregateTriggerData, trigger.mAggregateTriggerData)
                 && Objects.equals(mAggregateValues, trigger.mAggregateValues)
-                && Objects.equals(mAggregatableAttributionTrigger,
-                trigger.mAggregatableAttributionTrigger);
+                && Objects.equals(
+                        mAggregatableAttributionTrigger, trigger.mAggregatableAttributionTrigger)
+                && Objects.equals(mFilters, trigger.mFilters);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mId, mAttributionDestination, mReportTo, mTriggerTime,
-                mEventTriggerData, mPriority, mStatus, mDedupKey, mAggregateTriggerData,
-                mAggregateValues, mAggregatableAttributionTrigger);
+        return Objects.hash(
+                mId,
+                mAttributionDestination,
+                mAdTechDomain,
+                mTriggerTime,
+                mEventTriggerData,
+                mPriority,
+                mStatus,
+                mDedupKey,
+                mAggregateTriggerData,
+                mAggregateValues,
+                mAggregatableAttributionTrigger,
+                mFilters);
     }
 
     /**
@@ -129,10 +137,10 @@ public class Trigger {
     }
 
     /**
-     * Report destination for the generated reports.
+     * AdTech report destination domain for generated reports.
      */
-    public Uri getReportTo() {
-        return mReportTo;
+    public Uri getAdTechDomain() {
+        return mAdTechDomain;
     }
 
     /**
@@ -226,18 +234,14 @@ public class Trigger {
     }
 
     /**
-     * Function to get trigger data based on source type(Event/Navigation) with a pre-defined false
-     * data randomness rate.
-     * @param source {@link Source} for choosing source type
-     * @return trigger data using false random rate based on source type
+     * Returns top level filters. The value is in json format.
+     *
+     * <p>Will be used for deciding if the trigger can be attributed to the source. If the source
+     * fails the filtering against these filters then no reports(event/aggregate) are generated.
+     * example: { "key1" : ["value11", "value12"], "key2" : ["value21", "value22"] }
      */
-    public long getRandomizedTriggerData(Source source) {
-        Long[] possibleValues = LongStream.range(0, source.getTriggerDataCardinality())
-                .boxed().toArray(Long[]::new);
-        return RandomSelector.selectRandomDataWithProbability(
-                source.getTriggerDataNoiseRate(),
-                getTruncatedTriggerData(source),
-                possibleValues);
+    public String getFilters() {
+        return mFilters;
     }
 
     /**
@@ -268,7 +272,6 @@ public class Trigger {
                 hexString = hexString.substring(2);
             }
             BigInteger bigInteger = new BigInteger(hexString, 16);
-            BigInteger divisor = BigDecimal.valueOf(Math.pow(2, 63)).toBigInteger();
             JSONArray sourceKeys = jsonObject.getJSONArray("source_keys");
             Set<String> sourceKeySet = new HashSet<>();
             for (int j = 0; j < sourceKeys.length(); j++) {
@@ -276,10 +279,7 @@ public class Trigger {
             }
             AggregateTriggerData.Builder builder =
                     new AggregateTriggerData.Builder()
-                            .setKey(new AttributionAggregatableKey.Builder()
-                                    .setHighBits(bigInteger.divide(divisor).longValue())
-                                    .setLowBits(bigInteger.mod(divisor).longValue())
-                                    .build())
+                            .setKey(bigInteger)
                             .setSourceKeys(sourceKeySet);
             if (jsonObject.has("filters") && !jsonObject.isNull("filters")) {
                 AggregateFilterData filters = new AggregateFilterData.Builder()
@@ -340,10 +340,10 @@ public class Trigger {
         }
 
         /**
-         * See {@link Trigger#getReportTo()}.
+         * See {@link Trigger#getAdTechDomain()} ()}.
          */
-        public Builder setReportTo(Uri reportTo) {
-            mBuilding.mReportTo = reportTo;
+        public Builder setAdTechDomain(Uri adTechDomain) {
+            mBuilding.mAdTechDomain = adTechDomain;
             return this;
         }
 
@@ -400,6 +400,12 @@ public class Trigger {
          */
         public Builder setAggregateValues(String aggregateValues) {
             mBuilding.mAggregateValues = aggregateValues;
+            return this;
+        }
+
+        /** See {@link Trigger#getFilters()} */
+        public Builder setFilters(String filters) {
+            mBuilding.mFilters = filters;
             return this;
         }
 

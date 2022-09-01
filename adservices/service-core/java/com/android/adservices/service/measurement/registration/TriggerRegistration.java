@@ -16,6 +16,7 @@
 package com.android.adservices.service.measurement.registration;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.net.Uri;
 
 
@@ -28,21 +29,28 @@ public final class TriggerRegistration {
     private final long mTriggerData;
     private final long mTriggerPriority;
     private final Long mDeduplicationKey;
+    private final String mAggregateTriggerData;
+    private final String mAggregateValues;
+    private final String mFilters;
 
-    /**
-     * Create a trigger registration.
-     */
+    /** Create a trigger registration. */
     private TriggerRegistration(
             @NonNull Uri topOrigin,
             @NonNull Uri reportingOrigin,
             long triggerData,
             long triggerPriority,
-            Long deduplicationKey) {
+            Long deduplicationKey,
+            String aggregateTriggerData,
+            String aggregateValues,
+            @Nullable String filters) {
         mTopOrigin = topOrigin;
         mReportingOrigin = reportingOrigin;
         mTriggerData = triggerData;
         mTriggerPriority = triggerPriority;
         mDeduplicationKey = deduplicationKey;
+        mAggregateTriggerData = aggregateTriggerData;
+        mAggregateValues = aggregateValues;
+        mFilters = filters;
     }
 
     /**
@@ -81,6 +89,25 @@ public final class TriggerRegistration {
     }
 
     /**
+     * Aggregate trigger data is used to generate aggregate report.
+     */
+    public String getAggregateTriggerData() {
+        return mAggregateTriggerData;
+    }
+
+    /**
+     * Aggregate value is used to generate aggregate report.
+     */
+    public String getAggregateValues() {
+        return mAggregateValues;
+    }
+
+    /** Top level filters. */
+    public String getFilters() {
+        return mFilters;
+    }
+
+    /**
      * A builder for {@link TriggerRegistration}.
      */
     public static final class Builder {
@@ -89,10 +116,14 @@ public final class TriggerRegistration {
         private long mTriggerData;
         private long mTriggerPriority;
         private Long mDeduplicationKey;
+        private String mAggregateTriggerData;
+        private String mAggregateValues;
+        private String mFilters;
 
         public Builder() {
             mTopOrigin = Uri.EMPTY;
             mReportingOrigin = Uri.EMPTY;
+            mDeduplicationKey = null;
         }
 
         /**
@@ -136,6 +167,28 @@ public final class TriggerRegistration {
         }
 
         /**
+         * See {@link TriggerRegistration#getAggregateTriggerData()}.
+         */
+        public Builder setAggregateTriggerData(String aggregateTriggerData) {
+            mAggregateTriggerData = aggregateTriggerData;
+            return this;
+        }
+
+        /**
+         * See {@link TriggerRegistration#getAggregateValues()}.
+         */
+        public Builder setAggregateValues(String aggregateValues) {
+            mAggregateValues = aggregateValues;
+            return this;
+        }
+
+        /** See {@link TriggerRegistration#getFilters()}. */
+        public Builder setFilters(String filters) {
+            mFilters = filters;
+            return this;
+        }
+
+        /**
          * Build the TriggerRegistration.
          */
         public @NonNull TriggerRegistration build() {
@@ -148,7 +201,10 @@ public final class TriggerRegistration {
                     mReportingOrigin,
                     mTriggerData,
                     mTriggerPriority,
-                    mDeduplicationKey);
+                    mDeduplicationKey,
+                    mAggregateTriggerData,
+                    mAggregateValues,
+                    mFilters);
         }
     }
 }

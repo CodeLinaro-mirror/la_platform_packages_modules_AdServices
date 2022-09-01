@@ -100,18 +100,31 @@ public class TriggerFetcher {
                 LogUtil.d("Expected one aggregate trigger data!");
                 return false;
             }
-            // TODO: Handle aggregates. additionalResult will be false until then.
-            additionalResult = false;
+            // Parses in aggregate trigger data. additionalResult will be false until then.
+            result.setAggregateTriggerData(field.get(0));
+            additionalResult = true;
         }
         field = headers.get("Attribution-Reporting-Register-Aggregatable-Values");
         if (field != null) {
             if (field.size() != 1) {
-                LogUtil.d("Expected one aggregatable values!");
+                LogUtil.d("Expected one aggregatable value!");
                 return false;
             }
-            // TODO: Handle aggregates. additionalResult will be false until then.
-            additionalResult = false;
+            // Parses in aggregate values. additionalResult will be false until then.
+            result.setAggregateValues(field.get(0));
+            additionalResult = true;
         }
+
+        field = headers.get("Attribution-Reporting-Filters");
+        if (field != null) {
+            if (field.size() != 1) {
+                LogUtil.d("Expected one reporting filter value!");
+                return false;
+            }
+            result.setFilters(field.get(0));
+            additionalResult = true;
+        }
+
         if (additionalResult) {
             addToResults.add(result.build());
             return true;

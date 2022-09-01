@@ -20,17 +20,24 @@ import android.annotation.NonNull;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.text.TextUtils;
+import android.util.Dumpable;
 import android.util.Pair;
+
+import androidx.annotation.Nullable;
 
 import com.android.adservices.LogUtil;
 import com.android.adservices.data.DbHelper;
+import com.android.adservices.data.topics.Topic;
 import com.android.adservices.data.topics.TopicsDao;
+import com.android.adservices.data.topics.TopicsTables;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.topics.classifier.Classifier;
+import com.android.adservices.service.topics.classifier.PrecomputedClassifier;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Preconditions;
 
+import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -38,9 +45,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /** A class to manage Epoch computation. */
-public class EpochManager {
+public class EpochManager implements Dumpable {
 
     // We use this origin to compute epoch timestamp.
     // In other words, the first epoch started at
@@ -60,6 +68,31 @@ public class EpochManager {
     // The number of top Topics not including the random one.
     private static final int NUM_TOP_TOPICS_NOT_INCLUDING_RANDOM_ONE = 5;
 
+    // The tables to do garbage collection for old epochs
+    // and its corresponding epoch_id column name.
+    // Pair<Table Name, Column Name>
+    private static final Pair<String, String>[] TABLE_INFO_FOR_EPOCH_GARBAGE_COLLECTION =
+            new Pair[] {
+                Pair.create(
+                        TopicsTables.AppClassificationTopicsContract.TABLE,
+                        TopicsTables.AppClassificationTopicsContract.EPOCH_ID),
+                Pair.create(
+                        TopicsTables.CallerCanLearnTopicsContract.TABLE,
+                        TopicsTables.CallerCanLearnTopicsContract.EPOCH_ID),
+                Pair.create(
+                        TopicsTables.TopTopicsContract.TABLE,
+                        TopicsTables.TopTopicsContract.EPOCH_ID),
+                Pair.create(
+                        TopicsTables.ReturnedTopicContract.TABLE,
+                        TopicsTables.ReturnedTopicContract.EPOCH_ID),
+                Pair.create(
+                        TopicsTables.UsageHistoryContract.TABLE,
+                        TopicsTables.UsageHistoryContract.EPOCH_ID),
+                Pair.create(
+                        TopicsTables.AppUsageHistoryContract.TABLE,
+                        TopicsTables.AppUsageHistoryContract.EPOCH_ID)
+            };
+
     private static EpochManager sSingleton;
 
     private final TopicsDao mTopicsDao;
@@ -69,8 +102,12 @@ public class EpochManager {
     private final Flags mFlags;
 
     @VisibleForTesting
-    EpochManager(@NonNull TopicsDao topicsDao, @NonNull DbHelper dbHelper,
-            @NonNull Random random, @NonNull Classifier classifier, Flags flags) {
+    EpochManager(
+            @NonNull TopicsDao topicsDao,
+            @NonNull DbHelper dbHelper,
+            @NonNull Random random,
+            @NonNull Classifier classifier,
+            Flags flags) {
         mTopicsDao = topicsDao;
         mDbHelper = dbHelper;
         mRandom = random;
@@ -83,18 +120,19 @@ public class EpochManager {
     public static EpochManager getInstance(@NonNull Context context) {
         synchronized (EpochManager.class) {
             if (sSingleton == null) {
-                sSingleton = new EpochManager(TopicsDao.getInstance(context),
-                        DbHelper.getInstance(context), new Random(),
-                        Classifier.getInstance(context), FlagsFactory.getFlags());
+                sSingleton =
+                        new EpochManager(
+                                TopicsDao.getInstance(context),
+                                DbHelper.getInstance(context),
+                                new Random(),
+                                PrecomputedClassifier.getInstance(context),
+                                FlagsFactory.getFlags());
             }
             return sSingleton;
         }
     }
 
-    /**
-     * Offline Epoch Processing.
-     * For more details, see go/rb-topics-epoch-computation
-     */
+    /** Offline Epoch Processing. For more details, see go/rb-topics-epoch-computation */
     public void processEpoch() {
         SQLiteDatabase db = mDbHelper.safeGetWritableDatabase();
         if (db == null) {
@@ -103,63 +141,74 @@ public class EpochManager {
 
         // This cross db and java boundaries multiple times so we need to have a db transaction.
         db.beginTransaction();
-        long epochId = getCurrentEpochId();
-        LogUtil.v("Current epochId is %d", epochId);
+        long currentEpochId = getCurrentEpochId();
+        LogUtil.d("EpochManager.processEpoch for the current epochId %d", currentEpochId);
         try {
             // Step 1: Compute the UsageMap from the UsageHistory table.
             // appSdksUsageMap = Map<App, List<SDK>> has the app and its SDKs that called Topics API
             // in the current Epoch.
-            Map<String, List<String>> appSdksUsageMap = mTopicsDao.retrieveAppSdksUsageMap(epochId);
+            Map<String, List<String>> appSdksUsageMap =
+                    mTopicsDao.retrieveAppSdksUsageMap(currentEpochId);
             LogUtil.v("appSdksUsageMap size is  %d", appSdksUsageMap.size());
 
             // Step 2: Compute the Map from App to its classification topics.
             // Only produce for apps that called the Topics API in the current Epoch.
             // appClassificationTopicsMap = Map<App, List<Topics>>
-            Map<String, List<String>> appClassificationTopicsMap =
+            Map<String, List<Topic>> appClassificationTopicsMap =
                     computeAppClassificationTopics(appSdksUsageMap);
             LogUtil.v("appClassificationTopicsMap size is %d", appClassificationTopicsMap.size());
 
             // Then save app-topics Map into DB
-            mTopicsDao.persistAppClassificationTopics(epochId, /* taxonomyVersion = */ 1L,
-                    /* modelVersion = */ 1L, appClassificationTopicsMap);
+            mTopicsDao.persistAppClassificationTopics(currentEpochId, appClassificationTopicsMap);
 
             // Step 3: Compute the Callers can learn map for this epoch.
             // This is similar to the Callers Can Learn table in the explainer.
-            Map<String, Set<String>> callersCanLearnThisEpochMap =
+            Map<Topic, Set<String>> callersCanLearnThisEpochMap =
                     computeCallersCanLearnMap(appSdksUsageMap, appClassificationTopicsMap);
-            LogUtil.v("callersCanLearnThisEpochMap size is  %d",
-                    callersCanLearnThisEpochMap.size());
+            LogUtil.v(
+                    "callersCanLearnThisEpochMap size is  %d", callersCanLearnThisEpochMap.size());
 
             // And then save this CallersCanLearnMap to DB.
-            mTopicsDao.persistCallerCanLearnTopics(epochId, callersCanLearnThisEpochMap);
+            mTopicsDao.persistCallerCanLearnTopics(currentEpochId, callersCanLearnThisEpochMap);
 
             // Step 4: For each topic, retrieve the callers (App or SDK) that can learn about that
             // topic. We look at last 3 epochs.
             // Return callersCanLearnMap = Map<Topic, Set<Caller>>  where Caller = App or Sdk.
-            Map<String, Set<String>> callersCanLearnMap =
-                    mTopicsDao.retrieveCallerCanLearnTopicsMap(epochId,
-                            mFlags.getTopicsNumberOfLookBackEpochs());
+            Map<Topic, Set<String>> callersCanLearnMap =
+                    mTopicsDao.retrieveCallerCanLearnTopicsMap(
+                            currentEpochId, mFlags.getTopicsNumberOfLookBackEpochs());
             LogUtil.v("callersCanLearnMap size is %d", callersCanLearnMap.size());
 
             // Step 5: Retrieve the Top Topics. This will return a list of 5 top topics and
             // the 6th topic which is selected randomly. We can refer this 6th topic as the
             // random-topic.
-            List<String> topTopics = computeTopTopics(appClassificationTopicsMap);
+            List<Topic> topTopics = computeTopTopics(appClassificationTopicsMap);
+            // Abort the computation if empty list of top topics is returned from classifier.
+            // This could happen if there is no usage of the Topics API in the last epoch.
+            if (topTopics.isEmpty()) {
+                LogUtil.w(
+                        "Empty list of top topics is returned from classifier. Aborting the"
+                                + " computation!");
+                db.setTransactionSuccessful();
+                return;
+            }
             LogUtil.v("topTopics are  %s", topTopics.toString());
 
             // Then save Top Topics into DB
-            mTopicsDao.persistTopTopics(epochId, topTopics);
+            mTopicsDao.persistTopTopics(currentEpochId, topTopics);
 
             // Step 6: Assign topics to apps and SDK from the global top topics.
             // Currently hard-code the taxonomyVersion and the modelVersion.
             // Return returnedAppSdkTopics = Map<Pair<App, Sdk>, Topic>
-            Map<Pair<String, String>, String> returnedAppSdkTopics =
+            Map<Pair<String, String>, Topic> returnedAppSdkTopics =
                     computeReturnedAppSdkTopics(callersCanLearnMap, appSdksUsageMap, topTopics);
             LogUtil.v("returnedAppSdkTopics size is  %d", returnedAppSdkTopics.size());
 
             // And persist the map to DB so that we can reuse later.
-            mTopicsDao.persistReturnedAppTopicsMap(epochId, /* taxonomyVersion = */ 1L,
-                    /* modelVersion = */ 1L, returnedAppSdkTopics);
+            mTopicsDao.persistReturnedAppTopicsMap(currentEpochId, returnedAppSdkTopics);
+
+            // Finally erase outdated epoch's data
+            garbageCollectOutdatedEpochData(currentEpochId);
 
             // Mark the transaction successful.
             db.setTransactionSuccessful();
@@ -170,12 +219,30 @@ public class EpochManager {
 
     // Query the Classifier to get the top Topics for this epoch.
     // appClassificationTopicsMap = Map<App, List<Topics>>
+    // TODO: (b/232807776) Remove Topic Casting when topic can be populated from classifier
     @NonNull
-    private List<String> computeTopTopics(Map<String, List<String>> appClassificationTopicsMap) {
-        return mClassifier.getTopTopics(
-                appClassificationTopicsMap,
-                mFlags.getTopicsNumberOfTopTopics(),
-                mFlags.getTopicsNumberOfRandomTopics());
+    private List<Topic> computeTopTopics(Map<String, List<Topic>> appClassificationTopicsMap) {
+        Map<String, List<Integer>> appClassificationTopicsMapIntegerTopic = new HashMap<>();
+        for (Map.Entry<String, List<Topic>> appTopics : appClassificationTopicsMap.entrySet()) {
+            appClassificationTopicsMapIntegerTopic.put(
+                    appTopics.getKey(),
+                    appTopics.getValue().stream()
+                            .map(Topic::getTopic)
+                            .collect(Collectors.toList()));
+        }
+        List<Integer> topTopics =
+                mClassifier.getTopTopics(
+                        appClassificationTopicsMapIntegerTopic,
+                        mFlags.getTopicsNumberOfTopTopics(),
+                        mFlags.getTopicsNumberOfRandomTopics());
+        return topTopics.stream()
+                .map(
+                        topicsId ->
+                                Topic.create(
+                                        topicsId,
+                                        /* taxonomyVersion = */ 1L,
+                                        /* modelVersion = */ 1L))
+                .collect(Collectors.toList());
     }
 
     // Compute the Map from App to its classification topics.
@@ -183,24 +250,44 @@ public class EpochManager {
     // input:
     // appSdksUsageMap = Map<App, List<SDK>> has the app and its SDKs that called Topics API
     // Return appClassificationTopicsMap = Map<App, List<Topic>>
+    // TODO: (b/232807776) Remove Topic Casting when topic can be populated from classifier
     @VisibleForTesting
-    Map<String, List<String>> computeAppClassificationTopics(
+    @NonNull
+    Map<String, List<Topic>> computeAppClassificationTopics(
             Map<String, List<String>> appSdksUsageMap) {
-        return mClassifier.classify(appSdksUsageMap.keySet());
+        Map<String, List<Integer>> appClassificationTopicsMapIntegerTopic =
+                mClassifier.classify(appSdksUsageMap.keySet());
+        Map<String, List<Topic>> appClassificationTopicsMap = new HashMap<>();
+        for (Map.Entry<String, List<Integer>> appTopics :
+                appClassificationTopicsMapIntegerTopic.entrySet()) {
+            appClassificationTopicsMap.put(
+                    appTopics.getKey(),
+                    appTopics.getValue().stream()
+                            .map(
+                                    topicsId ->
+                                            Topic.create(
+                                                    topicsId,
+                                                    /* taxonomyVersion = */ 1L,
+                                                    /* modelVersion = */ 1L))
+                            .collect(Collectors.toList()));
+        }
+        return appClassificationTopicsMap;
     }
 
     /**
-     * Record the call from App and Sdk to usage history.
-     * This UsageHistory will be used to determine if a caller (app or sdk) has observed a topic
-     * before.
+     * Record the call from App and Sdk to usage history. This UsageHistory will be used to
+     * determine if a caller (app or sdk) has observed a topic before.
      *
      * @param app the app
-     * @param sdk the sdk of the app. In case the app calls the Topics API directly, the sdk
-     *            == empty string.
+     * @param sdk the sdk of the app. In case the app calls the Topics API directly, the sdk ==
+     *     empty string.
      */
     public void recordUsageHistory(String app, String sdk) {
         long epochID = getCurrentEpochId();
-        LogUtil.v("Current epochId is %d", epochID);
+        // TODO(b/223159123): Do we need to filter out this log in prod build?
+        LogUtil.v(
+                "EpochManager.recordUsageHistory for current EpochId = %d for %s, %s",
+                epochID, app, sdk);
         mTopicsDao.recordUsageHistory(epochID, app, sdk);
         mTopicsDao.recordAppUsageHistory(epochID, app);
     }
@@ -210,26 +297,26 @@ public class EpochManager {
     // Return Map<Topic, Set<Caller>>  where Caller = App or Sdk.
     @VisibleForTesting
     @NonNull
-    static Map<String, Set<String>> computeCallersCanLearnMap(
+    static Map<Topic, Set<String>> computeCallersCanLearnMap(
             @NonNull Map<String, List<String>> appSdksUsageMap,
-            @NonNull Map<String, List<String>> appClassificationTopicsMap) {
+            @NonNull Map<String, List<Topic>> appClassificationTopicsMap) {
         Objects.requireNonNull(appSdksUsageMap);
         Objects.requireNonNull(appClassificationTopicsMap);
 
         // Map from Topic to set of App or Sdk that can learn about that topic.
         // This is similar to the table Can Learn Topic in the explainer.
         // Map<Topic, Set<Caller>>  where Caller = App or Sdk.
-        Map<String, Set<String>> callersCanLearnMap = new HashMap<>();
+        Map<Topic, Set<String>> callersCanLearnMap = new HashMap<>();
 
-        for (Map.Entry<String, List<String>> entry : appClassificationTopicsMap.entrySet()) {
+        for (Map.Entry<String, List<Topic>> entry : appClassificationTopicsMap.entrySet()) {
             String app = entry.getKey();
-            List<String> appTopics = entry.getValue();
+            List<Topic> appTopics = entry.getValue();
             if (appTopics == null) {
                 LogUtil.e("Can't find the Classification Topics for app = " + app);
                 continue;
             }
 
-            for (String topic : appTopics) {
+            for (Topic topic : appTopics) {
                 if (!callersCanLearnMap.containsKey(topic)) {
                     callersCanLearnMap.put(topic, new HashSet<>());
                 }
@@ -262,14 +349,14 @@ public class EpochManager {
     // Return returnedAppSdkTopics = Map<Pair<App, Sdk>, Topic>
     @VisibleForTesting
     @NonNull
-    Map<Pair<String, String>, String> computeReturnedAppSdkTopics(
-            @NonNull Map<String, Set<String>> callersCanLearnMap,
+    Map<Pair<String, String>, Topic> computeReturnedAppSdkTopics(
+            @NonNull Map<Topic, Set<String>> callersCanLearnMap,
             @NonNull Map<String, List<String>> appSdksUsageMap,
-            @NonNull List<String> topTopics) {
-        Map<Pair<String, String>, String> returnedAppSdkTopics = new HashMap<>();
+            @NonNull List<Topic> topTopics) {
+        Map<Pair<String, String>, Topic> returnedAppSdkTopics = new HashMap<>();
 
         for (Map.Entry<String, List<String>> app : appSdksUsageMap.entrySet()) {
-            String returnedTopic = selectRandomTopic(topTopics);
+            Topic returnedTopic = selectRandomTopic(topTopics);
             Set<String> callersCanLearnThisTopic = callersCanLearnMap.get(returnedTopic);
             if (callersCanLearnThisTopic == null) {
                 continue;
@@ -280,13 +367,22 @@ public class EpochManager {
                 // The app calls Topics API directly. In this case, we set the sdk == empty string.
                 returnedAppSdkTopics.put(
                         Pair.create(app.getKey(), /* empty Sdk */ ""), returnedTopic);
+                // TODO(b/223159123): Do we need to filter out this log in prod build?
+                LogUtil.v(
+                        "CacheManager.computeReturnedAppSdkTopics. Topic %s is returned for"
+                                + " %s",
+                        returnedTopic, app.getKey());
             }
 
             // Then check all SDKs of the app.
             for (String sdk : app.getValue()) {
                 if (callersCanLearnThisTopic.contains(sdk)) {
-                    returnedAppSdkTopics.put(
-                            Pair.create(app.getKey(), sdk), returnedTopic);
+                    returnedAppSdkTopics.put(Pair.create(app.getKey(), sdk), returnedTopic);
+                    // TODO(b/223159123): Do we need to filter out this log in prod build?
+                    LogUtil.v(
+                            "CacheManager.computeReturnedAppSdkTopics. Topic %s is returned"
+                                    + " for %s, %s",
+                            returnedTopic, app.getKey(), sdk);
                 }
             }
         }
@@ -297,10 +393,12 @@ public class EpochManager {
     // Return a random topics from the Top Topics.
     // The Top Topics include the Top 5 Topics and one random topic from the Taxonomy.
     @VisibleForTesting
-    String selectRandomTopic(List<String> topTopics) {
-        Preconditions.checkArgument(topTopics.size()
-                == mFlags.getTopicsNumberOfTopTopics()
-                + mFlags.getTopicsNumberOfRandomTopics());
+    @NonNull
+    Topic selectRandomTopic(List<Topic> topTopics) {
+        Preconditions.checkArgument(
+                topTopics.size()
+                        == mFlags.getTopicsNumberOfTopTopics()
+                                + mFlags.getTopicsNumberOfRandomTopics());
         int random = mRandom.nextInt(100);
 
         // For 5%, get the random topic.
@@ -313,6 +411,19 @@ public class EpochManager {
         return topTopics.get(random % NUM_TOP_TOPICS_NOT_INCLUDING_RANDOM_ONE);
     }
 
+    // To garbage collect data for old epochs.
+    @VisibleForTesting
+    void garbageCollectOutdatedEpochData(long currentEpochID) {
+        // Assume current Epoch is T, and the earliest epoch should be kept is T-3
+        // Then any epoch data older than T-3-1 = T-4, including T-4 should be deleted.
+        long epochToDeleteFrom = currentEpochID - mFlags.getNumberOfEpochsToKeepInHistory() - 1;
+        // To do garbage collection for each table
+        for (Pair<String, String> tableColumnPair : TABLE_INFO_FOR_EPOCH_GARBAGE_COLLECTION) {
+            mTopicsDao.deleteDataOfOldEpochs(
+                    tableColumnPair.first, tableColumnPair.second, epochToDeleteFrom);
+        }
+    }
+
     // Return the current epochId.
     // Each Epoch will have an Id. The first epoch has Id = 0.
     // For Alpha 1, we assume a fixed origin epoch starting from
@@ -322,7 +433,16 @@ public class EpochManager {
     public long getCurrentEpochId() {
         // TODO(b/221463765): Don't use a fix epoch origin like this. This is for Alpha 1 only.
         LogUtil.v("Epoch length is  %d", mFlags.getTopicsEpochJobPeriodMs());
-        return (long) Math.floor((System.currentTimeMillis() - ORIGIN_EPOCH_TIMESTAMP)
-                /  mFlags.getTopicsEpochJobPeriodMs());
+        return (long)
+                Math.floor(
+                        (System.currentTimeMillis() - ORIGIN_EPOCH_TIMESTAMP)
+                                / mFlags.getTopicsEpochJobPeriodMs());
+    }
+
+    @Override
+    public void dump(@NonNull PrintWriter writer, @Nullable String[] args) {
+        writer.println("==== EpochManager Dump ====");
+        long epochId = getCurrentEpochId();
+        writer.println(String.format("Current epochId is %d", epochId));
     }
 }
