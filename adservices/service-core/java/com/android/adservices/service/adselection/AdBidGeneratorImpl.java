@@ -30,6 +30,7 @@ import com.android.adservices.data.adselection.CustomAudienceSignals;
 import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.customaudience.DBCustomAudience;
 import com.android.adservices.data.customaudience.DBTrustedBiddingData;
+import com.android.adservices.service.common.AdServicesHttpsClient;
 import com.android.adservices.service.devapi.CustomAudienceDevOverridesHelper;
 import com.android.adservices.service.devapi.DevContext;
 import com.android.internal.annotations.VisibleForTesting;
@@ -46,6 +47,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -53,10 +56,13 @@ import java.util.stream.Collectors;
  * call
  */
 public class AdBidGeneratorImpl implements AdBidGenerator {
+    // TODO(b/237102751): Move this to the Flags.java
+    public static final long AD_BIDDING_TIME_OUT_PER_CA_IN_MILLISECONDS = 5000;
+
     @NonNull private final Context mContext;
     @NonNull private final ListeningExecutorService mListeningExecutorService;
     @NonNull private final AdSelectionScriptEngine mAdSelectionScriptEngine;
-    @NonNull private final AdSelectionHttpClient mAdSelectionHttpClient;
+    @NonNull private final AdServicesHttpsClient mAdServicesHttpsClient;
     @NonNull private final CustomAudienceDevOverridesHelper mCustomAudienceDevOverridesHelper;
 
     public AdBidGeneratorImpl(
@@ -70,7 +76,7 @@ public class AdBidGeneratorImpl implements AdBidGenerator {
         mContext = context;
         mListeningExecutorService = MoreExecutors.listeningDecorator(listeningExecutorService);
         mAdSelectionScriptEngine = new AdSelectionScriptEngine(mContext);
-        mAdSelectionHttpClient = new AdSelectionHttpClient(listeningExecutorService);
+        mAdServicesHttpsClient = new AdServicesHttpsClient(listeningExecutorService);
         mCustomAudienceDevOverridesHelper =
                 new CustomAudienceDevOverridesHelper(devContext, customAudienceDao);
     }
@@ -80,18 +86,18 @@ public class AdBidGeneratorImpl implements AdBidGenerator {
             @NonNull Context context,
             @NonNull ListeningExecutorService listeningExecutorService,
             @NonNull AdSelectionScriptEngine adSelectionScriptEngine,
-            @NonNull AdSelectionHttpClient adSelectionHttpClient,
+            @NonNull AdServicesHttpsClient adServicesHttpsClient,
             @NonNull CustomAudienceDevOverridesHelper customAudienceDevOverridesHelper) {
         Objects.requireNonNull(context);
         Objects.requireNonNull(listeningExecutorService);
         Objects.requireNonNull(adSelectionScriptEngine);
-        Objects.requireNonNull(adSelectionHttpClient);
+        Objects.requireNonNull(adServicesHttpsClient);
         Objects.requireNonNull(customAudienceDevOverridesHelper);
 
         mContext = context;
         mListeningExecutorService = listeningExecutorService;
         mAdSelectionScriptEngine = adSelectionScriptEngine;
-        mAdSelectionHttpClient = adSelectionHttpClient;
+        mAdServicesHttpsClient = adServicesHttpsClient;
         mCustomAudienceDevOverridesHelper = customAudienceDevOverridesHelper;
     }
 
@@ -129,12 +135,15 @@ public class AdBidGeneratorImpl implements AdBidGenerator {
                         .collect(Collectors.toList());
         // TODO(b/221862406): implementation ads filtering logic.
 
-        return getBuyerDecisionLogic(
+        FluentFuture<String> buyerDecisionLogic =
+                getBuyerDecisionLogic(
                         customAudience.getBiddingLogicUrl(),
                         customAudience.getOwner(),
                         customAudience.getBuyer(),
-                        customAudience.getName())
-                .transformAsync(
+                        customAudience.getName());
+
+        FluentFuture<Pair<AdWithBid, String>> adWithBidPair =
+                buyerDecisionLogic.transformAsync(
                         decisionLogic -> {
                             return runBidding(
                                     decisionLogic,
@@ -146,10 +155,12 @@ public class AdBidGeneratorImpl implements AdBidGenerator {
                                     userSignals,
                                     adSelectionSignals);
                         },
-                        mListeningExecutorService)
+                        mListeningExecutorService);
+        return adWithBidPair
                 .transform(
                         candidate -> {
-                            if (Objects.isNull(candidate.first)
+                            if (Objects.isNull(candidate)
+                                    || Objects.isNull(candidate.first)
                                     || candidate.first.getBid() <= 0.0) {
                                 return null;
                             }
@@ -164,6 +175,12 @@ public class AdBidGeneratorImpl implements AdBidGenerator {
                             return result;
                         },
                         mListeningExecutorService)
+                .withTimeout(
+                        AD_BIDDING_TIME_OUT_PER_CA_IN_MILLISECONDS,
+                        TimeUnit.MILLISECONDS,
+                        // TODO(b/237103033): Compile with thread usage policy for AdServices;
+                        //  use a global scheduled executor
+                        new ScheduledThreadPoolExecutor(1))
                 .catching(JSONException.class, this::handleBiddingError, mListeningExecutorService);
     }
 
@@ -195,7 +212,7 @@ public class AdBidGeneratorImpl implements AdBidGenerator {
         return jsOverrideFuture.transformAsync(
                 jsOverride -> {
                     if (jsOverride == null) {
-                        return mAdSelectionHttpClient.fetchJavascript(decisionLogicUri);
+                        return mAdServicesHttpsClient.fetchPayload(decisionLogicUri);
                     } else {
                         LogUtil.d(
                                 "Developer options enabled and an override JS is provided "

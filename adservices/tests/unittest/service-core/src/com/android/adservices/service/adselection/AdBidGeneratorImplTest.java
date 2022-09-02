@@ -19,6 +19,7 @@ package com.android.adservices.service.adselection;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 import android.adservices.adselection.AdSelectionConfig;
 import android.adservices.adselection.AdSelectionConfigFixture;
@@ -40,6 +41,7 @@ import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.customaudience.CustomAudienceDatabase;
 import com.android.adservices.data.customaudience.DBCustomAudience;
 import com.android.adservices.data.customaudience.DBCustomAudienceOverride;
+import com.android.adservices.service.common.AdServicesHttpsClient;
 import com.android.adservices.service.devapi.CustomAudienceDevOverridesHelper;
 import com.android.adservices.service.devapi.DevContext;
 
@@ -104,7 +106,7 @@ public class AdBidGeneratorImplTest {
     @Mock AdSelectionScriptEngine mAdSelectionScriptEngine;
     Uri mDecisionLogicUri;
     private AdBidGeneratorImpl mAdBidGenerator;
-    private AdSelectionHttpClient mAdSelectionHttpClient;
+    private AdServicesHttpsClient mAdServicesHttpsClient;
     private String mBuyerDecisionLogicJs;
     private MockWebServer mServer;
     private DBCustomAudience mCustomAudienceWithAds;
@@ -124,8 +126,8 @@ public class AdBidGeneratorImplTest {
 
         mDevContext = DevContext.createForDevOptionsDisabled();
 
-        mAdSelectionHttpClient =
-                new AdSelectionHttpClient(MoreExecutors.newDirectExecutorService());
+        mAdServicesHttpsClient =
+                new AdServicesHttpsClient(MoreExecutors.newDirectExecutorService());
 
         mCustomAudienceDao =
                 Room.inMemoryDatabaseBuilder(
@@ -176,7 +178,7 @@ public class AdBidGeneratorImplTest {
                         mContext,
                         mListeningExecutorService,
                         mAdSelectionScriptEngine,
-                        mAdSelectionHttpClient,
+                        mAdServicesHttpsClient,
                         customAudienceDevOverridesHelper);
 
         Mockito.when(
@@ -255,7 +257,7 @@ public class AdBidGeneratorImplTest {
                         mContext,
                         mListeningExecutorService,
                         mAdSelectionScriptEngine,
-                        mAdSelectionHttpClient,
+                        mAdServicesHttpsClient,
                         customAudienceDevOverridesHelper);
 
         // Given we are using a direct executor and mock the returned result from the
@@ -318,7 +320,7 @@ public class AdBidGeneratorImplTest {
                         mContext,
                         mListeningExecutorService,
                         mAdSelectionScriptEngine,
-                        mAdSelectionHttpClient,
+                        mAdServicesHttpsClient,
                         customAudienceDevOverridesHelper);
 
         Mockito.when(
@@ -357,6 +359,58 @@ public class AdBidGeneratorImplTest {
     }
 
     @Test
+    public void testRunAdBiddingPerCABiddingWaits5SecondsMore() throws Exception {
+        // Given we are using a direct executor and mock the returned result from the
+        // AdSelectionScriptEngine.generateBids for preparing the test,
+        mServer =
+                mMockWebServerRule.startMockWebServer(
+                        List.of(new MockResponse().setBody(mBuyerDecisionLogicJs)));
+
+        CustomAudienceDevOverridesHelper customAudienceDevOverridesHelper =
+                new CustomAudienceDevOverridesHelper(mDevContext, mCustomAudienceDao);
+        mAdBidGenerator =
+                new AdBidGeneratorImpl(
+                        mContext,
+                        mListeningExecutorService,
+                        mAdSelectionScriptEngine,
+                        mAdServicesHttpsClient,
+                        customAudienceDevOverridesHelper);
+        Mockito.when(
+                        mAdSelectionScriptEngine.generateBids(
+                                mBuyerDecisionLogicJs,
+                                ADS,
+                                EMPTY_AD_SELECTION_SIGNALS,
+                                EMPTY_BUYER_SIGNALS,
+                                EMPTY_TRUSTED_BIDDING_SIGNALS,
+                                EMPTY_CONTEXTUAL_SIGNALS,
+                                EMPTY_USER_SIGNALS,
+                                mCustomAudienceSignals))
+                .thenReturn(generateBidsWithDelay());
+        // When the call to runAdBiddingPerCA, and the computation of future is complete,
+        FluentFuture<AdBiddingOutcome> result =
+                mAdBidGenerator.runAdBiddingPerCA(
+                        mCustomAudienceWithAds,
+                        EMPTY_AD_SELECTION_SIGNALS,
+                        EMPTY_BUYER_SIGNALS,
+                        EMPTY_CONTEXTUAL_SIGNALS,
+                        AdSelectionConfigFixture.anAdSelectionConfig());
+        // Then we can test the result by assertion
+        ExecutionException thrown = assertThrows(ExecutionException.class, result::get);
+        assertTrue(thrown.getMessage().contains("TimeoutFuture$TimeoutFutureException"));
+        Mockito.verify(mAdSelectionScriptEngine)
+                .generateBids(
+                        mBuyerDecisionLogicJs,
+                        ADS,
+                        EMPTY_AD_SELECTION_SIGNALS,
+                        EMPTY_BUYER_SIGNALS,
+                        EMPTY_TRUSTED_BIDDING_SIGNALS,
+                        EMPTY_CONTEXTUAL_SIGNALS,
+                        EMPTY_USER_SIGNALS,
+                        mCustomAudienceSignals);
+        assertEquals(mFetchJavaScriptPath, mServer.takeRequest().getPath());
+    }
+
+    @Test
     public void testRunBiddingThrowsException() throws Exception {
         // Given we are using a direct executor and mock the returned result from the
         // AdSelectionScriptEngine.generateBids for preparing the test,
@@ -371,7 +425,7 @@ public class AdBidGeneratorImplTest {
                         mContext,
                         mListeningExecutorService,
                         mAdSelectionScriptEngine,
-                        mAdSelectionHttpClient,
+                        mAdServicesHttpsClient,
                         customAudienceDevOverridesHelper);
 
         JSONException jsonException = new JSONException("");
@@ -398,8 +452,7 @@ public class AdBidGeneratorImplTest {
                         EMPTY_USER_SIGNALS,
                         EMPTY_AD_SELECTION_SIGNALS);
 
-        ExecutionException outException =
-                assertThrows(ExecutionException.class, () -> result.get());
+        ExecutionException outException = assertThrows(ExecutionException.class, result::get);
         assertEquals(outException.getCause(), jsonException);
     }
 
@@ -416,7 +469,7 @@ public class AdBidGeneratorImplTest {
                         mContext,
                         mListeningExecutorService,
                         mAdSelectionScriptEngine,
-                        mAdSelectionHttpClient,
+                        mAdServicesHttpsClient,
                         customAudienceDevOverridesHelper);
 
         // Given we are using a direct executor and mock the returned result from the
@@ -458,7 +511,7 @@ public class AdBidGeneratorImplTest {
                         mContext,
                         mListeningExecutorService,
                         mAdSelectionScriptEngine,
-                        mAdSelectionHttpClient,
+                        mAdServicesHttpsClient,
                         customAudienceDevOverridesHelper);
 
         FluentFuture<AdBiddingOutcome> result =
@@ -471,6 +524,15 @@ public class AdBidGeneratorImplTest {
         // The result is an early return with a FluentFuture of Null, after checking the Ads list is
         // empty.
         assertNull(result.get());
+    }
+
+    private ListenableFuture<List<AdWithBid>> generateBidsWithDelay() {
+        return mListeningExecutorService.submit(
+                () -> {
+                    Thread.sleep(
+                            AdBidGeneratorImpl.AD_BIDDING_TIME_OUT_PER_CA_IN_MILLISECONDS + 5000);
+                    return AD_WITH_BIDS;
+                });
     }
 
     private <T> T waitForFuture(

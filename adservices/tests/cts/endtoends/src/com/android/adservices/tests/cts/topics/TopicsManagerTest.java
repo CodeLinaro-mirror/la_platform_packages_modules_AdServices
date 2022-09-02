@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.adservices.clients.topics.AdvertisingTopicsClient;
 import android.adservices.topics.GetTopicsResponse;
+import android.adservices.topics.Topic;
 import android.content.Context;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -82,8 +83,6 @@ public class TopicsManagerTest {
 
         // At beginning, Sdk1 receives no topic.
         GetTopicsResponse sdk1Result = advertisingTopicsClient1.getTopics().get();
-        assertThat(sdk1Result.getTaxonomyVersions()).isEmpty();
-        assertThat(sdk1Result.getModelVersions()).isEmpty();
         assertThat(sdk1Result.getTopics()).isEmpty();
 
         // Now force the Epoch Computation Job. This should be done in the same epoch for
@@ -96,31 +95,29 @@ public class TopicsManagerTest {
 
         // Since the sdk1 called the Topics API in the previous Epoch, it should receive some topic.
         sdk1Result = advertisingTopicsClient1.getTopics().get();
-        assertThat(sdk1Result.getTaxonomyVersions()).isNotEmpty();
-        assertThat(sdk1Result.getModelVersions()).isNotEmpty();
         assertThat(sdk1Result.getTopics()).isNotEmpty();
 
-        // We only have 1 test app which has 5 classification topics: "1740", "529", "911", "14",
-        // "590".
+        // We only have 1 test app which has 10 classification topics: 20, 183, 96, 6, 13, 286, 112,
+        // 194, 242, 17
         // These 5 classification topics will become top 5 topics of the epoch since there is
         // no other apps calling Topics API.
         // The app will be assigned one random topic from one of these 5 topics.
         assertThat(sdk1Result.getTopics()).hasSize(1);
-        int topic = sdk1Result.getTopics().get(0);
+        Topic topic = sdk1Result.getTopics().get(0);
 
-        // topic is one of the 5 classification topics of the Test App.
-        assertThat(topic).isIn(Arrays.asList(1740, 529, 911, 14, 590));
+        // topic is one of the 10 classification topics of the Test App.
+        assertThat(topic.getTopicId())
+                .isIn(Arrays.asList(20, 183, 96, 6, 13, 286, 112, 194, 242, 17));
 
         // Sdk 2 did not call getTopics API. So it should not receive any topic.
-        AdvertisingTopicsClient advertisingTopicsClient2 = new AdvertisingTopicsClient.Builder()
-                .setContext(sContext)
-                .setSdkName("sdk2")
-                .setExecutor(CALLBACK_EXECUTOR)
-                .build();
+        AdvertisingTopicsClient advertisingTopicsClient2 =
+                new AdvertisingTopicsClient.Builder()
+                        .setContext(sContext)
+                        .setSdkName("sdk2")
+                        .setExecutor(CALLBACK_EXECUTOR)
+                        .build();
 
         GetTopicsResponse sdk2Result2 = advertisingTopicsClient2.getTopics().get();
-        assertThat(sdk2Result2.getTaxonomyVersions()).isEmpty();
-        assertThat(sdk2Result2.getModelVersions()).isEmpty();
         assertThat(sdk2Result2.getTopics()).isEmpty();
 
         // Reset back the original values.
@@ -130,8 +127,8 @@ public class TopicsManagerTest {
 
     // Override the Epoch Period to shorten the Epoch Length in the test.
     private void overrideEpochPeriod(long overrideEpochPeriod) {
-        ShellUtils.runShellCommand("setprop debug.adservices.topics_epoch_job_period_ms "
-                + overrideEpochPeriod);
+        ShellUtils.runShellCommand(
+                "setprop debug.adservices.topics_epoch_job_period_ms " + overrideEpochPeriod);
     }
 
     // Override the Percentage For Random Topic in the test.
