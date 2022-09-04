@@ -37,11 +37,13 @@ import android.content.pm.ServiceInfo;
 import android.os.IBinder;
 import android.os.Process;
 import android.os.SELinux;
+import android.webkit.WebView;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.adservices.AdServicesCommon;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -119,8 +121,8 @@ public class SdkSandboxConfigurationTest {
     }
 
     /**
-     * Tests that {@link Context#getDataDir()} returns correct value for the DE storage of the
-     * sak sandbox.
+     * Tests that {@link Context#getDataDir()} returns correct value for the DE storage of the sak
+     * sandbox.
      */
     @Test
     public void testGetDataDir_DE() throws Exception {
@@ -133,9 +135,8 @@ public class SdkSandboxConfigurationTest {
                 "/data/misc_de/0/sdksandbox/" + TEST_PKG + "/shared");
     }
 
-    /**
-     * Tests that sdk sandbox process can write to it's CE storage.
-     */
+    /** Tests that sdk sandbox process can write to it's CE storage. */
+    @Ignore("b/238610482")
     @Test
     public void testCanWriteToDataDir_CE() throws Exception {
         final Context ctx = InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -150,9 +151,8 @@ public class SdkSandboxConfigurationTest {
         }
     }
 
-    /**
-     * Tests that sdk sandbox process can write to it's DE storage.
-     */
+    /** Tests that sdk sandbox process can write to it's DE storage. */
+    @Ignore("b/238610482")
     @Test
     public void testCanWriteToDataDir_DE() throws Exception {
         final Context ctx =
@@ -216,5 +216,24 @@ public class SdkSandboxConfigurationTest {
         } finally {
             ctx.unbindService(conn);
         }
+    }
+
+    /**
+     * Tests that after sdk sandbox has requested a current WebView provider, then the provider is
+     * visible to this sdk sandbox.
+     */
+    @Test
+    public void testCurrentWebViewProviderIsVisibleToSdkSandbox() throws Exception {
+        // This call will force a current webview provider to become visible to this sdk sandbox
+        // process.
+        final PackageInfo info = WebView.getCurrentWebViewPackage();
+        assertThat(info).isNotNull();
+
+        // Now time to query the current WebView provider through PackageManager, this is used to
+        // check if this sdk sandbox process can see the WebView.
+        final Context ctx = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        final PackageInfo webViewProviderInfo =
+                ctx.getPackageManager().getPackageInfo(info.packageName, PackageInfoFlags.of(0));
+        assertThat(webViewProviderInfo).isNotNull();
     }
 }
