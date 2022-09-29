@@ -16,14 +16,14 @@
 
 package com.android.adservices.service.measurement.actions;
 
-import static com.android.adservices.service.measurement.InternalE2ETest.getAttributionSource;
-import static com.android.adservices.service.measurement.InternalE2ETest.getUriToResponseHeadersMap;
+import static com.android.adservices.service.measurement.E2ETest.getAttributionSource;
+import static com.android.adservices.service.measurement.E2ETest.getUriToResponseHeadersMap;
 
 import android.adservices.measurement.RegistrationRequest;
 import android.content.AttributionSource;
 import android.net.Uri;
 
-import com.android.adservices.service.measurement.InternalE2ETest.TestFormatJsonMapping;
+import com.android.adservices.service.measurement.E2ETest.TestFormatJsonMapping;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -43,23 +43,22 @@ public final class RegisterTrigger implements Action {
         AttributionSource attributionSource = getAttributionSource(
                 regParamsJson.optString(TestFormatJsonMapping.ATTRIBUTION_SOURCE_KEY));
 
-        RegistrationRequest registrationRequest = new RegistrationRequest.Builder()
-                .setRegistrationType(RegistrationRequest.REGISTER_TRIGGER)
-                .setTopOriginUri(Uri.parse(regParamsJson.getString(
-                        TestFormatJsonMapping.TRIGGER_TOP_ORIGIN_URI_KEY)))
-                .setRegistrationUri(Uri.parse(regParamsJson.getString(
-                        TestFormatJsonMapping.REGISTRATION_URI_KEY)))
-                .setAttributionSource(attributionSource)
-                .build();
+        mRegistrationRequest =
+                new RegistrationRequest.Builder()
+                        .setRegistrationType(RegistrationRequest.REGISTER_TRIGGER)
+                        .setTopOriginUri(
+                                Uri.parse(
+                                        regParamsJson.getString(
+                                                TestFormatJsonMapping.TRIGGER_TOP_ORIGIN_URI_KEY)))
+                        .setRegistrationUri(
+                                Uri.parse(
+                                        regParamsJson.getString(
+                                                TestFormatJsonMapping.REGISTRATION_URI_KEY)))
+                        .setAttributionSource(attributionSource)
+                        .build();
 
-        Map<String, List<Map<String, List<String>>>> uriToResponseHeadersMap =
-                getUriToResponseHeadersMap(obj);
-
-        long timestamp = obj.getLong(TestFormatJsonMapping.TIMESTAMP_KEY);
-
-        mRegistrationRequest = registrationRequest;
-        mUriToResponseHeadersMap = uriToResponseHeadersMap;
-        mTimestamp = timestamp;
+        mUriToResponseHeadersMap = getUriToResponseHeadersMap(obj);
+        mTimestamp = obj.getLong(TestFormatJsonMapping.TIMESTAMP_KEY);
     }
 
     public long getComparable() {

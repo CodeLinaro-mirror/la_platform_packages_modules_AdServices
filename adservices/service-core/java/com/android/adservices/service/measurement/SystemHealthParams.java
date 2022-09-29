@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Class for holding system health related parameters.
+ * All values in this class are temporary and subject to change based on feedback and testing.
  */
 public class SystemHealthParams {
     /*
@@ -47,6 +48,12 @@ public class SystemHealthParams {
      * Maximum event report upload retry window.
      */
     public static final long MAX_EVENT_REPORT_UPLOAD_RETRY_WINDOW_MS =
+            TimeUnit.DAYS.toMillis(28);
+
+    /**
+     * Maximum aggregate report upload retry window.
+     */
+    public static final long MAX_AGGREGATE_REPORT_UPLOAD_RETRY_WINDOW_MS =
             TimeUnit.DAYS.toMillis(28);
 
     private SystemHealthParams() {

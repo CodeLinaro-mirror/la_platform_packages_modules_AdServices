@@ -33,6 +33,7 @@ import androidx.test.filters.SmallTest;
 import com.android.adservices.data.adselection.CustomAudienceSignals;
 import com.android.adservices.service.adselection.ReportImpressionScriptEngine.ReportingScriptResult;
 import com.android.adservices.service.adselection.ReportImpressionScriptEngine.SellerReportingResult;
+import com.android.adservices.service.exception.JSExecutionException;
 import com.android.adservices.service.js.JSScriptArgument;
 
 import com.google.common.collect.ImmutableList;
@@ -56,6 +57,8 @@ public class ReportImpressionScriptEngineTest {
     private final ReportImpressionScriptEngine mReportImpressionScriptEngine =
             new ReportImpressionScriptEngine(sContext);
 
+    private static final String BUYER_1 = AdSelectionConfigFixture.BUYER_1;
+
     private final String mResultField = "result";
 
     private final String mDummyDomain = "http://www.domain.com/adverts/123";
@@ -74,7 +77,6 @@ public class ReportImpressionScriptEngineTest {
                     .setUserBiddingSignals("{\"user_bidding_signals\":1}")
                     .build();
 
-
     @Test
     public void testCanCallScript() throws Exception {
 
@@ -92,7 +94,7 @@ public class ReportImpressionScriptEngineTest {
     }
 
     @Test
-    public void testThrowsIllegalStateExceptionIfFunctionNotFound() throws Exception {
+    public void testThrowsJSExecutionExceptionIfFunctionNotFound() throws Exception {
 
         AdData advert = new AdData(Uri.parse(mDummyDomain), "{}");
         ImmutableList.Builder<JSScriptArgument> args = new ImmutableList.Builder<>();
@@ -108,7 +110,7 @@ public class ReportImpressionScriptEngineTest {
                                     "helloAdvertWrongName",
                                     args.build());
                         });
-        assertThat(exception.getCause()).isInstanceOf(IllegalStateException.class);
+        assertThat(exception.getCause()).isInstanceOf(JSExecutionException.class);
     }
 
     @Test
@@ -240,7 +242,7 @@ public class ReportImpressionScriptEngineTest {
                 reportWin(
                         jsScript,
                         adSelectionConfig.getAdSelectionSignals(),
-                        adSelectionConfig.getPerBuyerSignals().get("buyer1"),
+                        adSelectionConfig.getPerBuyerSignals().get(BUYER_1),
                         mSignalsForBuyer,
                         adSelectionConfig.getSellerSignals(),
                         mCustomAudienceSignals);
@@ -262,7 +264,7 @@ public class ReportImpressionScriptEngineTest {
                     reportWin(
                             jsScript,
                             adSelectionConfig.getAdSelectionSignals(),
-                            adSelectionConfig.getPerBuyerSignals().get("buyer1"),
+                            adSelectionConfig.getPerBuyerSignals().get(BUYER_1),
                             mSignalsForBuyer,
                             adSelectionConfig.getSellerSignals(),
                             mCustomAudienceSignals);
@@ -285,7 +287,7 @@ public class ReportImpressionScriptEngineTest {
                     reportWin(
                             jsScript,
                             adSelectionConfig.getAdSelectionSignals(),
-                            adSelectionConfig.getPerBuyerSignals().get("buyer1"),
+                            adSelectionConfig.getPerBuyerSignals().get(BUYER_1),
                             mSignalsForBuyer,
                             adSelectionConfig.getSellerSignals(),
                             mCustomAudienceSignals);

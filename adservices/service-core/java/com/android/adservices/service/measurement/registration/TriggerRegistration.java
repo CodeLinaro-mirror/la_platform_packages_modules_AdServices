@@ -16,8 +16,12 @@
 package com.android.adservices.service.measurement.registration;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.net.Uri;
 
+import com.android.adservices.service.measurement.validation.Validation;
+
+import java.util.Objects;
 
 /**
  * A registration for a trigger of attribution.
@@ -25,59 +29,95 @@ import android.net.Uri;
 public final class TriggerRegistration {
     private final Uri mTopOrigin;
     private final Uri mReportingOrigin;
-    private final long mTriggerData;
-    private final long mTriggerPriority;
-    private final Long mDeduplicationKey;
+    private final String mAggregateTriggerData;
+    private final String mAggregateValues;
+    private final String mFilters;
+    private final String mEventTriggers;
+    @Nullable private final Long mDebugKey;
 
-    /**
-     * Create a trigger registration.
-     */
+    /** Create a trigger registration. */
     private TriggerRegistration(
             @NonNull Uri topOrigin,
             @NonNull Uri reportingOrigin,
-            long triggerData,
-            long triggerPriority,
-            Long deduplicationKey) {
+            @NonNull String eventTriggers,
+            @Nullable String aggregateTriggerData,
+            @Nullable String aggregateValues,
+            @Nullable String filters,
+            @Nullable Long debugKey) {
         mTopOrigin = topOrigin;
         mReportingOrigin = reportingOrigin;
-        mTriggerData = triggerData;
-        mTriggerPriority = triggerPriority;
-        mDeduplicationKey = deduplicationKey;
+        mAggregateTriggerData = aggregateTriggerData;
+        mAggregateValues = aggregateValues;
+        mFilters = filters;
+        mEventTriggers = eventTriggers;
+        mDebugKey = debugKey;
     }
 
-    /**
-     * Top level origin.
-     */
-    public @NonNull Uri getTopOrigin() {
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof TriggerRegistration)) return false;
+        TriggerRegistration that = (TriggerRegistration) o;
+        return Objects.equals(mTopOrigin, that.mTopOrigin)
+                && Objects.equals(mReportingOrigin, that.mReportingOrigin)
+                && Objects.equals(mAggregateTriggerData, that.mAggregateTriggerData)
+                && Objects.equals(mAggregateValues, that.mAggregateValues)
+                && Objects.equals(mFilters, that.mFilters)
+                && Objects.equals(mEventTriggers, that.mEventTriggers)
+                && Objects.equals(mDebugKey, that.mDebugKey);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                mTopOrigin,
+                mReportingOrigin,
+                mAggregateTriggerData,
+                mAggregateValues,
+                mFilters,
+                mEventTriggers,
+                mDebugKey);
+    }
+
+    /** Top level origin. */
+    @NonNull
+    public Uri getTopOrigin() {
         return mTopOrigin;
     }
 
-    /**
-     * Reporting origin.
-     */
-    public @NonNull Uri getReportingOrigin() {
+    /** Reporting origin. */
+    @NonNull
+    public Uri getReportingOrigin() {
         return mReportingOrigin;
     }
 
-    /**
-     * Trigger data.
-     */
-    public @NonNull long getTriggerData() {
-        return mTriggerData;
+    /** Event triggers - contains trigger data, priority, de-dup key and event-level filters. */
+    @NonNull
+    public String getEventTriggers() {
+        return mEventTriggers;
     }
 
     /**
-     * Trigger priority.
+     * Aggregate trigger data is used to generate aggregate report.
      */
-    public @NonNull long getTriggerPriority() {
-        return mTriggerPriority;
+    public String getAggregateTriggerData() {
+        return mAggregateTriggerData;
     }
 
     /**
-     * De-dup key.
+     * Aggregate value is used to generate aggregate report.
      */
-    public @NonNull Long getDeduplicationKey() {
-        return mDeduplicationKey;
+    public String getAggregateValues() {
+        return mAggregateValues;
+    }
+
+    /** Top level filters. */
+    public String getFilters() {
+        return mFilters;
+    }
+    /** Trigger Debug Key. */
+    public @Nullable Long getDebugKey() {
+        return mDebugKey;
     }
 
     /**
@@ -86,69 +126,76 @@ public final class TriggerRegistration {
     public static final class Builder {
         private Uri mTopOrigin;
         private Uri mReportingOrigin;
-        private long mTriggerData;
-        private long mTriggerPriority;
-        private Long mDeduplicationKey;
+        private String mEventTriggers;
+        private String mAggregateTriggerData;
+        private String mAggregateValues;
+        private String mFilters;
+        private @Nullable Long mDebugKey;
 
-        public Builder() {
-            mTopOrigin = Uri.EMPTY;
-            mReportingOrigin = Uri.EMPTY;
-        }
-
-        /**
-         * See {@link TriggerRegistration#getTopOrigin}.
-         */
-        public @NonNull Builder setTopOrigin(@NonNull Uri origin) {
+        /** See {@link TriggerRegistration#getTopOrigin}. */
+        @NonNull
+        public Builder setTopOrigin(@NonNull Uri origin) {
+            Validation.validateUri(origin);
             mTopOrigin = origin;
             return this;
         }
 
-        /**
-         * See {@link TriggerRegistration#getReportingOrigin}.
-         */
-        public @NonNull Builder setReportingOrigin(@NonNull Uri origin) {
+        /** See {@link TriggerRegistration#getReportingOrigin}. */
+        @NonNull
+        public Builder setReportingOrigin(@NonNull Uri origin) {
+            Validation.validateUri(origin);
             mReportingOrigin = origin;
             return this;
         }
 
-        /**
-         * See {@link TriggerRegistration#getTriggerData}.
-         */
-        public @NonNull Builder setTriggerData(long data) {
-            mTriggerData = data;
+        /** See {@link TriggerRegistration#getEventTriggers()}. */
+        @NonNull
+        public Builder setEventTriggers(@NonNull String eventTriggers) {
+            Validation.validateNonNull(eventTriggers);
+            mEventTriggers = eventTriggers;
             return this;
         }
 
-        /**
-         * See {@link TriggerRegistration#getTriggerPriority}.
-         */
-        public @NonNull Builder setTriggerPriority(long priority) {
-            mTriggerPriority = priority;
+        /** See {@link TriggerRegistration#getAggregateTriggerData()}. */
+        @NonNull
+        public Builder setAggregateTriggerData(@Nullable String aggregateTriggerData) {
+            mAggregateTriggerData = aggregateTriggerData;
             return this;
         }
 
-        /**
-         * See {@link TriggerRegistration#getDeduplicationKey}.
-         */
-        public @NonNull Builder setDeduplicationKey(long key) {
-            mDeduplicationKey = key;
+        /** See {@link TriggerRegistration#getAggregateValues()}. */
+        @NonNull
+        public Builder setAggregateValues(@Nullable String aggregateValues) {
+            mAggregateValues = aggregateValues;
             return this;
         }
 
-        /**
-         * Build the TriggerRegistration.
-         */
-        public @NonNull TriggerRegistration build() {
-            if (mTopOrigin == null
-                    || mReportingOrigin == null) {
-                throw new IllegalArgumentException("uninitialized field");
-            }
+        /** See {@link TriggerRegistration#getFilters()}. */
+        @NonNull
+        public Builder setFilters(@Nullable String filters) {
+            mFilters = filters;
+            return this;
+        }
+
+        /** See {@link TriggerRegistration#getDebugKey()}. */
+        public Builder setDebugKey(@Nullable Long debugKey) {
+            mDebugKey = debugKey;
+            return this;
+        }
+
+        /** Build the TriggerRegistration. */
+        @NonNull
+        public TriggerRegistration build() {
+            Validation.validateNonNull(mTopOrigin, mReportingOrigin);
+
             return new TriggerRegistration(
                     mTopOrigin,
                     mReportingOrigin,
-                    mTriggerData,
-                    mTriggerPriority,
-                    mDeduplicationKey);
+                    mEventTriggers,
+                    mAggregateTriggerData,
+                    mAggregateValues,
+                    mFilters,
+                    mDebugKey);
         }
     }
 }

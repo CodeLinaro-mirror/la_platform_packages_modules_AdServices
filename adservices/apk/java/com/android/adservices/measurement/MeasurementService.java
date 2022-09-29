@@ -19,11 +19,14 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
 
+import com.android.adservices.service.consent.ConsentManager;
 import com.android.adservices.service.measurement.DeleteExpiredJobService;
-import com.android.adservices.service.measurement.FallbackReportingJobService;
 import com.android.adservices.service.measurement.MeasurementServiceImpl;
-import com.android.adservices.service.measurement.ReportingJobService;
 import com.android.adservices.service.measurement.attribution.AttributionJobService;
+import com.android.adservices.service.measurement.reporting.AggregateFallbackReportingJobService;
+import com.android.adservices.service.measurement.reporting.AggregateReportingJobService;
+import com.android.adservices.service.measurement.reporting.EventFallbackReportingJobService;
+import com.android.adservices.service.measurement.reporting.EventReportingJobService;
 
 import java.util.Objects;
 
@@ -37,15 +40,18 @@ public class MeasurementService extends Service {
     public void onCreate() {
         super.onCreate();
         if (mMeasurementService == null) {
-            mMeasurementService = new MeasurementServiceImpl(this);
+            mMeasurementService =
+                    new MeasurementServiceImpl(this, ConsentManager.getInstance(this));
         }
         schedulePeriodicJobs();
     }
 
     private void schedulePeriodicJobs() {
+        AggregateReportingJobService.schedule(this);
+        AggregateFallbackReportingJobService.schedule(this);
         AttributionJobService.schedule(this);
-        ReportingJobService.schedule(this);
-        FallbackReportingJobService.schedule(this);
+        EventReportingJobService.schedule(this);
+        EventFallbackReportingJobService.schedule(this);
         DeleteExpiredJobService.schedule(this);
     }
 

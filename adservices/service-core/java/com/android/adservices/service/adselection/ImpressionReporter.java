@@ -16,9 +16,11 @@
 
 package com.android.adservices.service.adselection;
 
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_API_CALLED__API_NAME__REPORT_IMPRESSION;
+
 import android.adservices.adselection.AdSelectionConfig;
 import android.adservices.adselection.ReportImpressionCallback;
-import android.adservices.adselection.ReportImpressionRequest;
+import android.adservices.adselection.ReportImpressionInput;
 import android.adservices.common.AdServicesStatusUtils;
 import android.adservices.common.FledgeErrorResponse;
 import android.annotation.NonNull;
@@ -32,6 +34,10 @@ import com.android.adservices.LogUtil;
 import com.android.adservices.data.adselection.AdSelectionEntryDao;
 import com.android.adservices.data.adselection.CustomAudienceSignals;
 import com.android.adservices.data.adselection.DBAdSelectionEntry;
+import com.android.adservices.service.common.AdServicesHttpsClient;
+import com.android.adservices.service.devapi.AdSelectionDevOverridesHelper;
+import com.android.adservices.service.devapi.DevContext;
+import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.internal.util.Preconditions;
 
 import com.google.common.util.concurrent.FluentFuture;
@@ -52,20 +58,75 @@ public class ImpressionReporter {
 
     @NonNull private final Context mContext;
     @NonNull private final AdSelectionEntryDao mAdSelectionEntryDao;
-    @NonNull private final AdSelectionHttpClient mAdSelectionHttpClient;
+    @NonNull private final AdServicesHttpsClient mAdServicesHttpsClient;
     @NonNull private final ListeningExecutorService mListeningExecutorService;
     @NonNull private final ReportImpressionScriptEngine mJsEngine;
+    @NonNull private final AdSelectionDevOverridesHelper mAdSelectionDevOverridesHelper;
+    @NonNull private final AdServicesLogger mAdServicesLogger;
 
     public ImpressionReporter(
-            Context context,
-            ExecutorService executor,
-            AdSelectionEntryDao adSelectionEntryDao,
-            AdSelectionHttpClient adSelectionHttpClient) {
+            @NonNull Context context,
+            @NonNull ExecutorService executor,
+            @NonNull AdSelectionEntryDao adSelectionEntryDao,
+            @NonNull AdServicesHttpsClient adServicesHttpsClient,
+            @NonNull DevContext devContext,
+            @NonNull AdServicesLogger adServicesLogger) {
+        Objects.requireNonNull(context);
+        Objects.requireNonNull(executor);
+        Objects.requireNonNull(adSelectionEntryDao);
+        Objects.requireNonNull(adServicesHttpsClient);
+        Objects.requireNonNull(devContext);
+        Objects.requireNonNull(adServicesLogger);
+
         mContext = context;
         mListeningExecutorService = MoreExecutors.listeningDecorator(executor);
         mAdSelectionEntryDao = adSelectionEntryDao;
-        mAdSelectionHttpClient = adSelectionHttpClient;
+        mAdServicesHttpsClient = adServicesHttpsClient;
         mJsEngine = new ReportImpressionScriptEngine(mContext);
+        mAdSelectionDevOverridesHelper =
+                new AdSelectionDevOverridesHelper(devContext, mAdSelectionEntryDao);
+        mAdServicesLogger = adServicesLogger;
+    }
+
+    /** Invokes the onFailure function from the callback and handles the exception. */
+    private void invokeFailure(
+            @androidx.annotation.NonNull ReportImpressionCallback callback,
+            int statusCode,
+            String errorMessage) {
+        int resultCode = AdServicesStatusUtils.STATUS_UNSET;
+        try {
+            callback.onFailure(
+                    new FledgeErrorResponse.Builder()
+                            .setStatusCode(statusCode)
+                            .setErrorMessage(errorMessage)
+                            .build());
+            resultCode = statusCode;
+        } catch (RemoteException e) {
+            LogUtil.e("Unable to send failed result to the callback", e);
+            resultCode = AdServicesStatusUtils.STATUS_UNKNOWN_ERROR;
+            throw e.rethrowFromSystemServer();
+        } finally {
+            mAdServicesLogger.logFledgeApiCallStats(
+                    AD_SERVICES_API_CALLED__API_NAME__REPORT_IMPRESSION, resultCode);
+        }
+    }
+
+    /** Invokes the onSuccess function from the callback and handles the exception. */
+    private void invokeSuccess(@androidx.annotation.NonNull ReportImpressionCallback callback) {
+        int resultCode = AdServicesStatusUtils.STATUS_UNSET;
+        try {
+            callback.onSuccess();
+            resultCode = AdServicesStatusUtils.STATUS_SUCCESS;
+        } catch (RemoteException e) {
+            LogUtil.e("Unable to send successful result to the callback", e);
+            resultCode = AdServicesStatusUtils.STATUS_UNKNOWN_ERROR;
+            throw e.rethrowFromSystemServer();
+        } finally {
+            // TODO(b/233681870): Investigate implementation of actual failures in
+            //  logs/metrics
+            mAdServicesLogger.logFledgeApiCallStats(
+                    AD_SERVICES_API_CALLED__API_NAME__REPORT_IMPRESSION, resultCode);
+        }
     }
 
     /**
@@ -80,7 +141,7 @@ public class ImpressionReporter {
      * @param callback callback function to be called in case of success or failure
      */
     public void reportImpression(
-            @NonNull ReportImpressionRequest requestParams,
+            @NonNull ReportImpressionInput requestParams,
             @NonNull ReportImpressionCallback callback) {
         long adSelectionId = requestParams.getAdSelectionId();
         AdSelectionConfig adSelectionConfig = requestParams.getAdSelectionConfig();
@@ -109,7 +170,7 @@ public class ImpressionReporter {
     }
 
     private ReportingUrls notifySuccessToCaller(
-            @NonNull ReportImpressionCallback callback, ReportingUrls reportingUrls) {
+            @NonNull ReportImpressionCallback callback, @NonNull ReportingUrls reportingUrls) {
         invokeSuccess(callback);
         return reportingUrls;
     }
@@ -126,11 +187,11 @@ public class ImpressionReporter {
     @NonNull
     private ListenableFuture<List<Void>> doReport(ReportingUrls reportingUrls) {
         ListenableFuture<Void> sellerFuture =
-                mAdSelectionHttpClient.reportUrl(reportingUrls.sellerReportingUri);
+                mAdServicesHttpsClient.reportUrl(reportingUrls.sellerReportingUri);
         ListenableFuture<Void> buyerFuture;
 
         if (!Objects.isNull(reportingUrls.buyerReportingUri)) {
-            buyerFuture = mAdSelectionHttpClient.reportUrl(reportingUrls.buyerReportingUri);
+            buyerFuture = mAdServicesHttpsClient.reportUrl(reportingUrls.buyerReportingUri);
         } else {
             buyerFuture = Futures.immediateFuture(null);
         }
@@ -175,9 +236,28 @@ public class ImpressionReporter {
 
     private FluentFuture<Pair<String, ReportingContext>> fetchSellerDecisionLogic(
             ReportingContext ctx) {
-        return FluentFuture.from(
-                        mAdSelectionHttpClient.fetchJavascript(
-                                ctx.mAdSelectionConfig.getDecisionLogicUrl()))
+        FluentFuture<String> jsOverrideFuture =
+                FluentFuture.from(
+                        mListeningExecutorService.submit(
+                                () ->
+                                        mAdSelectionDevOverridesHelper.getDecisionLogicOverride(
+                                                ctx.mAdSelectionConfig)));
+
+        return jsOverrideFuture
+                .transformAsync(
+                        jsOverride -> {
+                            if (jsOverride == null) {
+                                return mAdServicesHttpsClient.fetchPayload(
+                                        ctx.mAdSelectionConfig.getDecisionLogicUri());
+                            } else {
+                                LogUtil.i(
+                                        "Developer options enabled and an override JS is provided "
+                                                + "for the current ad selection config. "
+                                                + "Skipping call to server.");
+                                return Futures.immediateFuture(jsOverride);
+                            }
+                        },
+                        mListeningExecutorService)
                 .transform(
                         stringResult -> Pair.create(stringResult, ctx), mListeningExecutorService);
     }
@@ -189,7 +269,7 @@ public class ImpressionReporter {
                             mJsEngine.reportResult(
                                     decisionLogicJs,
                                     ctx.mAdSelectionConfig,
-                                    ctx.mDBAdSelectionEntry.getWinningAdRenderUrl(),
+                                    ctx.mDBAdSelectionEntry.getWinningAdRenderUri(),
                                     ctx.mDBAdSelectionEntry.getWinningAdBid(),
                                     ctx.mDBAdSelectionEntry.getContextualSignals()))
                     .transform(
@@ -241,34 +321,6 @@ public class ImpressionReporter {
         }
     }
 
-    /** Invokes the onFailure function from the callback and handles the exception. */
-    public static void invokeFailure(
-            @androidx.annotation.NonNull ReportImpressionCallback callback,
-            int statusCode,
-            String errorMessage) {
-        try {
-            callback.onFailure(
-                    new FledgeErrorResponse.Builder()
-                            .setStatusCode(statusCode)
-                            .setErrorMessage(errorMessage)
-                            .build());
-        } catch (RemoteException e) {
-            LogUtil.e("Unable to send failed result to the callback", e);
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /** Invokes the onSuccess function from the callback and handles the exception. */
-    public static void invokeSuccess(
-            @androidx.annotation.NonNull ReportImpressionCallback callback) {
-        try {
-            callback.onSuccess();
-        } catch (RemoteException e) {
-            LogUtil.e("Unable to send successful result to the callback", e);
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
     private static class ReportingContext {
         @NonNull AdSelectionConfig mAdSelectionConfig;
         @NonNull DBAdSelectionEntry mDBAdSelectionEntry;
@@ -278,7 +330,9 @@ public class ImpressionReporter {
         @Nullable public final Uri buyerReportingUri;
         @NonNull public final Uri sellerReportingUri;
 
-        private ReportingUrls(Uri buyerReportingUri, Uri sellerReportingUri) {
+        private ReportingUrls(@Nullable Uri buyerReportingUri, @NonNull Uri sellerReportingUri) {
+            Objects.requireNonNull(sellerReportingUri);
+
             this.buyerReportingUri = buyerReportingUri;
             this.sellerReportingUri = sellerReportingUri;
         }

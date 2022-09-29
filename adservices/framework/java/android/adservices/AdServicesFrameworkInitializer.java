@@ -17,12 +17,14 @@
 package android.adservices;
 
 import static android.adservices.adselection.AdSelectionManager.AD_SELECTION_SERVICE;
-import static android.adservices.customaudience.CustomAudienceManagementServiceManager.CUSTOM_AUDIENCE_MANAGEMENT_SERVICE;
+import static android.adservices.common.AdServicesCommonManager.AD_SERVICES_COMMON_SERVICE;
+import static android.adservices.customaudience.CustomAudienceManager.CUSTOM_AUDIENCE_SERVICE;
 import static android.adservices.measurement.MeasurementManager.MEASUREMENT_SERVICE;
 import static android.adservices.topics.TopicsManager.TOPICS_SERVICE;
 
 import android.adservices.adselection.AdSelectionManager;
-import android.adservices.customaudience.CustomAudienceManagementServiceManager;
+import android.adservices.common.AdServicesCommonManager;
+import android.adservices.customaudience.CustomAudienceManager;
 import android.adservices.measurement.MeasurementManager;
 import android.adservices.topics.TopicsManager;
 import android.annotation.SystemApi;
@@ -55,10 +57,10 @@ public class AdServicesFrameworkInitializer {
                 TOPICS_SERVICE, TopicsManager.class,
                 (c) -> new TopicsManager(c));
 
-        LogUtil.d("Registering AdServices's CustomAudienceManagementManager.");
+        LogUtil.d("Registering AdServices's CustomAudienceManager.");
         SystemServiceRegistry.registerContextAwareService(
-                CUSTOM_AUDIENCE_MANAGEMENT_SERVICE, CustomAudienceManagementServiceManager.class,
-                (c) -> new CustomAudienceManagementServiceManager(c));
+                CUSTOM_AUDIENCE_SERVICE, CustomAudienceManager.class,
+                (c) -> new CustomAudienceManager(c));
 
         LogUtil.d("Registering AdServices's AdSelectionManager.");
         SystemServiceRegistry.registerContextAwareService(
@@ -69,5 +71,10 @@ public class AdServicesFrameworkInitializer {
         SystemServiceRegistry.registerContextAwareService(
                 MEASUREMENT_SERVICE, MeasurementManager.class,
                 (c) -> new MeasurementManager(c));
+
+        LogUtil.d("Registering AdServices's AdServicesCommonManager.");
+        SystemServiceRegistry.registerContextAwareService(AD_SERVICES_COMMON_SERVICE,
+                AdServicesCommonManager.class,
+                (c) -> new AdServicesCommonManager(c));
     }
 }

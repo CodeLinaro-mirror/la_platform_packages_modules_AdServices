@@ -75,7 +75,9 @@ android_test_helper_app {
        "codeprovider/src/**/*.java",
        ":framework-sdksandbox-sources",
     ],
+    static_libs: [
+        "compatibility-device-util-axt",
+    ],
     platform_apis: true,
-    // TODO(b/215372846): Create our own signing key.
-    certificate: ":cts-keyset-test-b",
+    certificate: ":sdksandbox-test",
 }

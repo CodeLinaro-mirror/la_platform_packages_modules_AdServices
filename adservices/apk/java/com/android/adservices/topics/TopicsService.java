@@ -17,13 +17,18 @@ package com.android.adservices.topics;
 
 import android.app.Service;
 import android.content.Intent;
+import android.os.Build;
 import android.os.IBinder;
 
+import com.android.adservices.LogUtil;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.MaintenanceJobService;
+import com.android.adservices.service.consent.ConsentManager;
 import com.android.adservices.service.stats.AdServicesLoggerImpl;
 import com.android.adservices.service.stats.Clock;
+import com.android.adservices.service.topics.CacheManager;
 import com.android.adservices.service.topics.EpochJobService;
+import com.android.adservices.service.topics.EpochManager;
 import com.android.adservices.service.topics.TopicsServiceImpl;
 import com.android.adservices.service.topics.TopicsWorker;
 
@@ -40,9 +45,20 @@ public class TopicsService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+
+        if (FlagsFactory.getFlags().getTopicsKillSwitch()) {
+            LogUtil.e("Topics API is disabled");
+            return;
+        }
+
         if (mTopicsService == null) {
-            mTopicsService = new TopicsServiceImpl(this, TopicsWorker.getInstance(this),
-                    AdServicesLoggerImpl.getInstance(), Clock.SYSTEM_CLOCK);
+            mTopicsService =
+                    new TopicsServiceImpl(
+                            this,
+                            TopicsWorker.getInstance(this),
+                            ConsentManager.getInstance(this),
+                            AdServicesLoggerImpl.getInstance(),
+                            Clock.SYSTEM_CLOCK);
             mTopicsService.init();
         }
 
@@ -56,6 +72,11 @@ public class TopicsService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
+        if (FlagsFactory.getFlags().getTopicsKillSwitch()) {
+            LogUtil.e("Topics API is disabled");
+            // Return null so that clients can not bind to the service.
+            return null;
+        }
         return Objects.requireNonNull(mTopicsService);
     }
 
@@ -63,5 +84,12 @@ public class TopicsService extends Service {
     public void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
         super.dump(fd, writer, args);
         FlagsFactory.getFlags().dump(writer, args);
+        if (Build.isDebuggable()) {
+            writer.println("Build is Debuggable, dumping information for TopicsService");
+            EpochManager.getInstance(this).dump(writer, args);
+            CacheManager.getInstance(this).dump(writer, args);
+        } else {
+            writer.println("Build is not Debuggable");
+        }
     }
 }

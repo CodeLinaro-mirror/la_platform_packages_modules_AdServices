@@ -16,10 +16,22 @@
 
 package com.android.adservices.service.js;
 
+import static com.android.adservices.service.js.JSScriptArgument.arrayArg;
+import static com.android.adservices.service.js.JSScriptArgument.numericArg;
 import static com.android.adservices.service.js.JSScriptArgument.recordArg;
 import static com.android.adservices.service.js.JSScriptArgument.stringArg;
 
 import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.util.Log;
@@ -28,23 +40,77 @@ import androidx.annotation.NonNull;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SmallTest;
 
+import com.android.adservices.LogUtil;
+import com.android.adservices.service.exception.JSExecutionException;
+import com.android.adservices.service.profiling.JSScriptEngineLogConstants;
+import com.android.adservices.service.profiling.Profiler;
+import com.android.adservices.service.profiling.StopWatch;
+
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.FluentFuture;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 
+import org.chromium.android_webview.js_sandbox.client.JsIsolate;
+import org.chromium.android_webview.js_sandbox.client.JsSandbox;
+import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 @SmallTest
 public class JSScriptEngineTest {
-    private static final String TAG = JSScriptEngineTest.class.getSimpleName();
     protected static final Context sContext = ApplicationProvider.getApplicationContext();
-    private final JSScriptEngine mJSScriptEngine = new JSScriptEngine(sContext);
+    private static final String TAG = JSScriptEngineTest.class.getSimpleName();
     private final ExecutorService mExecutorService = Executors.newFixedThreadPool(10);
+
+    @Mock private StopWatch mIsolateCreateWatch;
+    @Mock private StopWatch mJavaExecutionWatch;
+    @Mock JSScriptEngine.JsSandboxProvider mMockSandboxProvider;
+
+    @Mock private JsSandbox mMockedSandbox;
+    @Mock private JsIsolate mMockedIsolate;
+
+    private static final Profiler sMockProfiler = mock(Profiler.class);
+    private static final StopWatch sSandboxInitWatch = mock(StopWatch.class);
+    private static JSScriptEngine sJSScriptEngine;
+
+    @BeforeClass
+    public static void initJsSandbox() {
+        when(sMockProfiler.start(JSScriptEngineLogConstants.SANDBOX_INIT_TIME))
+                .thenReturn(sSandboxInitWatch);
+        sJSScriptEngine = JSScriptEngine.getInstanceForTesting(sContext, sMockProfiler);
+    }
+
+    @Before
+    public void setup() {
+        MockitoAnnotations.initMocks(this);
+
+        reset(sMockProfiler);
+        when(sMockProfiler.start(JSScriptEngineLogConstants.ISOLATE_CREATE_TIME))
+                .thenReturn(mIsolateCreateWatch);
+        when(sMockProfiler.start(JSScriptEngineLogConstants.JAVA_EXECUTION_TIME))
+                .thenReturn(mJavaExecutionWatch);
+
+        FluentFuture<JsSandbox> futureInstance =
+                FluentFuture.from(Futures.immediateFuture(mMockedSandbox));
+        when(mMockSandboxProvider.getFutureInstance(sContext)).thenReturn(futureInstance);
+    }
 
     @Test
     public void testCanRunSimpleScriptWithNoArgs() throws Exception {
@@ -54,6 +120,12 @@ public class JSScriptEngineTest {
                                 ImmutableList.of(),
                                 "test"))
                 .isEqualTo("\"hello world\"");
+
+        verify(sMockProfiler).start(JSScriptEngineLogConstants.ISOLATE_CREATE_TIME);
+        verify(sMockProfiler).start(JSScriptEngineLogConstants.JAVA_EXECUTION_TIME);
+        verify(sSandboxInitWatch).stop();
+        verify(mIsolateCreateWatch).stop();
+        verify(mJavaExecutionWatch).stop();
     }
 
     @Test
@@ -100,28 +172,38 @@ public class JSScriptEngineTest {
     }
 
     @Test
-    public void testCanNotReferToScriptArguments() throws Exception {
-        assertThat(
-                        callJSEngine(
-                                "function helloPerson(person) {  return \"hello \" +"
-                                        + " personOuter.name;  };",
-                                ImmutableList.of(
-                                        recordArg("personOuter", stringArg("name", "Stefano"))),
-                                "helloPerson"))
-                .isEqualTo("null");
+    public void testCanNotReferToScriptArguments() {
+        ExecutionException e =
+                assertThrows(
+                        ExecutionException.class,
+                        () ->
+                                callJSEngine(
+                                        "function helloPerson(person) {  return \"hello \" +"
+                                                + " personOuter.name;  };",
+                                        ImmutableList.of(
+                                                recordArg(
+                                                        "personOuter",
+                                                        stringArg("name", "Stefano"))),
+                                        "helloPerson"));
+
+        assertThat(e.getCause()).isInstanceOf(JSExecutionException.class);
     }
 
     // During tests, look for logcat messages with tag "chromium" to check if any of your scripts
     // have syntax errors. Those messages won't be available on prod builds (need to register
     // a listener to WebChromeClient.onConsoleMessage to receive them if needed).
     @Test
-    public void testWillReturnAStringWithContentNullEvaluatingScriptWithErrors() throws Exception {
-        assertThat(
-                        callJSEngine(
-                                "function test() { return \"hello world\"; }",
-                                ImmutableList.of(),
-                                "undefinedFunction"))
-                .isEqualTo("null");
+    public void testWillReturnAStringWithContentNullEvaluatingScriptWithErrors() {
+        ExecutionException e =
+                assertThrows(
+                        ExecutionException.class,
+                        () ->
+                                callJSEngine(
+                                        "function test() { return \"hello world\"; }",
+                                        ImmutableList.of(),
+                                        "undefinedFunction"));
+
+        assertThat(e.getCause()).isInstanceOf(JSExecutionException.class);
     }
 
     @Test
@@ -155,14 +237,298 @@ public class JSScriptEngineTest {
         assertThat(secondCallResult.get()).isEqualTo("\"hello again Stefano\"");
     }
 
+    @Test
+    public void testCanHandleFailuresFromWebView() {
+        // The binder can transfer at most 1MB, this is larger than needed since, once
+        // converted into a JS array initialization script will be way over the limits.
+        List<JSScriptNumericArgument<Integer>> tooBigForBinder =
+                Arrays.stream(new int[1024 * 1024])
+                        .boxed()
+                        .map(value -> numericArg("_", value))
+                        .collect(Collectors.toList());
+
+        ExecutionException outerException =
+                assertThrows(
+                        ExecutionException.class,
+                        () ->
+                                callJSEngine(
+                                        "function helloBigArray(array) {\n"
+                                                + " return array.length;\n"
+                                                + "}",
+                                        ImmutableList.of(arrayArg("array", tooBigForBinder)),
+                                        "test"));
+        assertThat(outerException.getCause()).isInstanceOf(JSExecutionException.class);
+    }
+
+    @Test
+    public void testCanCloseAndThenWorkWithSameInstance() throws Exception {
+        assertThat(
+                        callJSEngine(
+                                "function test() { return \"hello world\"; }",
+                                ImmutableList.of(),
+                                "test"))
+                .isEqualTo("\"hello world\"");
+
+        sJSScriptEngine.shutdown().get(3, TimeUnit.SECONDS);
+
+        when(sMockProfiler.start(JSScriptEngineLogConstants.SANDBOX_INIT_TIME))
+                .thenReturn(sSandboxInitWatch);
+
+        assertThat(
+                        callJSEngine(
+                                "function test() { return \"hello world\"; }",
+                                ImmutableList.of(),
+                                "test"))
+                .isEqualTo("\"hello world\"");
+
+        // Engine is re-initialized
+        verify(sMockProfiler, atLeastOnce()).start(JSScriptEngineLogConstants.SANDBOX_INIT_TIME);
+        verify(sSandboxInitWatch, atLeastOnce()).stop();
+    }
+
+    @Test
+    public void testConnectionIsResetIfJSProcessIsTerminated() {
+        when(mMockedSandbox.createIsolate())
+                .thenThrow(
+                        new IllegalStateException(
+                                "simulating a failure caused by JsSandbox being disconnected"));
+
+        ExecutionException executionException =
+                assertThrows(
+                        ExecutionException.class,
+                        () ->
+                                callJSEngine(
+                                        JSScriptEngine.createNewInstanceForTesting(
+                                                ApplicationProvider.getApplicationContext(),
+                                                mMockSandboxProvider,
+                                                sMockProfiler),
+                                        "function test() { return \"hello world\"; }",
+                                        ImmutableList.of(),
+                                        "test"));
+
+        verify(mMockSandboxProvider).destroyCurrentInstance();
+        assertThat(executionException.getCause())
+                .isInstanceOf(JSScriptEngineConnectionException.class);
+
+        verify(sMockProfiler).start(JSScriptEngineLogConstants.ISOLATE_CREATE_TIME);
+    }
+
+    // Troubles between google-java-format and checkstile
+    // CHECKSTYLE:OFF IndentationCheck
+    @Test
+    public void testIsolateIsClosedWhenEvaluationCompletes() throws Exception {
+        when(mMockedSandbox.createIsolate()).thenReturn(mMockedIsolate);
+        when(mMockedIsolate.evaluateJavascriptAsync(anyString()))
+                .thenReturn(Futures.immediateFuture("hello world"));
+
+        CountDownLatch isolateIsClosedLatch = new CountDownLatch(1);
+        doAnswer(
+                        invocation -> {
+                            isolateIsClosedLatch.countDown();
+                            return null;
+                        })
+                .when(mMockedIsolate)
+                .close();
+
+        callJSEngine(
+                JSScriptEngine.createNewInstanceForTesting(
+                        ApplicationProvider.getApplicationContext(),
+                        mMockSandboxProvider,
+                        sMockProfiler),
+                "function test() { return \"hello world\"; }",
+                ImmutableList.of(),
+                "test");
+
+        isolateIsClosedLatch.await(4, TimeUnit.SECONDS);
+        verify(mMockedIsolate).close();
+    }
+
+    @Test
+    public void testIsolateIsClosedWhenEvaluationFails() throws Exception {
+        when(mMockedSandbox.createIsolate()).thenReturn(mMockedIsolate);
+        when(mMockedIsolate.evaluateJavascriptAsync(anyString()))
+                .thenReturn(
+                        Futures.immediateFailedFuture(new RuntimeException("JS execution failed")));
+
+        CountDownLatch isolateIsClosedLatch = new CountDownLatch(1);
+        doAnswer(
+                        invocation -> {
+                            isolateIsClosedLatch.countDown();
+                            return null;
+                        })
+                .when(mMockedIsolate)
+                .close();
+
+        assertThrows(
+                ExecutionException.class,
+                () ->
+                        callJSEngine(
+                                JSScriptEngine.createNewInstanceForTesting(
+                                        ApplicationProvider.getApplicationContext(),
+                                        mMockSandboxProvider,
+                                        sMockProfiler),
+                                "function test() { return \"hello world\"; }",
+                                ImmutableList.of(),
+                                "test"));
+
+        isolateIsClosedLatch.await(4, TimeUnit.SECONDS);
+        verify(mMockedIsolate).close();
+    }
+
+    @Test
+    public void testIsolateIsClosedWhenEvaluationIsCancelled() throws Exception {
+        when(mMockedSandbox.createIsolate()).thenReturn(mMockedIsolate);
+
+        CountDownLatch jsEvaluationStartedLatch = new CountDownLatch(1);
+        CountDownLatch completeJsEvaluationLatch = new CountDownLatch(1);
+        ListeningExecutorService callbackExecutor =
+                MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
+        when(mMockedIsolate.evaluateJavascriptAsync(anyString()))
+                .thenReturn(
+                        callbackExecutor.submit(
+                                () -> {
+                                    jsEvaluationStartedLatch.countDown();
+                                    LogUtil.i("Waiting before reporting JS completion");
+                                    try {
+                                        completeJsEvaluationLatch.await();
+                                    } catch (InterruptedException ignored) {
+                                        Thread.currentThread().interrupt();
+                                    }
+                                    LogUtil.i("Reporting JS completion");
+                                    return "hello world";
+                                }));
+        CountDownLatch isolateIsClosedLatch = new CountDownLatch(1);
+        doAnswer(
+                        invocation -> {
+                            isolateIsClosedLatch.countDown();
+                            return null;
+                        })
+                .when(mMockedIsolate)
+                .close();
+
+        JSScriptEngine engine =
+                JSScriptEngine.createNewInstanceForTesting(
+                        ApplicationProvider.getApplicationContext(),
+                        mMockSandboxProvider,
+                        sMockProfiler);
+        ListenableFuture<String> jsExecutionFuture =
+                engine.evaluate(
+                        "function test() { return \"hello world\"; }", ImmutableList.of(), "test");
+
+        // cancelling only after the processing started and the sandbox has been created
+        jsEvaluationStartedLatch.await(4, TimeUnit.SECONDS);
+        LogUtil.i("Cancelling JS future");
+        jsExecutionFuture.cancel(true);
+        LogUtil.i("Waiting for isolate to close");
+        isolateIsClosedLatch.await(4, TimeUnit.SECONDS);
+        LogUtil.i("Checking");
+        verify(mMockedIsolate).close();
+    }
+
+    @Test
+    public void testIsolateIsClosedWhenEvaluationTimesOut() throws Exception {
+        when(mMockedSandbox.createIsolate()).thenReturn(mMockedIsolate);
+        CountDownLatch completeJsEvaluationLatch = new CountDownLatch(1);
+        CountDownLatch jsEvaluationStartedLatch = new CountDownLatch(1);
+        ListeningExecutorService callbackExecutor =
+                MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
+        when(mMockedIsolate.evaluateJavascriptAsync(anyString()))
+                .thenReturn(
+                        callbackExecutor.submit(
+                                () -> {
+                                    jsEvaluationStartedLatch.countDown();
+                                    LogUtil.i("Waiting before reporting JS completion");
+                                    try {
+                                        completeJsEvaluationLatch.await();
+                                    } catch (InterruptedException ignored) {
+                                        Thread.currentThread().interrupt();
+                                    }
+                                    LogUtil.i("Reporting JS completion");
+                                    return "hello world";
+                                }));
+
+        CountDownLatch isolateIsClosedLatch = new CountDownLatch(1);
+        doAnswer(
+                        invocation -> {
+                            LogUtil.i("Mock isolate has been closed");
+                            isolateIsClosedLatch.countDown();
+                            return null;
+                        })
+                .when(mMockedIsolate)
+                .close();
+
+        JSScriptEngine engine =
+                JSScriptEngine.createNewInstanceForTesting(
+                        ApplicationProvider.getApplicationContext(),
+                        mMockSandboxProvider,
+                        sMockProfiler);
+        ExecutionException timeoutException =
+                assertThrows(
+                        ExecutionException.class,
+                        () ->
+                                FluentFuture.from(
+                                                engine.evaluate(
+                                                        "function test() { return \"hello world\";"
+                                                                + " }",
+                                                        ImmutableList.of(),
+                                                        "test"))
+                                        .withTimeout(
+                                                500,
+                                                TimeUnit.MILLISECONDS,
+                                                new ScheduledThreadPoolExecutor(1))
+                                        .get());
+
+        // cancelling only after the processing started and the sandbox has been created
+        jsEvaluationStartedLatch.await(4, TimeUnit.SECONDS);
+        isolateIsClosedLatch.await(4, TimeUnit.SECONDS);
+        verify(mMockedIsolate).close();
+
+        completeJsEvaluationLatch.countDown();
+
+        assertThat(timeoutException.getCause()).isInstanceOf(TimeoutException.class);
+    }
+    // CHECKSTYLE:ON IndentationCheck
+
+    @Test
+    public void testThrowsExceptionAndRecreateSandboxIfIsolateCreationFails() throws Exception {
+        doThrow(new RuntimeException("Simulating isolate creation failure"))
+                .when(mMockedSandbox)
+                .createIsolate();
+
+        JSScriptEngine engine =
+                JSScriptEngine.createNewInstanceForTesting(
+                        ApplicationProvider.getApplicationContext(),
+                        mMockSandboxProvider,
+                        sMockProfiler);
+
+        assertThrows(
+                ExecutionException.class,
+                () ->
+                        callJSEngine(
+                                engine,
+                                "function test() { return \"hello world\";" + " }",
+                                ImmutableList.of(),
+                                "test"));
+        verify(mMockSandboxProvider).destroyCurrentInstance();
+    }
+
     private String callJSEngine(
+            @NonNull String jsScript,
+            @NonNull List<JSScriptArgument> args,
+            @NonNull String functionName)
+            throws Exception {
+        return callJSEngine(sJSScriptEngine, jsScript, args, functionName);
+    }
+
+    private String callJSEngine(
+            @NonNull JSScriptEngine jsScriptEngine,
             @NonNull String jsScript,
             @NonNull List<JSScriptArgument> args,
             @NonNull String functionName)
             throws Exception {
         CountDownLatch resultLatch = new CountDownLatch(1);
         ListenableFuture<String> futureResult =
-                callJSEngineAsync(jsScript, args, functionName, resultLatch);
+                callJSEngineAsync(jsScriptEngine, jsScript, args, functionName, resultLatch);
         resultLatch.await();
         return futureResult.get();
     }
@@ -172,9 +538,19 @@ public class JSScriptEngineTest {
             @NonNull List<JSScriptArgument> args,
             @NonNull String functionName,
             @NonNull CountDownLatch resultLatch) {
+        return callJSEngineAsync(sJSScriptEngine, jsScript, args, functionName, resultLatch);
+    }
+
+    private ListenableFuture<String> callJSEngineAsync(
+            @NonNull JSScriptEngine engine,
+            @NonNull String jsScript,
+            @NonNull List<JSScriptArgument> args,
+            @NonNull String functionName,
+            @NonNull CountDownLatch resultLatch) {
+        Objects.requireNonNull(engine);
         Objects.requireNonNull(resultLatch);
         Log.i(TAG, "Calling WebVew");
-        ListenableFuture<String> result = mJSScriptEngine.evaluate(jsScript, args, functionName);
+        ListenableFuture<String> result = engine.evaluate(jsScript, args, functionName);
         result.addListener(resultLatch::countDown, mExecutorService);
         return result;
     }

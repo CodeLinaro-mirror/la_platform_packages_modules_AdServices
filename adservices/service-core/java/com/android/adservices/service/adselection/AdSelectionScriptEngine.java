@@ -30,6 +30,7 @@ import android.content.Context;
 
 import com.android.adservices.LogUtil;
 import com.android.adservices.data.adselection.CustomAudienceSignals;
+import com.android.adservices.service.exception.JSExecutionException;
 import com.android.adservices.service.js.JSScriptArgument;
 import com.android.adservices.service.js.JSScriptEngine;
 
@@ -58,7 +59,7 @@ import java.util.stream.Collectors;
  */
 public class AdSelectionScriptEngine {
 
-    private static final String TAG = "AdSelectionScriptEngine";
+    private static final String TAG = AdSelectionScriptEngine.class.getName();
 
     // TODO: (b/228094391): Put these common constants in a separate class
     public static final String FUNCTION_NAMES_ARG_NAME = "__rb_functionNames";
@@ -123,7 +124,7 @@ public class AdSelectionScriptEngine {
     private final Executor mExecutor = MoreExecutors.directExecutor();
 
     public AdSelectionScriptEngine(Context context) {
-        mJsEngine = new JSScriptEngine(context);
+        mJsEngine = JSScriptEngine.getInstance(context);
     }
 
     /**
@@ -158,8 +159,9 @@ public class AdSelectionScriptEngine {
                         .add(jsonArg(TRUSTED_BIDDING_SIGNALS_ARG_NAME, trustedBiddingSignals))
                         .add(jsonArg(CONTEXTUAL_SIGNALS_ARG_NAME, contextualSignals))
                         .add(jsonArg(USER_SIGNALS_ARG_NAME, userSignals))
-                        .add(CustomAudienceSignalsArgument.asScriptArgument(
-                                customAudienceSignals, CUSTOM_AUDIENCE_SIGNALS_ARG_NAME))
+                        .add(
+                                CustomAudienceSignalsArgument.asScriptArgument(
+                                        customAudienceSignals, CUSTOM_AUDIENCE_SIGNALS_ARG_NAME))
                         .build();
 
         ImmutableList.Builder<JSScriptArgument> adDataArguments = new ImmutableList.Builder<>();
@@ -190,7 +192,6 @@ public class AdSelectionScriptEngine {
             throws JSONException {
         Objects.requireNonNull(scoreAdJS);
         Objects.requireNonNull(adsWithBid);
-        Objects.requireNonNull(adsWithBid);
         Objects.requireNonNull(adSelectionConfig);
         Objects.requireNonNull(sellerSignals);
         Objects.requireNonNull(trustedScoringSignals);
@@ -205,8 +206,9 @@ public class AdSelectionScriptEngine {
                         .add(jsonArg(SELLER_SIGNALS_ARG_NAME, sellerSignals))
                         .add(jsonArg(TRUSTED_SCORING_SIGNALS_ARG_NAME, trustedScoringSignals))
                         .add(jsonArg(CONTEXTUAL_SIGNALS_ARG_NAME, contextualSignals))
-                        .add(CustomAudienceSignalsArgument.asScriptArgument(
-                                customAudienceSignals, CUSTOM_AUDIENCE_SIGNALS_ARG_NAME))
+                        .add(
+                                CustomAudienceSignalsArgument.asScriptArgument(
+                                        customAudienceSignals, CUSTOM_AUDIENCE_SIGNALS_ARG_NAME))
                         .build();
 
         ImmutableList.Builder<JSScriptArgument> adWithBidArguments = new ImmutableList.Builder<>();
@@ -302,7 +304,7 @@ public class AdSelectionScriptEngine {
                     this::parseAuctionScriptResult,
                     mExecutor);
         } catch (JSONException e) {
-            throw new IllegalArgumentException(
+            throw new JSExecutionException(
                     "Illegal result returned by our internal batch calling function.", e);
         }
     }
@@ -326,7 +328,7 @@ public class AdSelectionScriptEngine {
 
     private AuctionScriptResult parseAuctionScriptResult(String auctionScriptResult) {
         try {
-            if (auctionScriptResult.equals("null")) {
+            if (auctionScriptResult.isEmpty()) {
                 throw new IllegalArgumentException(
                         "The auction script either doesn't contain the required function or the"
                                 + " function returns null");

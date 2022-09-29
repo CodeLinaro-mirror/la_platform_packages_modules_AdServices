@@ -32,6 +32,10 @@ public final class SdkSandboxLifecycleHostTest extends BaseHostJUnit4Test {
     private static final String APP_PACKAGE = "com.android.sdksandbox.app";
     private static final String APP_2_PACKAGE = "com.android.sdksandbox.app2";
 
+    private static final String APP_SHARED_PACKAGE = "com.android.sdksandbox.shared.app1";
+    private static final String APP_SHARED_ACTIVITY = "SdkSandboxTestSharedActivity";
+    private static final String APP_SHARED_2_PACKAGE = "com.android.sdksandbox.shared.app2";
+
     private static final String APP_ACTIVITY = "SdkSandboxTestActivity";
     private static final String APP_2_ACTIVITY = "SdkSandboxTestActivity2";
 
@@ -131,46 +135,29 @@ public final class SdkSandboxLifecycleHostTest extends BaseHostJUnit4Test {
     }
 
     @Test
-    public void testAppAndSdkSandboxAreNotKilledForNonLoadedSdkUpdate() throws Exception {
+    public void testAppAndSdkSandboxAreKilledForNonLoadedSdkUpdate() throws Exception {
+        // Have the app load the first SDK.
         startActivity(APP_PACKAGE, APP_ACTIVITY);
 
         // Should see app/sdk sandbox running
         String processDump = getDevice().executeAdbCommand("shell", "ps", "-A");
         assertThat(processDump).contains(APP_PACKAGE);
-
         assertThat(processDump).contains(SANDBOX_1_PROCESS_NAME);
 
-        // Simulate update of package not loaded by app
+        // Update package consumed by the app, but not loaded into the sandbox.
         installPackage(CODE_APK_2, "-d");
 
-        // Should still see app/sdk sandbox running
+        // Should no longer see app/sdk sandbox running
         processDump = getDevice().executeAdbCommand("shell", "ps", "-A");
-        assertThat(processDump).contains(APP_PACKAGE);
-        assertThat(processDump).contains(SANDBOX_1_PROCESS_NAME);
+        assertThat(processDump).doesNotContain(APP_PACKAGE);
+        assertThat(processDump).doesNotContain(SANDBOX_1_PROCESS_NAME);
     }
 
     @Test
-    public void testOnlyRelevantAppAndSdkSandboxIsKilledForLoadedSdkUpdate() throws Exception {
-        startActivity(APP_PACKAGE, APP_ACTIVITY);
-        startActivity(APP_2_PACKAGE, APP_2_ACTIVITY);
-
-        // See processes for both apps
-        String processDump = getDevice().executeAdbCommand("shell", "ps", "-A");
-        assertThat(processDump).contains(APP_PACKAGE);
-
-        assertThat(processDump).contains(SANDBOX_1_PROCESS_NAME);
-
-        assertThat(processDump).contains(APP_2_PROCESS_NAME);
-        assertThat(processDump).contains(SANDBOX_2_PROCESS_NAME);
-
-        installPackage(CODE_APK_2, "-d");
-
-        processDump = getDevice().executeAdbCommand("shell", "ps", "-A");
-        assertThat(processDump).contains(APP_PACKAGE);
-        assertThat(processDump).contains(SANDBOX_1_PROCESS_NAME);
-
-        assertThat(processDump).doesNotContain(APP_2_PACKAGE);
-        assertThat(processDump).doesNotContain(SANDBOX_2_PROCESS_NAME);
+    public void testAppsWithSharedUidCanLoadSameSdk() throws Exception {
+        startActivity(APP_SHARED_PACKAGE, APP_SHARED_ACTIVITY);
+        assertThat(runDeviceTests(APP_SHARED_2_PACKAGE,
+                "com.android.sdksandbox.shared.app2.SdkSandboxTestSharedApp2",
+                "testLoadSdkIsSuccessful")).isTrue();
     }
-
 }

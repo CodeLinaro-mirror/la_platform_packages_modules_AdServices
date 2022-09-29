@@ -106,6 +106,9 @@ public final class FledgeErrorResponse implements Parcelable {
             case AdServicesStatusUtils.STATUS_INVALID_ARGUMENT:
                 innerException = new IllegalArgumentException();
                 break;
+            case AdServicesStatusUtils.STATUS_UNAUTHORIZED:
+                innerException = new SecurityException();
+                break;
             case AdServicesStatusUtils.STATUS_SUCCESS: // Intentional fallthrough
             case AdServicesStatusUtils.STATUS_UNKNOWN_ERROR: // Intentional fallthrough
             case AdServicesStatusUtils.STATUS_UNSET: // Intentional fallthrough

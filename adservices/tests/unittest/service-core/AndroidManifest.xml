@@ -19,10 +19,21 @@
     package="com.android.adservices.servicecoretest" >
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_TOPICS" />
     <!-- android:debuggable="true is needed. See b/228384531 -->
     <application
         android:debuggable="true"
-        android:usesCleartextTraffic="true"/>
+        android:networkSecurityConfig="@xml/network_security_config">
+        <property android:name="android.adservices.AD_SERVICES_CONFIG"
+                  android:resource="@xml/ad_services_config" />
+        <!-- FLEDGE Background Fetch Job -->
+        <service android:name=
+                     "com.android.adservices.service.customaudience.BackgroundFetchJobService"
+                 android:permission="android.permission.BIND_JOB_SERVICE">
+        </service>
+    </application>
     <instrumentation
         android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.adservices.servicecoretest" >

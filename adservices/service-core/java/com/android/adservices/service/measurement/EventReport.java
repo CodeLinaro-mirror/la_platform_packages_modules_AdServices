@@ -34,9 +34,10 @@ public class EventReport {
     private long mTriggerTime;
     private long mTriggerPriority;
     private Uri mAttributionDestination;
-    private Uri mReportTo;
+    private Uri mAdTechDomain;
     private long mTriggerData;
     private Long mTriggerDedupKey;
+    private double mRandomizedTriggerRate;
     private @Status int mStatus;
     private Source.SourceType mSourceType;
 
@@ -63,19 +64,21 @@ public class EventReport {
         return mStatus == eventReport.mStatus
                 && mReportTime == eventReport.mReportTime
                 && Objects.equals(mAttributionDestination, eventReport.mAttributionDestination)
-                && Objects.equals(mReportTo, eventReport.mReportTo)
+                && Objects.equals(mAdTechDomain, eventReport.mAdTechDomain)
                 && mTriggerTime == eventReport.mTriggerTime
                 && mTriggerData == eventReport.mTriggerData
                 && mSourceId == eventReport.mSourceId
                 && mTriggerPriority == eventReport.mTriggerPriority
                 && Objects.equals(mTriggerDedupKey, eventReport.mTriggerDedupKey)
-                && mSourceType == eventReport.mSourceType;
+                && mSourceType == eventReport.mSourceType
+                && mRandomizedTriggerRate == eventReport.mRandomizedTriggerRate;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mStatus, mReportTime, mAttributionDestination, mReportTo, mTriggerTime,
-                mTriggerData, mSourceId, mTriggerPriority, mTriggerDedupKey, mSourceType);
+        return Objects.hash(mStatus, mReportTime, mAttributionDestination, mAdTechDomain,
+                mTriggerTime, mTriggerData, mSourceId, mTriggerPriority, mTriggerDedupKey,
+                mSourceType, mRandomizedTriggerRate);
     }
 
     /**
@@ -121,10 +124,10 @@ public class EventReport {
     }
 
     /**
-     * Reporting endpoint for the report.
+     * Ad Tech base endpoint for reports.
      */
-    public Uri getReportTo() {
-        return mReportTo;
+    public Uri getAdTechDomain() {
+        return mAdTechDomain;
     }
 
     /**
@@ -156,6 +159,13 @@ public class EventReport {
     }
 
     /**
+     * Randomized trigger rate for noising
+     */
+    public double getRandomizedTriggerRate() {
+        return mRandomizedTriggerRate;
+    }
+
+    /**
      * Builder for {@link EventReport}
      */
     public static final class Builder {
@@ -183,10 +193,10 @@ public class EventReport {
         }
 
         /**
-         * See {@link EventReport#getReportTo()}
+         * See {@link EventReport#getAdTechDomain()} ()}
          */
-        public Builder setReportTo(Uri reportTo) {
-            mBuilding.mReportTo = reportTo;
+        public Builder setAdTechDomain(Uri adTechDomain) {
+            mBuilding.mAdTechDomain = adTechDomain;
             return this;
         }
 
@@ -255,20 +265,37 @@ public class EventReport {
         }
 
         /**
-         * Populates fields using {@link Source} and {@link Trigger}.
+         * See {@link EventReport#getRandomizedTriggerRate()} ()}
          */
-        public Builder populateFromSourceAndTrigger(Source source, Trigger trigger) {
-            mBuilding.mTriggerPriority = trigger.getPriority();
-            mBuilding.mTriggerDedupKey = trigger.getDedupKey();
-            mBuilding.mTriggerData = trigger.getRandomizedTriggerData(source);
+        public Builder setRandomizedTriggerRate(double randomizedTriggerRate) {
+            mBuilding.mRandomizedTriggerRate = randomizedTriggerRate;
+            return this;
+        }
+
+        /** Populates fields using {@link Source}, {@link Trigger} and {@link EventTrigger}. */
+        public Builder populateFromSourceAndTrigger(
+                Source source, Trigger trigger, EventTrigger eventTrigger) {
+            mBuilding.mTriggerPriority = eventTrigger.getTriggerPriority();
+            mBuilding.mTriggerDedupKey = eventTrigger.getDedupKey();
+            // truncate trigger data to 3-bit or 1-bit based on {@link Source.SourceType}
+            mBuilding.mTriggerData = getTruncatedTriggerData(source, eventTrigger);
             mBuilding.mTriggerTime = trigger.getTriggerTime();
             mBuilding.mSourceId = source.getEventId();
-            mBuilding.mReportTo = source.getReportTo();
+            mBuilding.mAdTechDomain = source.getAdTechDomain();
             mBuilding.mStatus = Status.PENDING;
-            mBuilding.mAttributionDestination = source.getAttributionDestination();
-            mBuilding.mReportTime = source.getReportingTime(trigger.getTriggerTime());
+            mBuilding.mAttributionDestination = trigger.getAttributionDestination();
+            mBuilding.mReportTime =
+                    source.getReportingTime(
+                            trigger.getTriggerTime(),
+                            DestinationType.getDestinationType(
+                                    trigger.getAttributionDestination()));
             mBuilding.mSourceType = source.getSourceType();
+            mBuilding.mRandomizedTriggerRate = source.getRandomAttributionProbability();
             return this;
+        }
+
+        private long getTruncatedTriggerData(Source source, EventTrigger eventTrigger) {
+            return eventTrigger.getTriggerData() % source.getTriggerDataCardinality();
         }
 
         /**

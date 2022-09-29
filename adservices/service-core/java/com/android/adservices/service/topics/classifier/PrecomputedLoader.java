@@ -16,6 +16,7 @@
 
 package com.android.adservices.service.topics.classifier;
 
+
 import android.annotation.NonNull;
 import android.content.Context;
 import android.content.res.AssetManager;
@@ -23,13 +24,13 @@ import android.util.ArrayMap;
 
 import com.android.adservices.LogUtil;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -46,62 +47,45 @@ public class PrecomputedLoader {
     private final AssetManager mAssetManager;
     private final String mLabelsFilePath;
     private final String mTopAppsFilePath;
+    private final String mClassifierAssetsMetadataPath;
 
     public PrecomputedLoader(
             @NonNull Context context,
             @NonNull String labelsFilePath,
-            @NonNull String topAppsFilePath) {
+            @NonNull String topAppsFilePath,
+            @NonNull String classifierAssetsMetadataPath) {
         mAssetManager = context.getAssets();
         mLabelsFilePath = labelsFilePath;
         mTopAppsFilePath = topAppsFilePath;
+        mClassifierAssetsMetadataPath = classifierAssetsMetadataPath;
     }
 
     /**
-     * Retrieve a list of string of labels from labels file.
+     * Retrieve a list of topicIDs from labels file.
      *
-     * @return The list of labels from labels.txt
-     *
+     * @return The list of topicIDs from labels.txt
      * @throws IOException An empty list will be return
      */
     @NonNull
-    public ImmutableSet<String> retrieveLabels() {
-        // Initialize a ImmutableSet.Builder to store the label iteratively
-        ImmutableSet.Builder<String> labels = new ImmutableSet.Builder();
-        String line;
-
-        try (InputStreamReader inputStreamReader =
-                     new InputStreamReader(mAssetManager.open(mLabelsFilePath))) {
-            BufferedReader reader = new BufferedReader(inputStreamReader);
-
-            while ((line = reader.readLine()) != null) {
-                labels.add(line);
-            }
-        } catch (IOException e) {
-            LogUtil.e(e, "Unable to read precomputed labels");
-            // When catching IOException -> return empty immutable set
-            // TODO(b/226944089): A strategy to handle exceptions
-            //  in Classifier and PrecomputedLoader
-            return ImmutableSet.<String>builder().build();
-        }
-
-        return labels.build();
+    ImmutableList<Integer> retrieveLabels() {
+        return CommonClassifierHelper.retrieveLabels(mAssetManager, mLabelsFilePath);
     }
 
     /**
-     * Retrieve the app classification topics from file name here.
+     * Retrieve the app classification topicIDs from file name here.
      *
-     * @return The map from App to the list of its classification topics.
-     *
+     * @return The map from App to the list of its classification topicIDs.
      * @throws IOException An empty hash map will be return
      */
     @NonNull
-    public Map<String, List<String>> retrieveAppClassificationTopics() {
+    public Map<String, List<Integer>> retrieveAppClassificationTopics() {
         // appTopicsMap = Map<App, List<Topic>>
-        Map<String, List<String>> appTopicsMap = new ArrayMap<>();
+        Map<String, List<Integer>> appTopicsMap = new ArrayMap<>();
         String line;
 
         // The immutable set of the topics from labels file
-        ImmutableSet<String> validTopics = retrieveLabels();
+        ImmutableList<Integer> validTopics =
+                CommonClassifierHelper.retrieveLabels(mAssetManager, mLabelsFilePath);
 
         try (InputStreamReader inputStreamReader =
                      new InputStreamReader(mAssetManager.open(mTopAppsFilePath))) {
@@ -116,8 +100,8 @@ public class PrecomputedLoader {
                 //The first column name is app
                 String app = columns[0];
 
-                // This list is used to temporarily store the topics of one app.
-                List<String> appTopics = new ArrayList<>();
+                // This list is used to temporarily store the topicIDs of one app.
+                List<Integer> appTopics = new ArrayList<>();
 
                 for (int i = 1; i < columns.length; i++) {
                     String topic = columns[i];
@@ -128,26 +112,36 @@ public class PrecomputedLoader {
 
                     // The topic will not save to the app topics map
                     // if it is not a valid topic in labels file
-                    if (!validTopics.contains(topic)) {
-                        LogUtil.e("Unable to load topic \"%s\" in app \"%s\", "
+                    if (!validTopics.contains(Integer.parseInt(topic))) {
+                        LogUtil.e("Unable to load topicID \"%s\" in app \"%s\", "
                                 + "because it is not a valid topic in labels file.", topic, app);
                         continue;
                     }
 
                     // The other columns are topics of the app
-                    appTopics.add(topic);
+                    appTopics.add(Integer.parseInt(topic));
                 }
 
-                appTopicsMap.put(app, appTopics);
+                appTopicsMap.put(app, ImmutableList.copyOf(appTopics));
             }
         } catch (IOException e) {
             LogUtil.e(e, "Unable to read precomputed app topics list");
             // When catching IOException -> return empty hash map
             // TODO(b/226944089): A strategy to handle exceptions
             //  in Classifier and PrecomputedLoader
-            return new HashMap<>();
+            return ImmutableMap.of();
         }
 
         return appTopicsMap;
+    }
+
+    /**
+     * Retrieve the classifier assets metadata from file name here.
+     *
+     * @return The map of classifier assets metadata.
+     */
+    ImmutableMap<String, ImmutableMap<String, String>> retrieveClassifierAssetsMetadata() {
+        return CommonClassifierHelper.getAssetsMetadata(
+                mAssetManager, mClassifierAssetsMetadataPath);
     }
 }

@@ -15,11 +15,15 @@
  */
 package android.adservices.topics;
 
+import static com.android.adservices.ResultCode.RESULT_UNAUTHORIZED_CALL;
+
 import android.adservices.common.CallerMetadata;
 import android.adservices.exceptions.GetTopicsException;
 import android.annotation.CallbackExecutor;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
+import android.annotation.TestApi;
+import android.app.sdksandbox.SandboxedSdkContext;
 import android.content.Context;
 import android.os.OutcomeReceiver;
 import android.os.RemoteException;
@@ -31,27 +35,30 @@ import com.android.adservices.ServiceBinder;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 
 /**
- * Topics Manager.
+ * TopicsManager provides APIs for App and Ad-Sdks to get the user interest topics in a privacy
+ * preserving way.
  */
-public class TopicsManager {
+public final class TopicsManager {
 
     /**
-     * Result codes from
-     * {@link TopicsManager#getTopics(GetTopicsRequest, Executor, OutcomeReceiver)} methods.
+     * Result codes from {@link TopicsManager#getTopics(GetTopicsRequest, Executor,
+     * OutcomeReceiver)} methods.
      *
      * @hide
      */
     @IntDef(
             value = {
-                    RESULT_OK,
-                    RESULT_INTERNAL_ERROR,
-                    RESULT_INVALID_ARGUMENT,
-                    RESULT_IO_ERROR,
-                    RESULT_RATE_LIMIT_REACHED,
+                RESULT_OK,
+                RESULT_INTERNAL_ERROR,
+                RESULT_INVALID_ARGUMENT,
+                RESULT_IO_ERROR,
+                RESULT_RATE_LIMIT_REACHED,
             })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ResultCode {}
@@ -118,12 +125,20 @@ public class TopicsManager {
         return service;
     }
 
-    /** Return the topics. */
+    /**
+     * Return the topics.
+     *
+     * @param getTopicsRequest The request for obtaining Topics.
+     * @param executor The executor to run callback.
+     * @param callback The callback that's called after topics are available or an error occurs.
+     * @throws SecurityException if caller is not authorized to call this API.
+     * @throws GetTopicsException if call results in an internal error.
+     */
     @NonNull
     public void getTopics(
             @NonNull GetTopicsRequest getTopicsRequest,
             @NonNull @CallbackExecutor Executor executor,
-            @NonNull OutcomeReceiver<GetTopicsResponse, GetTopicsException> callback) {
+            @NonNull OutcomeReceiver<GetTopicsResponse, Exception> callback) {
         Objects.requireNonNull(getTopicsRequest);
         Objects.requireNonNull(executor);
         Objects.requireNonNull(callback);
@@ -131,12 +146,20 @@ public class TopicsManager {
                 .setBinderElapsedTimestamp(SystemClock.elapsedRealtime())
                 .build();
         final ITopicsService service = getService();
-
+        String sdkName = getTopicsRequest.getSdkName();
+        String appPackageName = "";
+        // First check if context is SandboxedSdkContext or not
+        Context getTopicsRequestContext = getTopicsRequest.getContext();
+        if (getTopicsRequestContext instanceof SandboxedSdkContext) {
+            appPackageName = ((SandboxedSdkContext) getTopicsRequestContext).getClientPackageName();
+        } else { // This is the case without the Sandbox.
+            appPackageName = getTopicsRequestContext.getPackageName();
+        }
         try {
             service.getTopics(
                     new GetTopicsParam.Builder()
-                            .setAttributionSource(mContext.getAttributionSource())
-                            .setSdkName(getTopicsRequest.getSdkName())
+                            .setAppPackageName(appPackageName)
+                            .setSdkName(sdkName)
                             .build(),
                     callerMetadata,
                     new IGetTopicsCallback.Stub() {
@@ -147,25 +170,52 @@ public class TopicsManager {
                                         if (resultParcel.isSuccess()) {
                                             callback.onResult(
                                                     new GetTopicsResponse.Builder()
-                                                            .setTaxonomyVersions(
-                                                                    resultParcel
-                                                                            .getTaxonomyVersions())
-                                                            .setModelVersions(
-                                                                    resultParcel.getModelVersions())
-                                                            .setTopics(resultParcel.getTopics())
+                                                            .setTopics(getTopicList(resultParcel))
                                                             .build());
                                         } else {
+                                            // TODO: Errors should be returned in onFailure method.
                                             callback.onError(
                                                     new GetTopicsException(
                                                             resultParcel.getResultCode()));
                                         }
                                     });
                         }
+
+                        @Override
+                        public void onFailure(int resultCode) {
+                            executor.execute(
+                                    () -> {
+                                        if (resultCode == RESULT_UNAUTHORIZED_CALL) {
+                                            callback.onError(
+                                                    new SecurityException(
+                                                            "Caller is not authorized to call this"
+                                                                    + " API."));
+                                        }
+                                    });
+                        }
                     });
         } catch (RemoteException e) {
             LogUtil.e("RemoteException", e);
-            callback.onError(new GetTopicsException(RESULT_INTERNAL_ERROR, "Internal Error!"));
+            callback.onError(e);
         }
+    }
+
+    private List<Topic> getTopicList(GetTopicsResult resultParcel) {
+        List<Long> taxonomyVersionsList = resultParcel.getTaxonomyVersions();
+        List<Long> modelVersionsList = resultParcel.getModelVersions();
+        List<Integer> topicsCodeList = resultParcel.getTopics();
+        List<Topic> topicList = new ArrayList<>();
+        int size = taxonomyVersionsList.size();
+        for (int i = 0; i < size; i++) {
+            Topic topic =
+                    new Topic(
+                            taxonomyVersionsList.get(i),
+                            modelVersionsList.get(i),
+                            topicsCodeList.get(i));
+            topicList.add(topic);
+        }
+
+        return topicList;
     }
 
     /**
@@ -176,6 +226,7 @@ public class TopicsManager {
      *     performance testing to simulate "cold-start" situations.
      */
     // TODO: change to @VisibleForTesting
+    @TestApi
     public void unbindFromService() {
         mServiceBinder.unbindFromService();
     }

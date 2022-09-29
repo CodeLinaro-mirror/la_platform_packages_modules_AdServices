@@ -32,6 +32,7 @@ import androidx.test.filters.SmallTest;
 
 import com.android.adservices.data.adselection.CustomAudienceSignals;
 import com.android.adservices.service.adselection.AdSelectionScriptEngine.AuctionScriptResult;
+import com.android.adservices.service.exception.JSExecutionException;
 import com.android.adservices.service.js.JSScriptArgument;
 
 import com.google.common.collect.ImmutableList;
@@ -61,9 +62,9 @@ public class AdSelectionScriptEngineTest {
             new AdSelectionScriptEngine(sContext);
     private static final Instant NOW = Instant.now();
     private static final CustomAudienceSignals CUSTOM_AUDIENCE_SIGNALS =
-            new CustomAudienceSignals("owner", "buyer", "name",
-                    NOW, NOW.plus(Duration.ofDays(1)),
-                    "{}");
+            new CustomAudienceSignals(
+                    "owner", "buyer", "name", NOW, NOW.plus(Duration.ofDays(1)), "{}");
+
     @Test
     public void testAuctionScriptIsInvalidIfRequiredFunctionDoesNotExist() throws Exception {
         assertFalse(
@@ -98,7 +99,7 @@ public class AdSelectionScriptEngineTest {
     }
 
     @Test
-    public void testThrowsIllegalArgumentExceptionIfTheFunctionIsNotFound() throws Exception {
+    public void testThrowsJSExecutionExceptionIfTheFunctionIsNotFound() throws Exception {
         AdData advert = new AdData(Uri.parse("http://www.domain.com/adverts/123"), "{}");
         Exception exception =
                 Assert.assertThrows(
@@ -111,7 +112,7 @@ public class AdSelectionScriptEngineTest {
                                         advert,
                                         ImmutableList.of()));
 
-        assertThat(exception.getCause()).isInstanceOf(IllegalArgumentException.class);
+        assertThat(exception.getCause()).isInstanceOf(JSExecutionException.class);
     }
 
     @Test
@@ -289,10 +290,11 @@ public class AdSelectionScriptEngineTest {
                 .setSeller("www.mydomain.com")
                 .setPerBuyerSignals(ImmutableMap.of())
                 .setContextualAds(ImmutableList.of())
-                .setDecisionLogicUrl(Uri.parse("http://www.mydomain.com/updateAds"))
+                .setDecisionLogicUri(Uri.parse("http://www.mydomain.com/updateAds"))
                 .setSellerSignals("{}")
                 .setCustomAudienceBuyers(ImmutableList.of("www.buyer.com"))
                 .setAdSelectionSignals("{}")
+                .setTrustedScoringSignalsUri(Uri.parse("https://kvtrusted.com/scoring_signals"))
                 .build();
     }
 

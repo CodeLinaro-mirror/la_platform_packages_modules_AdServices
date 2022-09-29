@@ -16,15 +16,19 @@
 
 package com.android.adservices.data.measurement;
 
-import android.annotation.Nullable;
+import android.adservices.measurement.DeletionRequest;
 import android.net.Uri;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.android.adservices.service.measurement.AdtechUrl;
 import com.android.adservices.service.measurement.EventReport;
 import com.android.adservices.service.measurement.Source;
 import com.android.adservices.service.measurement.Trigger;
+import com.android.adservices.service.measurement.aggregation.AggregateEncryptionKey;
+import com.android.adservices.service.measurement.aggregation.AggregateReport;
+import com.android.adservices.service.measurement.enrollment.EnrollmentData;
 
 import java.time.Instant;
 import java.util.List;
@@ -38,12 +42,8 @@ public interface IMeasurementDao {
      */
     void setTransaction(ITransaction transaction);
 
-    /**
-     * Add an entry to the Trigger datastore.
-     */
-    void insertTrigger(@NonNull Uri attributionDestination, @NonNull Uri reportTo,
-            @NonNull Uri registrant, @NonNull Long triggerTime, @NonNull Long triggerData,
-            @Nullable Long dedupKey, @NonNull Long priority) throws DatastoreException;
+    /** Add an entry to the Trigger datastore. */
+    void insertTrigger(Trigger trigger) throws DatastoreException;
 
     /**
      * Returns list of ids for all pending {@link Trigger}.
@@ -76,10 +76,7 @@ public interface IMeasurementDao {
     /**
      * Add an entry to the Source datastore.
      */
-    void insertSource(@NonNull Long sourceEventId, @NonNull Uri attributionSource,
-            @NonNull Uri attributionDestination, @NonNull Uri reportTo, @NonNull Uri registrant,
-            @NonNull Long sourceEventTime, @NonNull Long expiryTime, @NonNull Long priority,
-            @NonNull Source.SourceType sourceType) throws DatastoreException;
+    void insertSource(Source source) throws DatastoreException;
 
     /**
      * Queries and returns the list of matching {@link Source} for the provided {@link Trigger}.
@@ -105,6 +102,13 @@ public interface IMeasurementDao {
     void updateSourceDedupKeys(Source source) throws DatastoreException;
 
     /**
+     * Updates the value of aggregate contributions for the corresponding {@link Source}
+     *
+     * @param source the {@link Source} object.
+     */
+    void updateSourceAggregateContributions(Source source) throws DatastoreException;
+
+    /**
      * Returns list of all the reports associated with the {@link Source}.
      *
      * @param source for querying reports
@@ -122,11 +126,27 @@ public interface IMeasurementDao {
     EventReport getEventReport(String eventReportId) throws DatastoreException;
 
     /**
+     * Queries and returns the {@link AggregateReport}
+     * @param aggregateReportId Id of the request Aggregate Report
+     * @return the request Aggregate Report; Null in case of SQL failure
+     */
+    @Nullable
+    AggregateReport getAggregateReport(String aggregateReportId)
+            throws DatastoreException;
+
+    /**
      * Change the status of an event report to DELIVERED
      *
      * @param eventReportId the id of the event report to be updated
      */
     void markEventReportDelivered(String eventReportId) throws DatastoreException;
+
+    /**
+     * Change the status of an aggregate report to DELIVERED
+     *
+     * @param aggregateReportId the id of the event report to be updated
+     */
+    void markAggregateReportDelivered(String aggregateReportId) throws DatastoreException;
 
     /**
      * Saves the {@link EventReport} to datastore.
@@ -193,6 +213,39 @@ public interface IMeasurementDao {
     void deleteAdtechUrl(String postbackUrl) throws DatastoreException;
 
     /**
+     * Queries and returns the {@link EnrollmentData}.
+     *
+     * @param enrollmentId ID provided to the adtech at the end of the enrollment process.
+     * @return the EnrollmentData; Null in case of SQL failure
+     */
+    @Nullable
+    EnrollmentData getEnrollmentData(String enrollmentId) throws DatastoreException;
+
+    /**
+     * Queries and returns the {@link EnrollmentData}.
+     *
+     * @param url could be source registration url or trigger registration url.
+     * @return the EnrollmentData; Null in case of SQL failure.
+     */
+    @Nullable
+    EnrollmentData getEnrollmentDataGivenUrl(String url) throws DatastoreException;
+
+    /**
+     * Queries and returns the {@link EnrollmentData}.
+     *
+     * @param sdkName List of SDKs belonging to the same enrollment.
+     * @return the EnrollmentData; Null in case of SQL failure
+     */
+    @Nullable
+    EnrollmentData getEnrollmentDataGivenSdkName(String sdkName) throws DatastoreException;
+
+    /** Saves the {@link EnrollmentData} to datastore. */
+    void insertEnrollmentData(EnrollmentData enrollmentData) throws DatastoreException;
+
+    /** Deletes the {@link EnrollmentData} from datastore using the given enrollment id. */
+    void deleteEnrollmentData(String enrollmentId) throws DatastoreException;
+
+    /**
      * Deletes all records in measurement tables that correspond with the provided Uri.
      *
      * @param uri the Uri to match on
@@ -209,15 +262,22 @@ public interface IMeasurementDao {
      * and/or a range of dates.
      *
      * @param registrant who owns the data
-     * @param origin uri for deletion. May be null
      * @param start time for deletion range. May be null. If null, end must be null as well
      * @param end time for deletion range. May be null. If null, start must be null as well
+     * @param origins list of origins which should be used for matching
+     * @param domains list of domains which should be used for matching
+     * @param matchBehavior {@link DeletionRequest.MatchBehavior} to be used for matching
+     * @param deletionMode {@link DeletionRequest.DeletionMode} for selecting data to be deleted
      */
     void deleteMeasurementData(
             @NonNull Uri registrant,
-            @Nullable Uri origin,
             @Nullable Instant start,
-            @Nullable Instant end) throws DatastoreException;
+            @Nullable Instant end,
+            @NonNull List<Uri> origins,
+            @NonNull List<Uri> domains,
+            @DeletionRequest.MatchBehavior int matchBehavior,
+            @DeletionRequest.DeletionMode int deletionMode)
+            throws DatastoreException;
 
     /**
      * Mark relevant source as install attributed.
@@ -233,4 +293,47 @@ public interface IMeasurementDao {
      * @param uri            package identifier
      */
     void undoInstallAttribution(Uri uri) throws DatastoreException;
+
+    /**
+     * Save aggregate encryption key to datastore.
+     */
+    void insertAggregateEncryptionKey(AggregateEncryptionKey aggregateEncryptionKey)
+            throws DatastoreException;
+
+    /**
+     * Retrieve all aggregate encryption keys from the datastore whose expiry time is greater than
+     * or equal to {@code expiry}.
+     */
+    List<AggregateEncryptionKey> getNonExpiredAggregateEncryptionKeys(long expiry)
+            throws DatastoreException;
+
+    /**
+     *  Remove aggregate encryption keys from the datastore older than {@code expiry}.
+     */
+    void deleteExpiredAggregateEncryptionKeys(long expiry) throws DatastoreException;
+
+    /**
+     * Save unencrypted aggregate payload to datastore.
+     */
+    void insertAggregateReport(AggregateReport payload) throws DatastoreException;
+
+    /**
+     * Returns list of all aggregate reports that have a scheduled reporting time in the given
+     * window.
+     */
+    List<String> getPendingAggregateReportIdsInWindow(long windowStartTime, long windowEndTime)
+            throws DatastoreException;
+
+    /**
+     * Returns list of all pending aggregate reports for a given app right away.
+     */
+    List<String> getPendingAggregateReportIdsForGivenApp(Uri appName) throws DatastoreException;
+
+    /**
+     * Delete all data generated by Measurement API, except for tables in the exclusion list.
+     *
+     * @param tablesToExclude a {@link List} of tables that won't be deleted. An empty list will
+     *     delete every table.
+     */
+    void deleteAllMeasurementData(List<String> tablesToExclude) throws DatastoreException;
 }

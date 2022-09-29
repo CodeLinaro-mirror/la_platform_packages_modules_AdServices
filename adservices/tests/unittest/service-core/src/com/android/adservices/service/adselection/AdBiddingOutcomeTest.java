@@ -17,6 +17,7 @@
 package com.android.adservices.service.adselection;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
 import android.adservices.adselection.AdWithBid;
 import android.adservices.common.AdData;
@@ -56,7 +57,7 @@ public class AdBiddingOutcomeTest {
                     .setExpirationTime(EXPIRATION_TIME)
                     .setUserBiddingSignals(USER_BIDDING_SIGNALS)
                     .build();
-    private static final CustomAudienceBiddingInfo CUSTOM_AUDIENCE_AUCTION_INFO =
+    private static final CustomAudienceBiddingInfo CUSTOM_AUDIENCE_BIDDING_INFO =
             CustomAudienceBiddingInfo.create(
                     BIDDING_LOGIC_URL, BUYER_DECISION_LOGIC_JS, CUSTOM_AUDIENCE_SIGNALS);
 
@@ -65,9 +66,14 @@ public class AdBiddingOutcomeTest {
         AdBiddingOutcome adBiddingOutcome =
                 AdBiddingOutcome.builder()
                         .setAdWithBid(AD_WITH_BID)
-                        .setCustomAudienceBiddingInfo(CUSTOM_AUDIENCE_AUCTION_INFO)
+                        .setCustomAudienceBiddingInfo(CUSTOM_AUDIENCE_BIDDING_INFO)
                         .build();
         assertEquals(adBiddingOutcome.getAdWithBid(), AD_WITH_BID);
-        assertEquals(adBiddingOutcome.getCustomAudienceBiddingInfo(), CUSTOM_AUDIENCE_AUCTION_INFO);
+        assertEquals(adBiddingOutcome.getCustomAudienceBiddingInfo(), CUSTOM_AUDIENCE_BIDDING_INFO);
+    }
+
+    @Test
+    public void testAdBiddingOutcomeFailureMissingBiddingInfo() {
+        assertThrows(IllegalStateException.class, () -> AdBiddingOutcome.builder().build());
     }
 }

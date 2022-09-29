@@ -31,13 +31,12 @@ import java.util.Objects;
  * @hide
  */
 public class DBAdData {
-    @NonNull
-    private final Uri mRenderUrl;
+    @NonNull private final Uri mRenderUri;
     @NonNull
     private final String mMetadata;
 
-    public DBAdData(Uri renderUrl, String metadata) {
-        mRenderUrl = renderUrl;
+    public DBAdData(Uri renderUri, String metadata) {
+        mRenderUri = renderUri;
         mMetadata = metadata;
     }
 
@@ -49,20 +48,30 @@ public class DBAdData {
      */
     @NonNull
     public static DBAdData fromServiceObject(@NonNull AdData parcelable) {
-        return new DBAdData(parcelable.getRenderUrl(), parcelable.getMetadata());
+        return new DBAdData(parcelable.getRenderUri(), parcelable.getMetadata());
     }
 
-    /** Gets the URL that points to the ad's rendering assets. */
+    /** Returns the estimated size, in bytes, of the strings contained in this object. */
+    public int size() {
+        return mRenderUri.toString().getBytes().length + mMetadata.getBytes().length;
+    }
+
+    /** Gets the URI that points to the ad's rendering assets. */
     @NonNull
-    public Uri getRenderUrl() {
-        return mRenderUrl;
+    public Uri getRenderUri() {
+        return mRenderUri;
     }
 
     /**
      * Gets the buyer ad metadata used during the ad selection process.
-     *
-     * <p>The metadata is opaque to the Custom Audience and Ad Selection APIs and is represented as
-     * a JSON object string.
+     * <p>
+     * The metadata should be a valid JSON object serialized as a string. Metadata represents
+     * ad-specific bidding information that will be used during ad selection as part of bid
+     * generation and used in buyer JavaScript logic, which is executed in an isolated execution
+     * environment.
+     * <p>
+     * If the metadata is not a valid JSON object that can be consumed by the buyer's JS, the ad
+     * will not be eligible for ad selection.
      */
     @NonNull
     public String getMetadata() {
@@ -74,20 +83,17 @@ public class DBAdData {
         if (this == o) return true;
         if (!(o instanceof DBAdData)) return false;
         DBAdData adData = (DBAdData) o;
-        return mRenderUrl.equals(adData.mRenderUrl) && mMetadata.equals(adData.mMetadata);
+        return mRenderUri.equals(adData.mRenderUri) && mMetadata.equals(adData.mMetadata);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mRenderUrl, mMetadata);
+        return Objects.hash(mRenderUri, mMetadata);
     }
 
     @Override
     public String toString() {
-        return "DBAdData{"
-                + "mRenderUrl=" + mRenderUrl
-                + ", mMetadata='" + mMetadata + '\''
-                + '}';
+        return "DBAdData{" + "mRenderUri=" + mRenderUri + ", mMetadata='" + mMetadata + '\'' + '}';
     }
 
 
@@ -95,17 +101,15 @@ public class DBAdData {
      * Builder to construct a {@link DBAdData}.
      */
     public static class Builder {
-        private Uri mRenderUrl;
+        private Uri mRenderUri;
         private String mMetadata;
 
         public Builder() {
         }
 
-        /**
-         * See {@link #getRenderUrl()} for detail.
-         */
-        public Builder setRenderUrl(@NonNull Uri renderUrl) {
-            this.mRenderUrl = renderUrl;
+        /** See {@link #getRenderUri()} for detail. */
+        public Builder setRenderUri(@NonNull Uri renderUri) {
+            this.mRenderUri = renderUri;
             return this;
         }
 
@@ -123,7 +127,7 @@ public class DBAdData {
          * @return the built {@link DBAdData}.
          */
         public DBAdData build() {
-            return new DBAdData(mRenderUrl, mMetadata);
+            return new DBAdData(mRenderUri, mMetadata);
         }
     }
 }

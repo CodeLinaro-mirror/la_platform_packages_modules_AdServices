@@ -25,19 +25,24 @@ import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.os.Bundle;
 
+import java.io.File;
 import java.util.concurrent.Executor;
 
 /**
  * Refers to the context of the SDK loaded in the SDK sandbox process.
  *
- * <p>It is a wrapper of the client application (which loading SDK to the sandbox) context,
- * to represent the context of the SDK loaded by that application.
- * <p>This context contains methods that an SDK loaded into sdk sandbox can use to interact
- * with the sdk sandbox process, or other SDKs loaded into the same sdk sandbox process.
+ * <p>It is a wrapper of the client application (which loading SDK to the sandbox) context, to
+ * represent the context of the SDK loaded by that application.
+ *
+ * <p>This context contains methods that an SDK loaded into sdk sandbox can use to interact with the
+ * sdk sandbox process, or other SDKs loaded into the same sdk sandbox process.
  *
  * <p>An instance of the {@link SandboxedSdkContext} will be created by the SDK sandbox, and then
- * passed to the {@link SandboxedSdkProvider#initSdk(SandboxedSdkContext,
- * Bundle, Executor, SandboxedSdkProvider.InitSdkCallback)} after SDK is loaded.
+ * passed to the {@link SandboxedSdkProvider#onLoadSdk(SandboxedSdkContext, Bundle, Executor,
+ * SandboxedSdkProvider.OnLoadSdkCallback)} after SDK is loaded.
+ *
+ * <p>Each sdk will get their own private storage directory and the file storage API on this object
+ * will utilize those area.
  *
  * <p>Note: All APIs defined in this class are not stable and subject to change.
  */
@@ -45,12 +50,24 @@ public final class SandboxedSdkContext extends ContextWrapper {
 
     private final Resources mResources;
     private final AssetManager mAssets;
+    private final String mClientPackageName;
     private final String mSdkName;
+    private final ApplicationInfo mSdkProviderInfo;
+    @Nullable private final File mCeDataDir;
+    @Nullable private final File mDeDataDir;
 
-    public SandboxedSdkContext(@NonNull Context baseContext, @NonNull ApplicationInfo info,
-            @NonNull String sdkName) {
+    /** @hide */
+    public SandboxedSdkContext(
+            @NonNull Context baseContext,
+            @NonNull String clientPackageName,
+            @NonNull ApplicationInfo info,
+            @NonNull String sdkName,
+            @Nullable String sdkCeDataDir,
+            @Nullable String sdkDeDataDir) {
         super(baseContext);
+        mClientPackageName = clientPackageName;
         mSdkName = sdkName;
+        mSdkProviderInfo = info;
         Resources resources = null;
         try {
             resources = baseContext.getPackageManager().getResourcesForApplication(info);
@@ -64,6 +81,48 @@ public final class SandboxedSdkContext extends ContextWrapper {
             mResources = null;
             mAssets = null;
         }
+
+        mCeDataDir = (sdkCeDataDir != null) ? new File(sdkCeDataDir) : null;
+        mDeDataDir = (sdkDeDataDir != null) ? new File(sdkDeDataDir) : null;
+    }
+
+    /**
+     * Return a new Context object for the current SandboxedSdkContext but whose storage APIs are
+     * backed by sdk specific credential-protected storage.
+     *
+     * @see Context#isCredentialProtectedStorage()
+     * @hide
+     */
+    @Override
+    @NonNull
+    public Context createCredentialProtectedStorageContext() {
+        Context newBaseContext = getBaseContext().createCredentialProtectedStorageContext();
+        return new SandboxedSdkContext(
+                newBaseContext,
+                mClientPackageName,
+                mSdkProviderInfo,
+                mSdkName,
+                (mCeDataDir != null) ? mCeDataDir.toString() : null,
+                (mDeDataDir != null) ? mDeDataDir.toString() : null);
+    }
+
+    /**
+     * Return a new Context object for the current SandboxedSdkContext but whose storage
+     * APIs are backed by sdk specific device-protected storage.
+     *
+     * @see Context#isDeviceProtectedStorage()
+     */
+    @Override
+    @NonNull
+    public Context createDeviceProtectedStorageContext() {
+        Context newBaseContext = getBaseContext().createDeviceProtectedStorageContext();
+        return new SandboxedSdkContext(
+                newBaseContext,
+                mClientPackageName,
+                mSdkProviderInfo,
+                mSdkName,
+                (mCeDataDir != null) ? mCeDataDir.toString() : null,
+                (mDeDataDir != null) ? mDeDataDir.toString() : null);
     }
 
     /**
@@ -73,6 +132,16 @@ public final class SandboxedSdkContext extends ContextWrapper {
     @NonNull
     public String getSdkName() {
         return mSdkName;
+    }
+
+    /**
+     * Returns the package name of the client application corresponding to the sandbox.
+     *
+     * @hide
+     */
+    @NonNull
+    public String getClientPackageName() {
+        return mClientPackageName;
     }
 
     /** Returns the resources defined in the SDK's .apk file. */
@@ -87,5 +156,21 @@ public final class SandboxedSdkContext extends ContextWrapper {
     @Nullable
     public AssetManager getAssets() {
         return mAssets;
+    }
+
+    /** Returns sdk-specific internal storage directory. */
+    @Override
+    @Nullable
+    public File getDataDir() {
+        File res = null;
+        if (isCredentialProtectedStorage()) {
+            res = mCeDataDir;
+        } else if (isDeviceProtectedStorage()) {
+            res = mDeDataDir;
+        }
+        if (res == null) {
+            throw new RuntimeException("No data directory found for sdk: " + getSdkName());
+        }
+        return res;
     }
 }

@@ -8,9 +8,9 @@
             "id": "old1",
             "eventId": 1,
             "sourceType": "navigation",
-            "attributionSource": "android-app://example1.com/s1",
-            "attributionDestination": "android-app://example2.com/d1",
-            "reportTo": "android-app://example3.com/r1",
+            "publisher": "android-app://example1.com/s1",
+            "appDestination": "android-app://example2.com/d1",
+            "adTechDomain": "android-app://example3.com",
             "eventTime": 8640000001,
             "expiryTime": 8640000030,
             "priority": 100,
@@ -21,9 +21,9 @@
             "id": "young1",
             "eventId": 1,
             "sourceType": "navigation",
-            "attributionSource": "android-app://example1.com/s1",
-            "attributionDestination": "android-app://example2.com/d1",
-            "reportTo": "android-app://example3.com/r1",
+            "publisher": "android-app://example1.com/s1",
+            "appDestination": "android-app://example2.com/d1",
+            "adTechDomain": "android-app://example3.com",
             "eventTime": 33203622330000,
             "expiryTime": 8640000030,
             "priority": 100,
@@ -41,9 +41,9 @@
             "id": "young1",
             "eventId": 1,
             "sourceType": "navigation",
-            "attributionSource": "android-app://example1.com/s1",
-            "attributionDestination": "android-app://example2.com/d1",
-            "reportTo": "android-app://example3.com/r1",
+            "publisher": "android-app://example1.com/s1",
+            "appDestination": "android-app://example2.com/d1",
+            "adTechDomain": "android-app://example3.com",
             "eventTime": 33203622330000,
             "expiryTime": 8640000030,
             "priority": 100,
@@ -64,20 +64,38 @@
           {
             "id": "old1",
             "attributionDestination": "https://www.example2.com/d1",
-            "reportTo": "https://www.example3.com/r1",
+            "adTechDomain": "https://www.example3.com",
             "priority": 101,
             "status": 0,
             "triggerData": 2,
+            "eventTriggers": [
+              {
+                "trigger_data": 2,
+                "priority": 101,
+                "filters": {
+                  "key_1": ["value_1"]
+                }
+              }
+            ],
             "triggerTime": 8640000002,
             "registrant": "android-app://com.example.xyz"
           },
           {
             "id": "young1",
             "attributionDestination": "https://www.example2.com/d1",
-            "reportTo": "https://www.example3.com/r1",
+            "adTechDomain": "https://www.example3.com",
             "priority": 101,
             "status": 0,
             "triggerData": 2,
+            "eventTriggers": [
+              {
+                "trigger_data": 2,
+                "priority": 101,
+                "filters": {
+                  "key_1": ["value_1"]
+                }
+              }
+            ],
             "triggerTime": 33203622330000,
             "registrant": "android-app://com.example.xyz"
           }
@@ -91,10 +109,19 @@
           {
             "id": "young1",
             "attributionDestination": "https://www.example2.com/d1",
-            "reportTo": "https://www.example3.com/r1",
+            "adTechDomain": "https://www.example3.com",
             "priority": 101,
             "status": 0,
             "triggerData": 2,
+            "eventTriggers": [
+              {
+                "trigger_data": 2,
+                "priority": 101,
+                "filters": {
+                  "key_1": ["value_1"]
+                }
+              }
+            ],
             "triggerTime": 33203622330000,
             "registrant": "android-app://com.example.xyz"
           }
@@ -113,7 +140,7 @@
             "id": "delivered1",
             "sourceId": 1,
             "attributionDestination": "https://www.example2.com/d1",
-            "reportTo": "https://www.example3.com/r1",
+            "adTechDomain": "https://www.example3.com",
             "triggerData": 2,
             "triggerTime": 8640000002,
             "status": 1,
@@ -125,7 +152,7 @@
             "id": "young1",
             "sourceId": 1,
             "attributionDestination": "https://www.example2.com/d1",
-            "reportTo": "https://www.example3.com/r1",
+            "adTechDomain": "https://www.example3.com",
             "triggerData": 2,
             "triggerTime": 8640000002,
             "status": 0,
@@ -144,7 +171,7 @@
             "id": "young1",
             "sourceId": 1,
             "attributionDestination": "https://www.example2.com/d1",
-            "reportTo": "https://www.example3.com/r1",
+            "adTechDomain": "https://www.example3.com",
             "triggerData": 2,
             "triggerTime": 8640000002,
             "status": 0,
@@ -165,17 +192,17 @@
         "attribution_rate_limits": [
           {
             "id": "old1",
-            "sourceSite": "remove.me",
-            "destinationSite": "remove.me",
-            "reportTo": "android-app://example.one",
+            "sourceSite": "android-app://remove.me",
+            "destinationSite": "android-app://remove.me",
+            "adTechDomain": "android-app://example.one",
             "triggerTime": 8640000002,
             "registrant": "android-app://com.example.xyz"
           },
           {
             "id": "young1",
-            "sourceSite": "dont.remove.me",
-            "destinationSite": "dont.remove.me",
-            "reportTo": "android-app://example.one",
+            "sourceSite": "android-app://dont.remove.me",
+            "destinationSite": "android-app://dont.remove.me",
+            "adTechDomain": "android-app://example.one",
             "triggerTime": 33203622330000,
             "registrant": "android-app://com.example.xyz"
           }
@@ -188,9 +215,9 @@
         "attribution_rate_limits": [
           {
             "id": "young1",
-            "sourceSite": "dont.remove.me",
-            "destinationSite": "dont.remove.me",
-            "reportTo": "android-app://example.one",
+            "sourceSite": "android-app://dont.remove.me",
+            "destinationSite": "android-app://dont.remove.me",
+            "adTechDomain": "android-app://example.one",
             "triggerTime": 33203622330000,
             "registrant": "android-app://com.example.xyz"
           }
