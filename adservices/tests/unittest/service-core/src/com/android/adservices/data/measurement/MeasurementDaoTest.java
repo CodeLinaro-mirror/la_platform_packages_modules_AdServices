@@ -37,6 +37,8 @@ import android.net.Uri;
 import androidx.test.core.app.ApplicationProvider;
 
 import com.android.adservices.data.DbHelper;
+import com.android.adservices.service.Flags;
+import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.measurement.Attribution;
 import com.android.adservices.service.measurement.EventReport;
 import com.android.adservices.service.measurement.EventSurfaceType;
@@ -47,10 +49,17 @@ import com.android.adservices.service.measurement.TriggerFixture;
 import com.android.adservices.service.measurement.aggregation.AggregateEncryptionKey;
 import com.android.adservices.service.measurement.aggregation.AggregateReport;
 import com.android.adservices.service.measurement.aggregation.AggregateReportFixture;
+import com.android.dx.mockito.inline.extended.ExtendedMockito;
+import com.android.modules.utils.testing.TestableDeviceConfig;
 
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
+import org.mockito.MockitoSession;
+import org.mockito.quality.Strictness;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -68,6 +77,9 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 public class MeasurementDaoTest {
+    @Rule
+    public final TestableDeviceConfig.TestableDeviceConfigRule mDeviceConfigRule =
+            new TestableDeviceConfig.TestableDeviceConfigRule();
 
     protected static final Context sContext = ApplicationProvider.getApplicationContext();
     private static final Uri APP_TWO_SOURCES = Uri.parse("android-app://com.example1.two-sources");
@@ -122,6 +134,52 @@ public class MeasurementDaoTest {
     }
 
     @Test
+    public void testInsertSource_reachedDbSizeLimitOnEdgeCase_doNotInsert() {
+        insertSourceReachingDbSizeLimit(/* dbSize = */ 100L, /* dbSizeMaxLimit = */ 100L);
+    }
+
+    @Test
+    public void testInsertSource_reachedDbSizeLimitUpperEdgeCase_doNotInsert() {
+        insertSourceReachingDbSizeLimit(/* dbSize = */ 101L, /* dbSizeMaxLimit = */ 100L);
+    }
+
+    private void insertSourceReachingDbSizeLimit(long dbSize, long dbSizeMaxLimit) {
+        final Source validSource = SourceFixture.getValidSource();
+
+        final MockitoSession session =
+                ExtendedMockito.mockitoSession()
+                        .spyStatic(DbHelper.class)
+                        .spyStatic(FlagsFactory.class)
+                        .strictness(Strictness.LENIENT)
+                        .startMocking();
+
+        try {
+            // Mocking that the DB file has a size of 100 bytes
+            final DbHelper spyDbHelper = Mockito.spy(DbHelper.getInstance(sContext));
+            ExtendedMockito.doReturn(spyDbHelper)
+                    .when(() -> DbHelper.getInstance(ArgumentMatchers.any()));
+            ExtendedMockito.doReturn(dbSize).when(spyDbHelper).getDbFileSize();
+
+            // Mocking that the flags return a max limit size of 100 bytes
+            Flags mockFlags = Mockito.mock(Flags.class);
+            ExtendedMockito.doReturn(mockFlags).when(FlagsFactory::getFlags);
+            ExtendedMockito.doReturn(dbSizeMaxLimit).when(mockFlags).getMeasurementDbSizeLimit();
+
+            DatastoreManagerFactory.getDatastoreManager(sContext)
+                    .runInTransaction((dao) -> dao.insertSource(validSource));
+
+            try (Cursor sourceCursor =
+                    DbHelper.getInstance(sContext)
+                            .getReadableDatabase()
+                            .query(SourceContract.TABLE, null, null, null, null, null, null)) {
+                Assert.assertFalse(sourceCursor.moveToNext());
+            }
+        } finally {
+            session.finishMocking();
+        }
+    }
+
+    @Test
     public void testInsertTrigger() {
         Trigger validTrigger = TriggerFixture.getValidTrigger();
         DatastoreManagerFactory.getDatastoreManager(sContext).runInTransaction((dao) ->
@@ -142,6 +200,52 @@ public class MeasurementDaoTest {
             assertEquals(validTrigger.getRegistrant(), trigger.getRegistrant());
             assertEquals(validTrigger.getTriggerTime(), trigger.getTriggerTime());
             assertEquals(validTrigger.getEventTriggers(), trigger.getEventTriggers());
+        }
+    }
+
+    @Test
+    public void testInsertTrigger_reachedDbSizeLimitOnEdgeCase_doNotInsert() {
+        insertTriggerReachingDbSizeLimit(/* dbSize = */ 100L, /* dbSizeMaxLimit = */ 100L);
+    }
+
+    @Test
+    public void testInsertTrigger_reachedDbSizeLimitUpperEdgeCase_doNotInsert() {
+        insertTriggerReachingDbSizeLimit(/* dbSize = */ 101L, /* dbSizeMaxLimit = */ 100L);
+    }
+
+    private void insertTriggerReachingDbSizeLimit(long dbSize, long dbSizeMaxLimit) {
+        final Trigger validTrigger = TriggerFixture.getValidTrigger();
+
+        final MockitoSession session =
+                ExtendedMockito.mockitoSession()
+                        .spyStatic(DbHelper.class)
+                        .spyStatic(FlagsFactory.class)
+                        .strictness(Strictness.LENIENT)
+                        .startMocking();
+
+        try {
+            // Mocking that the DB file has a size of 100 bytes
+            final DbHelper spyDbHelper = Mockito.spy(DbHelper.getInstance(sContext));
+            ExtendedMockito.doReturn(spyDbHelper)
+                    .when(() -> DbHelper.getInstance(ArgumentMatchers.any()));
+            ExtendedMockito.doReturn(dbSize).when(spyDbHelper).getDbFileSize();
+
+            // Mocking that the flags return a max limit size of 100 bytes
+            Flags mockFlags = Mockito.mock(Flags.class);
+            ExtendedMockito.doReturn(mockFlags).when(FlagsFactory::getFlags);
+            ExtendedMockito.doReturn(dbSizeMaxLimit).when(mockFlags).getMeasurementDbSizeLimit();
+
+            DatastoreManagerFactory.getDatastoreManager(sContext)
+                    .runInTransaction((dao) -> dao.insertTrigger(validTrigger));
+
+            try (Cursor sourceCursor =
+                    DbHelper.getInstance(sContext)
+                            .getReadableDatabase()
+                            .query(TriggerContract.TABLE, null, null, null, null, null, null)) {
+                Assert.assertFalse(sourceCursor.moveToNext());
+            }
+        } finally {
+            session.finishMocking();
         }
     }
 
@@ -816,27 +920,50 @@ public class MeasurementDaoTest {
     @Test
     public void testGetSourceEventReports() {
         List<Source> sourceList = new ArrayList<>();
-        sourceList.add(SourceFixture.getValidSourceBuilder()
-                .setId("1").setEventId(3).build());
-        sourceList.add(SourceFixture.getValidSourceBuilder()
-                .setId("2").setEventId(4).build());
+        sourceList.add(
+                SourceFixture.getValidSourceBuilder()
+                        .setId("1")
+                        .setEventId(3)
+                        .setEnrollmentId("1")
+                        .build());
+        sourceList.add(
+                SourceFixture.getValidSourceBuilder()
+                        .setId("2")
+                        .setEventId(4)
+                        .setEnrollmentId("1")
+                        .build());
+        // Should always be ignored
+        sourceList.add(
+                SourceFixture.getValidSourceBuilder()
+                        .setId("3")
+                        .setEventId(4)
+                        .setEnrollmentId("2")
+                        .build());
 
         // Should match with source 1
         List<EventReport> reportList1 = new ArrayList<>();
-        reportList1.add(new EventReport.Builder().setId("1").setSourceId(3).build());
-        reportList1.add(new EventReport.Builder().setId("7").setSourceId(3).build());
+        reportList1.add(
+                new EventReport.Builder().setId("1").setSourceId(3).setEnrollmentId("1").build());
+        reportList1.add(
+                new EventReport.Builder().setId("7").setSourceId(3).setEnrollmentId("1").build());
 
         // Should match with source 2
         List<EventReport> reportList2 = new ArrayList<>();
-        reportList2.add(new EventReport.Builder().setId("3").setSourceId(4).build());
-        reportList2.add(new EventReport.Builder().setId("8").setSourceId(4).build());
+        reportList2.add(
+                new EventReport.Builder().setId("3").setSourceId(4).setEnrollmentId("1").build());
+        reportList2.add(
+                new EventReport.Builder().setId("8").setSourceId(4).setEnrollmentId("1").build());
 
         List<EventReport> reportList3 = new ArrayList<>();
         // Should not match with any source
-        reportList3.add(new EventReport.Builder().setId("2").setSourceId(5).build());
-        reportList3.add(new EventReport.Builder().setId("4").setSourceId(6).build());
-        reportList3.add(new EventReport.Builder().setId("5").setSourceId(1).build());
-        reportList3.add(new EventReport.Builder().setId("6").setSourceId(2).build());
+        reportList3.add(
+                new EventReport.Builder().setId("2").setSourceId(5).setEnrollmentId("1").build());
+        reportList3.add(
+                new EventReport.Builder().setId("4").setSourceId(6).setEnrollmentId("1").build());
+        reportList3.add(
+                new EventReport.Builder().setId("5").setSourceId(1).setEnrollmentId("1").build());
+        reportList3.add(
+                new EventReport.Builder().setId("6").setSourceId(2).setEnrollmentId("1").build());
 
         SQLiteDatabase db = DbHelper.getInstance(sContext).safeGetWritableDatabase();
         Objects.requireNonNull(db);
@@ -845,6 +972,7 @@ public class MeasurementDaoTest {
                     ContentValues values = new ContentValues();
                     values.put(SourceContract.ID, source.getId());
                     values.put(SourceContract.EVENT_ID, source.getEventId());
+                    values.put(SourceContract.ENROLLMENT_ID, source.getEnrollmentId());
                     db.insert(SourceContract.TABLE, null, values);
                 });
         Stream.of(reportList1, reportList2, reportList3)
@@ -854,6 +982,9 @@ public class MeasurementDaoTest {
                             ContentValues values = new ContentValues();
                             values.put(EventReportContract.ID, eventReport.getId());
                             values.put(EventReportContract.SOURCE_ID, eventReport.getSourceId());
+                            values.put(
+                                    EventReportContract.ENROLLMENT_ID,
+                                    eventReport.getEnrollmentId());
                             db.insert(EventReportContract.TABLE, null, values);
                         });
 
