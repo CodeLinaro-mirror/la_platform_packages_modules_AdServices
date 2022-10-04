@@ -40,6 +40,7 @@ import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.measurement.MeasurementHttpClient;
 import com.android.adservices.service.measurement.util.Enrollment;
+import com.android.adservices.service.measurement.util.UnsignedLong;
 import com.android.adservices.service.measurement.util.Web;
 import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.adservices.service.stats.AdServicesLoggerImpl;
@@ -112,7 +113,8 @@ public class SourceFetcher {
                             "Expected %s and a destination", SourceHeaderContract.SOURCE_EVENT_ID));
         }
 
-        result.setSourceEventId(json.getLong(SourceHeaderContract.SOURCE_EVENT_ID));
+        result.setSourceEventId(new UnsignedLong(
+                json.getString(SourceHeaderContract.SOURCE_EVENT_ID)));
         if (!json.isNull(SourceHeaderContract.EXPIRY)) {
             long expiry =
                     extractValidNumberInRange(
@@ -128,10 +130,10 @@ public class SourceFetcher {
         boolean isAppAllow = !isWebSource && isAdIdPermissionGranted;
         if (!json.isNull(SourceHeaderContract.DEBUG_KEY) && (isWebAllow || isAppAllow)) {
             try {
-                result.setDebugKey(
-                        Long.parseUnsignedLong(json.getString(SourceHeaderContract.DEBUG_KEY)));
+                result.setDebugKey(new UnsignedLong(
+                        json.getString(SourceHeaderContract.DEBUG_KEY)));
             } catch (NumberFormatException e) {
-                LogUtil.e(e, "Parsing source debug key failed");
+                LogUtil.e(e, "parseCommonSourceParams: parsing debug key failed");
             }
         }
         if (!json.isNull(SourceHeaderContract.INSTALL_ATTRIBUTION_WINDOW_KEY)) {
@@ -286,8 +288,8 @@ public class SourceFetcher {
                 addToResults.add(result.build());
             }
             return true;
-        } catch (JSONException e) {
-            LogUtil.d(e, "Invalid JSON");
+        } catch (JSONException | NumberFormatException e) {
+            LogUtil.d(e, "Invalid JSON or invalid numerical input.");
             return false;
         }
     }
