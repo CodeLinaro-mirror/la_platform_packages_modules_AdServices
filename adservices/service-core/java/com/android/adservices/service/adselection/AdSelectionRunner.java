@@ -46,6 +46,8 @@ import com.android.adservices.service.common.FledgeAuthorizationFilter;
 import com.android.adservices.service.common.Throttler;
 import com.android.adservices.service.consent.ConsentManager;
 import com.android.adservices.service.devapi.DevContext;
+import com.android.adservices.service.js.JSSandboxIsNotAvailableException;
+import com.android.adservices.service.js.JSScriptEngine;
 import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -100,6 +102,13 @@ public abstract class AdSelectionRunner {
     @VisibleForTesting
     static final String AD_SELECTION_THROTTLED = "Ad selection exceeded allowed rate limit";
 
+    @VisibleForTesting
+    static final String JS_SANDBOX_IS_NOT_AVAILABLE =
+            String.format(
+                    AD_SELECTION_ERROR_PATTERN,
+                    ERROR_AD_SELECTION_FAILURE,
+                    "JS Sandbox is not available");
+
     public static final long DAY_IN_SECONDS = 60 * 60 * 24;
 
     @NonNull protected final Context mContext;
@@ -107,6 +116,7 @@ public abstract class AdSelectionRunner {
     @NonNull protected final AdSelectionEntryDao mAdSelectionEntryDao;
     @NonNull protected final ListeningExecutorService mLightweightExecutorService;
     @NonNull protected final ListeningExecutorService mBackgroundExecutorService;
+    @NonNull protected final ScheduledThreadPoolExecutor mScheduledExecutor;
     @NonNull protected final AdSelectionIdGenerator mAdSelectionIdGenerator;
     @NonNull protected final Clock mClock;
     @NonNull protected final ConsentManager mConsentManager;
@@ -124,6 +134,7 @@ public abstract class AdSelectionRunner {
             @NonNull final AdSelectionEntryDao adSelectionEntryDao,
             @NonNull final ExecutorService lightweightExecutorService,
             @NonNull final ExecutorService backgroundExecutorService,
+            @NonNull final ScheduledThreadPoolExecutor scheduledExecutor,
             @NonNull final ConsentManager consentManager,
             @NonNull final AdServicesLogger adServicesLogger,
             @NonNull final DevContext devContext,
@@ -146,11 +157,16 @@ public abstract class AdSelectionRunner {
         Objects.requireNonNull(throttlerSupplier);
         Objects.requireNonNull(fledgeAuthorizationFilter);
         Objects.requireNonNull(fledgeAllowListsFilter);
+        Preconditions.checkArgument(
+                JSScriptEngine.AvailabilityChecker.isJSSandboxAvailable(),
+                JS_SANDBOX_IS_NOT_AVAILABLE);
+
         mContext = context;
         mCustomAudienceDao = customAudienceDao;
         mAdSelectionEntryDao = adSelectionEntryDao;
         mLightweightExecutorService = MoreExecutors.listeningDecorator(lightweightExecutorService);
         mBackgroundExecutorService = MoreExecutors.listeningDecorator(backgroundExecutorService);
+        mScheduledExecutor = scheduledExecutor;
         mConsentManager = consentManager;
         mAdServicesLogger = adServicesLogger;
         mAdSelectionIdGenerator = new AdSelectionIdGenerator();
@@ -170,6 +186,7 @@ public abstract class AdSelectionRunner {
             @NonNull final AdSelectionEntryDao adSelectionEntryDao,
             @NonNull final ExecutorService lightweightExecutorService,
             @NonNull final ExecutorService backgroundExecutorService,
+            @NonNull final ScheduledThreadPoolExecutor scheduledExecutor,
             @NonNull final ConsentManager consentManager,
             @NonNull final AdSelectionIdGenerator adSelectionIdGenerator,
             @NonNull Clock clock,
@@ -185,6 +202,7 @@ public abstract class AdSelectionRunner {
         Objects.requireNonNull(adSelectionEntryDao);
         Objects.requireNonNull(lightweightExecutorService);
         Objects.requireNonNull(backgroundExecutorService);
+        Objects.requireNonNull(scheduledExecutor);
         Objects.requireNonNull(consentManager);
         Objects.requireNonNull(adSelectionIdGenerator);
         Objects.requireNonNull(clock);
@@ -198,6 +216,7 @@ public abstract class AdSelectionRunner {
         mAdSelectionEntryDao = adSelectionEntryDao;
         mLightweightExecutorService = MoreExecutors.listeningDecorator(lightweightExecutorService);
         mBackgroundExecutorService = MoreExecutors.listeningDecorator(backgroundExecutorService);
+        mScheduledExecutor = scheduledExecutor;
         mConsentManager = consentManager;
         mAdSelectionIdGenerator = adSelectionIdGenerator;
         mClock = clock;
@@ -246,7 +265,7 @@ public abstract class AdSelectionRunner {
                         public void onSuccess(DBAdSelection result) {
                             notifySuccessToCaller(result, callback);
                             // TODO(242280808): Schedule a clear for stale data instead of this hack
-                            clearExpiredAdSelectionData();
+                            clearExpiredAdSelectionDataAndBuyerDecisionLogic();
                         }
 
                         @Override
@@ -259,7 +278,7 @@ public abstract class AdSelectionRunner {
                                 notifyFailureToCaller(callback, t);
                             }
                             // TODO(242280808): Schedule a clear for stale data instead of this hack
-                            clearExpiredAdSelectionData();
+                            clearExpiredAdSelectionDataAndBuyerDecisionLogic();
                         }
                     },
                     mLightweightExecutorService);
@@ -286,7 +305,7 @@ public abstract class AdSelectionRunner {
                     "Ad Selection with Id:%d completed, attempted notifying success",
                     result.getAdSelectionId());
             mAdServicesLogger.logFledgeApiCallStats(
-                    AD_SERVICES_API_CALLED__API_NAME__SELECT_ADS, resultCode);
+                    AD_SERVICES_API_CALLED__API_NAME__SELECT_ADS, resultCode, 0);
         }
     }
 
@@ -303,7 +322,7 @@ public abstract class AdSelectionRunner {
             resultCode = AdServicesStatusUtils.STATUS_UNKNOWN_ERROR;
         } finally {
             mAdServicesLogger.logFledgeApiCallStats(
-                    AD_SERVICES_API_CALLED__API_NAME__SELECT_ADS, resultCode);
+                    AD_SERVICES_API_CALLED__API_NAME__SELECT_ADS, resultCode, 0);
         }
     }
 
@@ -324,6 +343,8 @@ public abstract class AdSelectionRunner {
                 resultCode = AdServicesStatusUtils.STATUS_INVALID_ARGUMENT;
             } else if (t instanceof LimitExceededException) {
                 resultCode = AdServicesStatusUtils.STATUS_RATE_LIMIT_REACHED;
+            } else if (t instanceof JSSandboxIsNotAvailableException) {
+                resultCode = AdServicesStatusUtils.STATUS_JS_SANDBOX_UNAVAILABLE;
             } else {
                 resultCode = AdServicesStatusUtils.STATUS_INTERNAL_ERROR;
             }
@@ -344,7 +365,7 @@ public abstract class AdSelectionRunner {
             resultCode = AdServicesStatusUtils.STATUS_UNKNOWN_ERROR;
         } finally {
             mAdServicesLogger.logFledgeApiCallStats(
-                    AD_SERVICES_API_CALLED__API_NAME__SELECT_ADS, resultCode);
+                    AD_SERVICES_API_CALLED__API_NAME__SELECT_ADS, resultCode, 0);
         }
     }
 
@@ -378,9 +399,7 @@ public abstract class AdSelectionRunner {
                 .withTimeout(
                         mFlags.getAdSelectionOverallTimeoutMs(),
                         TimeUnit.MILLISECONDS,
-                        // TODO(b/237103033): Comply with thread usage policy for AdServices;
-                        //  use a global scheduled executor
-                        new ScheduledThreadPoolExecutor(1))
+                        mScheduledExecutor)
                 .catching(
                         TimeoutException.class,
                         this::handleTimeoutError,
@@ -591,9 +610,10 @@ public abstract class AdSelectionRunner {
         return null;
     }
 
-    private void clearExpiredAdSelectionData() {
+    private void clearExpiredAdSelectionDataAndBuyerDecisionLogic() {
         Instant expirationTime = mClock.instant().minusSeconds(DAY_IN_SECONDS);
         mAdSelectionEntryDao.removeExpiredAdSelection(expirationTime);
+        mAdSelectionEntryDao.removeExpiredBuyerDecisionLogic();
     }
 
     static class AdSelectionOrchestrationResult {
