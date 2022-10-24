@@ -57,29 +57,24 @@ public class PermissionsAppOptOutTest {
     private static final String CALLER_NOT_AUTHORIZED =
             "java.lang.SecurityException: Caller is not authorized to call this API. "
                     + "Caller is not allowed.";
-
-    private static final int TEST_API_REQUEST_PER_SECOND = 2;
+    private static final int TEST_API_REQUEST_PER_SECOND = 5;
     private static final int DEFAULT_API_REQUEST_PER_SECOND = 1;
 
     @Before
     public void setup() {
-        overrideConsentManagerDebugMode(true);
-        overridingAdservicesLoggingLevel("VERBOSE");
-        overrideAPIRateLimit(TEST_API_REQUEST_PER_SECOND);
         InstrumentationRegistry.getInstrumentation()
                 .getUiAutomation()
                 .adoptShellPermissionIdentity(Manifest.permission.WRITE_DEVICE_CONFIG);
-        PhFlagsFixture.overrideSdkRequestPermitsPerSecond(Integer.MAX_VALUE);
+        overrideAPIRateLimit(TEST_API_REQUEST_PER_SECOND);
     }
 
     @After
     public void teardown() {
-        overrideConsentManagerDebugMode(false);
         overrideAPIRateLimit(DEFAULT_API_REQUEST_PER_SECOND);
     }
 
     @Test
-    public void testAppOptOut_topics() throws Exception {
+    public void testAppOptOut_topics() {
         overrideDisableTopicsEnrollmentCheck("0");
         AdvertisingTopicsClient advertisingTopicsClient1 =
                 new AdvertisingTopicsClient.Builder()
@@ -294,16 +289,6 @@ public class PermissionsAppOptOutTest {
         // Setting it to 1 here disables the Topics enrollment check.
         ShellUtils.runShellCommand(
                 "setprop debug.adservices.disable_topics_enrollment_check " + val);
-    }
-
-    private void overridingAdservicesLoggingLevel(String loggingLevel) {
-        ShellUtils.runShellCommand("setprop log.tag.adservices %s", loggingLevel);
-    }
-
-    // Override the Consent Manager behaviour - Consent Given
-    private void overrideConsentManagerDebugMode(boolean isGiven) {
-        ShellUtils.runShellCommand(
-                "setprop debug.adservices.consent_manager_debug_mode " + isGiven);
     }
 
     private void overrideAPIRateLimit(int requestPerSecond) {
