@@ -46,10 +46,12 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.core.content.pm.ApplicationInfoBuilder;
 import androidx.test.filters.SmallTest;
 
+import com.android.adservices.data.DbHelper;
 import com.android.adservices.data.common.BooleanFileDatastore;
 import com.android.adservices.data.consent.AppConsentDao;
 import com.android.adservices.data.consent.AppConsentDaoFixture;
 import com.android.adservices.data.customaudience.CustomAudienceDao;
+import com.android.adservices.data.enrollment.EnrollmentDao;
 import com.android.adservices.data.topics.Topic;
 import com.android.adservices.data.topics.TopicsTables;
 import com.android.adservices.download.MddJobService;
@@ -59,6 +61,7 @@ import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.MaintenanceJobService;
 import com.android.adservices.service.common.BackgroundJobsManager;
 import com.android.adservices.service.measurement.DeleteExpiredJobService;
+import com.android.adservices.service.measurement.DeleteUninstalledJobService;
 import com.android.adservices.service.measurement.MeasurementImpl;
 import com.android.adservices.service.measurement.attribution.AttributionJobService;
 import com.android.adservices.service.measurement.reporting.AggregateFallbackReportingJobService;
@@ -98,6 +101,8 @@ public class ConsentManagerTest {
     private BooleanFileDatastore mDatastore;
     private ConsentManager mConsentManager;
     private AppConsentDao mAppConsentDao;
+    private EnrollmentDao mEnrollmentDao;
+    private DbHelper mDbHelper;
 
     @Mock private PackageManager mPackageManagerMock;
     @Mock private TopicsWorker mTopicsWorker;
@@ -127,6 +132,7 @@ public class ConsentManagerTest {
                         .spyStatic(EventReportingJobService.class)
                         .spyStatic(EventFallbackReportingJobService.class)
                         .spyStatic(DeleteExpiredJobService.class)
+                        .spyStatic(DeleteUninstalledJobService.class)
                         .spyStatic(FlagsFactory.class)
                         .spyStatic(MaintenanceJobService.class)
                         .spyStatic(MddJobService.class)
@@ -137,12 +143,15 @@ public class ConsentManagerTest {
         mDatastore =
                 new BooleanFileDatastore(mContextSpy, AppConsentDaoFixture.TEST_DATASTORE_NAME, 1);
         mAppConsentDao = spy(new AppConsentDao(mDatastore, mPackageManagerMock));
+        mDbHelper = DbHelper.getInstance(mContextSpy);
+        mEnrollmentDao = spy(new EnrollmentDao(mContextSpy, mDbHelper));
 
         mConsentManager =
                 new ConsentManager(
                         mContextSpy,
                         mTopicsWorker,
                         mAppConsentDao,
+                        mEnrollmentDao,
                         mMeasurementImpl,
                         mAdServicesLoggerImpl,
                         mCustomAudienceDaoMock,
@@ -174,6 +183,8 @@ public class ConsentManagerTest {
                 .when(() -> EventFallbackReportingJobService.scheduleIfNeeded(any(), anyBoolean()));
         ExtendedMockito.doNothing()
                 .when(() -> DeleteExpiredJobService.scheduleIfNeeded(any(), anyBoolean()));
+        ExtendedMockito.doNothing()
+                .when(() -> DeleteUninstalledJobService.scheduleIfNeeded(any(), anyBoolean()));
         ExtendedMockito.doReturn(true)
                 .when(() -> MaintenanceJobService.scheduleIfNeeded(any(), anyBoolean()));
     }
@@ -205,6 +216,7 @@ public class ConsentManagerTest {
     public void testJobsAreScheduledAfterEnablingKillSwitchOff() {
         doReturn(mPackageManagerMock).when(mContextSpy).getPackageManager();
         doReturn(false).when(mMockFlags).getTopicsKillSwitch();
+        doReturn(false).when(mMockFlags).getFledgeSelectAdsKillSwitch();
         doReturn(false).when(mMockFlags).getMeasurementKillSwitch();
         doReturn(false).when(mMockFlags).getMddBackgroundTaskKillSwitch();
 
@@ -233,12 +245,15 @@ public class ConsentManagerTest {
                                 any(Context.class), eq(false)));
         ExtendedMockito.verify(
                 () -> DeleteExpiredJobService.scheduleIfNeeded(any(Context.class), eq(false)));
+        ExtendedMockito.verify(
+                () -> DeleteUninstalledJobService.scheduleIfNeeded(any(Context.class), eq(false)));
     }
 
     @Test
     public void testJobsAreNotScheduledAfterEnablingKillSwitchOn() {
         doReturn(mPackageManagerMock).when(mContextSpy).getPackageManager();
         doReturn(true).when(mMockFlags).getTopicsKillSwitch();
+        doReturn(true).when(mMockFlags).getFledgeSelectAdsKillSwitch();
         doReturn(true).when(mMockFlags).getMeasurementKillSwitch();
         doReturn(true).when(mMockFlags).getMddBackgroundTaskKillSwitch();
 
@@ -277,6 +292,9 @@ public class ConsentManagerTest {
         ExtendedMockito.verify(
                 () -> DeleteExpiredJobService.scheduleIfNeeded(any(Context.class), eq(false)),
                 ExtendedMockito.never());
+        ExtendedMockito.verify(
+                () -> DeleteUninstalledJobService.scheduleIfNeeded(any(Context.class), eq(false)),
+                ExtendedMockito.never());
     }
 
     @Test
@@ -289,6 +307,7 @@ public class ConsentManagerTest {
         verify(mJobSchedulerMock).cancel(AdServicesConfig.TOPICS_EPOCH_JOB_ID);
         verify(mJobSchedulerMock).cancel(AdServicesConfig.MEASUREMENT_EVENT_MAIN_REPORTING_JOB_ID);
         verify(mJobSchedulerMock).cancel(AdServicesConfig.MEASUREMENT_DELETE_EXPIRED_JOB_ID);
+        verify(mJobSchedulerMock).cancel(AdServicesConfig.MEASUREMENT_DELETE_UNINSTALLED_JOB_ID);
         verify(mJobSchedulerMock).cancel(AdServicesConfig.MEASUREMENT_ATTRIBUTION_JOB_ID);
         verify(mJobSchedulerMock)
                 .cancel(AdServicesConfig.MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_ID);
@@ -316,6 +335,7 @@ public class ConsentManagerTest {
         verify(mTopicsWorker, times(1)).clearAllTopicsData(any());
         // TODO(b/240988406): change to test for correct method call
         verify(mAppConsentDao, times(1)).clearAllConsentData();
+        verify(mEnrollmentDao, times(1)).deleteAll();
         verify(mMeasurementImpl, times(1)).deleteAllMeasurementData(any());
         verify(mCustomAudienceDaoMock).deleteAllCustomAudienceData();
     }
@@ -786,6 +806,7 @@ public class ConsentManagerTest {
                                 mAppUpdateManager,
                                 mMockFlags),
                         mAppConsentDao,
+                        mEnrollmentDao,
                         mMeasurementImpl,
                         mAdServicesLoggerImpl,
                         mCustomAudienceDaoMock,

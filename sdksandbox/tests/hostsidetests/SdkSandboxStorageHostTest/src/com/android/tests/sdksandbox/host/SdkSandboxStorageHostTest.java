@@ -1086,37 +1086,6 @@ public final class SdkSandboxStorageHostTest extends BaseHostJUnit4Test {
         }
     }
 
-    @Test
-    public void testSharedPreferences_IsSyncedFromAppToSandbox() throws Exception {
-        installPackage(TEST_APP_STORAGE_APK);
-        runPhase("testSharedPreferences_IsSyncedFromAppToSandbox");
-    }
-
-    @Test
-    public void testSharedPreferences_SyncPropagatesUpdates() throws Exception {
-        installPackage(TEST_APP_STORAGE_APK);
-        runPhase("testSharedPreferences_SyncPropagatesUpdates");
-    }
-
-    @Test
-    public void testSharedPreferences_SyncStartedBeforeLoadingSdk() throws Exception {
-        installPackage(TEST_APP_STORAGE_APK);
-        runPhase("testSharedPreferences_SyncStartedBeforeLoadingSdk");
-    }
-
-    @Test
-    public void testSharedPreferences_SyncRemoveKeys() throws Exception {
-        installPackage(TEST_APP_STORAGE_APK);
-        runPhase("testSharedPreferences_SyncRemoveKeys");
-    }
-
-    @Test
-    public void testSharedPreferences_SyncedDataClearedOnSandboxRestart() throws Exception {
-        installPackage(TEST_APP_STORAGE_APK);
-        runPhase("testSharedPreferences_IsSyncedFromAppToSandbox");
-        runPhase("testSharedPreferences_SyncedDataClearedOnSandboxRestart");
-    }
-
     private String getAppDataPath(int userId, String packageName, boolean isCeData) {
         return getAppDataPath(/*volumeUuid=*/ null, userId, packageName, isCeData);
     }
@@ -1307,8 +1276,6 @@ public final class SdkSandboxStorageHostTest extends BaseHostJUnit4Test {
 
         private final BaseHostJUnit4Test mTest;
 
-        private boolean mIsDeviceLocked = false;
-
         DeviceLockUtils(BaseHostJUnit4Test test) {
             mTest = test;
         }
@@ -1334,8 +1301,6 @@ public final class SdkSandboxStorageHostTest extends BaseHostJUnit4Test {
             // Follow DirectBootHostTest, reboot system into known state with keys ejected
             mTest.getDevice().rebootUntilOnline();
             waitForBootCompleted(mTest.getDevice());
-
-            mIsDeviceLocked = true;
         }
 
         public void clearScreenLock() throws Exception {
@@ -1354,14 +1319,13 @@ public final class SdkSandboxStorageHostTest extends BaseHostJUnit4Test {
         }
 
         public void unlockDevice() throws Exception {
-            if (!mIsDeviceLocked) return;
-            assertThat(
-                            mTest.runDeviceTests(
-                                    "com.android.cts.appdataisolation.appa",
-                                    "com.android.cts.appdataisolation.appa.AppATests",
-                                    "testUnlockDevice"))
-                    .isTrue();
-            mIsDeviceLocked = false;
+            try {
+                mTest.runDeviceTests(
+                        "com.android.cts.appdataisolation.appa",
+                        "com.android.cts.appdataisolation.appa.AppATests",
+                        "testUnlockDevice");
+            } catch (Exception ignore) {
+            }
         }
     }
 }

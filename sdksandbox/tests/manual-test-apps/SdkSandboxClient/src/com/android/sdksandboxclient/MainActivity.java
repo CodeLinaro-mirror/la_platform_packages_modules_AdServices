@@ -85,8 +85,7 @@ public class MainActivity extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mSdkSandboxManager = getApplicationContext().getSystemService(
-                SdkSandboxManager.class);
+        mSdkSandboxManager = getApplicationContext().getSystemService(SdkSandboxManager.class);
         Bundle extras = getIntent().getExtras();
         if (extras != null) {
             sVideoUrl = extras.getString(VIDEO_URL_KEY);
@@ -140,7 +139,8 @@ public class MainActivity extends Activity {
                                 @Override
                                 public void onResult(SandboxedSdk sandboxedSdk) {
                                     makeToast("All SDKs Loaded successfully!");
-                                    mLoadButton.setText("Unload SDKs");
+                                    // TODO(b/253449573): Add constant string for unload Sdk.
+                                    mLoadButton.setText("Unload SDK");
                                 }
 
                                 @Override
