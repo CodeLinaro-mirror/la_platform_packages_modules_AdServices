@@ -53,7 +53,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
@@ -185,9 +184,10 @@ class AttributionJobHandler {
                             + AGGREGATE_MIN_REPORT_DELAY);
                     AggregateReport aggregateReport =
                             new AggregateReport.Builder()
-                                    // TODO: Unused field, incorrect value; cleanup
+                                    // TODO: b/254855494 unused field, incorrect value; cleanup
                                     .setPublisher(source.getRegistrant())
-                                    .setAttributionDestination(trigger.getAttributionDestination())
+                                    .setAttributionDestination(
+                                            trigger.getAttributionDestinationBaseUri())
                                     .setSourceRegistrationTime(
                                             roundDownToDay(source.getEventTime()))
                                     .setScheduledReportTime(trigger.getTriggerTime() + randomTime)
@@ -203,6 +203,8 @@ class AttributionJobHandler {
                                     .setApiVersion(API_VERSION)
                                     .setSourceDebugKey(source.getDebugKey())
                                     .setTriggerDebugKey(trigger.getDebugKey())
+                                    .setSourceId(source.getId())
+                                    .setTriggerId(trigger.getId())
                                     .build();
 
                     measurementDao.updateSourceAggregateContributions(source);
@@ -242,7 +244,9 @@ class AttributionJobHandler {
         matchingSources.remove(0);
         if (!matchingSources.isEmpty()) {
             matchingSources.forEach((s) -> s.setStatus(Source.Status.IGNORED));
-            measurementDao.updateSourceStatus(matchingSources, Source.Status.IGNORED);
+            List<String> sourceIds =
+                    matchingSources.stream().map(Source::getId).collect(Collectors.toList());
+            measurementDao.updateSourceStatus(sourceIds, Source.Status.IGNORED);
         }
         return Optional.of(selectedSource);
     }
@@ -354,14 +358,16 @@ class AttributionJobHandler {
             IMeasurementDao measurementDao)
             throws DatastoreException {
         trigger.setStatus(Trigger.Status.ATTRIBUTED);
-        measurementDao.updateTriggerStatus(trigger);
+        measurementDao.updateTriggerStatus(
+                Collections.singletonList(trigger.getId()), Trigger.Status.ATTRIBUTED);
         measurementDao.insertAttribution(createAttribution(source, trigger));
     }
 
     private void ignoreTrigger(Trigger trigger, IMeasurementDao measurementDao)
             throws DatastoreException {
         trigger.setStatus(Trigger.Status.IGNORED);
-        measurementDao.updateTriggerStatus(trigger);
+        measurementDao.updateTriggerStatus(
+                Collections.singletonList(trigger.getId()), Trigger.Status.IGNORED);
     }
 
     private boolean hasAttributionQuota(Source source, Trigger trigger,
@@ -391,17 +397,12 @@ class AttributionJobHandler {
      */
     private boolean doTopLevelFiltersMatch(@NonNull Source source, @NonNull Trigger trigger) {
         String triggerFilters = trigger.getFilters();
-        String sourceFilters = source.getAggregateFilterData();
-        if (triggerFilters == null
-                || sourceFilters == null
-                || triggerFilters.isEmpty()
-                || sourceFilters.isEmpty()) {
-            // Nothing to match
+        // Nothing to match
+        if (triggerFilters == null || triggerFilters.isEmpty()) {
             return true;
         }
-
         try {
-            AggregateFilterData sourceFiltersData = extractFilterMap(sourceFilters);
+            AggregateFilterData sourceFiltersData = source.parseAggregateFilterData();
             AggregateFilterData triggerFiltersData = extractFilterMap(triggerFilters);
             return Filter.isFilterMatch(sourceFiltersData, triggerFiltersData, true);
         } catch (JSONException e) {
@@ -413,22 +414,7 @@ class AttributionJobHandler {
 
     private Optional<EventTrigger> findFirstMatchingEventTrigger(Source source, Trigger trigger) {
         try {
-            String sourceFilters = source.getAggregateFilterData();
-
-            AggregateFilterData sourceFiltersData;
-            if (sourceFilters == null || sourceFilters.isEmpty()) {
-                // Initialize an empty map to add source_type to it later
-                sourceFiltersData = new AggregateFilterData.Builder().build();
-            } else {
-                sourceFiltersData = extractFilterMap(sourceFilters);
-            }
-
-            // Add source type
-            appendToAggregateFilterData(
-                    sourceFiltersData,
-                    "source_type",
-                    Collections.singletonList(source.getSourceType().getValue()));
-
+            AggregateFilterData sourceFiltersData = source.parseAggregateFilterData();
             List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
             return eventTriggers.stream()
                     .filter(
@@ -464,12 +450,6 @@ class AttributionJobHandler {
         return new AggregateFilterData.Builder()
                 .buildAggregateFilterData(sourceFilterObject)
                 .build();
-    }
-
-    private void appendToAggregateFilterData(
-            AggregateFilterData filterData, String key, List<String> value) {
-        Map<String, List<String>> attributeFilterMap = filterData.getAttributionFilterMap();
-        attributeFilterMap.put(key, value);
     }
 
     private static OptionalInt validateAndGetUpdatedAggregateContributions(
@@ -565,6 +545,8 @@ class AttributionJobHandler {
                 .setEnrollmentId(trigger.getEnrollmentId())
                 .setTriggerTime(trigger.getTriggerTime())
                 .setRegistrant(trigger.getRegistrant().toString())
+                .setSourceId(source.getId())
+                .setTriggerId(trigger.getId())
                 .build();
     }
 

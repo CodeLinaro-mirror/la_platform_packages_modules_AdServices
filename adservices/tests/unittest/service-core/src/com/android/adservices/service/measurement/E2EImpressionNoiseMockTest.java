@@ -62,12 +62,18 @@ public class E2EImpressionNoiseMockTest extends E2EMockTest {
         mAttributionHelper = TestObjectProvider.getAttributionJobHandler(sDatastoreManager);
         mMeasurementImpl =
                 TestObjectProvider.getMeasurementImpl(
+                        sDatastoreManager,
+                        mClickVerifier,
+                        mFlags,
+                        mMeasurementDataDeleter,
+                        sEnrollmentDao);
+        mAsyncRegistrationQueueRunner =
+                TestObjectProvider.getAsyncRegistrationQueueRunner(
                         TestObjectProvider.Type.NOISY,
                         sDatastoreManager,
-                        mSourceFetcher,
-                        mTriggerFetcher,
-                        mClickVerifier,
-                        mFlags);
+                        mAsyncSourceFetcher,
+                        mAsyncTriggerFetcher,
+                        sEnrollmentDao);
         getExpectedTriggerDataDistributions();
     }
 
@@ -94,7 +100,8 @@ public class E2EImpressionNoiseMockTest extends E2EMockTest {
         for (String key : mActualTriggerDataDistributions.keySet()) {
             if (!mExpectedTriggerDataDistributions.containsKey(key)) {
                 Assert.assertTrue(getTestFailureMessage(
-                        "Missing key in expected trigger data distributions"), false);
+                        "Missing key in expected trigger data distributions"
+                        + getDatastoreState()), false);
             }
         }
         boolean testPassed = false;
@@ -113,8 +120,10 @@ public class E2EImpressionNoiseMockTest extends E2EMockTest {
                 }
             }
         }
-        Assert.assertTrue(getTestFailureMessage(
-                "Trigger data distributions were the same"), testPassed);
+        Assert.assertTrue(
+                getTestFailureMessage(
+                        "Trigger data distributions were the same " + getDatastoreState()),
+                testPassed);
     }
 
     private void getExpectedTriggerDataDistributions() {
