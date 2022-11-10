@@ -54,6 +54,7 @@ import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.enrollment.EnrollmentData;
 import com.android.adservices.service.measurement.AsyncRegistration;
 import com.android.adservices.service.measurement.Source;
+import com.android.adservices.service.measurement.WebUtil;
 import com.android.adservices.service.measurement.util.AsyncFetchStatus;
 import com.android.adservices.service.measurement.util.AsyncRedirect;
 import com.android.adservices.service.measurement.util.UnsignedLong;
@@ -61,8 +62,8 @@ import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.adservices.service.stats.MeasurementRegistrationResponseStats;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 
-import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -86,13 +87,13 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import javax.net.ssl.HttpsURLConnection;
-/** Unit tests for {@link SourceFetcher} */
+/** Unit tests for {@link AsyncSourceFetcher} */
 @RunWith(MockitoJUnitRunner.class)
 @SmallTest
 public final class AsyncSourceFetcherTest {
     private static final String ANDROID_APP_SCHEME = "android-app";
     private static final String ANDROID_APP_SCHEME_URI_PREFIX = ANDROID_APP_SCHEME + "://";
-    private static final String DEFAULT_REGISTRATION = "https://foo.com";
+    private static final String DEFAULT_REGISTRATION = WebUtil.validUrl("https://foo.test");
     private static final String ENROLLMENT_ID = "enrollment-id";
     private static final EnrollmentData ENROLLMENT =
             new EnrollmentData.Builder().setEnrollmentId("enrollment-id").build();
@@ -106,30 +107,34 @@ public final class AsyncSourceFetcherTest {
     private static final UnsignedLong DEFAULT_EVENT_ID = new UnsignedLong(987654321L);
     private static final UnsignedLong EVENT_ID_1 = new UnsignedLong(987654321L);
     private static final UnsignedLong DEBUG_KEY = new UnsignedLong(823523783L);
-    private static final String LIST_TYPE_REDIRECT_URI = "https://bar.com";
-    private static final String LOCATION_TYPE_REDIRECT_URI = "https://example.com";
+    private static final String LIST_TYPE_REDIRECT_URI = WebUtil.validUrl("https://bar.test");
+    private static final String LOCATION_TYPE_REDIRECT_URI =
+            WebUtil.validUrl("https://example.test");
     private static final String ALT_DESTINATION = "android-app://com.yourapps";
     private static final long ALT_PRIORITY = 321;
     private static final long ALT_EVENT_ID = 123456789;
     private static final long ALT_EXPIRY = 456790;
-    private static final Uri REGISTRATION_URI_1 = Uri.parse("https://foo.com");
-    private static final Uri REGISTRATION_URI_2 = Uri.parse("https://foo2.com");
+    private static final Uri REGISTRATION_URI_1 = WebUtil.validUri("https://foo.test");
+    private static final Uri REGISTRATION_URI_2 = WebUtil.validUri("https://foo2.test");
+    private static final String SDK_PACKAGE_NAME = "sdk.package.name";
     private static final Uri OS_DESTINATION = Uri.parse("android-app://com.os-destination");
     private static final String LONG_FILTER_STRING = "12345678901234567890123456";
     private static final String LONG_AGGREGATE_KEY_ID = "12345678901234567890123456";
     private static final String LONG_AGGREGATE_KEY_PIECE = "0x123456789012345678901234567890123";
     private static final Uri OS_DESTINATION_WITH_PATH =
             Uri.parse("android-app://com.os-destination/my/path");
-    private static final Uri WEB_DESTINATION = Uri.parse("https://web-destination.com");
+    private static final Uri WEB_DESTINATION = WebUtil.validUri("https://web-destination.test");
     private static final Uri WEB_DESTINATION_WITH_SUBDOMAIN =
-            Uri.parse("https://subdomain.web-destination.com");
+            WebUtil.validUri("https://subdomain.web-destination.test");
     private static final WebSourceParams SOURCE_REGISTRATION_1 =
             new WebSourceParams.Builder(REGISTRATION_URI_1).setDebugKeyAllowed(true).build();
     private static final WebSourceParams SOURCE_REGISTRATION_2 =
             new WebSourceParams.Builder(REGISTRATION_URI_2).setDebugKeyAllowed(false).build();
     private static final Context sContext =
             InstrumentationRegistry.getInstrumentation().getContext();
+
     AsyncSourceFetcher mFetcher;
+
     @Mock HttpsURLConnection mUrlConnection;
     @Mock EnrollmentDao mEnrollmentDao;
     @Mock Flags mFlags;
@@ -215,6 +220,7 @@ public final class AsyncSourceFetcherTest {
                                         .build()));
         verify(mUrlConnection).setRequestMethod("POST");
     }
+
     @Test
     public void testBasicSourceRequest_failsWhenNotEnrolled() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
@@ -255,6 +261,7 @@ public final class AsyncSourceFetcherTest {
         assertFalse(fetch.isPresent());
         verify(mFetcher, never()).openUrl(any());
     }
+
     @Test
     public void testBasicSourceRequestWithoutAdIdPermission() throws Exception {
         RegistrationRequest request = buildRequestWithoutAdIdPermission(DEFAULT_REGISTRATION);
@@ -302,15 +309,12 @@ public final class AsyncSourceFetcherTest {
         assertNull(result.getDebugKey());
         verify(mUrlConnection).setRequestMethod("POST");
     }
+
     @Test
     public void testSourceRequestWithPostInstallAttributes() throws Exception {
         RegistrationRequest request =
-                new RegistrationRequest.Builder()
-                        .setRegistrationType(RegistrationRequest.REGISTER_SOURCE)
-                        .setRegistrationUri(Uri.parse("https://foo.com"))
-                        .setPackageName(sContext.getAttributionSource().getPackageName())
-                        .build();
-        doReturn(mUrlConnection).when(mFetcher).openUrl(new URL("https://foo.com"));
+                buildDefaultRegistrationRequestBuilder(DEFAULT_REGISTRATION).build();
+        doReturn(mUrlConnection).when(mFetcher).openUrl(new URL(DEFAULT_REGISTRATION));
         when(mUrlConnection.getResponseCode()).thenReturn(200);
         when(mUrlConnection.getHeaderFields())
                 .thenReturn(
@@ -345,15 +349,12 @@ public final class AsyncSourceFetcherTest {
         assertEquals(TimeUnit.SECONDS.toMillis(987654L), result.getInstallCooldownWindow());
         verify(mUrlConnection).setRequestMethod("POST");
     }
+
     @Test
     public void testSourceRequestWithPostInstallAttributesReceivedAsNull() throws Exception {
         RegistrationRequest request =
-                new RegistrationRequest.Builder()
-                        .setRegistrationType(RegistrationRequest.REGISTER_SOURCE)
-                        .setRegistrationUri(Uri.parse("https://foo.com"))
-                        .setPackageName(sContext.getAttributionSource().getPackageName())
-                        .build();
-        doReturn(mUrlConnection).when(mFetcher).openUrl(new URL("https://foo.com"));
+                buildDefaultRegistrationRequestBuilder(DEFAULT_REGISTRATION).build();
+        doReturn(mUrlConnection).when(mFetcher).openUrl(new URL(DEFAULT_REGISTRATION));
         when(mUrlConnection.getResponseCode()).thenReturn(200);
         when(mUrlConnection.getHeaderFields())
                 .thenReturn(
@@ -391,15 +392,12 @@ public final class AsyncSourceFetcherTest {
         assertEquals(0L, result.getInstallCooldownWindow());
         verify(mUrlConnection).setRequestMethod("POST");
     }
+
     @Test
     public void testSourceRequestWithInstallAttributesOutofBounds() throws IOException {
         RegistrationRequest request =
-                new RegistrationRequest.Builder()
-                        .setRegistrationType(RegistrationRequest.REGISTER_SOURCE)
-                        .setRegistrationUri(Uri.parse("https://foo.com"))
-                        .setPackageName(sContext.getAttributionSource().getPackageName())
-                        .build();
-        doReturn(mUrlConnection).when(mFetcher).openUrl(new URL("https://foo.com"));
+                buildDefaultRegistrationRequestBuilder(DEFAULT_REGISTRATION).build();
+        doReturn(mUrlConnection).when(mFetcher).openUrl(new URL(DEFAULT_REGISTRATION));
         when(mUrlConnection.getResponseCode()).thenReturn(200);
         when(mUrlConnection.getHeaderFields())
                 .thenReturn(
@@ -411,14 +409,14 @@ public final class AsyncSourceFetcherTest {
                                             + "  \"priority\": \"123\",\n"
                                             + "  \"expiry\": \"456789\",\n"
                                             + "  \"source_event_id\": \"987654321\",\n"
-                                                // Min value of attribution is 1 day or 86400
-                                                // seconds
-                                                + "  \"install_attribution_window\": \"86300\",\n"
-                                                // Max value of cooldown is 30 days or 2592000
-                                                // seconds
-                                                + "  \"post_install_exclusivity_window\":"
-                                                + " \"9876543210\"\n"
-                                                + "}\n")));
+                                            // Min value of attribution is 1 day or 86400
+                                            // seconds
+                                            + "  \"install_attribution_window\": \"86300\",\n"
+                                            // Max value of cooldown is 30 days or 2592000
+                                            // seconds
+                                            + "  \"post_install_exclusivity_window\":"
+                                            + " \"9876543210\"\n"
+                                            + "}\n")));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -441,9 +439,10 @@ public final class AsyncSourceFetcherTest {
         assertEquals(TimeUnit.SECONDS.toMillis((2592000L)), result.getInstallCooldownWindow());
         verify(mUrlConnection).setRequestMethod("POST");
     }
+
     @Test
     public void testBadSourceUrl() {
-        RegistrationRequest request = buildRequest(/* registrationUri = */ "bad-schema://foo.com");
+        RegistrationRequest request = buildRequest(WebUtil.validUrl("bad-schema://foo.test"));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -454,6 +453,7 @@ public final class AsyncSourceFetcherTest {
         assertEquals(AsyncFetchStatus.ResponseStatus.PARSING_ERROR, asyncFetchStatus.getStatus());
         assertFalse(fetch.isPresent());
     }
+
     @Test
     public void testBadSourceConnection() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
@@ -470,6 +470,7 @@ public final class AsyncSourceFetcherTest {
         assertEquals(AsyncFetchStatus.ResponseStatus.NETWORK_ERROR, asyncFetchStatus.getStatus());
         assertFalse(fetch.isPresent());
     }
+
     @Test
     public void testBadSourceJson_missingSourceEventId() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
@@ -495,6 +496,7 @@ public final class AsyncSourceFetcherTest {
         assertFalse(fetch.isPresent());
         verify(mUrlConnection).setRequestMethod("POST");
     }
+
     @Test
     public void testBadSourceJson_missingHeader() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
@@ -512,6 +514,7 @@ public final class AsyncSourceFetcherTest {
         assertFalse(fetch.isPresent());
         verify(mUrlConnection).setRequestMethod("POST");
     }
+
     @Test
     public void testBadSourceJson_missingDestination() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
@@ -537,6 +540,7 @@ public final class AsyncSourceFetcherTest {
         assertFalse(fetch.isPresent());
         verify(mUrlConnection).setRequestMethod("POST");
     }
+
     @Test
     public void testBasicSourceRequestMinimumFields() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
@@ -578,7 +582,7 @@ public final class AsyncSourceFetcherTest {
     }
 
     @Test
-    public void testBasicSourceRequest_sourceEventId_negative() throws Exception {
+    public void fetchSource_sourceEventIdNegative_fetchSuccess() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
         doReturn(mUrlConnection).when(mFetcher).openUrl(new URL(DEFAULT_REGISTRATION));
         when(mUrlConnection.getResponseCode()).thenReturn(200);
@@ -600,13 +604,13 @@ public final class AsyncSourceFetcherTest {
                         appSourceRegistrationRequest(request), asyncFetchStatus, asyncRedirect);
 
         // Assertion
-        assertFalse(fetch.isPresent());
+        assertTrue(fetch.isPresent());
         verify(mUrlConnection, times(1)).setRequestMethod("POST");
         verify(mFetcher, times(1)).openUrl(any());
     }
 
     @Test
-    public void testBasicSourceRequest_sourceEventId_tooLarge() throws Exception {
+    public void fetchSource_sourceEventIdTooLarge_fetchSuccess() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
         doReturn(mUrlConnection).when(mFetcher).openUrl(new URL(DEFAULT_REGISTRATION));
         when(mUrlConnection.getResponseCode()).thenReturn(200);
@@ -628,13 +632,13 @@ public final class AsyncSourceFetcherTest {
                         appSourceRegistrationRequest(request), asyncFetchStatus, asyncRedirect);
 
         // Assertion
-        assertFalse(fetch.isPresent());
+        assertTrue(fetch.isPresent());
         verify(mUrlConnection, times(1)).setRequestMethod("POST");
         verify(mFetcher, times(1)).openUrl(any());
     }
 
     @Test
-    public void testBasicSourceRequest_sourceEventId_notAnInt() throws Exception {
+    public void fetchSource_sourceEventIdNotAnInt_fetchSuccess() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
         doReturn(mUrlConnection).when(mFetcher).openUrl(new URL(DEFAULT_REGISTRATION));
         when(mUrlConnection.getResponseCode()).thenReturn(200);
@@ -656,7 +660,7 @@ public final class AsyncSourceFetcherTest {
                         appSourceRegistrationRequest(request), asyncFetchStatus, asyncRedirect);
 
         // Assertion
-        assertFalse(fetch.isPresent());
+        assertTrue(fetch.isPresent());
         verify(mUrlConnection, times(1)).setRequestMethod("POST");
         verify(mFetcher, times(1)).openUrl(any());
     }
@@ -866,12 +870,8 @@ public final class AsyncSourceFetcherTest {
     @Test
     public void testBasicSourceRequestMinimumFieldsAndRestNull() throws Exception {
         RegistrationRequest request =
-                new RegistrationRequest.Builder()
-                        .setRegistrationType(RegistrationRequest.REGISTER_SOURCE)
-                        .setRegistrationUri(Uri.parse("https://foo.com"))
-                        .setPackageName(sContext.getAttributionSource().getPackageName())
-                        .build();
-        doReturn(mUrlConnection).when(mFetcher).openUrl(new URL("https://foo.com"));
+                buildDefaultRegistrationRequestBuilder(DEFAULT_REGISTRATION).build();
+        doReturn(mUrlConnection).when(mFetcher).openUrl(new URL(DEFAULT_REGISTRATION));
         when(mUrlConnection.getResponseCode()).thenReturn(200);
         when(mUrlConnection.getHeaderFields())
                 .thenReturn(
@@ -988,7 +988,7 @@ public final class AsyncSourceFetcherTest {
     }
     @Test
     public void testNotOverHttps() throws Exception {
-        RegistrationRequest request = buildRequest("http://foo.com");
+        RegistrationRequest request = buildRequest(WebUtil.validUrl("http://foo.test"));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -1041,7 +1041,7 @@ public final class AsyncSourceFetcherTest {
         when(mUrlConnection.getResponseCode()).thenReturn(200);
         Map<String, List<String>> headersFirstRequest = new HashMap<>();
         headersFirstRequest.put("Attribution-Reporting-Register-Source", List.of("{}"));
-        headersFirstRequest.put("Attribution-Reporting-Redirect", List.of("https://bar.com"));
+        headersFirstRequest.put("Attribution-Reporting-Redirect", List.of(LIST_TYPE_REDIRECT_URI));
         Map<String, List<String>> headersSecondRequest = new HashMap<>();
         headersSecondRequest.put(
                 "Attribution-Reporting-Register-Source",
@@ -1251,9 +1251,12 @@ public final class AsyncSourceFetcherTest {
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
-        Optional<Source> fetch = mFetcher.fetchSource(appSourceRegistrationRequest(
-                request, AsyncRegistration.RedirectType.DAISY_CHAIN, 1),
-                asyncFetchStatus, asyncRedirect);
+        Optional<Source> fetch =
+                mFetcher.fetchSource(
+                        appSourceRegistrationRequest(
+                                request, AsyncRegistration.RedirectType.DAISY_CHAIN, 1),
+                        asyncFetchStatus,
+                        asyncRedirect);
         // Assertion
         assertEquals(AsyncFetchStatus.ResponseStatus.SUCCESS, asyncFetchStatus.getStatus());
         assertTrue(fetch.isPresent());
@@ -1283,9 +1286,12 @@ public final class AsyncSourceFetcherTest {
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
-        Optional<Source> fetch = mFetcher.fetchSource(appSourceRegistrationRequest(
-                request, AsyncRegistration.RedirectType.DAISY_CHAIN, 1),
-                asyncFetchStatus, asyncRedirect);
+        Optional<Source> fetch =
+                mFetcher.fetchSource(
+                        appSourceRegistrationRequest(
+                                request, AsyncRegistration.RedirectType.DAISY_CHAIN, 1),
+                        asyncFetchStatus,
+                        asyncRedirect);
         // Assertion
         assertEquals(AsyncFetchStatus.ResponseStatus.SUCCESS, asyncFetchStatus.getStatus());
         assertTrue(fetch.isPresent());
@@ -1303,7 +1309,7 @@ public final class AsyncSourceFetcherTest {
     // End tests for redirect types
 
     @Test
-    public void testBasicSourceRequestWithAggregateFilterData() throws Exception {
+    public void testBasicSourceRequestWithFilterData() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
         String filterData =
                 "  \"filter_data\": {\"product\":[\"1234\",\"2345\"], \"ctid\":[\"id\"]} \n";
@@ -1319,8 +1325,8 @@ public final class AsyncSourceFetcherTest {
                                             + "  \"priority\": \"123\",\n"
                                             + "  \"expiry\": \"456789\",\n"
                                             + "  \"source_event_id\": \"987654321\",\n"
-                                                + filterData
-                                                + "}\n")));
+                                            + filterData
+                                            + "}\n")));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -1339,12 +1345,12 @@ public final class AsyncSourceFetcherTest {
         assertEquals(new UnsignedLong(987654321L), result.getEventId());
         assertEquals(
                 "{\"product\":[\"1234\",\"2345\"],\"ctid\":[\"id\"]}",
-                result.getAggregateFilterData());
+                result.getFilterData());
         verify(mUrlConnection).setRequestMethod("POST");
     }
 
     @Test
-    public void testSourceRequest_aggregateFilterData_invalidJson() throws Exception {
+    public void testSourceRequest_filterData_invalidJson() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
         String filterData =
                 "  \"filter_data\": {\"product\":\"1234\",\"2345\"], \"ctid\":[\"id\"]} \n";
@@ -1360,8 +1366,8 @@ public final class AsyncSourceFetcherTest {
                                             + "  \"priority\": \"123\",\n"
                                             + "  \"expiry\": \"456789\",\n"
                                             + "  \"source_event_id\": \"987654321\",\n"
-                                                + filterData
-                                                + "}\n")));
+                                            + filterData
+                                            + "}\n")));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -1375,7 +1381,7 @@ public final class AsyncSourceFetcherTest {
     }
 
     @Test
-    public void testSourceRequest_aggregateFilterData_tooManyFilters() throws Exception {
+    public void testSourceRequest_filterData_tooManyFilters() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
         StringBuilder filters = new StringBuilder("{");
         filters.append(
@@ -1396,8 +1402,8 @@ public final class AsyncSourceFetcherTest {
                                             + "  \"priority\": \"123\",\n"
                                             + "  \"expiry\": \"456789\",\n"
                                             + "  \"source_event_id\": \"987654321\",\n"
-                                                + filterData
-                                                + "}\n")));
+                                            + filterData
+                                            + "}\n")));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -1411,7 +1417,7 @@ public final class AsyncSourceFetcherTest {
     }
 
     @Test
-    public void testSourceRequest_aggregateFilterData_keyTooLong() throws Exception {
+    public void testSourceRequest_filterData_keyTooLong() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
         String filterData =
                 "  \"filter_data\": {\"product\":[\"1234\",\"2345\"], \""
@@ -1429,8 +1435,8 @@ public final class AsyncSourceFetcherTest {
                                             + "  \"priority\": \"123\",\n"
                                             + "  \"expiry\": \"456789\",\n"
                                             + "  \"source_event_id\": \"987654321\",\n"
-                                                + filterData
-                                                + "}\n")));
+                                            + filterData
+                                            + "}\n")));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -1444,7 +1450,7 @@ public final class AsyncSourceFetcherTest {
     }
 
     @Test
-    public void testSourceRequest_aggregateFilterData_tooManyValues() throws Exception {
+    public void testSourceRequest_filterData_tooManyValues() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
         StringBuilder filters =
                 new StringBuilder(
@@ -1469,8 +1475,8 @@ public final class AsyncSourceFetcherTest {
                                             + "  \"priority\": \"123\",\n"
                                             + "  \"expiry\": \"456789\",\n"
                                             + "  \"source_event_id\": \"987654321\",\n"
-                                                + filterData
-                                                + "}\n")));
+                                            + filterData
+                                            + "}\n")));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -1484,7 +1490,7 @@ public final class AsyncSourceFetcherTest {
     }
 
     @Test
-    public void testSourceRequest_aggregateFilterData_valueTooLong() throws Exception {
+    public void testSourceRequest_filterData_valueTooLong() throws Exception {
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
         String filterData =
                 "  \"filter_data\": {\"product\":[\"1234\",\""
@@ -1502,8 +1508,8 @@ public final class AsyncSourceFetcherTest {
                                             + "  \"priority\": \"123\",\n"
                                             + "  \"expiry\": \"456789\",\n"
                                             + "  \"source_event_id\": \"987654321\",\n"
-                                                + filterData
-                                                + "}\n")));
+                                            + filterData
+                                            + "}\n")));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -1568,10 +1574,8 @@ public final class AsyncSourceFetcherTest {
                                             + "  \"priority\": \"123\",\n"
                                             + "  \"expiry\": \"456789\",\n"
                                             + "  \"source_event_id\": \"987654321\",\n"
-                                            + "\"aggregation_keys\": [{\"id\" :"
-                                            + " \"campaignCounts\", \"key_piece\" :"
-                                            + " \"0x159\"},{\"id\" : \"geoValue\", \"key_piece\" :"
-                                            + " \"0x5\"}]\n"
+                                            + "\"aggregation_keys\": {\"campaignCounts\" :"
+                                            + " \"0x159\", \"geoValue\" : \"0x5\"}\n"
                                             + "}\n")));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
@@ -1585,9 +1589,7 @@ public final class AsyncSourceFetcherTest {
         Source result = fetch.get();
         assertEquals(ENROLLMENT_ID, result.getEnrollmentId());
         assertEquals(
-                new JSONArray(
-                                "[{\"id\" : \"campaignCounts\", \"key_piece\" : \"0x159\"},{\"id\""
-                                        + " : \"geoValue\", \"key_piece\" : \"0x5\"}]")
+                new JSONObject("{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
                         .toString(),
                 result.getAggregateSource());
         verify(mUrlConnection).setRequestMethod("POST");
@@ -1595,12 +1597,11 @@ public final class AsyncSourceFetcherTest {
 
     @Test
     public void testBasicSourceRequestWithAggregateSource_rejectsTooManyKeys() throws Exception {
-        StringBuilder tooManyKeys = new StringBuilder("[");
+        StringBuilder tooManyKeys = new StringBuilder("{");
         for (int i = 0; i < 51; i++) {
-            tooManyKeys.append(
-                    String.format("{\"id\": \"campaign-%1$s\", \"key_piece\": \"0x15%1$s\"}", i));
+            tooManyKeys.append(String.format("\"campaign-%1$s\": \"0x15%1$s\"", i));
         }
-        tooManyKeys.append("]");
+        tooManyKeys.append("}");
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
         doReturn(mUrlConnection).when(mFetcher).openUrl(any(URL.class));
         when(mUrlConnection.getResponseCode()).thenReturn(200);
@@ -1614,8 +1615,8 @@ public final class AsyncSourceFetcherTest {
                                             + "  \"priority\": \"123\",\n"
                                             + "  \"expiry\": \"456789\",\n"
                                             + "  \"source_event_id\":"
-                                            + " \"987654321\",'aggregation_keys': "
-                                                + tooManyKeys)));
+                                            + " \"987654321\",\"aggregation_keys\": "
+                                            + tooManyKeys)));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -1629,12 +1630,11 @@ public final class AsyncSourceFetcherTest {
     }
     @Test
     public void testSourceRequestWithAggregateSource_tooManyKeys() throws Exception {
-        StringBuilder tooManyKeys = new StringBuilder("[");
+        StringBuilder tooManyKeys = new StringBuilder("{");
         for (int i = 0; i < MAX_AGGREGATE_KEYS_PER_REGISTRATION + 1; i++) {
-            tooManyKeys.append(
-                    String.format("{\"id\": \"campaign-%1$s\", \"key_piece\": \"0x15%1$s\"}", i));
+            tooManyKeys.append(String.format("\"campaign-%1$s\": \"0x15%1$s\"", i));
         }
-        tooManyKeys.append("]");
+        tooManyKeys.append("}");
         RegistrationRequest request = buildRequest(DEFAULT_REGISTRATION);
         doReturn(mUrlConnection).when(mFetcher).openUrl(any(URL.class));
         when(mUrlConnection.getResponseCode()).thenReturn(200);
@@ -1648,8 +1648,8 @@ public final class AsyncSourceFetcherTest {
                                             + "  \"priority\": \"123\",\n"
                                             + "  \"expiry\": \"456789\",\n"
                                             + "  \"source_event_id\":"
-                                            + " \"987654321\",'aggregation_keys': "
-                                                + tooManyKeys)));
+                                            + " \"987654321\",\"aggregation_keys\": "
+                                            + tooManyKeys)));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -1676,10 +1676,8 @@ public final class AsyncSourceFetcherTest {
                                             + "  \"priority\": \"123\",\n"
                                             + "  \"expiry\": \"456789\",\n"
                                             + "  \"source_event_id\": \"987654321\",\n"
-                                            + "\"aggregation_keys\": [{\"id\" :"
-                                            + " \"campaignCounts\", \"key_piece\" :"
-                                            + " \"0x159\"},[\"id\", \"geoValue\", \"key_piece\" ,"
-                                            + " \"0x5\"]\n"
+                                            + "\"aggregation_keys\": [\"campaignCounts\","
+                                            + " \"0x159\", \"geoValue\", \"0x5\"]\n"
                                             + "}\n")));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
@@ -1708,11 +1706,11 @@ public final class AsyncSourceFetcherTest {
                                             + "  \"priority\": \"123\",\n"
                                             + "  \"expiry\": \"456789\",\n"
                                             + "  \"source_event_id\": \"987654321\",\n"
-                                            + "\"aggregation_keys\": [{\"id\" : \""
-                                                + LONG_AGGREGATE_KEY_ID
-                                                + "\", \"key_piece\" : \"0x159\"},{\"id\" :"
-                                                + " \"geoValue\", \"key_piece\" : \"0x5\"}]\n"
-                                                + "}\n")));
+                                            + "\"aggregation_keys\": {\""
+                                            + LONG_AGGREGATE_KEY_ID
+                                            + "\": \"0x159\","
+                                            + "\"geoValue\": \"0x5\"}\n"
+                                            + "}\n")));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -1741,10 +1739,8 @@ public final class AsyncSourceFetcherTest {
                                             + "  \"priority\": \"123\",\n"
                                             + "  \"expiry\": \"456789\",\n"
                                             + "  \"source_event_id\": \"987654321\",\n"
-                                            + "\"aggregation_keys\": [{\"id\" :"
-                                            + " \"campaignCounts\", \"key_piece\" :"
-                                            + " \"0159\"},{\"id\" : \"geoValue\", \"key_piece\" :"
-                                            + " \"0x5\"}]\n"
+                                            + "\"aggregation_keys\": {\"campaignCounts\" :"
+                                            + " \"0159\", \"geoValue\" : \"0x5\"}\n"
                                             + "}\n")));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
@@ -1772,13 +1768,11 @@ public final class AsyncSourceFetcherTest {
                                             + "  \"priority\": \"123\",\n"
                                             + "  \"expiry\": \"456789\",\n"
                                             + "  \"source_event_id\": \"987654321\",\n"
-                                            + "\"aggregation_keys\": [{\"id\" :"
-                                            + " \"campaignCounts\", \"key_piece\" :"
-                                            + " \"0x159\"},{\"id\" : \"geoValue\", \"key_piece\" :"
-                                            + " \""
-                                                + LONG_AGGREGATE_KEY_PIECE
-                                                + "\"}]\n"
-                                                + "}\n")));
+                                            + "\"aggregation_keys\": {\"campaignCounts\":"
+                                            + " \"0x159\", \"geoValue\": \""
+                                            + LONG_AGGREGATE_KEY_PIECE
+                                            + "\"}\n"
+                                            + "}\n")));
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -1793,15 +1787,6 @@ public final class AsyncSourceFetcherTest {
     @Test
     public void fetchWebSources_basic_success() throws IOException {
         // Setup
-        SourceRegistration expectedResult1 =
-                new SourceRegistration.Builder()
-                        .setAppDestination(Uri.parse(DEFAULT_DESTINATION))
-                        .setExpiry(MAX_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS)
-                        .setEnrollmentId(ENROLLMENT_ID)
-                        .setSourceEventId(EVENT_ID_1)
-                        .setSourcePriority(0)
-                        .setDebugKey(DEBUG_KEY)
-                        .build();
         WebSourceRegistrationRequest request =
                 buildWebSourceRegistrationRequest(
                         Arrays.asList(SOURCE_REGISTRATION_1),
@@ -1836,25 +1821,18 @@ public final class AsyncSourceFetcherTest {
         assertTrue(fetch.isPresent());
         Source result = fetch.get();
         assertEquals(0, asyncRedirect.getRedirects().size());
-        assertEquals(expectedResult1.getEnrollmentId(), result.getEnrollmentId());
-        assertEquals(expectedResult1.getAppDestination(), result.getAppDestination());
-        assertEquals(expectedResult1.getSourceEventId(), result.getEventId());
+        assertEquals(ENROLLMENT_ID, result.getEnrollmentId());
+        assertEquals(Uri.parse(DEFAULT_DESTINATION), result.getAppDestination());
+        assertEquals(EVENT_ID_1, result.getEventId());
         assertEquals(
-                result.getEventTime() + TimeUnit.SECONDS.toMillis(expectedResult1.getExpiry()),
+                result.getEventTime() + TimeUnit.SECONDS.toMillis(
+                        MAX_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS),
                 result.getExpiryTime());
         verify(mUrlConnection).setRequestMethod("POST");
     }
     @Test
     public void fetchWebSourcesSuccessWithoutAdIdPermission() throws IOException {
         // Setup
-        SourceRegistration expectedResult1 =
-                new SourceRegistration.Builder()
-                        .setAppDestination(Uri.parse(DEFAULT_DESTINATION))
-                        .setExpiry(MAX_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS)
-                        .setEnrollmentId(ENROLLMENT_ID)
-                        .setSourceEventId(EVENT_ID_1)
-                        .setSourcePriority(0)
-                        .build();
         WebSourceRegistrationRequest request =
                 buildWebSourceRegistrationRequest(
                         Arrays.asList(SOURCE_REGISTRATION_1, SOURCE_REGISTRATION_2),
@@ -1888,14 +1866,15 @@ public final class AsyncSourceFetcherTest {
         assertTrue(fetch.isPresent());
         Source result = fetch.get();
         assertEquals(0, asyncRedirect.getRedirects().size());
-        assertEquals(expectedResult1.getEnrollmentId(), result.getEnrollmentId());
-        assertEquals(expectedResult1.getAppDestination(), result.getAppDestination());
-        assertEquals(expectedResult1.getAggregateFilterData(), result.getAggregateFilterData());
-        assertEquals(expectedResult1.getSourceEventId(), result.getEventId());
+        assertEquals(ENROLLMENT_ID, result.getEnrollmentId());
+        assertEquals(Uri.parse(DEFAULT_DESTINATION), result.getAppDestination());
+        assertEquals(EVENT_ID_1, result.getEventId());
         assertEquals(
-                result.getEventTime() + TimeUnit.SECONDS.toMillis(expectedResult1.getExpiry()),
+                result.getEventTime() + TimeUnit.SECONDS.toMillis(
+                        MAX_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS),
                 result.getExpiryTime());
-        assertEquals(expectedResult1.getAggregateSource(), result.getAggregateSource());
+        assertNull(result.getFilterData());
+        assertNull(result.getAggregateSource());
     }
     @Test
     public void fetchWebSources_oneSuccessAndOneFailure_resultsIntoOneSourceFetched()
@@ -1948,9 +1927,7 @@ public final class AsyncSourceFetcherTest {
                         null);
         doReturn(mUrlConnection).when(mFetcher).openUrl(new URL(REGISTRATION_URI_1.toString()));
         when(mUrlConnection.getResponseCode()).thenReturn(200);
-        String aggregateSource =
-                "[{\"id\" : \"campaignCounts\", \"key_piece\" : \"0x159\"},"
-                        + "{\"id\" : \"geoValue\", \"key_piece\" : \"0x5\"}]";
+        String aggregateSource = "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}";
         String filterData = "{\"product\":[\"1234\",\"2345\"]," + "\"ctid\":[\"id\"]}";
         when(mUrlConnection.getHeaderFields())
                 .thenReturn(
@@ -1970,16 +1947,7 @@ public final class AsyncSourceFetcherTest {
                                                 + " \"aggregation_keys\": "
                                                 + aggregateSource
                                                 + "}")));
-        SourceRegistration expectedSourceRegistration =
-                new SourceRegistration.Builder()
-                        .setAppDestination(OS_DESTINATION)
-                        .setSourcePriority(123)
-                        .setExpiry(456789)
-                        .setSourceEventId(new UnsignedLong(987654321L))
-                        .setAggregateFilterData(filterData)
-                        .setAggregateSource(new JSONArray(aggregateSource).toString())
-                        .setEnrollmentId(ENROLLMENT_ID)
-                        .build();
+
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -1990,17 +1958,14 @@ public final class AsyncSourceFetcherTest {
         assertTrue(fetch.isPresent());
         Source result = fetch.get();
         assertEquals(0, asyncRedirect.getRedirects().size());
-        assertEquals(expectedSourceRegistration.getEnrollmentId(), result.getEnrollmentId());
-        assertEquals(expectedSourceRegistration.getAppDestination(), result.getAppDestination());
+        assertEquals(ENROLLMENT_ID, result.getEnrollmentId());
+        assertEquals(OS_DESTINATION, result.getAppDestination());
+        assertEquals(filterData, result.getFilterData());
+        assertEquals(new UnsignedLong(987654321L), result.getEventId());
         assertEquals(
-                expectedSourceRegistration.getAggregateFilterData(),
-                result.getAggregateFilterData());
-        assertEquals(expectedSourceRegistration.getSourceEventId(), result.getEventId());
-        assertEquals(
-                result.getEventTime()
-                        + TimeUnit.SECONDS.toMillis(expectedSourceRegistration.getExpiry()),
+                result.getEventTime() + TimeUnit.SECONDS.toMillis(456789L),
                 result.getExpiryTime());
-        assertEquals(expectedSourceRegistration.getAggregateSource(), result.getAggregateSource());
+        assertEquals(new JSONObject(aggregateSource).toString(), result.getAggregateSource());
         verify(mUrlConnection).setRequestMethod("POST");
     }
     @Test
@@ -2014,9 +1979,7 @@ public final class AsyncSourceFetcherTest {
                         null);
         doReturn(mUrlConnection).when(mFetcher).openUrl(new URL(REGISTRATION_URI_1.toString()));
         when(mUrlConnection.getResponseCode()).thenReturn(200);
-        String aggregateSource =
-                "[{\"id\" : \"campaignCounts\", \"key_piece\" : \"0x159\"},"
-                        + "{\"id\" : \"geoValue\", \"key_piece\" : \"0x5\"}]";
+        String aggregateSource = "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}";
         String filterData = "{\"product\":[\"1234\",\"2345\"]," + "\"ctid\":[\"id\"]}";
         when(mUrlConnection.getHeaderFields())
                 .thenReturn(
@@ -2040,16 +2003,7 @@ public final class AsyncSourceFetcherTest {
                                 List.of(LIST_TYPE_REDIRECT_URI),
                                 "Location",
                                 List.of(LOCATION_TYPE_REDIRECT_URI)));
-        SourceRegistration expectedSourceRegistration =
-                new SourceRegistration.Builder()
-                        .setAppDestination(Uri.parse(DEFAULT_DESTINATION))
-                        .setSourcePriority(123)
-                        .setExpiry(456789)
-                        .setSourceEventId(new UnsignedLong(987654321L))
-                        .setAggregateFilterData(filterData)
-                        .setAggregateSource(new JSONArray(aggregateSource).toString())
-                        .setEnrollmentId(ENROLLMENT_ID)
-                        .build();
+
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -2061,17 +2015,14 @@ public final class AsyncSourceFetcherTest {
         Source result = fetch.get();
         assertEquals(AsyncRegistration.RedirectType.NONE, asyncRedirect.getRedirectType());
         assertEquals(0, asyncRedirect.getRedirects().size());
-        assertEquals(expectedSourceRegistration.getEnrollmentId(), result.getEnrollmentId());
-        assertEquals(expectedSourceRegistration.getAppDestination(), result.getAppDestination());
+        assertEquals(ENROLLMENT_ID, result.getEnrollmentId());
+        assertEquals(Uri.parse(DEFAULT_DESTINATION), result.getAppDestination());
+        assertEquals(filterData, result.getFilterData());
+        assertEquals(new UnsignedLong(987654321L), result.getEventId());
         assertEquals(
-                expectedSourceRegistration.getAggregateFilterData(),
-                result.getAggregateFilterData());
-        assertEquals(expectedSourceRegistration.getSourceEventId(), result.getEventId());
-        assertEquals(
-                result.getEventTime()
-                        + TimeUnit.SECONDS.toMillis(expectedSourceRegistration.getExpiry()),
+                result.getEventTime() + TimeUnit.SECONDS.toMillis(456789L),
                 result.getExpiryTime());
-        assertEquals(expectedSourceRegistration.getAggregateSource(), result.getAggregateSource());
+        assertEquals(new JSONObject(aggregateSource).toString(), result.getAggregateSource());
         verify(mUrlConnection).setRequestMethod("POST");
         verify(mFetcher, times(1)).openUrl(any());
     }
@@ -2101,7 +2052,7 @@ public final class AsyncSourceFetcherTest {
                                                 + "  \"destination\":"
                                                 + " android-app://wrong.os-destination,\n"
                                                 + "  \"web_destination\": "
-                                                + WEB_DESTINATION
+                                                + "\"" + WEB_DESTINATION + "\""
                                                 + ",\n"
                                                 + "  \"filter_data\": "
                                                 + filterData
@@ -2141,10 +2092,12 @@ public final class AsyncSourceFetcherTest {
                                                 + "  \"expiry\": \"456789\",\n"
                                                 + "  \"source_event_id\": \"987654321\",\n"
                                                 + "  \"destination\":  "
-                                                + OS_DESTINATION
+                                                + "\"" + OS_DESTINATION + "\""
                                                 + ",\n"
                                                 + "  \"web_destination\": "
-                                                + " https://wrong-web-destination.com,\n"
+                                                + "\"" + WebUtil.validUrl(
+                                                        "https://wrong-web-destination.test")
+                                                + "\",\n"
                                                 + "  \"filter_data\": "
                                                 + filterData
                                                 + "}")));
@@ -2188,15 +2141,6 @@ public final class AsyncSourceFetcherTest {
                                                 + WEB_DESTINATION
                                                 + "\""
                                                 + "}")));
-        SourceRegistration expectedSourceRegistration =
-                new SourceRegistration.Builder()
-                        .setAppDestination(OS_DESTINATION)
-                        .setWebDestination(WEB_DESTINATION)
-                        .setSourcePriority(123)
-                        .setExpiry(456789)
-                        .setSourceEventId(new UnsignedLong(987654321L))
-                        .setEnrollmentId(ENROLLMENT_ID)
-                        .build();
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -2208,19 +2152,17 @@ public final class AsyncSourceFetcherTest {
         assertTrue(fetch.isPresent());
         Source result = fetch.get();
         assertEquals(0, asyncRedirect.getRedirects().size());
-        assertEquals(expectedSourceRegistration.getEnrollmentId(), result.getEnrollmentId());
-        assertEquals(expectedSourceRegistration.getAppDestination(), result.getAppDestination());
+        assertEquals(ENROLLMENT_ID, result.getEnrollmentId());
+        assertEquals(OS_DESTINATION, result.getAppDestination());
+        assertNull(result.getFilterData());
+        assertEquals(new UnsignedLong(987654321L), result.getEventId());
         assertEquals(
-                expectedSourceRegistration.getAggregateFilterData(),
-                result.getAggregateFilterData());
-        assertEquals(expectedSourceRegistration.getSourceEventId(), result.getEventId());
-        assertEquals(
-                result.getEventTime()
-                        + TimeUnit.SECONDS.toMillis(expectedSourceRegistration.getExpiry()),
+                result.getEventTime() + TimeUnit.SECONDS.toMillis(456789L),
                 result.getExpiryTime());
-        assertEquals(expectedSourceRegistration.getAggregateSource(), result.getAggregateSource());
+        assertNull(result.getAggregateSource());
         verify(mUrlConnection).setRequestMethod("POST");
     }
+
     @Test
     public void fetchWebSources_extractsTopPrivateDomain() throws IOException {
         // Setup
@@ -2250,15 +2192,7 @@ public final class AsyncSourceFetcherTest {
                                                 + WEB_DESTINATION_WITH_SUBDOMAIN
                                                 + "\""
                                                 + "}")));
-        SourceRegistration expectedSourceRegistration =
-                new SourceRegistration.Builder()
-                        .setAppDestination(OS_DESTINATION)
-                        .setWebDestination(WEB_DESTINATION)
-                        .setSourcePriority(123)
-                        .setExpiry(456789)
-                        .setSourceEventId(new UnsignedLong(987654321L))
-                        .setEnrollmentId(ENROLLMENT_ID)
-                        .build();
+
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -2270,17 +2204,14 @@ public final class AsyncSourceFetcherTest {
         assertTrue(fetch.isPresent());
         Source result = fetch.get();
         assertEquals(0, asyncRedirect.getRedirects().size());
-        assertEquals(expectedSourceRegistration.getEnrollmentId(), result.getEnrollmentId());
-        assertEquals(expectedSourceRegistration.getAppDestination(), result.getAppDestination());
+        assertEquals(ENROLLMENT_ID, result.getEnrollmentId());
+        assertEquals(OS_DESTINATION, result.getAppDestination());
+        assertNull(result.getFilterData());
+        assertEquals(new UnsignedLong(987654321L), result.getEventId());
         assertEquals(
-                expectedSourceRegistration.getAggregateFilterData(),
-                result.getAggregateFilterData());
-        assertEquals(expectedSourceRegistration.getSourceEventId(), result.getEventId());
-        assertEquals(
-                result.getEventTime()
-                        + TimeUnit.SECONDS.toMillis(expectedSourceRegistration.getExpiry()),
+                result.getEventTime() + TimeUnit.SECONDS.toMillis(456789L),
                 result.getExpiryTime());
-        assertEquals(expectedSourceRegistration.getAggregateSource(), result.getAggregateSource());
+        assertNull(result.getAggregateSource());
         verify(mUrlConnection).setRequestMethod("POST");
     }
     @Test
@@ -2310,15 +2241,7 @@ public final class AsyncSourceFetcherTest {
                                                 + WEB_DESTINATION
                                                 + "\""
                                                 + "}")));
-        SourceRegistration expectedSourceRegistration =
-                new SourceRegistration.Builder()
-                        .setAppDestination(OS_DESTINATION)
-                        .setWebDestination(WEB_DESTINATION)
-                        .setSourcePriority(123)
-                        .setExpiry(456789)
-                        .setSourceEventId(new UnsignedLong(987654321L))
-                        .setEnrollmentId(ENROLLMENT_ID)
-                        .build();
+
         AsyncRedirect asyncRedirect = new AsyncRedirect();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
         // Execution
@@ -2329,17 +2252,14 @@ public final class AsyncSourceFetcherTest {
         assertTrue(fetch.isPresent());
         Source result = fetch.get();
         assertEquals(0, asyncRedirect.getRedirects().size());
-        assertEquals(expectedSourceRegistration.getEnrollmentId(), result.getEnrollmentId());
-        assertEquals(expectedSourceRegistration.getAppDestination(), result.getAppDestination());
+        assertEquals(ENROLLMENT_ID, result.getEnrollmentId());
+        assertEquals(OS_DESTINATION, result.getAppDestination());
+        assertNull(result.getFilterData());
+        assertEquals(new UnsignedLong(987654321L), result.getEventId());
         assertEquals(
-                expectedSourceRegistration.getAggregateFilterData(),
-                result.getAggregateFilterData());
-        assertEquals(expectedSourceRegistration.getSourceEventId(), result.getEventId());
-        assertEquals(
-                result.getEventTime()
-                        + TimeUnit.SECONDS.toMillis(expectedSourceRegistration.getExpiry()),
+                result.getEventTime() + TimeUnit.SECONDS.toMillis(456789L),
                 result.getExpiryTime());
-        assertEquals(expectedSourceRegistration.getAggregateSource(), result.getAggregateSource());
+        assertNull(result.getAggregateSource());
         verify(mUrlConnection).setRequestMethod("POST");
     }
     @Test
@@ -2377,14 +2297,6 @@ public final class AsyncSourceFetcherTest {
     public void fetchWebSources_withDestinationUriNotHavingScheme_attachesAppScheme()
             throws IOException {
         // Setup
-        SourceRegistration expectedResult =
-                new SourceRegistration.Builder()
-                        .setAppDestination(Uri.parse(DEFAULT_DESTINATION))
-                        .setExpiry(MAX_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS)
-                        .setEnrollmentId(ENROLLMENT_ID)
-                        .setSourceEventId(EVENT_ID_1)
-                        .setSourcePriority(0)
-                        .build();
         WebSourceRegistrationRequest request =
                 buildWebSourceRegistrationRequest(
                         Collections.singletonList(SOURCE_REGISTRATION_1),
@@ -2416,14 +2328,15 @@ public final class AsyncSourceFetcherTest {
         assertTrue(fetch.isPresent());
         Source result = fetch.get();
         assertEquals(0, asyncRedirect.getRedirects().size());
-        assertEquals(expectedResult.getEnrollmentId(), result.getEnrollmentId());
-        assertEquals(expectedResult.getAppDestination(), result.getAppDestination());
-        assertEquals(expectedResult.getAggregateFilterData(), result.getAggregateFilterData());
-        assertEquals(expectedResult.getSourceEventId(), result.getEventId());
+        assertEquals(ENROLLMENT_ID, result.getEnrollmentId());
+        assertEquals(Uri.parse(DEFAULT_DESTINATION), result.getAppDestination());
+        assertNull(result.getFilterData());
+        assertEquals(EVENT_ID_1, result.getEventId());
         assertEquals(
-                result.getEventTime() + TimeUnit.SECONDS.toMillis(expectedResult.getExpiry()),
+                result.getEventTime() + TimeUnit.SECONDS.toMillis(
+                        MAX_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS),
                 result.getExpiryTime());
-        assertEquals(expectedResult.getAggregateSource(), result.getAggregateSource());
+        assertNull(result.getAggregateSource());
         verify(mUrlConnection).setRequestMethod("POST");
     }
     @Test
@@ -2502,18 +2415,12 @@ public final class AsyncSourceFetcherTest {
                                         .build()));
     }
     private RegistrationRequest buildRequest(String registrationUri) {
-        return new RegistrationRequest.Builder()
-                .setRegistrationType(RegistrationRequest.REGISTER_SOURCE)
-                .setRegistrationUri(Uri.parse(registrationUri))
-                .setPackageName(sContext.getAttributionSource().getPackageName())
+        return buildDefaultRegistrationRequestBuilder(registrationUri)
                 .setAdIdPermissionGranted(true)
                 .build();
     }
     private RegistrationRequest buildRequestWithoutAdIdPermission(String registrationUri) {
-        return new RegistrationRequest.Builder()
-                .setRegistrationType(RegistrationRequest.REGISTER_SOURCE)
-                .setRegistrationUri(Uri.parse(registrationUri))
-                .setPackageName(sContext.getAttributionSource().getPackageName())
+        return buildDefaultRegistrationRequestBuilder(registrationUri)
                 .setAdIdPermissionGranted(false)
                 .build();
     }
@@ -2553,7 +2460,9 @@ public final class AsyncSourceFetcherTest {
                 enrollmentId,
                 registrationRequest.getRegistrationUri(),
                 null,
-                null,
+                redirectType == AsyncRegistration.RedirectType.DAISY_CHAIN
+                        ? Uri.parse(DEFAULT_DESTINATION)
+                        : null,
                 Uri.parse(ANDROID_APP_SCHEME_URI_PREFIX + sContext.getPackageName()),
                 null,
                 Uri.parse(ANDROID_APP_SCHEME_URI_PREFIX + sContext.getPackageName()),
@@ -2707,5 +2616,14 @@ public final class AsyncSourceFetcherTest {
         assertEquals(
                 result.getEventTime() + TimeUnit.SECONDS.toMillis(DEFAULT_EXPIRY),
                 result.getExpiryTime());
+    }
+
+    private RegistrationRequest.Builder buildDefaultRegistrationRequestBuilder(
+            String registrationUri) {
+        return new RegistrationRequest.Builder(
+                RegistrationRequest.REGISTER_SOURCE,
+                Uri.parse(registrationUri),
+                sContext.getAttributionSource().getPackageName(),
+                SDK_PACKAGE_NAME);
     }
 }
