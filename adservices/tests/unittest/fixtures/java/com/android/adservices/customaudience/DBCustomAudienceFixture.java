@@ -16,6 +16,7 @@
 
 package com.android.adservices.customaudience;
 
+import android.adservices.common.AdTechIdentifier;
 import android.adservices.common.CommonFixture;
 import android.adservices.customaudience.CustomAudienceFixture;
 
@@ -24,7 +25,7 @@ import com.android.adservices.data.customaudience.DBCustomAudience;
 
 public class DBCustomAudienceFixture {
 
-    public static DBCustomAudience.Builder getValidBuilderByBuyer(String buyer) {
+    public static DBCustomAudience.Builder getValidBuilderByBuyer(AdTechIdentifier buyer) {
         return new DBCustomAudience.Builder()
                 .setOwner(CustomAudienceFixture.VALID_OWNER)
                 .setBuyer(buyer)

@@ -17,6 +17,7 @@
 package com.android.adservices.service.measurement.aggregation;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
@@ -25,6 +26,8 @@ import android.net.Uri;
 import androidx.test.filters.SmallTest;
 
 import org.junit.Test;
+
+import java.util.Set;
 
 /** Unit tests for {@link AggregateReport} */
 @SmallTest
@@ -37,7 +40,7 @@ public final class AggregateReportTest {
                 .setAttributionDestination(Uri.parse("https://example.com/aS"))
                 .setSourceRegistrationTime(5L)
                 .setScheduledReportTime(1L)
-                .setReportingOrigin(Uri.parse("https://example.com/rT"))
+                .setEnrollmentId("enrollment-id")
                 .setDebugCleartextPayload(" key: 1369, value: 32768; key: 3461, value: 1664;")
                 .setAggregateAttributionData(
                         new AggregateAttributionData.Builder().build())
@@ -55,7 +58,7 @@ public final class AggregateReportTest {
                 attributionReport.getAttributionDestination());
         assertEquals(5L, attributionReport.getSourceRegistrationTime());
         assertEquals(1L, attributionReport.getScheduledReportTime());
-        assertEquals(Uri.parse("https://example.com/rT"), attributionReport.getReportingOrigin());
+        assertEquals("enrollment-id", attributionReport.getEnrollmentId());
         assertEquals(" key: 1369, value: 32768; key: 3461, value: 1664;",
                 attributionReport.getDebugCleartextPayload());
         assertNotNull(attributionReport.getAggregateAttributionData());
@@ -72,10 +75,45 @@ public final class AggregateReportTest {
         assertNull(attributionReport.getAttributionDestination());
         assertEquals(0L, attributionReport.getSourceRegistrationTime());
         assertEquals(0L, attributionReport.getScheduledReportTime());
-        assertNull(attributionReport.getReportingOrigin());
+        assertNull(attributionReport.getEnrollmentId());
         assertNull(attributionReport.getDebugCleartextPayload());
         assertNull(attributionReport.getAggregateAttributionData());
         assertEquals(AggregateReport.Status.PENDING, attributionReport.getStatus());
         assertNull(attributionReport.getApiVersion());
+    }
+
+    @Test
+    public void testHashCode_equals() throws Exception {
+        AggregateReport attributionReport1 = createAttributionReport();
+        AggregateReport attributionReport2 = createAttributionReport();
+        Set<AggregateReport> attributionReportSet1 = Set.of(attributionReport1);
+        Set<AggregateReport> attributionReportSet2 = Set.of(attributionReport2);
+        assertEquals(attributionReport1.hashCode(), attributionReport2.hashCode());
+        assertEquals(attributionReport1, attributionReport2);
+        assertEquals(attributionReportSet1, attributionReportSet2);
+    }
+
+    @Test
+    public void testHashCode_notEquals() throws Exception {
+        AggregateReport attributionReport1 = createAttributionReport();
+        AggregateReport attributionReport2 =
+                new AggregateReport.Builder()
+                        .setId("1")
+                        .setPublisher(Uri.parse("android-app://com.example.abc"))
+                        .setAttributionDestination(Uri.parse("https://example.com/aS"))
+                        .setSourceRegistrationTime(1L)
+                        .setScheduledReportTime(1L)
+                        .setEnrollmentId("another-enrollment-id")
+                        .setDebugCleartextPayload(
+                                " key: 1369, value: 32768; key: 3461, value: 1664;")
+                        .setAggregateAttributionData(new AggregateAttributionData.Builder().build())
+                        .setStatus(AggregateReport.Status.PENDING)
+                        .setApiVersion("1452")
+                        .build();
+        Set<AggregateReport> attributionReportSet1 = Set.of(attributionReport1);
+        Set<AggregateReport> attributionReportSet2 = Set.of(attributionReport2);
+        assertNotEquals(attributionReport1.hashCode(), attributionReport2.hashCode());
+        assertNotEquals(attributionReport1, attributionReport2);
+        assertNotEquals(attributionReportSet1, attributionReportSet2);
     }
 }

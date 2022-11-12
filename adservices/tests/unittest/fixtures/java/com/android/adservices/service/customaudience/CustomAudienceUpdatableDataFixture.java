@@ -24,6 +24,7 @@ import static com.android.adservices.service.customaudience.CustomAudienceUpdata
 import static com.android.adservices.service.customaudience.CustomAudienceUpdatableDataReader.TRUSTED_BIDDING_URI_KEY;
 import static com.android.adservices.service.customaudience.CustomAudienceUpdatableDataReader.USER_BIDDING_SIGNALS_KEY;
 
+import android.adservices.common.AdSelectionSignals;
 import android.adservices.common.CommonFixture;
 import android.adservices.customaudience.CustomAudienceFixture;
 
@@ -45,10 +46,10 @@ public class CustomAudienceUpdatableDataFixture {
 
     public static String getFullSuccessfulJsonResponseString() throws JSONException {
         return toJsonResponseString(
-                CustomAudienceFixture.VALID_USER_BIDDING_SIGNALS,
-                DBTrustedBiddingDataFixture.getValidBuilderByBuyer(CommonFixture.VALID_BUYER)
+                CustomAudienceFixture.VALID_USER_BIDDING_SIGNALS.toString(),
+                DBTrustedBiddingDataFixture.getValidBuilderByBuyer(CommonFixture.VALID_BUYER_1)
                         .build(),
-                DBAdDataFixture.getValidDbAdDataListByBuyer(CommonFixture.VALID_BUYER));
+                DBAdDataFixture.getValidDbAdDataListByBuyer(CommonFixture.VALID_BUYER_1));
     }
 
     /**
@@ -258,13 +259,15 @@ public class CustomAudienceUpdatableDataFixture {
             throws JSONException {
         return CustomAudienceUpdatableData.builder()
                 .setUserBiddingSignals(
-                        formatAsOrgJsonJSONObjectString(
-                                CustomAudienceFixture.VALID_USER_BIDDING_SIGNALS))
+                        AdSelectionSignals.fromString(
+                                formatAsOrgJsonJSONObjectString(
+                                        CustomAudienceFixture.VALID_USER_BIDDING_SIGNALS
+                                                .toString())))
                 .setTrustedBiddingData(
                         DBTrustedBiddingDataFixture.getValidBuilderByBuyer(
-                                        CommonFixture.VALID_BUYER)
+                                        CommonFixture.VALID_BUYER_1)
                                 .build())
-                .setAds(DBAdDataFixture.getValidDbAdDataListByBuyer(CommonFixture.VALID_BUYER))
+                .setAds(DBAdDataFixture.getValidDbAdDataListByBuyer(CommonFixture.VALID_BUYER_1))
                 .setAttemptedUpdateTime(CommonFixture.FIXED_NOW)
                 .setInitialUpdateResult(BackgroundFetchRunner.UpdateResultType.SUCCESS)
                 .setContainsSuccessfulUpdate(true);

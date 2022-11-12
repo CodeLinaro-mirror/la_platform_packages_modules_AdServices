@@ -16,8 +16,6 @@
 package android.adservices.measurement;
 
 import android.annotation.NonNull;
-import android.annotation.Nullable;
-import android.content.AttributionSource;
 import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -38,34 +36,23 @@ public final class DeletionParam implements Parcelable {
     private final List<Uri> mDomainUris;
     private final Instant mStart;
     private final Instant mEnd;
-    private final AttributionSource mAttributionSource;
-    private final @DeletionRequest.DeletionMode int mDeletionMode;
-    private final @DeletionRequest.MatchBehavior int mMatchBehavior;
+    private final String mPackageName;
+    @DeletionRequest.DeletionMode private final int mDeletionMode;
+    @DeletionRequest.MatchBehavior private final int mMatchBehavior;
 
-    /** Create a deletion request. */
-    private DeletionParam(
-            @Nullable Instant start,
-            @Nullable Instant end,
-            @NonNull List<Uri> originUris,
-            @NonNull List<Uri> domainUris,
-            @DeletionRequest.DeletionMode int deletionMode,
-            @DeletionRequest.MatchBehavior int matchBehavior,
-            @NonNull AttributionSource attributionSource) {
-        Objects.requireNonNull(attributionSource);
-        Objects.requireNonNull(originUris);
-        Objects.requireNonNull(domainUris);
-        mOriginUris = originUris;
-        mDomainUris = domainUris;
-        mDeletionMode = deletionMode;
-        mMatchBehavior = matchBehavior;
-        mStart = start;
-        mEnd = end;
-        mAttributionSource = attributionSource;
+    private DeletionParam(@NonNull Builder builder) {
+        mOriginUris = builder.mOriginUris;
+        mDomainUris = builder.mDomainUris;
+        mDeletionMode = builder.mDeletionMode;
+        mMatchBehavior = builder.mMatchBehavior;
+        mStart = builder.mStart;
+        mEnd = builder.mEnd;
+        mPackageName = builder.mPackageName;
     }
 
     /** Unpack an DeletionRequest from a Parcel. */
     private DeletionParam(Parcel in) {
-        mAttributionSource = AttributionSource.CREATOR.createFromParcel(in);
+        mPackageName = in.readString();
 
         mDomainUris = new ArrayList<>();
         in.readTypedList(mDomainUris, Uri.CREATOR);
@@ -114,7 +101,7 @@ public final class DeletionParam implements Parcelable {
     /** For Parcelable, write out to a Parcel in particular order. */
     public void writeToParcel(@NonNull Parcel out, int flags) {
         Objects.requireNonNull(out);
-        mAttributionSource.writeToParcel(out, flags);
+        out.writeString(mPackageName);
 
         out.writeTypedList(mDomainUris);
 
@@ -169,21 +156,21 @@ public final class DeletionParam implements Parcelable {
     }
 
     /** Instant in time the deletion starts, or null if none. */
-    @Nullable
+    @NonNull
     public Instant getStart() {
         return mStart;
     }
 
     /** Instant in time the deletion ends, or null if none. */
-    @Nullable
+    @NonNull
     public Instant getEnd() {
         return mEnd;
     }
 
-    /** AttributionSource of the deletion. */
+    /** Client's package name used for the deletion. */
     @NonNull
-    public AttributionSource getAttributionSource() {
-        return mAttributionSource;
+    public String getPackageName() {
+        return mPackageName;
     }
 
     /** A builder for {@link DeletionParam}. */
@@ -192,7 +179,7 @@ public final class DeletionParam implements Parcelable {
         private List<Uri> mDomainUris;
         private Instant mStart;
         private Instant mEnd;
-        private AttributionSource mAttributionSource;
+        private String mPackageName;
         @DeletionRequest.DeletionMode private int mDeletionMode;
         @DeletionRequest.MatchBehavior private int mMatchBehavior;
 
@@ -228,41 +215,38 @@ public final class DeletionParam implements Parcelable {
 
         /** See {@link DeletionParam#getStart}. */
         @NonNull
-        public Builder setStart(@Nullable Instant start) {
+        public Builder setStart(@NonNull Instant start) {
             mStart = start;
             return this;
         }
 
         /** See {@link DeletionParam#getEnd}. */
         @NonNull
-        public Builder setEnd(@Nullable Instant end) {
+        public Builder setEnd(@NonNull Instant end) {
             mEnd = end;
             return this;
         }
 
-        /** See {@link DeletionParam#getAttributionSource}. */
+        /** See {@link DeletionParam#getPackageName()}. */
         @NonNull
-        public Builder setAttributionSource(@NonNull AttributionSource attributionSource) {
-            Objects.requireNonNull(attributionSource);
-            mAttributionSource = attributionSource;
+        public Builder setPackageName(@NonNull String packageName) {
+            Objects.requireNonNull(packageName);
+            mPackageName = packageName;
             return this;
         }
 
         /** Build the DeletionRequest. */
         @NonNull
         public DeletionParam build() {
-            if (mAttributionSource == null || mOriginUris == null || mDomainUris == null) {
+            if (mPackageName == null
+                    || mOriginUris == null
+                    || mDomainUris == null
+                    || mStart == null
+                    || mEnd == null) {
                 throw new IllegalArgumentException(
-                        "AttributionSource, OriginUris, or DomainUris is null");
+                        "PackageName, OriginUris, DomainUris, Start, or End is null");
             }
-            return new DeletionParam(
-                    mStart,
-                    mEnd,
-                    mOriginUris,
-                    mDomainUris,
-                    mDeletionMode,
-                    mMatchBehavior,
-                    mAttributionSource);
+            return new DeletionParam(this);
         }
     }
 }

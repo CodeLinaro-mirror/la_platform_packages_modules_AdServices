@@ -19,6 +19,7 @@ import android.annotation.NonNull;
 import android.net.Uri;
 
 import com.android.adservices.LogUtil;
+import com.android.adservices.service.measurement.MeasurementHttpClient;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -44,11 +45,13 @@ import java.util.concurrent.TimeUnit;
  * @hide
  */
 final class AggregateEncryptionKeyFetcher {
+    private final MeasurementHttpClient mNetworkConnection = new MeasurementHttpClient();
+
     /**
      * Provides a testing hook.
      */
     public @NonNull URLConnection openUrl(@NonNull URL url) throws IOException {
-        return url.openConnection();
+        return mNetworkConnection.setup(url);
     }
 
     private static long getMaxAgeInSeconds(@NonNull Map<String, List<String>> headers) {
@@ -69,7 +72,7 @@ final class AggregateEncryptionKeyFetcher {
                         try {
                             cachedAge = Integer.parseInt(field.get(0));
                         } catch (NumberFormatException e) {
-                            LogUtil.e("Error parsing age header: %s", e);
+                            LogUtil.e(e, "Error parsing age header");
                         }
                         remainingHeaders -= 1;
                     }
@@ -91,7 +94,7 @@ final class AggregateEncryptionKeyFetcher {
                 try {
                     maxAge = Long.parseLong(token.substring(8));
                 } catch (NumberFormatException e) {
-                    LogUtil.d("Failed to parse max-age value %s", e);
+                    LogUtil.d(e, "Failed to parse max-age value");
                     return 0;
                 }
             }
@@ -126,7 +129,7 @@ final class AggregateEncryptionKeyFetcher {
             }
             return Optional.of(aggregateEncryptionKeys);
         } catch (JSONException e) {
-            LogUtil.d("Invalid JSON %s", e);
+            LogUtil.d(e, "Invalid JSON");
             return Optional.empty();
         }
     }
@@ -144,14 +147,14 @@ final class AggregateEncryptionKeyFetcher {
         try {
             url = new URL(target.toString());
         } catch (MalformedURLException e) {
-            LogUtil.d("Malformed coordinator target URL %s", e);
+            LogUtil.d(e, "Malformed coordinator target URL");
             return Optional.empty();
         }
         HttpURLConnection urlConnection;
         try {
             urlConnection = (HttpURLConnection) openUrl(url);
         } catch (IOException e) {
-            LogUtil.e("Failed to open coordinator target URL %s", e);
+            LogUtil.e(e, "Failed to open coordinator target URL");
             return Optional.empty();
         }
         try {
@@ -176,7 +179,7 @@ final class AggregateEncryptionKeyFetcher {
 
             return parseResponse(responseBody.toString(), headers, eventTime);
         } catch (IOException e) {
-            LogUtil.e("Failed to get coordinator response %s", e);
+            LogUtil.e(e, "Failed to get coordinator response");
             return Optional.empty();
         } finally {
             urlConnection.disconnect();
