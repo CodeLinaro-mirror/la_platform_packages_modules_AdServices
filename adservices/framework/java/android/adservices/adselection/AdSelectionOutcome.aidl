@@ -13,20 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package android.sdksandbox.test.scenario;
 
-import android.platform.test.microbenchmark.Microbenchmark;
-import android.platform.test.rule.DropCachesRule;
-import android.platform.test.rule.KillAppsRule;
+package android.adservices.adselection;
 
-import org.junit.Rule;
-import org.junit.rules.RuleChain;
-import org.junit.runner.RunWith;
-
-@RunWith(Microbenchmark.class)
-public class RemoteRenderAdMicrobenchmark extends RemoteRenderAd {
-    @Rule
-    public RuleChain rules =
-            RuleChain.outerRule(new KillAppsRule("com.android.sdksandboxclient"))
-                    .around(new DropCachesRule());
-}
+/**
+ * This interface defines the results of a call made to selectAdOutcomes API.
+ * A AdSelectionOutcome is a Parcelable object that contains an AdSelectionId and a RenderUri.
+ *
+ * {@hide}
+ */
+parcelable AdSelectionOutcome;
