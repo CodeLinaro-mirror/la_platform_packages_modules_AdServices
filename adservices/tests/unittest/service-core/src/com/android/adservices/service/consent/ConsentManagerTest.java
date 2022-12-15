@@ -38,6 +38,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import android.app.adservices.AdServicesManager;
+import android.app.adservices.IAdServicesManager;
 import android.app.job.JobScheduler;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
@@ -108,6 +110,7 @@ public class ConsentManagerTest {
     private AppConsentDao mAppConsentDao;
     private EnrollmentDao mEnrollmentDao;
     private DbHelper mDbHelper;
+    private AdServicesManager mAdServicesManager;
 
     @Mock private PackageManager mPackageManagerMock;
     @Mock private TopicsWorker mTopicsWorker;
@@ -121,6 +124,7 @@ public class ConsentManagerTest {
     @Mock private EpochManager mMockEpochManager;
     @Mock private Flags mMockFlags;
     @Mock private JobScheduler mJobSchedulerMock;
+    @Mock private IAdServicesManager mMockIAdServicesManager;
     private MockitoSession mStaticMockSession = null;
 
     @Before
@@ -148,10 +152,15 @@ public class ConsentManagerTest {
                         .startMocking();
 
         mDatastore =
-                new BooleanFileDatastore(mContextSpy, AppConsentDaoFixture.TEST_DATASTORE_NAME, 1);
+                new BooleanFileDatastore(
+                        mContextSpy,
+                        ConsentManager.STORAGE_XML_IDENTIFIER,
+                        ConsentManager.STORAGE_VERSION);
         mAppConsentDao = spy(new AppConsentDao(mDatastore, mPackageManagerMock));
         mDbHelper = DbTestUtil.getDbHelperForTest();
         mEnrollmentDao = spy(new EnrollmentDao(mContextSpy, mDbHelper));
+        mAdServicesManager = new AdServicesManager(mContextSpy, mMockIAdServicesManager);
+        doReturn(mAdServicesManager).when(mContextSpy).getSystemService(AdServicesManager.class);
 
         mConsentManager =
                 new ConsentManager(
@@ -162,6 +171,7 @@ public class ConsentManagerTest {
                         mMeasurementImpl,
                         mAdServicesLoggerImpl,
                         mCustomAudienceDaoMock,
+                        mAdServicesManager,
                         mMockFlags);
 
         ExtendedMockito.doReturn(mMockFlags).when(FlagsFactory::getFlags);
@@ -237,8 +247,7 @@ public class ConsentManagerTest {
                 () -> EpochJobService.scheduleIfNeeded(any(Context.class), eq(false)));
         ExtendedMockito.verify(() -> MddJobService.scheduleIfNeeded(any(Context.class), eq(false)));
         ExtendedMockito.verify(
-                () -> MaintenanceJobService.scheduleIfNeeded(any(Context.class), eq(false)),
-                times(2));
+                () -> MaintenanceJobService.scheduleIfNeeded(any(Context.class), eq(false)));
         ExtendedMockito.verify(
                 () -> AggregateReportingJobService.scheduleIfNeeded(any(Context.class), eq(false)));
         ExtendedMockito.verify(
@@ -835,6 +844,7 @@ public class ConsentManagerTest {
                         mMeasurementImpl,
                         mAdServicesLoggerImpl,
                         mCustomAudienceDaoMock,
+                        mAdServicesManager,
                         mMockFlags);
         doNothing().when(mBlockedTopicsManager).blockTopic(any());
         doNothing().when(mBlockedTopicsManager).unblockTopic(any());
@@ -863,6 +873,7 @@ public class ConsentManagerTest {
                         mMeasurementImpl,
                         mAdServicesLoggerImpl,
                         mCustomAudienceDaoMock,
+                        mAdServicesManager,
                         mMockFlags);
 
         temporalConsentManager.enable(mContextSpy);
@@ -891,6 +902,7 @@ public class ConsentManagerTest {
                         mMeasurementImpl,
                         mAdServicesLoggerImpl,
                         mCustomAudienceDaoMock,
+                        mAdServicesManager,
                         mMockFlags);
 
         temporalConsentManager.enable(mContextSpy);
@@ -904,30 +916,5 @@ public class ConsentManagerTest {
 
         verify(mAdServicesLoggerImpl, times(1)).logUIStats(any());
         verify(mAdServicesLoggerImpl, times(1)).logUIStats(expectedUIStats);
-    }
-
-    @Test
-    public void testGetInitializedConsentPerApi_aggregatedConsentInitializedAndGiven() {
-        mConsentManager.enable(mContextSpy);
-
-        assertTrue(mConsentManager.getConsent(AdServicesApiType.TOPICS).isGiven());
-        assertTrue(mConsentManager.getConsent(AdServicesApiType.MEASUREMENTS).isGiven());
-        assertTrue(mConsentManager.getConsent(AdServicesApiType.FLEDGE).isGiven());
-    }
-
-    @Test
-    public void testGetInitializedConsentPerApi_aggregatedConsentInitializedAndRevoked() {
-        mConsentManager.disable(mContextSpy);
-
-        assertFalse(mConsentManager.getConsent(AdServicesApiType.TOPICS).isGiven());
-        assertFalse(mConsentManager.getConsent(AdServicesApiType.MEASUREMENTS).isGiven());
-        assertFalse(mConsentManager.getConsent(AdServicesApiType.FLEDGE).isGiven());
-    }
-
-    @Test
-    public void testGetInitializedConsentPerApi_aggregatedConsentNotInitialized() {
-        assertFalse(mConsentManager.getConsent(AdServicesApiType.TOPICS).isGiven());
-        assertFalse(mConsentManager.getConsent(AdServicesApiType.MEASUREMENTS).isGiven());
-        assertFalse(mConsentManager.getConsent(AdServicesApiType.FLEDGE).isGiven());
     }
 }
