@@ -34,6 +34,7 @@ import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -76,9 +77,12 @@ public final class SdkSandboxStorageHostTest extends BaseHostJUnit4Test {
      * For example, <code>runPhase("testExample");</code>
      */
     private void runPhase(String phase) throws Exception {
-        assertThat(runDeviceTests(TEST_APP_STORAGE_PACKAGE,
-                "com.android.tests.sdksandbox.SdkSandboxStorageTestApp",
-                phase)).isTrue();
+        assertThat(
+                        runDeviceTests(
+                                TEST_APP_STORAGE_PACKAGE,
+                                TEST_APP_STORAGE_PACKAGE + ".SdkSandboxStorageTestApp",
+                                phase))
+                .isTrue();
     }
 
     @Before
@@ -274,10 +278,10 @@ public final class SdkSandboxStorageHostTest extends BaseHostJUnit4Test {
         assertThat(getDevice().isDirectory(dePath)).isFalse();
     }
 
+    @Ignore("b/260659816")
     @Test
     @LargeTest
-    public void testSdkDataPackageDirectory_IsDestroyedOnUninstall_DeviceLocked()
-            throws Exception {
+    public void testSdkDataPackageDirectory_IsDestroyedOnUninstall_DeviceLocked() throws Exception {
         assumeThat("Device is NOT encrypted with file-based encryption.",
                 getDevice().getProperty("ro.crypto.type"), equalTo("file"));
         assumeTrue("Screen lock is not supported so skip direct boot test",
@@ -871,6 +875,7 @@ public final class SdkSandboxStorageHostTest extends BaseHostJUnit4Test {
         assertThat(getSdkDataPerSdkPath(0, TEST_APP_STORAGE_PACKAGE, SDK_NAME, false)).isNotNull();
     }
 
+    @Ignore("b/260659816")
     @Test
     @LargeTest
     public void testSdkDataSubDirectory_IsCreatedOnInstall_DeviceLocked() throws Exception {
@@ -1348,9 +1353,9 @@ public final class SdkSandboxStorageHostTest extends BaseHostJUnit4Test {
         public void unlockDevice() throws Exception {
             try {
                 mTest.runDeviceTests(
-                        "com.android.cts.appdataisolation.appa",
-                        "com.android.cts.appdataisolation.appa.AppATests",
-                        "testUnlockDevice");
+                        TEST_APP_STORAGE_PACKAGE,
+                        TEST_APP_STORAGE_PACKAGE + ".SdkSandboxStorageTestApp",
+                        "unlockDevice");
             } catch (Exception ignore) {
             }
         }
