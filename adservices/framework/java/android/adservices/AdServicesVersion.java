@@ -19,7 +19,9 @@ package android.adservices;
 import android.annotation.SuppressLint;
 
 /**
- * Information about the current AdServices API version.
+ * This class specifies the current version of the AdServices API.
+ *
+ * @removed
  */
 public class AdServicesVersion {
 
@@ -37,7 +39,7 @@ public class AdServicesVersion {
     // This variable needs to be initialized in static {} , otherwise javac
     // would inline these constants and they won't be updatable.
     static {
-        API_VERSION = 1;
+        API_VERSION = 2;
     }
 }
 

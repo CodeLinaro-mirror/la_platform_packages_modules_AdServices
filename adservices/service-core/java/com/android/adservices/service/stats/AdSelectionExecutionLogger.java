@@ -1,0 +1,450 @@
+/*
+ * Copyright (C) 2022 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.android.adservices.service.stats;
+
+import static com.android.adservices.data.adselection.AdSelectionDatabase.DATABASE_NAME;
+
+import android.adservices.common.AdServicesStatusUtils;
+import android.adservices.common.CallerMetadata;
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.content.Context;
+
+import com.android.adservices.LogUtil;
+import com.android.adservices.data.adselection.DBAdSelection;
+import com.android.adservices.data.customaudience.DBCustomAudience;
+import com.android.adservices.service.adselection.AdBiddingOutcome;
+import com.android.internal.annotations.VisibleForTesting;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+/**
+ * Class for logging the run ad selection process. It collects and log the corresponding metrics of
+ * an ad selection process as well as its subcomponent processes into the de-identified WestWorld
+ * logs.
+ */
+public class AdSelectionExecutionLogger extends ApiServiceLatencyCalculator {
+    @VisibleForTesting
+    static final String REPEATED_START_PERSIST_AD_SELECTION =
+            "The logger has already set the start of the persist-ad-selection process.";
+
+    @VisibleForTesting
+    static final String REPEATED_END_PERSIST_AD_SELECTION =
+            "The logger has already set the end of the persist-ad-selection process.";
+
+    @VisibleForTesting
+    static final String MISSING_START_PERSIST_AD_SELECTION =
+            "The logger should set the start of the persist-ad-selection process.";
+
+    @VisibleForTesting
+    static final String MISSING_END_PERSIST_AD_SELECTION =
+            "The logger should set the end of the persist-ad-selection process.";
+
+    @VisibleForTesting
+    static final String MISSING_PERSIST_AD_SELECTION =
+            "The ad selection execution logger should log the persist-ad-selection process.";
+
+    @VisibleForTesting
+    static final String REPEATED_END_BIDDING_STAGE =
+            "The logger has already set the end state of the bidding stage.";
+
+    @VisibleForTesting
+    static final String MISSING_START_RUN_AD_BIDDING =
+            "The logger should set the start of the run-ad-selection process.";
+
+    @VisibleForTesting
+    static final String REPEATED_START_BIDDING_STAGE =
+            "The logger has already set the start of the bidding stage.";
+
+    @VisibleForTesting
+    static final String REPEATED_END_GET_BUYERS_CUSTOM_AUDIENCE =
+            "The logger has already set the end of the get-buyers-custom-audience process.";
+
+    @VisibleForTesting
+    static final String MISSING_START_BIDDING_STAGE =
+            "The logger should set the start state of the bidding stage.";
+
+    @VisibleForTesting
+    static final String MISSING_END_GET_BUYERS_CUSTOM_AUDIENCE =
+            "The logger should set the end of the get-buyers-custom-audience process.";
+
+    @VisibleForTesting
+    static final String REPEATED_START_RUN_AD_BIDDING =
+            "The logger has already set the start of the run-ad-bidding process.";
+
+    @VisibleForTesting
+    static final String MISSING_GET_BUYERS_CUSTOM_AUDIENCE =
+            "The logger should set the start of the bidding stage and the "
+                    + "get-buyers-custom-audience process.";
+
+    @VisibleForTesting static final float RATIO_OF_CAS_UNSET = -1.0f;
+
+    private final Context mContext;
+    private final long mBinderElapsedTimestamp;
+    // Run ad bidding stage.
+    private long mBiddingStageStartTimestamp;
+    private long mGetBuyersCustomAudienceEndTimestamp;
+    private long mRunAdBiddingStartTimestamp;
+    private long mRunAdBiddingEndTimestamp;
+    private long mBiddingStageEndTimestamp;
+    private int mNumBuyersRequested;
+    private int mNumBuyersFetched;
+    private int mNumOfAdsEnteringBidding;
+    private int mNumOfCAsEnteringBidding;
+    private int mNumOfCAsPostBidding;
+
+    // Persist ad selection.
+    private boolean mIsRemarketingAdsWon;
+    private long mPersistAdSelectionStartTimestamp;
+    private long mPersistAdSelectionEndTimestamp;
+    private long mDBAdSelectionSizeInBytes;
+    private AdServicesLogger mAdServicesLogger;
+
+    public AdSelectionExecutionLogger(
+            @NonNull CallerMetadata callerMetadata,
+            @NonNull Clock clock,
+            @NonNull Context context,
+            @NonNull AdServicesLogger adServicesLogger) {
+        super(clock);
+        Objects.requireNonNull(callerMetadata);
+        Objects.requireNonNull(clock);
+        Objects.requireNonNull(context);
+        Objects.requireNonNull(adServicesLogger);
+        this.mBinderElapsedTimestamp = callerMetadata.getBinderElapsedTimestamp();
+        this.mContext = context;
+        this.mAdServicesLogger = adServicesLogger;
+        LogUtil.v("AdSelectionExecutionLogger starts.");
+    }
+
+    /** records the start state of a bidding process. */
+    public void startBiddingProcess(int numBuyersRequested) throws IllegalStateException {
+        if (mBiddingStageStartTimestamp > 0L) {
+            throw new IllegalStateException(REPEATED_START_BIDDING_STAGE);
+        }
+        LogUtil.v("Start the bidding process.");
+        this.mBiddingStageStartTimestamp = getServiceElapsedTimestamp();
+        this.mNumBuyersRequested = numBuyersRequested;
+        LogUtil.v("The bidding process start timestamp is %d", mBiddingStageStartTimestamp);
+        LogUtil.v("With number of buyers requested: %d", mNumBuyersRequested);
+    }
+
+    /** records the end state of a successful get-buyers-custom-audience process. */
+    public void endGetBuyersCustomAudience(int numBuyersFetched) throws IllegalStateException {
+        if (mBiddingStageStartTimestamp == 0L) {
+            throw new IllegalStateException((MISSING_START_BIDDING_STAGE));
+        }
+        if (mGetBuyersCustomAudienceEndTimestamp > 0L) {
+            throw new IllegalStateException(REPEATED_END_GET_BUYERS_CUSTOM_AUDIENCE);
+        }
+        LogUtil.v("End the get-buyers-custom-audience process.");
+        this.mGetBuyersCustomAudienceEndTimestamp = getServiceElapsedTimestamp();
+        this.mNumBuyersFetched = numBuyersFetched;
+        LogUtil.v(
+                "The get-buyers-custom-audience process ends at %d with"
+                        + " num of buyers fetched %d:",
+                mGetBuyersCustomAudienceEndTimestamp, mNumBuyersFetched);
+    }
+
+    /** records the start state of the run-ad-bidding process. */
+    public void startRunAdBidding(@NonNull List<DBCustomAudience> customAudiences)
+            throws IllegalStateException {
+        Objects.requireNonNull(customAudiences);
+        if (mBiddingStageStartTimestamp == 0L || mGetBuyersCustomAudienceEndTimestamp == 0L) {
+            throw new IllegalStateException(MISSING_GET_BUYERS_CUSTOM_AUDIENCE);
+        }
+        if (mRunAdBiddingStartTimestamp > 0L) {
+            throw new IllegalStateException(REPEATED_START_RUN_AD_BIDDING);
+        }
+        LogUtil.v("Starts the run-ad-bidding process.");
+        this.mRunAdBiddingStartTimestamp = getServiceElapsedTimestamp();
+        if (customAudiences.isEmpty()) return;
+        this.mNumOfAdsEnteringBidding =
+                customAudiences.stream()
+                        .filter(a -> !Objects.isNull(a))
+                        .map(a -> a.getAds().size())
+                        .reduce(0, (a, b) -> a + b);
+        this.mNumOfCAsEnteringBidding = customAudiences.size();
+        LogUtil.v(
+                "Entering bidding NO of Ads: %d:, NO of CAs : %d",
+                mNumOfAdsEnteringBidding, mNumOfCAsEnteringBidding);
+    }
+
+    /**
+     * records the end state of the bidding process and log the generated {@link
+     * RunAdBiddingProcessReportedStats} to the AdServicesLogger.
+     */
+    public void endBiddingProcess(@Nullable List<AdBiddingOutcome> result, int resultCode)
+            throws IllegalStateException {
+        LogUtil.v("End the BiddingProcess with resultCode %d.", resultCode);
+        // The start of the get-buyers-custom-audience must be set as the start of the bidding
+        // process.
+        if (mBiddingStageStartTimestamp == 0L) {
+            throw new IllegalStateException(MISSING_START_BIDDING_STAGE);
+        }
+        if (resultCode == AdServicesStatusUtils.STATUS_SUCCESS) {
+            // Throws IllegalStateException if the buyers-custom-audience process has not been
+            // set correctly.
+            if (mGetBuyersCustomAudienceEndTimestamp == 0L) {
+                throw new IllegalStateException(MISSING_END_GET_BUYERS_CUSTOM_AUDIENCE);
+            } else if (mRunAdBiddingStartTimestamp == 0L) {
+                throw new IllegalStateException(MISSING_START_RUN_AD_BIDDING);
+            } else if (mRunAdBiddingEndTimestamp > 0L || mBiddingStageEndTimestamp > 0L) {
+                throw new IllegalStateException(REPEATED_END_BIDDING_STAGE);
+            }
+            this.mRunAdBiddingEndTimestamp = getServiceElapsedTimestamp();
+            this.mBiddingStageEndTimestamp = mRunAdBiddingEndTimestamp;
+            this.mNumOfCAsPostBidding =
+                    result.stream()
+                            .filter(a -> !Objects.isNull(a))
+                            .map(
+                                    a ->
+                                            a.getCustomAudienceBiddingInfo()
+                                                    .getCustomAudienceSignals()
+                                                    .hashCode())
+                            .collect(Collectors.toSet())
+                            .size();
+            LogUtil.v(
+                    "Ends of a successful run-ad-bidding process with num of CAs post "
+                            + "bidding %d. with end timestamp: %d ",
+                    mNumOfCAsPostBidding, mRunAdBiddingEndTimestamp);
+        } else {
+            LogUtil.v("Ends of a failed run-ad-bidding process.");
+            this.mBiddingStageEndTimestamp = getServiceElapsedTimestamp();
+        }
+        LogUtil.v("Log the AdRunBiddingProcessReportedStats to the AdServicesLog.");
+        RunAdBiddingProcessReportedStats runAdBiddingProcessReportedStats =
+                getRunAdBiddingProcessReportedStats(resultCode);
+        mAdServicesLogger.logRunAdBiddingProcessReportedStats(runAdBiddingProcessReportedStats);
+    }
+
+    /** records the start state of the persist-ad-selection process. */
+    public void startPersistAdSelection(DBAdSelection dbAdSelection) throws IllegalStateException {
+        if (mPersistAdSelectionStartTimestamp > 0L) {
+            throw new IllegalStateException(REPEATED_START_PERSIST_AD_SELECTION);
+        }
+        LogUtil.v("Starts the persisting ad selection.");
+        this.mIsRemarketingAdsWon = !Objects.isNull(dbAdSelection.getBiddingLogicUri());
+        this.mPersistAdSelectionStartTimestamp = getServiceElapsedTimestamp();
+    }
+
+    /** records the end state of a finished persist-ad-selection process. */
+    public void endPersistAdSelection() throws IllegalStateException {
+        if (mPersistAdSelectionStartTimestamp == 0L) {
+            throw new IllegalStateException(MISSING_START_PERSIST_AD_SELECTION);
+        }
+        if (mPersistAdSelectionEndTimestamp > 0L) {
+            throw new IllegalStateException(REPEATED_END_PERSIST_AD_SELECTION);
+        }
+        LogUtil.v("Ends the persisting ad selection.");
+        this.mPersistAdSelectionEndTimestamp = getServiceElapsedTimestamp();
+        this.mDBAdSelectionSizeInBytes = mContext.getDatabasePath(DATABASE_NAME).length();
+        LogUtil.v("The persistAdSelection end timestamp is %d:", mPersistAdSelectionEndTimestamp);
+        LogUtil.v("The database file size is %d", mDBAdSelectionSizeInBytes);
+    }
+
+    /**
+     * This method should be called at the end of an ad selection process to generate and log the
+     * {@link RunAdSelectionProcessReportedStats} into the {@link AdServicesLogger}.
+     */
+    public void close(int resultCode) throws IllegalStateException {
+        LogUtil.v("Log the RunAdSelectionProcessReportedStats to the AdServicesLog.");
+        if (resultCode == AdServicesStatusUtils.STATUS_SUCCESS) {
+            if (mPersistAdSelectionStartTimestamp == 0L
+                    && mPersistAdSelectionEndTimestamp == 0L
+                    && mDBAdSelectionSizeInBytes == 0L) {
+                throw new IllegalStateException(MISSING_PERSIST_AD_SELECTION);
+            } else if (mPersistAdSelectionEndTimestamp == 0L || mDBAdSelectionSizeInBytes == 0L) {
+                throw new IllegalStateException(MISSING_END_PERSIST_AD_SELECTION);
+            }
+            LogUtil.v("Log RunAdSelectionProcessReportedStats for a failed ad selection run.");
+        } else {
+            LogUtil.v(
+                    "Log RunAdSelectionProcessReportedStats for a successful ad selection "
+                            + "run.");
+        }
+        RunAdSelectionProcessReportedStats runAdSelectionProcessReportedStats =
+                getRunAdSelectionProcessReportedStats(
+                        resultCode, getApiServiceInternalFinalLatencyInMs());
+        mAdServicesLogger.logRunAdSelectionProcessReportedStats(runAdSelectionProcessReportedStats);
+    }
+
+    /** @return the overall latency in milliseconds of selectAds called by the client interface. */
+    public int getRunAdSelectionOverallLatencyInMs() {
+        return getBinderLatencyInMs(mBinderElapsedTimestamp)
+                + getApiServiceInternalFinalLatencyInMs();
+    }
+
+    private RunAdSelectionProcessReportedStats getRunAdSelectionProcessReportedStats(
+            int runAdSelectionResultCode, int runAdSelectionLatencyInMs) {
+        return RunAdSelectionProcessReportedStats.builder()
+                .setIsRemarketingAdsWon(mIsRemarketingAdsWon)
+                .setDBAdSelectionSizeInBytes(getDbAdSelectionSizeInBytes())
+                .setPersistAdSelectionLatencyInMillis(getPersistAdSelectionLatencyInMs())
+                .setPersistAdSelectionResultCode(
+                        getPersistAdSelectionResultCode(runAdSelectionResultCode))
+                .setRunAdSelectionLatencyInMillis(runAdSelectionLatencyInMs)
+                .setRunAdSelectionResultCode(runAdSelectionResultCode)
+                .build();
+    }
+
+    private RunAdBiddingProcessReportedStats getRunAdBiddingProcessReportedStats(int resultCode) {
+        return RunAdBiddingProcessReportedStats.builder()
+                .setGetBuyersCustomAudienceLatencyInMills(getGetBuyersCustomAudienceLatencyInMs())
+                .setGetBuyersCustomAudienceResultCode(
+                        getGetBuyersCustomAudienceResultCode(resultCode))
+                .setNumBuyersRequested(getNumBuyersRequested())
+                .setNumBuyersFetched(getNumBuyersFetched())
+                .setNumOfAdsEnteringBidding(getNumOfAdsEnteringBidding())
+                .setNumOfCasEnteringBidding(getNumOfCAsEnteringBidding())
+                .setNumOfCasPostBidding(getNumOfCAsPostBidding())
+                .setRatioOfCasSelectingRmktAds(getRatioOfCasSelectingRmktAds())
+                .setRunAdBiddingLatencyInMillis(getRunAdBiddingLatencyInMs())
+                .setRunAdBiddingResultCode(getRunAdBiddingResultCode(resultCode))
+                .setTotalAdBiddingStageLatencyInMillis(getTotalAdBiddingStageLatencyInMs())
+                .build();
+    }
+
+    private int getNumBuyersFetched() {
+        if (mGetBuyersCustomAudienceEndTimestamp > 0L) {
+            return mNumBuyersFetched;
+        }
+        return AdServicesStatusUtils.STATUS_UNSET;
+    }
+
+    private int getNumBuyersRequested() {
+        if (mBiddingStageStartTimestamp > 0L) {
+            return mNumBuyersRequested;
+        }
+        return AdServicesStatusUtils.STATUS_UNSET;
+    }
+
+    private int getNumOfAdsEnteringBidding() {
+        if (mRunAdBiddingStartTimestamp > 0L) {
+            return mNumOfAdsEnteringBidding;
+        }
+        return AdServicesStatusUtils.STATUS_UNSET;
+    }
+
+    private int getNumOfCAsEnteringBidding() {
+        if (mRunAdBiddingStartTimestamp > 0L) {
+            return mNumOfCAsEnteringBidding;
+        }
+        return AdServicesStatusUtils.STATUS_UNSET;
+    }
+
+    private int getNumOfCAsPostBidding() {
+        if (mRunAdBiddingEndTimestamp > 0L) {
+            return mNumOfCAsPostBidding;
+        }
+        return AdServicesStatusUtils.STATUS_UNSET;
+    }
+
+    private float getRatioOfCasSelectingRmktAds() {
+        if (mRunAdBiddingEndTimestamp > 0L) {
+            return ((float) mNumOfCAsPostBidding) / mNumOfCAsEnteringBidding;
+        }
+        return RATIO_OF_CAS_UNSET;
+    }
+
+    private int getDbAdSelectionSizeInBytes() {
+        if (mPersistAdSelectionEndTimestamp == 0L) {
+            return AdServicesStatusUtils.STATUS_UNSET;
+        }
+        return (int) mDBAdSelectionSizeInBytes;
+    }
+
+    private int getGetBuyersCustomAudienceResultCode(int resultCode) {
+        if (mBiddingStageStartTimestamp == 0) {
+            return AdServicesStatusUtils.STATUS_UNSET;
+        }
+        if (mGetBuyersCustomAudienceEndTimestamp > 0L) {
+            return AdServicesStatusUtils.STATUS_SUCCESS;
+        }
+        return resultCode;
+    }
+
+    private int getRunAdBiddingResultCode(int resultCode) {
+        if (mRunAdBiddingStartTimestamp == 0L) {
+            return AdServicesStatusUtils.STATUS_UNSET;
+        } else if (mRunAdBiddingEndTimestamp > 0L) {
+            return AdServicesStatusUtils.STATUS_SUCCESS;
+        }
+        return resultCode;
+    }
+
+    private int getPersistAdSelectionResultCode(int resultCode) {
+        if (mPersistAdSelectionStartTimestamp == 0L) {
+            return AdServicesStatusUtils.STATUS_UNSET;
+        } else if (mPersistAdSelectionEndTimestamp > 0L) {
+            return AdServicesStatusUtils.STATUS_SUCCESS;
+        }
+        return resultCode;
+    }
+
+    /**
+     * @return the latency in milliseconds of the get-buyers-custom-audience process if started,
+     *     otherwise the {@link AdServicesStatusUtils#STATUS_UNSET}.
+     */
+    private int getGetBuyersCustomAudienceLatencyInMs() {
+        if (mBiddingStageStartTimestamp == 0L) {
+            return AdServicesStatusUtils.STATUS_UNSET;
+        } else if (mGetBuyersCustomAudienceEndTimestamp == 0L) {
+            return (int) (mBiddingStageEndTimestamp - mBiddingStageStartTimestamp);
+        }
+        return (int) (mGetBuyersCustomAudienceEndTimestamp - mBiddingStageStartTimestamp);
+    }
+
+    /**
+     * @return the latency in milliseconds of the run-ad-bidding process if started, otherwise the
+     *     {@link AdServicesStatusUtils#STATUS_UNSET}.
+     */
+    private int getRunAdBiddingLatencyInMs() {
+        if (mRunAdBiddingStartTimestamp == 0L) {
+            return AdServicesStatusUtils.STATUS_UNSET;
+        } else if (mRunAdBiddingEndTimestamp == 0L) {
+            return (int) (mBiddingStageEndTimestamp - mRunAdBiddingStartTimestamp);
+        }
+        return (int) (mRunAdBiddingEndTimestamp - mRunAdBiddingStartTimestamp);
+    }
+
+    /** @return the total latency of ad bidding stage. */
+    private int getTotalAdBiddingStageLatencyInMs() {
+        if (mBiddingStageStartTimestamp == 0L) {
+            return AdServicesStatusUtils.STATUS_UNSET;
+        }
+        return (int) (mBiddingStageEndTimestamp - mBiddingStageStartTimestamp);
+    }
+
+    /**
+     * @return the latency in milliseconds of the persist-ad-selection process if started, otherwise
+     *     the {@link AdServicesStatusUtils#STATUS_UNSET}.
+     */
+    private int getPersistAdSelectionLatencyInMs() {
+        if (mPersistAdSelectionStartTimestamp == 0L) {
+            return AdServicesStatusUtils.STATUS_UNSET;
+        } else if (mPersistAdSelectionEndTimestamp == 0L) {
+            return (int) (getServiceElapsedTimestamp() - mPersistAdSelectionStartTimestamp);
+        }
+        return (int) (mPersistAdSelectionEndTimestamp - mPersistAdSelectionStartTimestamp);
+    }
+
+    private int getBinderLatencyInMs(long binderElapsedTimestamp) {
+        return (int) (getStartElapsedTimestamp() - binderElapsedTimestamp) * 2;
+    }
+}

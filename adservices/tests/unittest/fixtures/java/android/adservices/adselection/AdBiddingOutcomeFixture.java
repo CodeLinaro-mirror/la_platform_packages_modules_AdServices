@@ -19,9 +19,13 @@ package android.adservices.adselection;
 import android.adservices.common.AdData;
 import android.adservices.common.AdTechIdentifier;
 import android.net.Uri;
+import android.util.Pair;
 
 import com.android.adservices.service.adselection.AdBiddingOutcome;
 import com.android.adservices.service.adselection.CustomAudienceBiddingInfo;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class AdBiddingOutcomeFixture {
 
@@ -40,8 +44,8 @@ public class AdBiddingOutcomeFixture {
                 .setAdWithBid(new AdWithBid(adData, testBid))
                 .setCustomAudienceBiddingInfo(
                         CustomAudienceBiddingInfo.builder()
-                                .setBiddingLogicUrl(
-                                        CustomAudienceBiddingInfoFixture.VALID_BIDDING_LOGIC_URL)
+                                .setBiddingLogicUri(
+                                        CustomAudienceBiddingInfoFixture.VALID_BIDDING_LOGIC_URI)
                                 .setBuyerDecisionLogicJs(
                                         CustomAudienceBiddingInfoFixture.BUYER_DECISION_LOGIC_JS)
                                 .setCustomAudienceSignals(
@@ -51,4 +55,13 @@ public class AdBiddingOutcomeFixture {
                                 .build());
     }
 
+    public static List<AdBiddingOutcome> getListOfAdBiddingOutcomes(
+            List<Pair<AdTechIdentifier, Double>> buyersAndBids) {
+        return buyersAndBids.stream()
+                .map(
+                        a ->
+                                AdBiddingOutcomeFixture.anAdBiddingOutcomeBuilder(a.first, a.second)
+                                        .build())
+                .collect(Collectors.toList());
+    }
 }

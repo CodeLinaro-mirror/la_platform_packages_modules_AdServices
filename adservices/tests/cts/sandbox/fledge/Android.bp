@@ -28,6 +28,7 @@ android_test {
         "truth-prebuilt",
         "SdkSandboxTestUtils",
         "adservices-service-core",
+        "adservices-test-fixtures",
     ],
     libs: [
         "android.test.base",
@@ -39,7 +40,7 @@ android_test {
     ],
     // TODO(b/247834676) uncomment to bring in line with upstream
     // min_sdk_version: "33",
-    target_sdk_version: "current",
+    target_sdk_version: "33",
     test_suites: [
         "cts",
         "mts-adservices",

@@ -17,7 +17,13 @@
 package com.android.adservices.service.measurement.aggregation;
 
 import android.annotation.IntDef;
+import android.annotation.NonNull;
 import android.net.Uri;
+
+import androidx.annotation.Nullable;
+
+import com.android.adservices.LogUtil;
+import com.android.adservices.service.measurement.util.UnsignedLong;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -25,6 +31,8 @@ import org.json.JSONObject;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -32,6 +40,10 @@ import java.util.Objects;
  * Class that contains all the real data needed after aggregation, it is not encrypted.
  */
 public class AggregateReport {
+    static final String OPERATION = "operation";
+    static final String HISTOGRAM = "histogram";
+    static final String DATA = "data";
+
     private String mId;
     private Uri mPublisher;
     private Uri mAttributionDestination;
@@ -41,16 +53,32 @@ public class AggregateReport {
     private String mDebugCleartextPayload;
     private AggregateAttributionData mAggregateAttributionData;
     private @Status int mStatus;
+    private @DebugReportStatus int mDebugReportStatus;
     private String mApiVersion;
+    @Nullable private UnsignedLong mSourceDebugKey;
+    @Nullable private UnsignedLong mTriggerDebugKey;
+    private String mSourceId;
+    private String mTriggerId;
 
-    @IntDef(value = {
-            Status.PENDING,
-            Status.DELIVERED,
-    })
+    @IntDef(value = {Status.PENDING, Status.DELIVERED, Status.MARKED_TO_DELETE})
     @Retention(RetentionPolicy.SOURCE)
     public @interface Status {
         int PENDING = 0;
         int DELIVERED = 1;
+        int MARKED_TO_DELETE = 2;
+    }
+
+    @IntDef(
+            value = {
+                DebugReportStatus.NONE,
+                DebugReportStatus.PENDING,
+                DebugReportStatus.DELIVERED,
+            })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface DebugReportStatus {
+        int NONE = 0;
+        int PENDING = 1;
+        int DELIVERED = 2;
     }
 
     private AggregateReport() {
@@ -63,6 +91,9 @@ public class AggregateReport {
         mDebugCleartextPayload = null;
         mAggregateAttributionData = null;
         mStatus = AggregateReport.Status.PENDING;
+        mDebugReportStatus = AggregateReport.DebugReportStatus.NONE;
+        mSourceDebugKey = null;
+        mTriggerDebugKey = null;
     }
 
     @Override
@@ -71,23 +102,40 @@ public class AggregateReport {
             return false;
         }
         AggregateReport aggregateReport = (AggregateReport) obj;
-        return  Objects.equals(mPublisher, aggregateReport.mPublisher)
+        return Objects.equals(mPublisher, aggregateReport.mPublisher)
                 && Objects.equals(mAttributionDestination, aggregateReport.mAttributionDestination)
                 && mSourceRegistrationTime == aggregateReport.mSourceRegistrationTime
                 && mScheduledReportTime == aggregateReport.mScheduledReportTime
                 && Objects.equals(mEnrollmentId, aggregateReport.mEnrollmentId)
                 && Objects.equals(mDebugCleartextPayload, aggregateReport.mDebugCleartextPayload)
-                && Objects.equals(mAggregateAttributionData,
-                        aggregateReport.mAggregateAttributionData)
+                && Objects.equals(
+                        mAggregateAttributionData, aggregateReport.mAggregateAttributionData)
                 && mStatus == aggregateReport.mStatus
-                && Objects.equals(mApiVersion, aggregateReport.mApiVersion);
+                && mDebugReportStatus == aggregateReport.mDebugReportStatus
+                && Objects.equals(mApiVersion, aggregateReport.mApiVersion)
+                && Objects.equals(mSourceDebugKey, aggregateReport.mSourceDebugKey)
+                && Objects.equals(mTriggerDebugKey, aggregateReport.mTriggerDebugKey)
+                && Objects.equals(mSourceId, aggregateReport.mSourceId)
+                && Objects.equals(mTriggerId, aggregateReport.mTriggerId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mId, mPublisher, mAttributionDestination, mSourceRegistrationTime,
-                mScheduledReportTime, mEnrollmentId, mDebugCleartextPayload,
-                mAggregateAttributionData, mStatus);
+        return Objects.hash(
+                mId,
+                mPublisher,
+                mAttributionDestination,
+                mSourceRegistrationTime,
+                mScheduledReportTime,
+                mEnrollmentId,
+                mDebugCleartextPayload,
+                mAggregateAttributionData,
+                mStatus,
+                mDebugReportStatus,
+                mSourceDebugKey,
+                mTriggerDebugKey,
+                mSourceId,
+                mTriggerId);
     }
 
     /**
@@ -139,9 +187,24 @@ public class AggregateReport {
         return mDebugCleartextPayload;
     }
 
+    /** Source Debug Key */
+    @Nullable
+    public UnsignedLong getSourceDebugKey() {
+        return mSourceDebugKey;
+    }
+
+    /** Trigger Debug Key */
+    @Nullable
+    public UnsignedLong getTriggerDebugKey() {
+        return mTriggerDebugKey;
+    }
+
     /**
      * Contains the data specific to the aggregate report.
+     *
+     * @deprecated use {@link #getDebugCleartextPayload()} instead
      */
+    @Deprecated
     public AggregateAttributionData getAggregateAttributionData() {
         return mAggregateAttributionData;
     }
@@ -153,6 +216,11 @@ public class AggregateReport {
         return mStatus;
     }
 
+    /** Current {@link DebugReportStatus} of the report. */
+    public @DebugReportStatus int getDebugReportStatus() {
+        return mDebugReportStatus;
+    }
+
     /**
      * Api version when the report was issued.
      */
@@ -161,30 +229,55 @@ public class AggregateReport {
     }
 
     /**
-     * Generates String for debugCleartextPayload.
-     * JSON for format :
-     * {
-     *     "operation": "histogram",
-     *     "data": [{
-     *         "bucket": 1369,
-     *         "value": 32768
-     *     },
-     *     {
-     *         "bucket": 3461,
-     *         "value": 1664
-     *     }]
-     * }
+     * Generates String for debugCleartextPayload. JSON for format : { "operation": "histogram",
+     * "data": [{ "bucket": 1369, "value": 32768 }, { "bucket": 3461, "value": 1664 }] }
      */
-    public static String generateDebugPayload(
-            List<AggregateHistogramContribution> contributions) throws JSONException {
+    @NonNull
+    public static String generateDebugPayload(List<AggregateHistogramContribution> contributions)
+            throws JSONException {
         JSONArray jsonArray = new JSONArray();
         for (AggregateHistogramContribution contribution : contributions) {
             jsonArray.put(contribution.toJSONObject());
         }
         JSONObject debugPayload = new JSONObject();
-        debugPayload.put("operation", "histogram");
-        debugPayload.put("data", jsonArray);
+        debugPayload.put(OPERATION, HISTOGRAM);
+        debugPayload.put(DATA, jsonArray);
         return debugPayload.toString();
+    }
+
+    /**
+     * It deserializes the debug cleartext payload into {@link AggregateHistogramContribution}s.
+     *
+     * @return list of {@link AggregateHistogramContribution}s
+     */
+    @NonNull
+    public List<AggregateHistogramContribution> extractAggregateHistogramContributions() {
+        try {
+            ArrayList<AggregateHistogramContribution> aggregateHistogramContributions =
+                    new ArrayList<>();
+            JSONObject debugCleartextPayload = new JSONObject(mDebugCleartextPayload);
+            JSONArray contributionsArray = debugCleartextPayload.getJSONArray(DATA);
+            for (int i = 0; i < contributionsArray.length(); i++) {
+                AggregateHistogramContribution aggregateHistogramContribution =
+                        new AggregateHistogramContribution.Builder()
+                                .fromJsonObject(contributionsArray.getJSONObject(i));
+                aggregateHistogramContributions.add(aggregateHistogramContribution);
+            }
+            return aggregateHistogramContributions;
+        } catch (JSONException e) {
+            LogUtil.e(e, "Failed to parse contributions on Aggregate report.");
+            return Collections.emptyList();
+        }
+    }
+
+    /** Source ID */
+    public String getSourceId() {
+        return mSourceId;
+    }
+
+    /** Trigger ID */
+    public String getTriggerId() {
+        return mTriggerId;
     }
 
     /**
@@ -255,7 +348,10 @@ public class AggregateReport {
 
         /**
          * See {@link AggregateReport#getAggregateAttributionData()}.
+         *
+         * @deprecated use {@link #getDebugCleartextPayload()} instead
          */
+        @Deprecated
         public Builder setAggregateAttributionData(
                 AggregateAttributionData aggregateAttributionData) {
             mAttributionReport.mAggregateAttributionData = aggregateAttributionData;
@@ -269,12 +365,41 @@ public class AggregateReport {
             mAttributionReport.mStatus = status;
             return this;
         }
+        /** See {@link AggregateReport#getDebugReportStatus()} */
+        public Builder setDebugReportStatus(@DebugReportStatus int debugReportStatus) {
+            mAttributionReport.mDebugReportStatus = debugReportStatus;
+            return this;
+        }
 
         /**
          * See {@link AggregateReport#getApiVersion()}
          */
         public Builder setApiVersion(String version) {
             mAttributionReport.mApiVersion = version;
+            return this;
+        }
+
+        /** See {@link AggregateReport#getSourceDebugKey()} ()} */
+        public Builder setSourceDebugKey(UnsignedLong sourceDebugKey) {
+            mAttributionReport.mSourceDebugKey = sourceDebugKey;
+            return this;
+        }
+
+        /** See {@link AggregateReport#getTriggerDebugKey()} ()} */
+        public Builder setTriggerDebugKey(UnsignedLong triggerDebugKey) {
+            mAttributionReport.mTriggerDebugKey = triggerDebugKey;
+            return this;
+        }
+
+        /** See {@link AggregateReport#getSourceId()} */
+        public AggregateReport.Builder setSourceId(String sourceId) {
+            mAttributionReport.mSourceId = sourceId;
+            return this;
+        }
+
+        /** See {@link AggregateReport#getTriggerId()} */
+        public AggregateReport.Builder setTriggerId(String triggerId) {
+            mAttributionReport.mTriggerId = triggerId;
             return this;
         }
 
