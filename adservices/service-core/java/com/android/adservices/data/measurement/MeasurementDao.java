@@ -1061,6 +1061,7 @@ class MeasurementDao implements IMeasurementDao {
     public void insertAttribution(@NonNull Attribution attribution) throws DatastoreException {
         ContentValues values = new ContentValues();
         values.put(MeasurementTables.AttributionContract.ID, UUID.randomUUID().toString());
+        values.put(MeasurementTables.AttributionContract.SCOPE, attribution.getScope());
         values.put(MeasurementTables.AttributionContract.SOURCE_SITE, attribution.getSourceSite());
         values.put(
                 MeasurementTables.AttributionContract.SOURCE_ORIGIN, attribution.getSourceOrigin());
@@ -1100,7 +1101,7 @@ class MeasurementDao implements IMeasurementDao {
         Optional<Uri> destinationBaseUri =
                 extractBaseUri(trigger.getAttributionDestination(), trigger.getDestinationType());
 
-        if (!publisherBaseUri.isPresent() || !destinationBaseUri.isPresent()) {
+        if (publisherBaseUri.isEmpty() || destinationBaseUri.isEmpty()) {
             throw new IllegalArgumentException(
                     String.format(
                             Locale.ENGLISH,
@@ -1128,6 +1129,56 @@ class MeasurementDao implements IMeasurementDao {
                         + MeasurementTables.AttributionContract.TRIGGER_TIME
                         + " <= ? ",
                 new String[] {
+                    publisherTopPrivateDomain,
+                    triggerDestinationTopPrivateDomain,
+                    trigger.getEnrollmentId(),
+                    String.valueOf(
+                            trigger.getTriggerTime()
+                                    - FlagsFactory.getFlags()
+                                            .getMeasurementRateLimitWindowMilliseconds()),
+                    String.valueOf(trigger.getTriggerTime())
+                });
+    }
+
+    @Override
+    public long getAttributionsPerRateLimitWindow(@Attribution.Scope int scope,
+            @NonNull Source source, @NonNull Trigger trigger) throws DatastoreException {
+        Optional<Uri> publisherBaseUri =
+                extractBaseUri(source.getPublisher(), source.getPublisherType());
+        Optional<Uri> destinationBaseUri =
+                extractBaseUri(trigger.getAttributionDestination(), trigger.getDestinationType());
+
+        if (publisherBaseUri.isEmpty() || destinationBaseUri.isEmpty()) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            Locale.ENGLISH,
+                            "getAttributionsPerRateLimitWindow:"
+                                    + " getSourceAndDestinationTopPrivateDomains failed. Publisher:"
+                                    + " %s; Attribution destination: %s",
+                            source.getPublisher().toString(),
+                            trigger.getAttributionDestination().toString()));
+        }
+
+        String publisherTopPrivateDomain = publisherBaseUri.get().toString();
+        String triggerDestinationTopPrivateDomain = destinationBaseUri.get().toString();
+
+        return DatabaseUtils.queryNumEntries(
+                mSQLTransaction.getDatabase(),
+                MeasurementTables.AttributionContract.TABLE,
+                MeasurementTables.AttributionContract.SCOPE
+                        + " = ? AND "
+                        + MeasurementTables.AttributionContract.SOURCE_SITE
+                        + " = ? AND "
+                        + MeasurementTables.AttributionContract.DESTINATION_SITE
+                        + " = ? AND "
+                        + MeasurementTables.AttributionContract.ENROLLMENT_ID
+                        + " = ? AND "
+                        + MeasurementTables.AttributionContract.TRIGGER_TIME
+                        + " > ? AND "
+                        + MeasurementTables.AttributionContract.TRIGGER_TIME
+                        + " <= ? ",
+                new String[] {
+                    String.valueOf(scope),
                     publisherTopPrivateDomain,
                     triggerDestinationTopPrivateDomain,
                     trigger.getEnrollmentId(),
@@ -1191,99 +1242,10 @@ class MeasurementDao implements IMeasurementDao {
     }
 
     @Override
-    public Integer countDistinctDestPerPubXEnrollmentInActiveSourceInWindow(
+    public Integer countDistinctDestPerPubXEnrollmentInUnexpiredSourceInWindow(
             Uri publisher,
             @EventSurfaceType int publisherType,
             String enrollmentId,
-            List<Uri> excludedDestinations,
-            @EventSurfaceType int destinationType,
-            long windowStartTime,
-            long windowEndTime)
-            throws DatastoreException {
-        String query =
-                String.format(
-                        Locale.ENGLISH,
-                        "WITH source_ids AS ("
-                                + "SELECT %1$s FROM %2$s "
-                                + "WHERE %3$s AND %4$s = ? AND %5$s = ? "
-                                + "AND %6$s > ? AND %6$s <= ? AND %7$s > ?"
-                                + ") "
-                                + "SELECT COUNT(DISTINCT %8$s) FROM %9$s "
-                                + "WHERE %10$s IN source_ids AND %11$s = ? "
-                                + "AND %8$s NOT IN "
-                                + getUriValueList(excludedDestinations),
-                        MeasurementTables.SourceContract.ID,
-                        MeasurementTables.SourceContract.TABLE,
-                        getPublisherWhereStatement(publisher, publisherType),
-                        MeasurementTables.SourceContract.ENROLLMENT_ID,
-                        MeasurementTables.SourceContract.STATUS,
-                        MeasurementTables.SourceContract.EVENT_TIME,
-                        MeasurementTables.SourceContract.EXPIRY_TIME,
-                        MeasurementTables.SourceDestination.DESTINATION,
-                        MeasurementTables.SourceDestination.TABLE,
-                        MeasurementTables.SourceDestination.SOURCE_ID,
-                        MeasurementTables.SourceDestination.DESTINATION_TYPE);
-        return (int)
-                DatabaseUtils.longForQuery(
-                        mSQLTransaction.getDatabase(),
-                        query,
-                        new String[] {
-                            enrollmentId,
-                            String.valueOf(Source.Status.ACTIVE),
-                            String.valueOf(windowStartTime),
-                            String.valueOf(windowEndTime),
-                            String.valueOf(windowEndTime),
-                            String.valueOf(destinationType)
-                        });
-    }
-
-    @Override
-    public Integer countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
-            Uri publisher,
-            @EventSurfaceType int publisherType,
-            String enrollmentId,
-            List<Uri> excludedDestinations,
-            @EventSurfaceType int destinationType,
-            long windowEndTime)
-            throws DatastoreException {
-        String query =
-                String.format(
-                        Locale.ENGLISH,
-                        "WITH source_ids AS ("
-                                + "SELECT %1$s FROM %2$s "
-                                + "WHERE %3$s AND %4$s = ? AND %5$s != ? "
-                                + "AND %6$s > ?"
-                                + ") "
-                                + "SELECT COUNT(DISTINCT %7$s) FROM %8$s "
-                                + "WHERE %9$s IN source_ids AND %10$s = ? "
-                                + "AND %7$s NOT IN "
-                                + getUriValueList(excludedDestinations),
-                        MeasurementTables.SourceContract.ID,
-                        MeasurementTables.SourceContract.TABLE,
-                        getPublisherWhereStatement(publisher, publisherType),
-                        MeasurementTables.SourceContract.ENROLLMENT_ID,
-                        MeasurementTables.SourceContract.STATUS,
-                        MeasurementTables.SourceContract.EXPIRY_TIME,
-                        MeasurementTables.SourceDestination.DESTINATION,
-                        MeasurementTables.SourceDestination.TABLE,
-                        MeasurementTables.SourceDestination.SOURCE_ID,
-                        MeasurementTables.SourceDestination.DESTINATION_TYPE);
-        return (int)
-                DatabaseUtils.longForQuery(
-                        mSQLTransaction.getDatabase(),
-                        query,
-                        new String[] {
-                            enrollmentId,
-                            String.valueOf(Source.Status.MARKED_TO_DELETE),
-                            String.valueOf(windowEndTime),
-                            String.valueOf(destinationType)
-                        });
-    }
-
-    @Override
-    public Integer countDistinctDestinationsPerPublisherPerRateLimitWindow(
-            Uri publisher,
-            @EventSurfaceType int publisherType,
             List<Uri> excludedDestinations,
             @EventSurfaceType int destinationType,
             long windowStartTime,
@@ -1304,7 +1266,7 @@ class MeasurementDao implements IMeasurementDao {
                         MeasurementTables.SourceContract.ID,
                         MeasurementTables.SourceContract.TABLE,
                         getPublisherWhereStatement(publisher, publisherType),
-                        MeasurementTables.SourceContract.STATUS,
+                        MeasurementTables.SourceContract.ENROLLMENT_ID,
                         MeasurementTables.SourceContract.EVENT_TIME,
                         MeasurementTables.SourceContract.EXPIRY_TIME,
                         MeasurementTables.SourceDestination.DESTINATION,
@@ -1316,7 +1278,90 @@ class MeasurementDao implements IMeasurementDao {
                         mSQLTransaction.getDatabase(),
                         query,
                         new String[] {
-                            String.valueOf(Source.Status.ACTIVE),
+                            enrollmentId,
+                            String.valueOf(windowStartTime),
+                            String.valueOf(windowEndTime),
+                            String.valueOf(windowEndTime),
+                            String.valueOf(destinationType)
+                        });
+    }
+
+    @Override
+    public Integer countDistinctDestinationsPerPubXEnrollmentInUnexpiredSource(
+            Uri publisher,
+            @EventSurfaceType int publisherType,
+            String enrollmentId,
+            List<Uri> excludedDestinations,
+            @EventSurfaceType int destinationType,
+            long windowEndTime)
+            throws DatastoreException {
+        String query =
+                String.format(
+                        Locale.ENGLISH,
+                        "WITH source_ids AS ("
+                                + "SELECT %1$s FROM %2$s "
+                                + "WHERE %3$s AND %4$s = ? "
+                                + "AND %5$s > ?"
+                                + ") "
+                                + "SELECT COUNT(DISTINCT %6$s) FROM %7$s "
+                                + "WHERE %8$s IN source_ids AND %9$s = ? "
+                                + "AND %6$s NOT IN "
+                                + getUriValueList(excludedDestinations),
+                        MeasurementTables.SourceContract.ID,
+                        MeasurementTables.SourceContract.TABLE,
+                        getPublisherWhereStatement(publisher, publisherType),
+                        MeasurementTables.SourceContract.ENROLLMENT_ID,
+                        MeasurementTables.SourceContract.EXPIRY_TIME,
+                        MeasurementTables.SourceDestination.DESTINATION,
+                        MeasurementTables.SourceDestination.TABLE,
+                        MeasurementTables.SourceDestination.SOURCE_ID,
+                        MeasurementTables.SourceDestination.DESTINATION_TYPE);
+        return (int)
+                DatabaseUtils.longForQuery(
+                        mSQLTransaction.getDatabase(),
+                        query,
+                        new String[] {
+                            enrollmentId,
+                            String.valueOf(windowEndTime),
+                            String.valueOf(destinationType)
+                        });
+    }
+
+    @Override
+    public Integer countDistinctDestinationsPerPublisherPerRateLimitWindow(
+            Uri publisher,
+            @EventSurfaceType int publisherType,
+            List<Uri> excludedDestinations,
+            @EventSurfaceType int destinationType,
+            long windowStartTime,
+            long windowEndTime)
+            throws DatastoreException {
+        String query =
+                String.format(
+                        Locale.ENGLISH,
+                        "WITH source_ids AS ("
+                                + "SELECT %1$s FROM %2$s "
+                                + "WHERE %3$s "
+                                + "AND %4$s > ? AND %4$s <= ? AND %5$s > ?"
+                                + ") "
+                                + "SELECT COUNT(DISTINCT %6$s) FROM %7$s "
+                                + "WHERE %8$s IN source_ids AND %9$s = ? "
+                                + "AND %6$s NOT IN "
+                                + getUriValueList(excludedDestinations),
+                        MeasurementTables.SourceContract.ID,
+                        MeasurementTables.SourceContract.TABLE,
+                        getPublisherWhereStatement(publisher, publisherType),
+                        MeasurementTables.SourceContract.EVENT_TIME,
+                        MeasurementTables.SourceContract.EXPIRY_TIME,
+                        MeasurementTables.SourceDestination.DESTINATION,
+                        MeasurementTables.SourceDestination.TABLE,
+                        MeasurementTables.SourceDestination.SOURCE_ID,
+                        MeasurementTables.SourceDestination.DESTINATION_TYPE);
+        return (int)
+                DatabaseUtils.longForQuery(
+                        mSQLTransaction.getDatabase(),
+                        query,
+                        new String[] {
                             String.valueOf(windowStartTime),
                             String.valueOf(windowEndTime),
                             String.valueOf(windowEndTime),
