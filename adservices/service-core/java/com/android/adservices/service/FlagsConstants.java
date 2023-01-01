@@ -35,6 +35,7 @@ public final class FlagsConstants {
     public static final int PPAPI_ONLY = 1;
     public static final int PPAPI_AND_SYSTEM_SERVER = 2;
     public static final int APPSEARCH_ONLY = 3;
+    public static final int PPAPI_AND_ADEXT_SERVICE = 4;
     public static final float ADID_REQUEST_PERMITS_PER_SECOND = 25;
 
     // **************************************************
@@ -855,6 +856,8 @@ public final class FlagsConstants {
     public static final String KEY_CONSENT_MANAGER_LAZY_ENABLE_MODE =
             "consent_manager_lazy_enable_mode";
 
+    public static final String KEY_CONSENT_NOTIFIED_DEBUG_MODE = "consent_notified_debug_mode";
+
     // Consent Manager debug mode keys.
     public static final String KEY_CONSENT_MANAGER_DEBUG_MODE = "consent_manager_debug_mode";
 
@@ -921,6 +924,9 @@ public final class FlagsConstants {
     public static final String KEY_ENABLE_BACK_COMPAT = "enable_back_compat";
 
     public static final String KEY_ENABLE_APPSEARCH_CONSENT_DATA = "enable_appsearch_consent_data";
+
+    public static final String KEY_ENABLE_ADEXT_SERVICE_CONSENT_DATA =
+            "enable_adext_service_consent_data";
 
     // Whether to call trusted servers for off device ad selection.
     public static final String KEY_OFF_DEVICE_AD_SELECTION_ENABLED =
@@ -1072,6 +1078,32 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_ENABLE_API_STATUS_ALLOW_LIST_CHECK =
             "measurement_enable_api_status_allow_list_check";
 
+    public static final String
+            KEY_MEASUREMENT_INSTALL_ATTR_DUAL_DESTINATION_EVENT_NOISE_PROBABILITY =
+            "measurement_install_attr_dual_destination_event_noise_probability";
+
+    public static final String KEY_MEASUREMENT_DUAL_DESTINATION_NAVIGATION_NOISE_PROBABILITY =
+            "measurement_dual_destination_navigation_noise_probability";
+
+    public static final String
+            KEY_MEASUREMENT_INSTALL_ATTR_DUAL_DESTINATION_NAVIGATION_NOISE_PROBABILITY =
+            "measurement_install_attr_dual_destination_navigation_noise_probability";
+
+    public static final String KEY_MEASUREMENT_DUAL_DESTINATION_EVENT_NOISE_PROBABILITY =
+            "measurement_dual_destination_event_noise_probability";
+
+    public static final String KEY_MEASUREMENT_INSTALL_ATTR_EVENT_NOISE_PROBABILITY =
+            "measurement_install_attr_event_noise_probability";
+
+    public static final String KEY_MEASUREMENT_INSTALL_ATTR_NAVIGATION_NOISE_PROBABILITY =
+            "measurement_install_attr_navigation_noise_probability";
+
+    public static final String KEY_MEASUREMENT_EVENT_NOISE_PROBABILITY =
+            "measurement_event_noise_probability";
+
+    public static final String KEY_MEASUREMENT_NAVIGATION_NOISE_PROBABILITY =
+            "measurement_navigation_noise_probability";
+
     // Database Schema Version Flags
     public static final String KEY_ENABLE_DATABASE_SCHEMA_VERSION_8 =
             "enable_database_schema_version_8";
@@ -1084,6 +1116,8 @@ public final class FlagsConstants {
     public static final String KEY_U18_UX_ENABLED = "u18_ux_enabled";
 
     public static final String KEY_RVC_UX_ENABLED = "rvc_ux_enabled";
+
+    public static final String KEY_RVC_NOTIFICATION_ENABLED = "rvc_notification_enabled";
 
     public static final String KEY_ENABLE_AD_SERVICES_SYSTEM_API = "enable_ad_services_system_api";
 
@@ -1099,6 +1133,9 @@ public final class FlagsConstants {
 
     public static final String KEY_APP_CONFIG_RETURNS_ENABLED_BY_DEFAULT =
             "app_config_returns_enabled_by_detault";
+
+    public static final String KEY_ENABLE_ADEXT_DATA_SERVICE_APIS =
+            "enable_adext_data_service_apis";
 
     public static final String KEY_ENABLE_ADSERVICES_API_ENABLED = "enable_adservices_api_enabled";
 
