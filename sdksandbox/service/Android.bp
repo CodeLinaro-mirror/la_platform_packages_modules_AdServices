@@ -65,6 +65,7 @@ java_sdk_library {
         "com.android.server.sdksandbox",
     ],
     libs: [
+        "framework-configinfrastructure",
         "framework-adservices.impl",
         "framework-sdksandbox.impl",
         "jsr305",
@@ -73,6 +74,7 @@ java_sdk_library {
     static_libs: ["sdksandbox-statsd"],
     defaults: [
         "framework-system-server-module-defaults",
+        "framework-system-server-module-optimize-defaults",
         "sdksandbox-java-defaults",
     ],
     visibility: [

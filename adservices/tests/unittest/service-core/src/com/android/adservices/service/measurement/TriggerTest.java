@@ -103,6 +103,7 @@ public class TriggerTest {
                         .setId("1")
                         .setEventTriggers(EVENT_TRIGGERS)
                         .setTriggerTime(5L)
+                        .setIsDebugReporting(true)
                         .setStatus(Trigger.Status.PENDING)
                         .setRegistrant(Uri.parse("android-app://com.example.abc"))
                         .setAggregateTriggerData(aggregateTriggerDatas.toString())
@@ -121,6 +122,7 @@ public class TriggerTest {
                         .setId("1")
                         .setEventTriggers(EVENT_TRIGGERS)
                         .setTriggerTime(5L)
+                        .setIsDebugReporting(true)
                         .setStatus(Trigger.Status.PENDING)
                         .setRegistrant(Uri.parse("android-app://com.example.abc"))
                         .setAggregateTriggerData(aggregateTriggerDatas.toString())
@@ -481,28 +483,17 @@ public class TriggerTest {
                         .setTriggerTime(234324L)
                         .build();
         EventTrigger eventTrigger1 =
-                new EventTrigger.Builder()
+                new EventTrigger.Builder(new UnsignedLong(2L))
                         .setTriggerPriority(2L)
-                        .setTriggerData(new UnsignedLong(2L))
                         .setDedupKey(new UnsignedLong(2L))
-                        .setFilter(
-                                new FilterData.Builder()
-                                        .buildFilterData(filters1)
-                                        .build())
-                        .setNotFilter(
-                                new FilterData.Builder()
-                                        .buildFilterData(notFilters1)
-                                        .build())
+                        .setFilter(new FilterMap.Builder().buildFilterData(filters1).build())
+                        .setNotFilter(new FilterMap.Builder().buildFilterData(notFilters1).build())
                         .build();
         EventTrigger eventTrigger2 =
-                new EventTrigger.Builder()
+                new EventTrigger.Builder(new UnsignedLong(3L))
                         .setTriggerPriority(3L)
-                        .setTriggerData(new UnsignedLong(3L))
                         .setDedupKey(new UnsignedLong(3L))
-                        .setNotFilter(
-                                new FilterData.Builder()
-                                        .buildFilterData(notFilters2)
-                                        .build())
+                        .setNotFilter(new FilterMap.Builder().buildFilterData(notFilters2).build())
                         .build();
 
         // Action
@@ -541,10 +532,10 @@ public class TriggerTest {
     }
 
     private JSONObject createFilterJSONObject() throws JSONException {
-        JSONObject filterData = new JSONObject();
-        filterData.put("conversion_subdomain",
+        JSONObject filterMap = new JSONObject();
+        filterMap.put("conversion_subdomain",
                 new JSONArray(Arrays.asList("electronics.megastore")));
-        filterData.put("product", new JSONArray(Arrays.asList("1234", "2345")));
-        return filterData;
+        filterMap.put("product", new JSONArray(Arrays.asList("1234", "2345")));
+        return filterMap;
     }
 }

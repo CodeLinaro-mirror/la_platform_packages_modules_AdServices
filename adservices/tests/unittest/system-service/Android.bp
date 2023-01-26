@@ -32,12 +32,14 @@ android_test {
         "mockito-target-extended-minus-junit4",
         "ub-uiautomator",
         "services.core",
+        "framework-adservices.impl",
         "service-adservices.impl",
     ],
     libs: [
         "android.test.base",
         "android.test.mock",
         "android.test.runner",
+        "framework-configinfrastructure",
     ],
     jni_libs: [
         // Required for ExtendedMockito

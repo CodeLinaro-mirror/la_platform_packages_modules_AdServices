@@ -106,6 +106,7 @@ public class AsyncTriggerFetcher {
             return false;
         }
         try {
+            String eventTriggerData = new JSONArray().toString();
             JSONObject json = new JSONObject(field.get(0));
             if (!json.isNull(TriggerHeaderContract.EVENT_TRIGGER_DATA)) {
                 Optional<String> validEventTriggerData =
@@ -114,8 +115,9 @@ public class AsyncTriggerFetcher {
                 if (!validEventTriggerData.isPresent()) {
                     return false;
                 }
-                result.setEventTriggers(validEventTriggerData.get());
+                eventTriggerData = validEventTriggerData.get();
             }
+            result.setEventTriggers(eventTriggerData);
             if (!json.isNull(TriggerHeaderContract.AGGREGATABLE_TRIGGER_DATA)) {
                 if (!isValidAggregateTriggerData(
                         json.getJSONArray(TriggerHeaderContract.AGGREGATABLE_TRIGGER_DATA))) {
@@ -147,6 +149,9 @@ public class AsyncTriggerFetcher {
                     return false;
                 }
                 result.setNotFilters(notFilters.toString());
+            }
+            if (!json.isNull(TriggerHeaderContract.DEBUG_REPORTING)) {
+                result.setIsDebugReporting(json.optBoolean(TriggerHeaderContract.DEBUG_REPORTING));
             }
             if (!json.isNull(TriggerHeaderContract.DEBUG_KEY) && (isDebugKeyAllowed)) {
                 try {
@@ -423,5 +428,6 @@ public class AsyncTriggerFetcher {
         String AGGREGATABLE_TRIGGER_DATA = "aggregatable_trigger_data";
         String AGGREGATABLE_VALUES = "aggregatable_values";
         String DEBUG_KEY = "debug_key";
+        String DEBUG_REPORTING = "debug_reporting";
     }
 }
