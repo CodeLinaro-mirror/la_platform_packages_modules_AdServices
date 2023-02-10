@@ -36,7 +36,7 @@ interface ISdkSandboxManager {
 
     void addSdkSandboxProcessDeathCallback(in String callingPackageName, long timeAppCalledSystemServer, in ISdkSandboxProcessDeathCallback callback);
     void removeSdkSandboxProcessDeathCallback(in String callingPackageName, long timeAppCalledSystemServer, in ISdkSandboxProcessDeathCallback callback);
-    oneway void loadSdk(in String callingPackageName, in String sdkName, long timeAppCalledSystemServer, in Bundle params, in ILoadSdkCallback callback);
+    oneway void loadSdk(in String callingPackageName, in IBinder applicationThreadBinder, in String sdkName, long timeAppCalledSystemServer, in Bundle params, in ILoadSdkCallback callback);
     void unloadSdk(in String callingPackageName, in String sdkName, long timeAppCalledSystemServer);
     // TODO(b/242031240): wrap the many input params in one parcelable object
     oneway void requestSurfacePackage(in String callingPackageName, in String sdkName, in IBinder hostToken, int displayId, int width, int height, long timeAppCalledSystemServer, in Bundle params, IRequestSurfacePackageCallback callback);
@@ -44,4 +44,7 @@ interface ISdkSandboxManager {
     oneway void syncDataFromClient(in String callingPackageName, long timeAppCalledSystemServer, in SharedPreferencesUpdate update, in ISharedPreferencesSyncCallback callback);
     void stopSdkSandbox(in String callingPackageName);
     void logLatencyFromSystemServerToApp(in String method, int latency);
+
+    // TODO(b/263119223): Remove this is a workaround for b/262282035.
+    IBinder getAdServicesManager();
 }
