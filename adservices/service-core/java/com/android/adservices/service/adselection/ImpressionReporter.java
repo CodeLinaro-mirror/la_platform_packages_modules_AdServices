@@ -49,6 +49,8 @@ import com.android.adservices.service.common.FledgeAllowListsFilter;
 import com.android.adservices.service.common.FledgeAuthorizationFilter;
 import com.android.adservices.service.common.Throttler;
 import com.android.adservices.service.common.ValidatorUtil;
+import com.android.adservices.service.consent.AdServicesApiConsent;
+import com.android.adservices.service.consent.AdServicesApiType;
 import com.android.adservices.service.consent.ConsentManager;
 import com.android.adservices.service.devapi.AdSelectionDevOverridesHelper;
 import com.android.adservices.service.devapi.DevContext;
@@ -337,7 +339,8 @@ public class ImpressionReporter {
         try {
             sellerValidator.validate(reportingUris.sellerReportingUri);
             // Perform reporting if no exception was thrown
-            sellerFuture = mAdServicesHttpsClient.reportUri(reportingUris.sellerReportingUri);
+            sellerFuture =
+                    mAdServicesHttpsClient.getAndReadNothing(reportingUris.sellerReportingUri);
         } catch (IllegalArgumentException e) {
             LogUtil.v("Seller reporting URI validation failed!");
             sellerFuture = Futures.immediateFuture(null);
@@ -359,7 +362,8 @@ public class ImpressionReporter {
             try {
                 buyerValidator.validate(reportingUris.buyerReportingUri);
                 // Perform reporting if no exception was thrown
-                buyerFuture = mAdServicesHttpsClient.reportUri(reportingUris.buyerReportingUri);
+                buyerFuture =
+                        mAdServicesHttpsClient.getAndReadNothing(reportingUris.buyerReportingUri);
             } catch (IllegalArgumentException e) {
                 LogUtil.v("Buyer reporting URI validation failed!");
                 buyerFuture = Futures.immediateFuture(null);
@@ -634,7 +638,14 @@ public class ImpressionReporter {
      *     user consent
      */
     private Void assertCallerHasUserConsent() throws ConsentManager.RevokedConsentException {
-        if (!mConsentManager.getConsent().isGiven()) {
+        AdServicesApiConsent userConsent;
+        if (mFlags.getGaUxFeatureEnabled()) {
+            userConsent = mConsentManager.getConsent(AdServicesApiType.FLEDGE);
+        } else {
+            userConsent = mConsentManager.getConsent();
+        }
+
+        if (!userConsent.isGiven()) {
             throw new ConsentManager.RevokedConsentException();
         }
         return null;
