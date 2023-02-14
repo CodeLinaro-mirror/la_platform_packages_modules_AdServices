@@ -96,7 +96,6 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-
 /**
  * Implementation of {@link SdkSandboxManager}.
  *
@@ -177,7 +176,19 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
     private SdkSandboxSettingsListener mSdkSandboxSettingsListener;
 
     private static final String PROPERTY_DISABLE_SDK_SANDBOX = "disable_sdk_sandbox";
+    private static final String PROPERTY_CUSTOMIZED_SDK_CONTEXT_ENABLED =
+            "sdksandbox_customized_sdk_context_enabled";
     private static final boolean DEFAULT_VALUE_DISABLE_SDK_SANDBOX = true;
+    private static final boolean DEFAULT_VALUE_CUSTOMIZED_SDK_CONTEXT_ENABLED = false;
+
+    /**
+     * Property to enforce broadcast receiver restrictions for SDK sandbox processes. If the value
+     * of this property is {@code true}, the restrictions will be enforced.
+     */
+    private static final String PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS =
+            "enforce_broadcast_receiver_restrictions";
+
+    private static final boolean DEFAULT_VALUE_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS = false;
 
     static class Injector {
         private final Context mContext;
@@ -800,6 +811,9 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             }
             writer.println(
                     "Killswitch enabled: " + mSdkSandboxSettingsListener.isKillSwitchEnabled());
+            writer.println(
+                    "Customized Sdk Context enabled: "
+                            + mSdkSandboxSettingsListener.isCustomizedSdkContextEnabled());
             writer.println("mLoadSdkSessions size: " + mLoadSdkSessions.size());
             for (CallingInfo callingInfo : mLoadSdkSessions.keySet()) {
                 writer.printf("Caller: %s has following SDKs", callingInfo);
@@ -1036,7 +1050,9 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             }
 
             try {
-                service.initialize(new SdkToServiceLink());
+                service.initialize(
+                        new SdkToServiceLink(),
+                        mSdkSandboxSettingsListener.isCustomizedSdkContextEnabled());
             } catch (RemoteException e) {
                 final String errorMsg = "Failed to initialize sandbox";
                 Log.e(TAG, errorMsg + " for " + mCallingInfo);
@@ -1322,6 +1338,13 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                         PROPERTY_DISABLE_SDK_SANDBOX,
                         DEFAULT_VALUE_DISABLE_SDK_SANDBOX);
 
+        @GuardedBy("mLock")
+        private boolean mCustomizedSdkContextEnabled =
+                DeviceConfig.getBoolean(
+                        DeviceConfig.NAMESPACE_ADSERVICES,
+                        PROPERTY_CUSTOMIZED_SDK_CONTEXT_ENABLED,
+                        DEFAULT_VALUE_CUSTOMIZED_SDK_CONTEXT_ENABLED);
+
         SdkSandboxSettingsListener(Context context) {
             mContext = context;
         }
@@ -1355,9 +1378,19 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             DeviceConfig.removeOnPropertiesChangedListener(this);
         }
 
+        @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
+        boolean isCustomizedSdkContextEnabled() {
+            synchronized (mLock) {
+                return mCustomizedSdkContextEnabled;
+            }
+        }
+
         @Override
         public void onPropertiesChanged(@NonNull DeviceConfig.Properties properties) {
             synchronized (mLock) {
+                if (!properties.getNamespace().equals(DeviceConfig.NAMESPACE_ADSERVICES)) {
+                    return;
+                }
                 for (String name : properties.getKeyset()) {
                     if (name == null) {
                         continue;
@@ -1375,6 +1408,11 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                                 stopAllSandboxesLocked();
                             }
                         }
+                    } else if (name.equals(PROPERTY_CUSTOMIZED_SDK_CONTEXT_ENABLED)) {
+                        mCustomizedSdkContextEnabled =
+                                properties.getBoolean(
+                                        PROPERTY_CUSTOMIZED_SDK_CONTEXT_ENABLED,
+                                        DEFAULT_VALUE_CUSTOMIZED_SDK_CONTEXT_ENABLED);
                     }
                 }
             }
@@ -1866,6 +1904,56 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                                 + getSandboxedActivitySdkNameKey()
                                 + "with value is the name of SDK registered "
                                 + "SandboxedActivityHandler");
+            }
+        }
+
+        @Override
+        // TODO(b/265647873): Add enforcement around onlyProtectedBroadcasts parameter
+        public boolean canRegisterBroadcastReceiver(
+                @NonNull IntentFilter intentFilter, int flags, boolean onlyProtectedBroadcasts) {
+            if (!Process.isSdkSandboxUid(Binder.getCallingUid())) {
+                return true;
+            }
+
+            /**
+             * By clearing the calling identity, system server identity is set which allows us to
+             * call {@DeviceConfig.getBoolean}
+             */
+            final long token = Binder.clearCallingIdentity();
+
+            try {
+                return (!DeviceConfig.getBoolean(
+                                DeviceConfig.NAMESPACE_ADSERVICES,
+                                PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS,
+                                DEFAULT_VALUE_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS)
+                        || ((flags & Context.RECEIVER_NOT_EXPORTED) != 0));
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
+        }
+
+        @Override
+        // TODO(b/265777283): Use minTargetSdkVersion and intentFilter parameter when using an
+        // allowlist
+        public boolean canDeclareBroadcastReceiverFromManifest(
+                @NonNull IntentFilter intentFilter,
+                boolean unexportedBroadcast,
+                boolean onlyProtectedBroadcasts,
+                int minTargetSdkVersion) {
+            /**
+             * By clearing the calling identity, system server identity is set which allows us to
+             * call {@DeviceConfig.getBoolean}
+             */
+            final long token = Binder.clearCallingIdentity();
+            try {
+                return unexportedBroadcast
+                        || onlyProtectedBroadcasts
+                        || (!DeviceConfig.getBoolean(
+                                DeviceConfig.NAMESPACE_ADSERVICES,
+                                PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS,
+                                DEFAULT_VALUE_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS));
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         }
     }

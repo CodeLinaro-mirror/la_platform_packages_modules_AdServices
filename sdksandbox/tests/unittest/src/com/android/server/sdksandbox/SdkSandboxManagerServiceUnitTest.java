@@ -40,7 +40,6 @@ import android.app.sdksandbox.ILoadSdkCallback;
 import android.app.sdksandbox.ISdkSandboxManager;
 import android.app.sdksandbox.ISharedPreferencesSyncCallback;
 import android.app.sdksandbox.LoadSdkException;
-import android.app.sdksandbox.SandboxedSdkContext;
 import android.app.sdksandbox.SdkSandboxManager;
 import android.app.sdksandbox.SharedPreferencesUpdate;
 import android.app.sdksandbox.testutils.FakeLoadSdkCallbackBinder;
@@ -51,12 +50,11 @@ import android.app.sdksandbox.testutils.FakeSharedPreferencesSyncCallback;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
-import android.content.res.AssetManager;
-import android.content.res.Resources;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -87,9 +85,7 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.mockito.MockitoSession;
 
-import java.io.BufferedReader;
 import java.io.FileDescriptor;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -114,6 +110,8 @@ public class SdkSandboxManagerServiceUnitTest {
 
     private static FakeSdkSandboxProvider sProvider;
     private static SdkSandboxPulledAtoms sSdkSandboxPulledAtoms;
+
+    private static SdkSandboxManagerLocal sSdkSandboxManagerLocal;
 
     private static final String CLIENT_PACKAGE_NAME = "com.android.client";
     private static final String SDK_NAME = "com.android.codeprovider";
@@ -144,6 +142,9 @@ public class SdkSandboxManagerServiceUnitTest {
     private static final String TEST_VALUE = "value";
     private static final SharedPreferencesUpdate TEST_UPDATE =
             new SharedPreferencesUpdate(new ArrayList<>(), getTestBundle());
+
+    private static final String PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS =
+            "enforce_broadcast_receiver_restrictions";
 
     @Before
     public void setup() {
@@ -191,6 +192,8 @@ public class SdkSandboxManagerServiceUnitTest {
 
         mService = new SdkSandboxManagerService(mSpyContext, mInjector);
         mService.forceEnableSandbox();
+        sSdkSandboxManagerLocal = mService.getLocalManager();
+        assertThat(sSdkSandboxManagerLocal).isNotNull();
 
         mClientAppUid = Process.myUid();
     }
@@ -883,67 +886,30 @@ public class SdkSandboxManagerServiceUnitTest {
         assertThat(sProvider.getBoundServiceForApp(callingInfo)).isNull();
     }
 
-    /* Tests resources defined in CodeProviderWithResources may be read. */
-    @Test
-    public void testCodeContextResourcesAndAssets() throws Exception {
-        Context context = InstrumentationRegistry.getInstrumentation().getContext();
-        PackageManager pm = context.getPackageManager();
-        ApplicationInfo info = pm.getApplicationInfo(SDK_PROVIDER_RESOURCES_PACKAGE,
-                PackageManager.MATCH_STATIC_SHARED_AND_SDK_LIBRARIES);
-        assertThat(info).isNotNull();
-        SandboxedSdkContext sandboxedSdkContext =
-                new SandboxedSdkContext(
-                        context,
-                        getClass().getClassLoader(),
-                        CLIENT_PACKAGE_NAME,
-                        info,
-                        SDK_NAME,
-                        null,
-                        null);
-        Resources resources = sandboxedSdkContext.getResources();
-
-        int integerId = resources.getIdentifier("test_integer", "integer",
-                SDK_PROVIDER_RESOURCES_PACKAGE);
-        assertThat(integerId).isNotEqualTo(0);
-        assertThat(resources.getInteger(integerId)).isEqualTo(1234);
-
-        int stringId = resources.getIdentifier("test_string", "string",
-                SDK_PROVIDER_RESOURCES_PACKAGE);
-        assertThat(stringId).isNotEqualTo(0);
-        assertThat(resources.getString(stringId)).isEqualTo("Test String");
-
-        AssetManager assetManager = resources.getAssets();
-        BufferedReader reader = new BufferedReader(
-                new InputStreamReader(assetManager.open("test-asset.txt")));
-        assertThat(reader.readLine()).isEqualTo("This is a test asset");
-    }
-
     /** Tests that only allowed intents may be sent from the sdk sandbox. */
     @Test
     public void testEnforceAllowedToSendBroadcast() {
-        SdkSandboxManagerLocal mSdkSandboxManagerLocal = mService.getLocalManager();
-
         Intent disallowedIntent = new Intent(Intent.ACTION_SCREEN_ON);
-        assertThrows(SecurityException.class,
-                () -> mSdkSandboxManagerLocal.enforceAllowedToSendBroadcast(disallowedIntent));
+        assertThrows(
+                SecurityException.class,
+                () -> sSdkSandboxManagerLocal.enforceAllowedToSendBroadcast(disallowedIntent));
     }
 
     /** Tests that only allowed activities may be started from the sdk sandbox. */
     @Test
     public void testEnforceAllowedToStartActivity() {
-        SdkSandboxManagerLocal mSdkSandboxManagerLocal = mService.getLocalManager();
         Intent allowedIntent = new Intent(Intent.ACTION_VIEW);
-        mSdkSandboxManagerLocal.enforceAllowedToStartActivity(allowedIntent);
+        sSdkSandboxManagerLocal.enforceAllowedToStartActivity(allowedIntent);
 
         Intent disallowedIntent = new Intent(Intent.ACTION_SCREEN_OFF);
-        assertThrows(SecurityException.class,
-                () -> mSdkSandboxManagerLocal.enforceAllowedToStartActivity(disallowedIntent));
+        assertThrows(
+                SecurityException.class,
+                () -> sSdkSandboxManagerLocal.enforceAllowedToStartActivity(disallowedIntent));
     }
 
     @Test(expected = SecurityException.class)
     public void testEnforceAllowedToHostSandboxedActivityFailIfNoSandboxProcees() {
-        SdkSandboxManagerLocal mSdkSandboxManagerLocal = mService.getLocalManager();
-        mSdkSandboxManagerLocal.enforceAllowedToHostSandboxedActivity(
+        sSdkSandboxManagerLocal.enforceAllowedToHostSandboxedActivity(
                 new Intent(), Process.myUid(), TEST_PACKAGE);
     }
 
@@ -951,9 +917,7 @@ public class SdkSandboxManagerServiceUnitTest {
     public void testEnforceAllowedToHostSandboxedActivityFailIfIntentHasNoExtras()
             throws RemoteException {
         loadSdk(SDK_NAME);
-
-        SdkSandboxManagerLocal mSdkSandboxManagerLocal = mService.getLocalManager();
-        mSdkSandboxManagerLocal.enforceAllowedToHostSandboxedActivity(
+        sSdkSandboxManagerLocal.enforceAllowedToHostSandboxedActivity(
                 new Intent(), Process.myUid(), TEST_PACKAGE);
     }
 
@@ -962,12 +926,11 @@ public class SdkSandboxManagerServiceUnitTest {
             throws RemoteException {
         loadSdk(SDK_NAME);
 
-        SdkSandboxManagerLocal mSdkSandboxManagerLocal = mService.getLocalManager();
         Intent intent = new Intent();
         Bundle params = new Bundle();
         params.putString(mService.getSandboxedActivitySdkNameKey(), SDK_NAME);
         intent.putExtras(new Bundle());
-        mSdkSandboxManagerLocal.enforceAllowedToHostSandboxedActivity(
+        sSdkSandboxManagerLocal.enforceAllowedToHostSandboxedActivity(
                 intent, Process.myUid(), TEST_PACKAGE);
     }
 
@@ -976,13 +939,12 @@ public class SdkSandboxManagerServiceUnitTest {
             throws RemoteException {
         loadSdk(SDK_NAME);
 
-        SdkSandboxManagerLocal mSdkSandboxManagerLocal = mService.getLocalManager();
         Intent intent = new Intent();
         Bundle params = new Bundle();
         params.putString(mService.getSandboxedActivityHandlerKey(), "");
         params.putString(mService.getSandboxedActivitySdkNameKey(), SDK_NAME);
         intent.putExtras(params);
-        mSdkSandboxManagerLocal.enforceAllowedToHostSandboxedActivity(
+        sSdkSandboxManagerLocal.enforceAllowedToHostSandboxedActivity(
                 intent, Process.myUid(), TEST_PACKAGE);
     }
 
@@ -991,12 +953,11 @@ public class SdkSandboxManagerServiceUnitTest {
             throws RemoteException {
         loadSdk(SDK_NAME);
 
-        SdkSandboxManagerLocal mSdkSandboxManagerLocal = mService.getLocalManager();
         Intent intent = new Intent();
         Bundle params = new Bundle();
         params.putBinder(mService.getSandboxedActivityHandlerKey(), new Binder());
         intent.putExtras(params);
-        mSdkSandboxManagerLocal.enforceAllowedToHostSandboxedActivity(
+        sSdkSandboxManagerLocal.enforceAllowedToHostSandboxedActivity(
                 intent, Process.myUid(), TEST_PACKAGE);
     }
 
@@ -1005,13 +966,12 @@ public class SdkSandboxManagerServiceUnitTest {
             throws RemoteException {
         loadSdk(SDK_NAME);
 
-        SdkSandboxManagerLocal mSdkSandboxManagerLocal = mService.getLocalManager();
         Intent intent = new Intent();
         Bundle params = new Bundle();
         params.putBinder(mService.getSandboxedActivityHandlerKey(), new Binder());
         params.putInt(mService.getSandboxedActivitySdkNameKey(), 0);
         intent.putExtras(params);
-        mSdkSandboxManagerLocal.enforceAllowedToHostSandboxedActivity(
+        sSdkSandboxManagerLocal.enforceAllowedToHostSandboxedActivity(
                 intent, Process.myUid(), TEST_PACKAGE);
     }
 
@@ -1019,24 +979,106 @@ public class SdkSandboxManagerServiceUnitTest {
     public void testEnforceAllowedToHostSandboxedActivitySuccess() throws Exception {
         loadSdk(SDK_NAME);
 
-        SdkSandboxManagerLocal mSdkSandboxManagerLocal = mService.getLocalManager();
         Intent intent = new Intent();
         Bundle params = new Bundle();
         params.putBinder(mService.getSandboxedActivityHandlerKey(), new Binder());
         params.putString(mService.getSandboxedActivitySdkNameKey(), SDK_NAME);
         intent.putExtras(params);
-        mSdkSandboxManagerLocal.enforceAllowedToHostSandboxedActivity(
+        sSdkSandboxManagerLocal.enforceAllowedToHostSandboxedActivity(
                 intent, Process.myUid(), TEST_PACKAGE);
     }
 
     @Test
     public void testGetSdkSandboxProcessNameForInstrumentation() throws Exception {
-        final SdkSandboxManagerLocal localManager = mService.getLocalManager();
         final PackageManager pm =
                 InstrumentationRegistry.getInstrumentation().getContext().getPackageManager();
         final ApplicationInfo info = pm.getApplicationInfo(TEST_PACKAGE, 0);
-        final String processName = localManager.getSdkSandboxProcessNameForInstrumentation(info);
+        final String processName =
+                sSdkSandboxManagerLocal.getSdkSandboxProcessNameForInstrumentation(info);
         assertThat(processName).isEqualTo(TEST_PACKAGE + "_sdk_sandbox_instr");
+    }
+
+    /** Tests expected behavior when broadcast receiver restrictions are not available. */
+    @Test
+    public void testCanDeclareBroadcastReceiverFromManifest_deviceConfigUnset() {
+        DeviceConfig.deleteProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS);
+        assertThat(
+                        sSdkSandboxManagerLocal.canDeclareBroadcastReceiverFromManifest(
+                                new IntentFilter(),
+                                /*unexportedBroadcast= */ false,
+                                /*onlyProtectedBroadcasts= */ false,
+                                /*minTargetSdkVersion= */ 33))
+                .isTrue();
+    }
+
+    /** Tests expected behavior when broadcast receiver restrictions are not applied. */
+    @Test
+    public void testCanDeclareBroadcastReceiverFromManifest_restrictionsNotApplied() {
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS,
+                "false",
+                false);
+        assertThat(
+                        sSdkSandboxManagerLocal.canDeclareBroadcastReceiverFromManifest(
+                                new IntentFilter(),
+                                /*unexportedBroadcast= */ false,
+                                /*onlyProtectedBroadcasts= */ false,
+                                /*minTargetSdkVersion= */ 33))
+                .isTrue();
+    }
+
+    /** Tests expected behaviour when broadcast restrictions are applied. */
+    @Test
+    public void testCanDeclareBroadcastReceiverFromManifest_restrictionsApplied() {
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS,
+                "true",
+                false);
+        assertThat(
+                        sSdkSandboxManagerLocal.canDeclareBroadcastReceiverFromManifest(
+                                new IntentFilter(),
+                                /*unexportedBroadcast= */ false,
+                                /*onlyProtectedBroadcasts= */ false,
+                                /*minTargetSdkVersion= */ 33))
+                .isFalse();
+    }
+
+    /** Tests expected behaviour for an unexported broadcast receivers. */
+    @Test
+    public void testCanDeclareBroadcastReceiverFromManifest_unexportedBroadcast() {
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS,
+                "true",
+                false);
+        assertThat(
+                        sSdkSandboxManagerLocal.canDeclareBroadcastReceiverFromManifest(
+                                new IntentFilter(),
+                                /*unexportedBroadcast= */ true,
+                                /*onlyProtectedBroadcasts= */ false,
+                                /*minTargetSdkVersion= */ 33))
+                .isTrue();
+    }
+
+    /** Tests expected behavior for protected broadcast receivers. */
+    @Test
+    public void testCanDeclareBroadcastReceiverFromManifest_protectedBroadcast() {
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS,
+                "true",
+                false);
+        assertThat(
+                        sSdkSandboxManagerLocal.canDeclareBroadcastReceiverFromManifest(
+                                new IntentFilter(),
+                                /*unexportedBroadcast= */ false,
+                                /*onlyProtectedBroadcasts= */ true,
+                                /*minTargetSdkVersion= */ 33))
+                .isTrue();
     }
 
     @Test
@@ -1051,8 +1093,7 @@ public class SdkSandboxManagerServiceUnitTest {
         // Check that sdk sandbox for TEST_PACKAGE is bound
         assertThat(sProvider.getBoundServiceForApp(callingInfo)).isNotNull();
 
-        final SdkSandboxManagerLocal localManager = mService.getLocalManager();
-        localManager.notifyInstrumentationStarted(TEST_PACKAGE, Process.myUid());
+        sSdkSandboxManagerLocal.notifyInstrumentationStarted(TEST_PACKAGE, Process.myUid());
 
         // Verify that sdk sandbox was killed
         Mockito.verify(mAmSpy)
@@ -1072,8 +1113,7 @@ public class SdkSandboxManagerServiceUnitTest {
         // Check that sdk sandbox for TEST_PACKAGE is bound
         assertThat(sProvider.getBoundServiceForApp(callingInfo)).isNotNull();
 
-        final SdkSandboxManagerLocal localManager = mService.getLocalManager();
-        localManager.notifyInstrumentationStarted(TEST_PACKAGE, Process.myUid());
+        sSdkSandboxManagerLocal.notifyInstrumentationStarted(TEST_PACKAGE, Process.myUid());
         assertThat(sProvider.getBoundServiceForApp(callingInfo)).isNull();
 
         // Try load again, it should throw SecurityException
@@ -1100,8 +1140,7 @@ public class SdkSandboxManagerServiceUnitTest {
         disableNetworkPermissionChecks();
         disableForegroundCheck();
 
-        final SdkSandboxManagerLocal localManager = mService.getLocalManager();
-        localManager.notifyInstrumentationStarted(TEST_PACKAGE, Process.myUid());
+        sSdkSandboxManagerLocal.notifyInstrumentationStarted(TEST_PACKAGE, Process.myUid());
 
         final CallingInfo callingInfo = new CallingInfo(Process.myUid(), TEST_PACKAGE);
         assertThat(sProvider.getBoundServiceForApp(callingInfo)).isNull();
@@ -1122,7 +1161,7 @@ public class SdkSandboxManagerServiceUnitTest {
                 .hasMessageThat()
                 .contains("Currently running instrumentation of this sdk sandbox process");
 
-        localManager.notifyInstrumentationFinished(TEST_PACKAGE, Process.myUid());
+        sSdkSandboxManagerLocal.notifyInstrumentationFinished(TEST_PACKAGE, Process.myUid());
 
         FakeLoadSdkCallbackBinder callback2 = new FakeLoadSdkCallbackBinder();
         // Now loading should work
@@ -1176,22 +1215,18 @@ public class SdkSandboxManagerServiceUnitTest {
 
     @Test
     public void testEnforceAllowedToStartOrBindService_disallowNonExistentPackage() {
-        SdkSandboxManagerLocal mSdkSandboxManagerLocal = mService.getLocalManager();
-
         Intent intent = new Intent();
         intent.setComponent(new ComponentName("nonexistent.package", "test"));
         assertThrows(
                 SecurityException.class,
-                () -> mSdkSandboxManagerLocal.enforceAllowedToStartOrBindService(intent));
+                () -> sSdkSandboxManagerLocal.enforceAllowedToStartOrBindService(intent));
     }
 
     @Test
     public void testEnforceAllowedToStartOrBindService_allowedPackages() {
-        SdkSandboxManagerLocal mSdkSandboxManagerLocal = mService.getLocalManager();
-
         Intent intent = new Intent();
         intent.setComponent(new ComponentName(mService.getAdServicesPackageName(), "test"));
-        mSdkSandboxManagerLocal.enforceAllowedToStartOrBindService(intent);
+        sSdkSandboxManagerLocal.enforceAllowedToStartOrBindService(intent);
     }
 
     @Test
