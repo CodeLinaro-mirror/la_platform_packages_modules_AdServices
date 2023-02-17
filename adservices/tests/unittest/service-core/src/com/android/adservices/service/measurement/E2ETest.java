@@ -106,6 +106,7 @@ public abstract class E2ETest {
         // Keys used to compare actual with expected output
         List<String> STRINGS = ImmutableList.of(
                 "attribution_destination",
+                "scheduled_report_time",
                 "source_event_id",
                 "trigger_data",
                 "source_type");
@@ -789,7 +790,13 @@ public abstract class E2ETest {
         return expiryTimes;
     }
 
-    private static Set<Action> maybeAddEventReportingJobTimes(
+    private static long roundSecondsToWholeDays(long seconds) {
+        long remainder = seconds % TimeUnit.DAYS.toSeconds(1);
+        boolean roundUp = remainder >= TimeUnit.DAYS.toSeconds(1) / 2L;
+        return seconds - remainder + (roundUp ? TimeUnit.DAYS.toSeconds(1) : 0);
+    }
+
+    private static Set<Action> maybeAddEventReportingJobTimes(boolean isEventType,
             long sourceTime, Collection<List<Map<String, List<String>>>> responseHeaders)
             throws JSONException {
         Set<Action> reportingJobsActions = new HashSet<>();
@@ -801,9 +808,15 @@ public abstract class E2ETest {
             } else if (expiry < PrivacyParams.MIN_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS) {
                 validExpiry = PrivacyParams.MIN_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS;
             }
+            if (isEventType) {
+                validExpiry = roundSecondsToWholeDays(validExpiry);
+            }
+
             long jobTime = sourceTime + 1000 * validExpiry + 3600000L;
 
             reportingJobsActions.add(new EventReportingJob(jobTime));
+            // Add a job two days earlier for interop tests
+            reportingJobsActions.add(new EventReportingJob(jobTime - TimeUnit.DAYS.toMillis(2)));
         }
 
         return reportingJobsActions;
@@ -876,6 +889,7 @@ public abstract class E2ETest {
                 // Add corresponding reporting job time actions
                 eventReportingJobActions.addAll(
                         maybeAddEventReportingJobTimes(
+                                sourceRegistration.mRegistrationRequest.getInputEvent() == null,
                                 sourceRegistration.mTimestamp,
                                 sourceRegistration.mUriToResponseHeadersMap.values()));
             }
@@ -891,7 +905,10 @@ public abstract class E2ETest {
                 // Add corresponding reporting job time actions
                 eventReportingJobActions.addAll(
                         maybeAddEventReportingJobTimes(
-                                webSource.mTimestamp, webSource.mUriToResponseHeadersMap.values()));
+                                webSource.mRegistrationRequest.getSourceRegistrationRequest()
+                                        .getInputEvent() == null,
+                                webSource.mTimestamp,
+                                webSource.mUriToResponseHeadersMap.values()));
             }
         }
 

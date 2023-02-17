@@ -26,7 +26,7 @@
       "name": "SdkSandboxShellHostTest[com.google.android.adservices.apex]"
     },
     {
-      "name": "SdkSandboxRestrictionsHostTest[com.google.android.adservices.apex]"
+      "name": "BroadcastRestrictionsHostTest[com.google.android.adservices.apex]"
     },
     {
       "name": "SdkSandboxStorageHostTest[com.google.android.adservices.apex]",
@@ -38,6 +38,14 @@
     },
     {
       "name": "SdkSandboxMetricsHostTest[com.google.android.adservices.apex]"
+    },
+    {
+      "name": "CtsSdkSandboxWebkitTestCases[com.google.android.adservices.apex]",
+      "options": [
+        {
+          "exclude-annotation": "androidx.test.filters.FlakyTest"
+        }
+      ]
     },
     {
       "name": "SdkSandboxManagerDisabledTests[com.google.android.adservices.apex]"
@@ -60,6 +68,14 @@
       "name": "CtsSdkSandboxInprocessTests"
     },
     {
+      "name": "CtsSdkSandboxWebkitTestCases",
+      "options": [
+        {
+          "exclude-annotation": "androidx.test.filters.FlakyTest"
+        }
+      ]
+    },
+    {
       "name": "SdkSandboxManagerServiceUnitTests"
     },
     {
@@ -78,7 +94,7 @@
       "name": "SdkSandboxShellHostTest"
     },
     {
-      "name": "SdkSandboxRestrictionsHostTest"
+      "name": "BroadcastRestrictionsHostTest"
     },
     {
       "name": "SdkSandboxStorageHostTest",
@@ -108,124 +124,19 @@
   ],
   "sdksandbox-postsubmit": [
     {
-      "name": "CtsAccelerationTestCases"
-    },
-    {
-      "name": "CtsAccessibilityServiceTestCases"
-    },
-    {
-      "name": "CtsAccessibilityTestCases"
-    },
-    {
-      "name": "CtsActivityManagerBackgroundActivityTestCases"
-    },
-    {
-      "name": "CtsActivityRecognitionTestCases"
-    },
-    {
-      "name": "CtsAlarmManagerTestCases"
-    },
-    {
-      "name": "CtsAmbientContextServiceTestCases"
-    },
-    {
-      "name": "CtsAndroidAppTestCases"
-    },
-    {
-      "name": "CtsAnimationTestCases"
-    },
-    {
-      "name": "CtsAppEnumerationTestCases"
-    },
-    {
-      "name": "CtsAppExitTestCases"
-    },
-    {
-      "name": "CtsAppOps2TestCases"
-    },
-    {
-      "name": "CtsAppOpsTestCases"
-    },
-    {
-      "name": "CtsAppSearchTestCases"
-    },
-    {
-      "name": "CtsAppTestCases"
-    },
-    {
-      "name": "CtsAppWidgetTestCases"
-    },
-    {
-      "name": "CtsAutoFillServiceTestCases"
-    },
-    {
-      "name": "CtsBackupTestCases"
-    },
-    {
-      "name": "CtsBatterySavingTestCases"
-    },
-    {
-      "name": "CtsBlobStoreTestCases"
-    },
-    {
-      "name": "CtsBluetoothTestCases"
-    },
-    {
-      "name": "CtsCameraTestCases"
-    },
-    {
       "name": "CtsContentTestCases"
-    },
-    {
-      "name": "CtsDatabaseTestCases"
     },
     {
       "name": "CtsDisplayTestCases"
     },
     {
-      "name": "CtsDpiTestCases"
-    },
-    {
-      "name": "CtsDreamsTestCases"
-    },
-    {
-      "name": "CtsDropBoxManagerTestCases"
-    },
-    {
-      "name": "CtsFragmentTestCases"
-    },
-    {
-      "name": "CtsGameManagerTestCases"
-    },
-    {
-      "name": "CtsGameServiceTestCases"
-    },
-    {
-      "name": "CtsGraphicsTestCases"
-    },
-    {
-      "name": "CtsHardwareTestCases"
-    },
-    {
       "name": "CtsInputMethodTestCases"
     },
     {
-      "name": "CtsInputMethodTestCases32"
+      "name": "CtsMediaAudioTestCases"
     },
     {
-      "name": "CtsInputTestCases"
-    },
-    {
-      "name": "CtsInstantAppTests"
-    },
-    {
-      "name": "CtsJniTestCases"
-    },
-    {
-      "name": "CtsKeystorePerformanceTestCases"
-    },
-    {
-      "name": "CtsKeystoreTestCases"
+      "name": "CtsOsTestCases"
     }
   ]
 }

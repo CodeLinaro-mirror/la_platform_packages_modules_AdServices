@@ -68,9 +68,11 @@ public class ReportImpressionScriptEngineTest {
 
     private static final AdTechIdentifier BUYER_1 = AdSelectionConfigFixture.BUYER_1;
 
-    private final String mResultField = "result";
-
-    private final String mDummyDomain = "http://www.domain.com/adverts/123";
+    private static final String RESULT_FIELD = "result";
+    private static final String TEST_DOMAIN = "https://www.domain.com/adverts/123";
+    private static final Uri TEST_DOMAIN_URI = Uri.parse(TEST_DOMAIN);
+    private static final AdData AD_DATA =
+            new AdData.Builder().setRenderUri(TEST_DOMAIN_URI).setMetadata("{}").build();
 
     private final AdSelectionSignals mContextualSignals =
             AdSelectionSignals.fromString("{\"test_contextual_signals\":1}");
@@ -95,17 +97,21 @@ public class ReportImpressionScriptEngineTest {
     private static final Uri CLICK_URI = Uri.parse("https://domain.com/click");
     private static final Uri HOVER_URI = Uri.parse("https://domain.com/hover");
 
-    private static final EventUriRegistrationInfo CLICK_EVENT_URI_REGISTRATION_INFO =
-            EventUriRegistrationInfo.builder().setEventType("click").setEventUri(CLICK_URI).build();
-    private static final EventUriRegistrationInfo HOVER_EVENT_URI_REGISTRATION_INFO =
-            EventUriRegistrationInfo.builder().setEventType("hover").setEventUri(HOVER_URI).build();
+    private static final InteractionUriRegistrationInfo CLICK_EVENT_URI_REGISTRATION_INFO =
+            InteractionUriRegistrationInfo.builder()
+                    .setInteractionKey("click")
+                    .setInteractionReportingUri(CLICK_URI)
+                    .build();
+    private static final InteractionUriRegistrationInfo HOVER_EVENT_URI_REGISTRATION_INFO =
+            InteractionUriRegistrationInfo.builder()
+                    .setInteractionKey("hover")
+                    .setInteractionReportingUri(HOVER_URI)
+                    .build();
 
     @Test
     public void testCanCallScript() throws Exception {
-
-        AdData advert = new AdData(Uri.parse(mDummyDomain), "{}");
         ImmutableList.Builder<JSScriptArgument> args = new ImmutableList.Builder<>();
-        args.add(AdDataArgument.asScriptArgument("ignored", advert));
+        args.add(AdDataArgument.asScriptArgument("ignored", AD_DATA));
         final ReportingScriptResult result =
                 callReportingEngine(
                         "function helloAdvert(ad) { return {'status': 0, 'results': {'result':"
@@ -113,15 +119,13 @@ public class ReportImpressionScriptEngineTest {
                         "helloAdvert",
                         args.build());
         assertThat(result.status).isEqualTo(0);
-        assertThat((result.results.getString(mResultField))).isEqualTo("hello " + mDummyDomain);
+        assertThat((result.results.getString(RESULT_FIELD))).isEqualTo("hello " + TEST_DOMAIN);
     }
 
     @Test
     public void testThrowsJSExecutionExceptionIfFunctionNotFound() throws Exception {
-
-        AdData advert = new AdData(Uri.parse(mDummyDomain), "{}");
         ImmutableList.Builder<JSScriptArgument> args = new ImmutableList.Builder<>();
-        args.add(AdDataArgument.asScriptArgument("ignored", advert));
+        args.add(AdDataArgument.asScriptArgument("ignored", AD_DATA));
 
         Exception exception =
                 assertThrows(
@@ -138,9 +142,8 @@ public class ReportImpressionScriptEngineTest {
 
     @Test
     public void testThrowsIllegalStateExceptionIfScriptIsNotReturningJson() throws Exception {
-        AdData advert = new AdData(Uri.parse("http://www.domain.com/adverts/123"), "{}");
         ImmutableList.Builder<JSScriptArgument> args = new ImmutableList.Builder<>();
-        args.add(AdDataArgument.asScriptArgument("ignored", advert));
+        args.add(AdDataArgument.asScriptArgument("ignored", AD_DATA));
 
         Exception exception =
                 assertThrows(
@@ -164,11 +167,10 @@ public class ReportImpressionScriptEngineTest {
                         + "'reporting_uri': 'https://domain.com/reporting' } };\n"
                         + "}";
         AdSelectionConfig adSelectionConfig = AdSelectionConfigFixture.anAdSelectionConfig();
-        Uri renderUri = Uri.parse(mDummyDomain);
         double bid = 5;
 
         final SellerReportingResult result =
-                reportResult(jsScript, adSelectionConfig, renderUri, bid, mContextualSignals);
+                reportResult(jsScript, adSelectionConfig, TEST_DOMAIN_URI, bid, mContextualSignals);
 
         assertThat(
                         AdSelectionSignals.fromString(
@@ -188,11 +190,10 @@ public class ReportImpressionScriptEngineTest {
                     + " 'https://domain.com/reporting', 'extra_key':'extra_value' } };\n"
                     + "}";
         AdSelectionConfig adSelectionConfig = AdSelectionConfigFixture.anAdSelectionConfig();
-        Uri renderUri = Uri.parse(mDummyDomain);
         double bid = 5;
 
         final SellerReportingResult result =
-                reportResult(jsScript, adSelectionConfig, renderUri, bid, mContextualSignals);
+                reportResult(jsScript, adSelectionConfig, TEST_DOMAIN_URI, bid, mContextualSignals);
 
         assertThat(
                         AdSelectionSignals.fromString(
@@ -214,11 +215,10 @@ public class ReportImpressionScriptEngineTest {
                         + "'reporting_uri': 'https://domain.com/reporting' } };\n"
                         + "}";
         AdSelectionConfig adSelectionConfig = AdSelectionConfigFixture.anAdSelectionConfig();
-        Uri renderUri = Uri.parse(mDummyDomain);
         double bid = 5;
 
         final SellerReportingResult result =
-                reportResult(jsScript, adSelectionConfig, renderUri, bid, mContextualSignals);
+                reportResult(jsScript, adSelectionConfig, TEST_DOMAIN_URI, bid, mContextualSignals);
 
         assertEquals(REPORTING_URI, result.getReportingUri());
 
@@ -227,13 +227,13 @@ public class ReportImpressionScriptEngineTest {
                                 SELLER_KEY + adSelectionConfig.getSeller() + "\"}"))
                 .isEqualTo(result.getSignalsForBuyer());
 
-        assertEquals(2, result.getEventUris().size());
+        assertEquals(2, result.getInteractionReportingUris().size());
 
         assertThat(
                         ImmutableList.of(
                                 CLICK_EVENT_URI_REGISTRATION_INFO,
                                 HOVER_EVENT_URI_REGISTRATION_INFO))
-                .containsExactlyElementsIn(result.getEventUris());
+                .containsExactlyElementsIn(result.getInteractionReportingUris());
     }
 
     @Test
@@ -249,11 +249,10 @@ public class ReportImpressionScriptEngineTest {
                         + "'reporting_uri': 'https://domain.com/reporting' } };\n"
                         + "}";
         AdSelectionConfig adSelectionConfig = AdSelectionConfigFixture.anAdSelectionConfig();
-        Uri renderUri = Uri.parse(mDummyDomain);
         double bid = 5;
 
         final SellerReportingResult result =
-                reportResult(jsScript, adSelectionConfig, renderUri, bid, mContextualSignals);
+                reportResult(jsScript, adSelectionConfig, TEST_DOMAIN_URI, bid, mContextualSignals);
 
         assertEquals(REPORTING_URI, result.getReportingUri());
 
@@ -262,13 +261,13 @@ public class ReportImpressionScriptEngineTest {
                                 SELLER_KEY + adSelectionConfig.getSeller() + "\"}"))
                 .isEqualTo(result.getSignalsForBuyer());
 
-        assertEquals(2, result.getEventUris().size());
+        assertEquals(2, result.getInteractionReportingUris().size());
 
         assertThat(
                         ImmutableList.of(
                                 CLICK_EVENT_URI_REGISTRATION_INFO,
                                 CLICK_EVENT_URI_REGISTRATION_INFO))
-                .containsExactlyElementsIn(result.getEventUris());
+                .containsExactlyElementsIn(result.getInteractionReportingUris());
     }
 
     @Test
@@ -285,11 +284,10 @@ public class ReportImpressionScriptEngineTest {
                     + " 'https://domain.com/reporting' } };\n"
                     + "}";
         AdSelectionConfig adSelectionConfig = AdSelectionConfigFixture.anAdSelectionConfig();
-        Uri renderUri = Uri.parse(mDummyDomain);
         double bid = 5;
 
         final SellerReportingResult result =
-                reportResult(jsScript, adSelectionConfig, renderUri, bid, mContextualSignals);
+                reportResult(jsScript, adSelectionConfig, TEST_DOMAIN_URI, bid, mContextualSignals);
 
         assertEquals(REPORTING_URI, result.getReportingUri());
 
@@ -298,13 +296,13 @@ public class ReportImpressionScriptEngineTest {
                                 SELLER_KEY + adSelectionConfig.getSeller() + "\"}"))
                 .isEqualTo(result.getSignalsForBuyer());
 
-        assertEquals(2, result.getEventUris().size());
+        assertEquals(2, result.getInteractionReportingUris().size());
 
         assertThat(
                         ImmutableList.of(
                                 CLICK_EVENT_URI_REGISTRATION_INFO,
                                 HOVER_EVENT_URI_REGISTRATION_INFO))
-                .containsExactlyElementsIn(result.getEventUris());
+                .containsExactlyElementsIn(result.getInteractionReportingUris());
     }
 
     @Test
@@ -320,11 +318,10 @@ public class ReportImpressionScriptEngineTest {
                         + "'reporting_uri': 'https://domain.com/reporting' } };\n"
                         + "}";
         AdSelectionConfig adSelectionConfig = AdSelectionConfigFixture.anAdSelectionConfig();
-        Uri renderUri = Uri.parse(mDummyDomain);
         double bid = 5;
 
         final SellerReportingResult result =
-                reportResult(jsScript, adSelectionConfig, renderUri, bid, mContextualSignals);
+                reportResult(jsScript, adSelectionConfig, TEST_DOMAIN_URI, bid, mContextualSignals);
 
         assertEquals(REPORTING_URI, result.getReportingUri());
 
@@ -333,13 +330,13 @@ public class ReportImpressionScriptEngineTest {
                                 SELLER_KEY + adSelectionConfig.getSeller() + "\"}"))
                 .isEqualTo(result.getSignalsForBuyer());
 
-        assertEquals(2, result.getEventUris().size());
+        assertEquals(2, result.getInteractionReportingUris().size());
 
         assertThat(
                         ImmutableList.of(
                                 CLICK_EVENT_URI_REGISTRATION_INFO,
                                 HOVER_EVENT_URI_REGISTRATION_INFO))
-                .containsExactlyElementsIn(result.getEventUris());
+                .containsExactlyElementsIn(result.getInteractionReportingUris());
     }
 
     @Test
@@ -352,11 +349,10 @@ public class ReportImpressionScriptEngineTest {
                         + "'reporting_uri': 'https://domain.com/reporting' } };\n"
                         + "}";
         AdSelectionConfig adSelectionConfig = AdSelectionConfigFixture.anAdSelectionConfig();
-        Uri renderUri = Uri.parse(mDummyDomain);
         double bid = 5;
 
         final SellerReportingResult result =
-                reportResult(jsScript, adSelectionConfig, renderUri, bid, mContextualSignals);
+                reportResult(jsScript, adSelectionConfig, TEST_DOMAIN_URI, bid, mContextualSignals);
 
         assertEquals(REPORTING_URI, result.getReportingUri());
 
@@ -365,7 +361,7 @@ public class ReportImpressionScriptEngineTest {
                                 SELLER_KEY + adSelectionConfig.getSeller() + "\"}"))
                 .isEqualTo(result.getSignalsForBuyer());
 
-        assertEquals(0, result.getEventUris().size());
+        assertEquals(0, result.getInteractionReportingUris().size());
     }
 
     @Test
@@ -378,7 +374,6 @@ public class ReportImpressionScriptEngineTest {
                         + "'reporting_uri': 'https://domain.com/reporting' } };\n"
                         + "}";
         AdSelectionConfig adSelectionConfig = AdSelectionConfigFixture.anAdSelectionConfig();
-        Uri renderUri = Uri.parse(mDummyDomain);
         double bid = 5;
 
         Exception exception =
@@ -388,7 +383,7 @@ public class ReportImpressionScriptEngineTest {
                             reportResult(
                                     jsScript,
                                     adSelectionConfig,
-                                    renderUri,
+                                    TEST_DOMAIN_URI,
                                     bid,
                                     mContextualSignals);
                         });
@@ -404,7 +399,6 @@ public class ReportImpressionScriptEngineTest {
                         + " '{\"seller\":\"' + ad_selection_config.seller + '\"}' } };\n"
                         + "}";
         AdSelectionConfig adSelectionConfig = AdSelectionConfigFixture.anAdSelectionConfig();
-        Uri renderUri = Uri.parse(mDummyDomain);
         double bid = 5;
 
         Exception exception =
@@ -414,7 +408,7 @@ public class ReportImpressionScriptEngineTest {
                             reportResult(
                                     jsScript,
                                     adSelectionConfig,
-                                    renderUri,
+                                    TEST_DOMAIN_URI,
                                     bid,
                                     mContextualSignals);
                         });
@@ -432,7 +426,6 @@ public class ReportImpressionScriptEngineTest {
                         + " };\n"
                         + "}";
         AdSelectionConfig adSelectionConfig = AdSelectionConfigFixture.anAdSelectionConfig();
-        Uri renderUri = Uri.parse(mDummyDomain);
         double bid = 5;
 
         Exception exception =
@@ -442,7 +435,7 @@ public class ReportImpressionScriptEngineTest {
                             reportResult(
                                     jsScript,
                                     adSelectionConfig,
-                                    renderUri,
+                                    TEST_DOMAIN_URI,
                                     bid,
                                     mContextualSignals);
                         });
@@ -459,7 +452,6 @@ public class ReportImpressionScriptEngineTest {
                         + "'reporting_uri': 'https://domain.com/reporting' } };\n"
                         + "}";
         AdSelectionConfig adSelectionConfig = AdSelectionConfigFixture.anAdSelectionConfig();
-        Uri renderUri = Uri.parse(mDummyDomain);
         double bid = 5;
 
         Exception exception =
@@ -469,7 +461,7 @@ public class ReportImpressionScriptEngineTest {
                             reportResult(
                                     jsScript,
                                     adSelectionConfig,
-                                    renderUri,
+                                    TEST_DOMAIN_URI,
                                     bid,
                                     mContextualSignals);
                         });
@@ -539,13 +531,13 @@ public class ReportImpressionScriptEngineTest {
                         mCustomAudienceSignals);
         assertEquals(REPORTING_URI, result.getReportingUri());
 
-        assertEquals(2, result.getEventUris().size());
+        assertEquals(2, result.getInteractionReportingUris().size());
 
         assertThat(
                         ImmutableList.of(
                                 CLICK_EVENT_URI_REGISTRATION_INFO,
                                 HOVER_EVENT_URI_REGISTRATION_INFO))
-                .containsExactlyElementsIn(result.getEventUris());
+                .containsExactlyElementsIn(result.getInteractionReportingUris());
     }
 
     @Test
@@ -570,13 +562,13 @@ public class ReportImpressionScriptEngineTest {
                         mCustomAudienceSignals);
         assertEquals(REPORTING_URI, result.getReportingUri());
 
-        assertEquals(2, result.getEventUris().size());
+        assertEquals(2, result.getInteractionReportingUris().size());
 
         assertThat(
                         ImmutableList.of(
                                 CLICK_EVENT_URI_REGISTRATION_INFO,
                                 CLICK_EVENT_URI_REGISTRATION_INFO))
-                .containsExactlyElementsIn(result.getEventUris());
+                .containsExactlyElementsIn(result.getInteractionReportingUris());
     }
 
     @Test
@@ -602,13 +594,13 @@ public class ReportImpressionScriptEngineTest {
                         mCustomAudienceSignals);
         assertEquals(REPORTING_URI, result.getReportingUri());
 
-        assertEquals(2, result.getEventUris().size());
+        assertEquals(2, result.getInteractionReportingUris().size());
 
         assertThat(
                         ImmutableList.of(
                                 CLICK_EVENT_URI_REGISTRATION_INFO,
                                 HOVER_EVENT_URI_REGISTRATION_INFO))
-                .containsExactlyElementsIn(result.getEventUris());
+                .containsExactlyElementsIn(result.getInteractionReportingUris());
     }
 
     @Test
@@ -633,13 +625,13 @@ public class ReportImpressionScriptEngineTest {
                         mCustomAudienceSignals);
         assertEquals(REPORTING_URI, result.getReportingUri());
 
-        assertEquals(2, result.getEventUris().size());
+        assertEquals(2, result.getInteractionReportingUris().size());
 
         assertThat(
                         ImmutableList.of(
                                 CLICK_EVENT_URI_REGISTRATION_INFO,
                                 HOVER_EVENT_URI_REGISTRATION_INFO))
-                .containsExactlyElementsIn(result.getEventUris());
+                .containsExactlyElementsIn(result.getInteractionReportingUris());
     }
 
     @Test
@@ -661,7 +653,7 @@ public class ReportImpressionScriptEngineTest {
                         mCustomAudienceSignals);
         assertEquals(REPORTING_URI, result.getReportingUri());
 
-        assertEquals(0, result.getEventUris().size());
+        assertEquals(0, result.getInteractionReportingUris().size());
     }
 
     @Test
