@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,15 @@
  * limitations under the License.
  */
 
-package android.adservices.common;
+package com.android.adservices.service.exception;
 
-import android.adservices.common.IAdServicesCommonCallback;
-import android.net.Uri;
-/**
- * Common AdServices service.
- * {@hide}
- */
-interface IAdServicesCommonService {
-    /**
-     * Get AdServices status service.
-     */
-    void isAdServicesEnabled(in IAdServicesCommonCallback callback);
+/** Parent exception to wrap exceptions thrown by filters. */
+public class FilterException extends RuntimeException {
+    public FilterException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
-    void setAdServicesEnabled(
-            in boolean adServicesEntryPointEnabled,
-            in boolean adIdEnabled);
+    public FilterException(Throwable cause) {
+        super(cause);
+    }
 }
