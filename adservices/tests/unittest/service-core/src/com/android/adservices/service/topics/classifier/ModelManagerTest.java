@@ -487,15 +487,15 @@ public class ModelManagerTest {
                 .containsExactly("taxonomy_type", "taxonomy_version", "build_id", "updated_date");
 
         // The property "version_info" should have attribution "taxonomy_version"
-        // and its value should be "3".
+        // and its value should be "2".
         assertThat(mProductionClassifierAssetsMetadata.get("version_info").get("taxonomy_version"))
-                .isEqualTo("3");
+                .isEqualTo("2");
 
         // The property "version_info" should have attribution "build_id"
-        // and its value should be "1388". This is used for comparing the model version with MDD
+        // and its value should be "1467". This is used for comparing the model version with MDD
         // downloaded model.
         assertThat(mProductionClassifierAssetsMetadata.get("version_info").get("build_id"))
-                .isEqualTo("1388");
+                .isEqualTo("1467");
 
         // The property "version_info" should have attribution "taxonomy_type"
         // and its value should be "chrome_and_mobile_taxonomy".
@@ -512,7 +512,7 @@ public class ModelManagerTest {
         // The asset "labels_topics" should have attribution "asset_version" and its value should be
         // "2"
         assertThat(mProductionClassifierAssetsMetadata.get("labels_topics").get("asset_version"))
-                .isEqualTo("3");
+                .isEqualTo("2");
 
         // The asset "labels_topics" should have attribution "path" and its value should be
         // "assets/classifier/labels_topics.txt"
@@ -533,9 +533,9 @@ public class ModelManagerTest {
                 .isEqualTo("assets/classifier/topic_id_to_name.csv");
 
         // The asset "precomputed_app_list" should have attribution "checksum" and
-        // its value should be "8749598423bb8baca59e0da508739d544e40f230e7edcdb92438e9e76f75e830"
+        // its value should be "6901c8be98bc1350ca46c1763868ce13e52225ddbf5ef6fd5126015dc991852b"
         assertThat(mProductionClassifierAssetsMetadata.get("precomputed_app_list").get("checksum"))
-                .isEqualTo("8749598423bb8baca59e0da508739d544e40f230e7edcdb92438e9e76f75e830");
+                .isEqualTo("6901c8be98bc1350ca46c1763868ce13e52225ddbf5ef6fd5126015dc991852b");
     }
 
     @Test
@@ -568,15 +568,15 @@ public class ModelManagerTest {
                 .containsExactly("taxonomy_type", "taxonomy_version", "build_id", "updated_date");
 
         // The property "version_info" should have attribution "taxonomy_version"
-        // and its value should be "3".
+        // and its value should be "2".
         assertThat(mProductionClassifierAssetsMetadata.get("version_info").get("taxonomy_version"))
-                .isEqualTo("3");
+                .isEqualTo("2");
 
         // The property "version_info" should have attribution "build_id"
-        // and its value should be "1388". This is used for comparing the model version with MDD
+        // and its value should be "1467". This is used for comparing the model version with MDD
         // downloaded model.
         assertThat(mProductionClassifierAssetsMetadata.get("version_info").get("build_id"))
-                .isEqualTo("1388");
+                .isEqualTo("1467");
 
         // The property "version_info" should have attribution "taxonomy_type"
         // and its value should be "chrome_and_mobile_taxonomy".
@@ -593,7 +593,7 @@ public class ModelManagerTest {
         // The asset "labels_topics" should have attribution "asset_version" and its value should be
         // "2"
         assertThat(mProductionClassifierAssetsMetadata.get("labels_topics").get("asset_version"))
-                .isEqualTo("3");
+                .isEqualTo("2");
 
         // The asset "labels_topics" should have attribution "path" and its value should be
         // "assets/classifier/labels_topics.txt"
@@ -614,9 +614,9 @@ public class ModelManagerTest {
                 .isEqualTo("assets/classifier/topic_id_to_name.csv");
 
         // The asset "precomputed_app_list" should have attribution "checksum" and
-        // its value should be "8749598423bb8baca59e0da508739d544e40f230e7edcdb92438e9e76f75e830"
+        // its value should be "6901c8be98bc1350ca46c1763868ce13e52225ddbf5ef6fd5126015dc991852b"
         assertThat(mProductionClassifierAssetsMetadata.get("precomputed_app_list").get("checksum"))
-                .isEqualTo("8749598423bb8baca59e0da508739d544e40f230e7edcdb92438e9e76f75e830");
+                .isEqualTo("6901c8be98bc1350ca46c1763868ce13e52225ddbf5ef6fd5126015dc991852b");
     }
 
     @Test
