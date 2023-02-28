@@ -80,6 +80,8 @@ public class ConsentManager {
     private final AdServicesManager mAdServicesManager;
     private final int mConsentSourceOfTruth;
 
+    private static final Object LOCK = new Object();
+
     ConsentManager(
             @NonNull Context context,
             @NonNull TopicsWorker topicsWorker,
@@ -90,7 +92,7 @@ public class ConsentManager {
             @NonNull AdServicesManager adServicesManager,
             @NonNull BooleanFileDatastore booleanFileDatastore,
             @NonNull Flags flags,
-            @ConsentParcel.ConsentApiType int consentSourceOfTruth) {
+            @Flags.ConsentSourceOfTruth int consentSourceOfTruth) {
         Objects.requireNonNull(context);
         Objects.requireNonNull(topicsWorker);
         Objects.requireNonNull(appConsentDao);
@@ -123,7 +125,7 @@ public class ConsentManager {
         Objects.requireNonNull(context);
 
         if (sConsentManager == null) {
-            synchronized (ConsentManager.class) {
+            synchronized (LOCK) {
                 // Execute one-time consent migration if needed.
                 int consentSourceOfTruth = FlagsFactory.getFlags().getConsentSourceOfTruth();
                 BooleanFileDatastore datastore = createAndInitializeDataStore(context);
@@ -161,6 +163,7 @@ public class ConsentManager {
         Objects.requireNonNull(context);
 
         UiStatsLogger.logOptInSelected(context);
+
         BackgroundJobsManager.scheduleAllBackgroundJobs(context);
 
         try {
@@ -215,7 +218,7 @@ public class ConsentManager {
     public void enable(@NonNull Context context, AdServicesApiType apiType) {
         Objects.requireNonNull(context);
 
-        UiStatsLogger.logPerApiOptInSelected(context, apiType);
+        UiStatsLogger.logOptInSelected(context, apiType);
 
         BackgroundJobsManager.scheduleJobsPerApi(context, apiType);
 
@@ -239,7 +242,7 @@ public class ConsentManager {
     public void disable(@NonNull Context context, AdServicesApiType apiType) {
         Objects.requireNonNull(context);
 
-        UiStatsLogger.logPerApiOptOutSelected(context, apiType);
+        UiStatsLogger.logOptOutSelected(context, apiType);
 
         try {
             resetByApi(apiType);
@@ -279,7 +282,7 @@ public class ConsentManager {
             return AdServicesApiConsent.GIVEN;
         }
 
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -319,7 +322,7 @@ public class ConsentManager {
             return AdServicesApiConsent.GIVEN;
         }
 
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -404,7 +407,7 @@ public class ConsentManager {
      *     consent revoked
      */
     public ImmutableList<App> getKnownAppsWithConsent() {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -444,7 +447,7 @@ public class ConsentManager {
      *     revoked
      */
     public ImmutableList<App> getAppsWithRevokedConsent() {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -488,7 +491,7 @@ public class ConsentManager {
      * @throws IOException if the operation fails
      */
     public void revokeConsentForApp(@NonNull App app) throws IOException {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -525,7 +528,7 @@ public class ConsentManager {
      * @throws IOException if the operation fails
      */
     public void restoreConsentForApp(@NonNull App app) throws IOException {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -561,7 +564,7 @@ public class ConsentManager {
      * @throws IOException if the operation fails
      */
     public void resetAppsAndBlockedApps() throws IOException {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -592,7 +595,7 @@ public class ConsentManager {
      * @throws IOException if the operation fails
      */
     public void resetApps() throws IOException {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -643,7 +646,7 @@ public class ConsentManager {
             return true;
         }
 
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             switch (mConsentSourceOfTruth) {
                 case Flags.PPAPI_ONLY:
                     try {
@@ -694,7 +697,7 @@ public class ConsentManager {
             return true;
         }
 
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             switch (mConsentSourceOfTruth) {
                 case Flags.PPAPI_ONLY:
                     try {
@@ -733,7 +736,7 @@ public class ConsentManager {
      * @param packageUid the package uid that had been uninstalled.
      */
     public void clearConsentForUninstalledApp(String packageName, int packageUid) {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -833,7 +836,7 @@ public class ConsentManager {
      * system server if consent source of truth is SYSTEM_SERVER_ONLY or dual sources.
      */
     public void recordNotificationDisplayed() {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -865,7 +868,7 @@ public class ConsentManager {
      * @return true if Consent Notification was displayed, otherwise false.
      */
     public Boolean wasNotificationDisplayed() {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -894,7 +897,7 @@ public class ConsentManager {
      * system server if consent source of truth is SYSTEM_SERVER_ONLY or dual sources.
      */
     public void recordGaUxNotificationDisplayed() {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -926,7 +929,7 @@ public class ConsentManager {
      * @return true if GA UX Consent Notification was displayed, otherwise false.
      */
     public Boolean wasGaUxNotificationDisplayed() {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -947,6 +950,303 @@ public class ConsentManager {
     }
 
     /**
+     * Retrieves the PP API default consent.
+     *
+     * <p>To read from PPAPI consent if source of truth is PPAPI. To read from system server consent
+     * if source of truth is system server or dual sources.
+     *
+     * @return true if the topics default consent is true, false otherwise.
+     */
+    public Boolean getDefaultConsent() {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        return mDatastore.get(ConsentConstants.DEFAULT_CONSENT);
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        // Intentional fallthrough
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        return mAdServicesManager.getDefaultConsent();
+                    default:
+                        LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                        return false;
+                }
+            } catch (RuntimeException e) {
+                LogUtil.e(e, "Get PP API default consent failed.");
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Retrieves the topics default consent.
+     *
+     * <p>To read from PPAPI consent if source of truth is PPAPI. To read from system server consent
+     * if source of truth is system server or dual sources.
+     *
+     * @return true if the topics default consent is true, false otherwise.
+     */
+    public Boolean getTopicsDefaultConsent() {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        return mDatastore.get(ConsentConstants.TOPICS_DEFAULT_CONSENT);
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        // Intentional fallthrough
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        return mAdServicesManager.getTopicsDefaultConsent();
+                    default:
+                        LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                        return false;
+                }
+            } catch (RuntimeException e) {
+                LogUtil.e(e, "Get topics default consent failed.");
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Retrieves the FLEDGE default consent.
+     *
+     * <p>To read from PPAPI consent if source of truth is PPAPI. To read from system server consent
+     * if source of truth is system server or dual sources.
+     *
+     * @return true if the FLEDGE default consent is true, false otherwise.
+     */
+    public Boolean getFledgeDefaultConsent() {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        return mDatastore.get(ConsentConstants.FLEDGE_DEFAULT_CONSENT);
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        // Intentional fallthrough
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        return mAdServicesManager.getFledgeDefaultConsent();
+                    default:
+                        LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                        return false;
+                }
+            } catch (RuntimeException e) {
+                LogUtil.e(e, "Get FLEDGE default consent failed.");
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Retrieves the measurement default consent.
+     *
+     * <p>To read from PPAPI consent if source of truth is PPAPI. To read from system server consent
+     * if source of truth is system server or dual sources.
+     *
+     * @return true if the measurement default consent is true, false otherwise.
+     */
+    public Boolean getMeasurementDefaultConsent() {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        return mDatastore.get(ConsentConstants.MEASUREMENT_DEFAULT_CONSENT);
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        // Intentional fallthrough
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        return mAdServicesManager.getMeasurementDefaultConsent();
+                    default:
+                        LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                        return false;
+                }
+            } catch (RuntimeException e) {
+                LogUtil.e(e, "Get measurement default consent failed.");
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Retrieves the default AdId state.
+     *
+     * <p>To read from PPAPI consent if source of truth is PPAPI. To read from system server consent
+     * if source of truth is system server or dual sources.
+     *
+     * @return true if the AdId is enabled by default, false otherwise.
+     */
+    public Boolean getDefaultAdIdState() {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        return mDatastore.get(ConsentConstants.DEFAULT_AD_ID_STATE);
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        // Intentional fallthrough
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        return mAdServicesManager.getDefaultAdIdState();
+                    default:
+                        LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                        return false;
+                }
+            } catch (RuntimeException e) {
+                LogUtil.e(e, "Get default AdId state failed.");
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Saves the PP API default consent bit to storage.
+     *
+     * <p>To write to PPAPI if consent source of truth is PPAPI_ONLY or dual sources. To write to
+     * system server if consent source of truth is SYSTEM_SERVER_ONLY or dual sources.
+     */
+    public void recordDefaultConsent(boolean defaultConsent) {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        mDatastore.put(ConsentConstants.DEFAULT_CONSENT, defaultConsent);
+                        break;
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        mAdServicesManager.recordDefaultConsent(defaultConsent);
+                        break;
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        mDatastore.put(ConsentConstants.DEFAULT_CONSENT, defaultConsent);
+                        mAdServicesManager.recordDefaultConsent(defaultConsent);
+                        break;
+                    default:
+                        throw new RuntimeException(
+                                ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                }
+            } catch (IOException | RuntimeException e) {
+                throw new RuntimeException("Record default consent failed", e);
+            }
+        }
+    }
+
+    /**
+     * Saves the topics default consent bit to storage.
+     *
+     * <p>To write to PPAPI if consent source of truth is PPAPI_ONLY or dual sources. To write to
+     * system server if consent source of truth is SYSTEM_SERVER_ONLY or dual sources.
+     */
+    public void recordTopicsDefaultConsent(boolean defaultConsent) {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        mDatastore.put(ConsentConstants.TOPICS_DEFAULT_CONSENT, defaultConsent);
+                        break;
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        mAdServicesManager.recordTopicsDefaultConsent(defaultConsent);
+                        break;
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        mDatastore.put(ConsentConstants.TOPICS_DEFAULT_CONSENT, defaultConsent);
+                        mAdServicesManager.recordTopicsDefaultConsent(defaultConsent);
+                        break;
+                    default:
+                        throw new RuntimeException(
+                                ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                }
+            } catch (IOException | RuntimeException e) {
+                throw new RuntimeException("Record topics default consent failed", e);
+            }
+        }
+    }
+
+    /**
+     * Saves the FLEDGE default consent bit to storage.
+     *
+     * <p>To write to PPAPI if consent source of truth is PPAPI_ONLY or dual sources. To write to
+     * system server if consent source of truth is SYSTEM_SERVER_ONLY or dual sources.
+     */
+    public void recordFledgeDefaultConsent(boolean defaultConsent) {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        mDatastore.put(ConsentConstants.FLEDGE_DEFAULT_CONSENT, defaultConsent);
+                        break;
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        mAdServicesManager.recordFledgeDefaultConsent(defaultConsent);
+                        break;
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        mDatastore.put(ConsentConstants.FLEDGE_DEFAULT_CONSENT, defaultConsent);
+                        mAdServicesManager.recordFledgeDefaultConsent(defaultConsent);
+                        break;
+                    default:
+                        throw new RuntimeException(
+                                ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                }
+            } catch (IOException | RuntimeException e) {
+                throw new RuntimeException("Record FLEDGE default consent failed", e);
+            }
+        }
+    }
+
+    /**
+     * Saves the measurement default consent bit to storage.
+     *
+     * <p>To write to PPAPI if consent source of truth is PPAPI_ONLY or dual sources. To write to
+     * system server if consent source of truth is SYSTEM_SERVER_ONLY or dual sources.
+     */
+    public void recordMeasurementDefaultConsent(boolean defaultConsent) {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        mDatastore.put(
+                                ConsentConstants.MEASUREMENT_DEFAULT_CONSENT, defaultConsent);
+                        break;
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        mAdServicesManager.recordMeasurementDefaultConsent(defaultConsent);
+                        break;
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        mDatastore.put(
+                                ConsentConstants.MEASUREMENT_DEFAULT_CONSENT, defaultConsent);
+                        mAdServicesManager.recordMeasurementDefaultConsent(defaultConsent);
+                        break;
+                    default:
+                        throw new RuntimeException(
+                                ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                }
+            } catch (IOException | RuntimeException e) {
+                throw new RuntimeException("Record measurement default consent failed", e);
+            }
+        }
+    }
+
+    /**
+     * Saves the default AdId state.
+     *
+     * <p>To write to PPAPI if consent source of truth is PPAPI_ONLY or dual sources. To write to
+     * system server if consent source of truth is SYSTEM_SERVER_ONLY or dual sources.
+     */
+    public void recordDefaultAdIdState(boolean defaultAdIdState) {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        mDatastore.put(ConsentConstants.DEFAULT_AD_ID_STATE, defaultAdIdState);
+                        break;
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        mAdServicesManager.recordDefaultAdIdState(defaultAdIdState);
+                        break;
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        mDatastore.put(ConsentConstants.DEFAULT_AD_ID_STATE, defaultAdIdState);
+                        mAdServicesManager.recordDefaultAdIdState(defaultAdIdState);
+                        break;
+                    default:
+                        throw new RuntimeException(
+                                ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                }
+            } catch (IOException | RuntimeException e) {
+                throw new RuntimeException("Record default AdId state failed", e);
+            }
+        }
+    }
+
+    /**
      * Saves information to the storage that topics consent page was displayed for the first time to
      * the user.
      *
@@ -954,7 +1254,7 @@ public class ConsentManager {
      * system server if consent source of truth is SYSTEM_SERVER_ONLY or dual sources.
      */
     public void recordTopicsConsentPageDisplayed() {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -986,7 +1286,7 @@ public class ConsentManager {
      * @return true if topics consent page was displayed, otherwise false.
      */
     public Boolean wasTopicsConsentPageDisplayed() {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -1015,7 +1315,7 @@ public class ConsentManager {
      * system server if consent source of truth is SYSTEM_SERVER_ONLY or dual sources.
      */
     public void recordFledgeAndMsmtConsentPageDisplayed() {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -1050,7 +1350,7 @@ public class ConsentManager {
      * @return true if fledge and msmt consent page was displayed, otherwise false.
      */
     public Boolean wasFledgeAndMsmtConsentPageDisplayed() {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -1117,7 +1417,7 @@ public class ConsentManager {
             @NonNull Context context,
             @NonNull BooleanFileDatastore datastore,
             @NonNull AdServicesManager adServicesManager,
-            @ConsentParcel.ConsentApiType int consentSourceOfTruth) {
+            @Flags.ConsentSourceOfTruth int consentSourceOfTruth) {
         Objects.requireNonNull(context);
         Objects.requireNonNull(datastore);
         Objects.requireNonNull(adServicesManager);
@@ -1315,7 +1615,7 @@ public class ConsentManager {
     // To write to PPAPI if consent source of truth is PPAPI_ONLY or dual sources.
     // To write to system server if consent source of truth is SYSTEM_SERVER_ONLY or dual sources.
     private void setConsentToSourceOfTruth(boolean isGiven) {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
@@ -1326,10 +1626,8 @@ public class ConsentManager {
                         break;
                     case Flags.PPAPI_AND_SYSTEM_SERVER:
                         // Ensure data is consistent in PPAPI and system server.
-                        synchronized (ConsentManager.class) {
-                            setConsentToPpApi(isGiven);
-                            setConsentToSystemServer(mAdServicesManager, isGiven);
-                        }
+                        setConsentToPpApi(isGiven);
+                        setConsentToSystemServer(mAdServicesManager, isGiven);
                         break;
                     default:
                         throw new RuntimeException(
@@ -1342,7 +1640,7 @@ public class ConsentManager {
     }
 
     private void setPerApiConsentToSourceOfTruth(boolean isGiven, AdServicesApiType apiType) {
-        synchronized (ConsentManager.class) {
+        synchronized (LOCK) {
             try {
                 switch (mConsentSourceOfTruth) {
                     case Flags.PPAPI_ONLY:
