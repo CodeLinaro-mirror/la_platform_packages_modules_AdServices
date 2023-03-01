@@ -47,6 +47,8 @@ import com.android.adservices.service.common.AppImportanceFilter.WrongCallingApp
 import com.android.adservices.service.common.FledgeAllowListsFilter;
 import com.android.adservices.service.common.FledgeAuthorizationFilter;
 import com.android.adservices.service.common.Throttler;
+import com.android.adservices.service.consent.AdServicesApiConsent;
+import com.android.adservices.service.consent.AdServicesApiType;
 import com.android.adservices.service.consent.ConsentManager;
 import com.android.adservices.service.js.JSScriptEngine;
 import com.android.adservices.service.profiling.Tracing;
@@ -532,11 +534,14 @@ public abstract class AdSelectionRunner {
             @NonNull String buyerDecisionLogicJS,
             @NonNull String callerPackageName) {
         final int traceCookie = Tracing.beginAsyncSection(Tracing.PERSIST_AD_SELECTION);
-        final long adSelectionId = mAdSelectionIdGenerator.generateId();
-        LogUtil.v("Persisting Ad Selection Result for Id:%d", adSelectionId);
         return mBackgroundExecutorService.submit(
                 () -> {
-                    // TODO : b/230568647 retry ID generation in case of collision
+                    long adSelectionId = mAdSelectionIdGenerator.generateId();
+                    // Retry ID generation in case of collision
+                    while (mAdSelectionEntryDao.doesAdSelectionIdExist(adSelectionId)) {
+                        adSelectionId = mAdSelectionIdGenerator.generateId();
+                    }
+                    LogUtil.v("Persisting Ad Selection Result for Id:%d", adSelectionId);
                     DBAdSelection dbAdSelection;
                     dbAdSelectionBuilder
                             .setAdSelectionId(adSelectionId)
@@ -564,7 +569,14 @@ public abstract class AdSelectionRunner {
      *     user consent
      */
     private Void assertCallerHasUserConsent() throws ConsentManager.RevokedConsentException {
-        if (!mConsentManager.getConsent().isGiven()) {
+        AdServicesApiConsent userConsent;
+        if (mFlags.getGaUxFeatureEnabled()) {
+            userConsent = mConsentManager.getConsent(AdServicesApiType.FLEDGE);
+        } else {
+            userConsent = mConsentManager.getConsent();
+        }
+
+        if (!userConsent.isGiven()) {
             throw new ConsentManager.RevokedConsentException();
         }
         return null;

@@ -15,9 +15,8 @@
  */
 package com.android.server.adservices;
 
-import static android.app.adservices.AdServicesManager.AD_SERVICES_SYSTEM_SERVICE;
-
 import android.adservices.common.AdServicesPermissions;
+import android.annotation.NonNull;
 import android.annotation.RequiresPermission;
 import android.app.adservices.IAdServicesManager;
 import android.app.adservices.consent.ConsentParcel;
@@ -34,7 +33,9 @@ import android.os.UserHandle;
 import android.provider.DeviceConfig;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.LocalManagerRegistry;
 import com.android.server.SystemService;
+import com.android.server.sdksandbox.SdkSandboxManagerLocal;
 
 import java.io.IOException;
 import java.util.List;
@@ -108,14 +109,30 @@ public class AdServicesManagerService extends IAdServicesManager.Stub {
             super(context);
             mService =
                     new AdServicesManagerService(
-                            getContext(), new UserInstanceManager(ADSERVICES_BASE_DIR));
+                            context, new UserInstanceManager(ADSERVICES_BASE_DIR));
         }
 
         /** @hide */
         @Override
         public void onStart() {
-            publishBinderService(AD_SERVICES_SYSTEM_SERVICE, mService);
             LogUtil.d("AdServicesManagerService started!");
+
+            // TODO(b/262282035): Fix this work around in U+.
+            // TODO(b/263128170): Add cts-root tests to make sure that we can start the
+            //  AdServicesManager in U+
+
+            // Register the AdServicesManagerService with the SdkSandboxManagerService.
+            // This is a workaround for b/262282035.
+            // This works since we start the SdkSandboxManagerService before the
+            // AdServicesManagerService in the SystemServer.java
+            SdkSandboxManagerLocal sdkSandboxManagerLocal =
+                    LocalManagerRegistry.getManager(SdkSandboxManagerLocal.class);
+            if (sdkSandboxManagerLocal != null) {
+                sdkSandboxManagerLocal.registerAdServicesManagerService(mService);
+            } else {
+                throw new IllegalStateException(
+                        "SdkSandboxManagerLocal not found when registering AdServicesManager!");
+            }
         }
     }
 
@@ -132,7 +149,7 @@ public class AdServicesManagerService extends IAdServicesManager.Stub {
                     .getOrCreateUserConsentManagerInstance(userIdentifier)
                     .getConsent(consentApiType);
         } catch (IOException e) {
-            LogUtil.e(e, "Fail to getConsent with exception. Return REVOKED!");
+            LogUtil.e(e, "Failed to getConsent with exception. Return REVOKED!");
             return ConsentParcel.createRevokedConsent(consentApiType);
         }
     }
@@ -156,7 +173,7 @@ public class AdServicesManagerService extends IAdServicesManager.Stub {
                     .getOrCreateUserConsentManagerInstance(userIdentifier)
                     .setConsent(consentParcel);
         } catch (IOException e) {
-            LogUtil.e(e, "Fail to persist the consent.");
+            LogUtil.e(e, "Failed to persist the consent.");
         }
     }
 
@@ -172,7 +189,7 @@ public class AdServicesManagerService extends IAdServicesManager.Stub {
                     .getOrCreateUserConsentManagerInstance(userIdentifier)
                     .recordNotificationDisplayed();
         } catch (IOException e) {
-            LogUtil.e(e, "Fail to Record Notification Displayed.");
+            LogUtil.e(e, "Failed to Record Notification Displayed.");
         }
     }
 
@@ -188,8 +205,297 @@ public class AdServicesManagerService extends IAdServicesManager.Stub {
                     .getOrCreateUserConsentManagerInstance(userIdentifier)
                     .wasNotificationDisplayed();
         } catch (IOException e) {
-            LogUtil.e(e, "Fail to get the wasNotificationDisplayed.");
+            LogUtil.e(e, "Failed to get the wasNotificationDisplayed.");
             return false;
+        }
+    }
+
+    @Override
+    @RequiresPermission(AdServicesPermissions.ACCESS_ADSERVICES_MANAGER)
+    public void recordGaUxNotificationDisplayed() {
+        enforceAdServicesManagerPermission();
+
+        final int userIdentifier = getUserIdentifier();
+        LogUtil.v("recordGaUxNotificationDisplayed() for User Identifier %d", userIdentifier);
+        try {
+            mUserInstanceManager
+                    .getOrCreateUserConsentManagerInstance(userIdentifier)
+                    .recordGaUxNotificationDisplayed();
+        } catch (IOException e) {
+            LogUtil.e(e, "Fail to Record GA UX Notification Displayed.");
+        }
+    }
+
+    @Override
+    @RequiresPermission(AdServicesPermissions.ACCESS_ADSERVICES_MANAGER)
+    public boolean wasGaUxNotificationDisplayed() {
+        enforceAdServicesManagerPermission();
+
+        final int userIdentifier = getUserIdentifier();
+        LogUtil.v("wasGaUxNotificationDisplayed() for User Identifier %d", userIdentifier);
+        try {
+            return mUserInstanceManager
+                    .getOrCreateUserConsentManagerInstance(userIdentifier)
+                    .wasGaUxNotificationDisplayed();
+        } catch (IOException e) {
+            LogUtil.e(e, "Fail to get the wasGaUxNotificationDisplayed.");
+            return false;
+
+        }
+    }
+
+    @Override
+    @RequiresPermission(AdServicesPermissions.ACCESS_ADSERVICES_MANAGER)
+    public void recordTopicsConsentPageDisplayed() {
+        enforceAdServicesManagerPermission();
+
+        final int userIdentifier = getUserIdentifier();
+        LogUtil.v("recordTopicsConsentPageDisplayed() for User Identifier %d", userIdentifier);
+        try {
+            mUserInstanceManager
+                    .getOrCreateUserConsentManagerInstance(userIdentifier)
+                    .recordTopicsConsentPageDisplayed();
+        } catch (IOException e) {
+            LogUtil.e(e, "Fail to Record Topics Consent Page Displayed.");
+        }
+    }
+
+    @Override
+    @RequiresPermission(AdServicesPermissions.ACCESS_ADSERVICES_MANAGER)
+    public boolean wasTopicsConsentPageDisplayed() {
+        enforceAdServicesManagerPermission();
+
+        final int userIdentifier = getUserIdentifier();
+        LogUtil.v("wasTopicsConsentPageDisplayed() for User Identifier %d", userIdentifier);
+        try {
+            return mUserInstanceManager
+                    .getOrCreateUserConsentManagerInstance(userIdentifier)
+                    .wasTopicsConsentPageDisplayed();
+        } catch (IOException e) {
+            LogUtil.e(e, "Fail to get the wasTopicsConsentPageDisplayed.");
+            return false;
+        }
+    }
+
+    /** method to Record Fledge and Msmt consent page displayed or not */
+    @Override
+    @RequiresPermission(AdServicesPermissions.ACCESS_ADSERVICES_MANAGER)
+    public void recordFledgeAndMsmtConsentPageDisplayed() {
+        enforceAdServicesManagerPermission();
+
+        final int userIdentifier = getUserIdentifier();
+        LogUtil.v(
+                "recordFledgeAndMsmtConsentPageDisplayed() for User Identifier %d", userIdentifier);
+        try {
+            mUserInstanceManager
+                    .getOrCreateUserConsentManagerInstance(userIdentifier)
+                    .recordFledgeAndMsmtConsentPageDisplayed();
+        } catch (IOException e) {
+            LogUtil.e(e, "Fail to Record Fledge and Msmt Consent Page Displayed.");
+        }
+    }
+
+    /** method to get Fledge and Msmt consent page displayed or not */
+    @Override
+    @RequiresPermission(AdServicesPermissions.ACCESS_ADSERVICES_MANAGER)
+    public boolean wasFledgeAndMsmtConsentPageDisplayed() {
+        enforceAdServicesManagerPermission();
+
+        final int userIdentifier = getUserIdentifier();
+        LogUtil.v("wasFledgeAndMsmtConsentPageDisplayed() for User Identifier %d", userIdentifier);
+        try {
+            return mUserInstanceManager
+                    .getOrCreateUserConsentManagerInstance(userIdentifier)
+                    .wasFledgeAndMsmtConsentPageDisplayed();
+        } catch (IOException e) {
+            LogUtil.e(e, "Fail to get the wasFledgeAndMsmtConsentPageDisplayed.");
+            return false;
+        }
+    }
+
+    @Override
+    @RequiresPermission
+    public List<String> getKnownAppsWithConsent(@NonNull List<String> installedPackages) {
+        enforceAdServicesManagerPermission();
+
+        final int userIdentifier = getUserIdentifier();
+        LogUtil.v("getKnownAppsWithConsent() for User Identifier %d", userIdentifier);
+        try {
+            return mUserInstanceManager
+                    .getOrCreateUserAppConsentManagerInstance(userIdentifier)
+                    .getKnownAppsWithConsent(installedPackages);
+        } catch (IOException e) {
+            LogUtil.e(
+                    e,
+                    "Failed to get the getKnownAppsWithConsent() for user identifier %d.",
+                    userIdentifier);
+            return List.of();
+        }
+    }
+
+    @Override
+    @RequiresPermission(AdServicesPermissions.ACCESS_ADSERVICES_MANAGER)
+    public List<String> getAppsWithRevokedConsent(@NonNull List<String> installedPackages) {
+        enforceAdServicesManagerPermission();
+
+        final int userIdentifier = getUserIdentifier();
+        LogUtil.v("getAppsWithRevokedConsent() for User Identifier %d", userIdentifier);
+        try {
+            return mUserInstanceManager
+                    .getOrCreateUserAppConsentManagerInstance(userIdentifier)
+                    .getAppsWithRevokedConsent(installedPackages);
+        } catch (IOException e) {
+            LogUtil.e(
+                    e,
+                    "Failed to getAppsWithRevokedConsent() for user identifier %d.",
+                    userIdentifier);
+            return List.of();
+        }
+    }
+
+    @Override
+    @RequiresPermission(AdServicesPermissions.ACCESS_ADSERVICES_MANAGER)
+    public void setConsentForApp(
+            @NonNull String packageName, int packageUid, boolean isConsentRevoked) {
+        enforceAdServicesManagerPermission();
+
+        final int userIdentifier = getUserIdentifier();
+
+        LogUtil.v(
+                "setConsentForApp() for User Identifier %d, package name %s, and package uid %d to"
+                        + " %s.",
+                userIdentifier, packageName, packageUid, isConsentRevoked);
+        try {
+            mUserInstanceManager
+                    .getOrCreateUserAppConsentManagerInstance(userIdentifier)
+                    .setConsentForApp(packageName, packageUid, isConsentRevoked);
+        } catch (IOException e) {
+            LogUtil.e(
+                    e,
+                    "Failed to setConsentForApp() for User Identifier %d, package name %s, and"
+                            + " package uid %d to %s.",
+                    userIdentifier,
+                    packageName,
+                    packageUid,
+                    isConsentRevoked);
+        }
+    }
+
+    @Override
+    @RequiresPermission(AdServicesPermissions.ACCESS_ADSERVICES_MANAGER)
+    public void clearKnownAppsWithConsent() {
+        enforceAdServicesManagerPermission();
+
+        final int userIdentifier = getUserIdentifier();
+        LogUtil.v("clearKnownAppsWithConsent() for user identifier %d.", userIdentifier);
+        try {
+            mUserInstanceManager
+                    .getOrCreateUserAppConsentManagerInstance(userIdentifier)
+                    .clearKnownAppsWithConsent();
+        } catch (IOException e) {
+            LogUtil.e(
+                    e,
+                    "Failed to clearKnownAppsWithConsent() for user identifier %d",
+                    userIdentifier);
+        }
+    }
+
+    @Override
+    @RequiresPermission(AdServicesPermissions.ACCESS_ADSERVICES_MANAGER)
+    public void clearAllAppConsentData() {
+        enforceAdServicesManagerPermission();
+
+        final int userIdentifier = getUserIdentifier();
+        LogUtil.v("clearAllAppConsentData() for user identifier %d.", userIdentifier);
+
+        try {
+            mUserInstanceManager
+                    .getOrCreateUserAppConsentManagerInstance(userIdentifier)
+                    .clearAllAppConsentData();
+        } catch (IOException e) {
+            LogUtil.e(
+                    e, "Failed to clearAllAppConsentData() for user identifier %d", userIdentifier);
+        }
+    }
+
+    @Override
+    @RequiresPermission(AdServicesPermissions.ACCESS_ADSERVICES_MANAGER)
+    public boolean isConsentRevokedForApp(@NonNull String packageName, int packageUid)
+            throws IllegalArgumentException {
+        enforceAdServicesManagerPermission();
+
+        final int userIdentifier = getUserIdentifier();
+        LogUtil.v(
+                "isConsentRevokedForApp() for user identifier %d, package name %s, and package uid"
+                        + " %d.",
+                userIdentifier, packageName, packageUid);
+        try {
+            return mUserInstanceManager
+                    .getOrCreateUserAppConsentManagerInstance(userIdentifier)
+                    .isConsentRevokedForApp(packageName, packageUid);
+        } catch (IOException e) {
+            LogUtil.e(
+                    e,
+                    "Failed to call isConsentRevokedForApp() for user identifier %d, package name"
+                            + " %s, and package uid %d.",
+                    userIdentifier,
+                    packageName,
+                    packageUid);
+            return true;
+        }
+    }
+
+    @Override
+    @RequiresPermission(AdServicesPermissions.ACCESS_ADSERVICES_MANAGER)
+    public boolean setConsentForAppIfNew(
+            @NonNull String packageName, int packageUid, boolean isConsentRevoked)
+            throws IllegalArgumentException {
+        enforceAdServicesManagerPermission();
+
+        final int userIdentifier = getUserIdentifier();
+        LogUtil.v(
+                "setConsentForAppIfNew() for user identifier %d, package name"
+                        + " %s, and package uid %d to %s.",
+                userIdentifier, packageName, packageUid, isConsentRevoked);
+        try {
+            return mUserInstanceManager
+                    .getOrCreateUserAppConsentManagerInstance(userIdentifier)
+                    .setConsentForAppIfNew(packageName, packageUid, isConsentRevoked);
+        } catch (IOException e) {
+            LogUtil.e(
+                    e,
+                    "Failed to setConsentForAppIfNew() for user identifier %d, package name"
+                            + " %s, and package uid %d to %s.",
+                    userIdentifier,
+                    packageName,
+                    packageUid,
+                    isConsentRevoked);
+            return true;
+        }
+    }
+
+    @Override
+    @RequiresPermission(AdServicesPermissions.ACCESS_ADSERVICES_MANAGER)
+    public void clearConsentForUninstalledApp(@NonNull String packageName, int packageUid) {
+        enforceAdServicesManagerPermission();
+
+        final int userIdentifier = getUserIdentifier();
+        LogUtil.v(
+                "clearConsentForUninstalledApp() for user identifier %d, package name"
+                        + " %s, and package uid %d.",
+                userIdentifier, packageName, packageUid);
+        try {
+            mUserInstanceManager
+                    .getOrCreateUserAppConsentManagerInstance(userIdentifier)
+                    .clearConsentForUninstalledApp(packageName, packageUid);
+        } catch (IOException e) {
+            LogUtil.e(
+                    e,
+                    "Failed to clearConsentForUninstalledApp() for user identifier %d, package name"
+                            + " %s, and package uid %d.",
+                    userIdentifier,
+                    packageName,
+                    packageUid);
         }
     }
 

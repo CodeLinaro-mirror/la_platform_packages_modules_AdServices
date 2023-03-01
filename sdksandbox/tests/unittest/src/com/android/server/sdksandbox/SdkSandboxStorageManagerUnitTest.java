@@ -20,9 +20,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.FileUtils;
+import android.os.IBinder;
 import android.os.UserHandle;
 
 import androidx.annotation.NonNull;
@@ -562,6 +564,10 @@ public class SdkSandboxStorageManagerUnitTest {
         @Override
         public void enforceAllowedToStartOrBindService(@NonNull Intent intent) {}
 
+        @Override
+        public void enforceAllowedToHostSandboxedActivity(
+                @NonNull Intent intent, int clientAppUid, @NonNull String clientAppPackageName) {}
+
         @NonNull
         @Override
         public String getSdkSandboxProcessNameForInstrumentation(
@@ -585,6 +591,24 @@ public class SdkSandboxStorageManagerUnitTest {
         public boolean isInstrumentationRunning(
                 @NonNull String clientAppPackageName, int clientAppUid) {
             return mInstrumentationRunning;
+        }
+
+        @Override
+        public void registerAdServicesManagerService(IBinder iBinder) {}
+
+        @Override
+        public boolean canRegisterBroadcastReceiver(
+                @NonNull IntentFilter intentFilter, int flags, boolean onlyProtectedBroadcasts) {
+            return true;
+        }
+
+        @Override
+        public boolean canDeclareBroadcastReceiverFromManifest(
+                @NonNull IntentFilter intentFilter,
+                boolean unexportedBroadcast,
+                boolean onlyProtectedBroadcasts,
+                int minTargetSdkVersion) {
+            return true;
         }
     }
 }

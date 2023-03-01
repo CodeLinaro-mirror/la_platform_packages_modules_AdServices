@@ -36,10 +36,12 @@ import java.util.List;
  * <p>Extend and override methods as needed for your tests.
  */
 public class StubSdkSandboxManagerService extends ISdkSandboxManager.Stub {
+    private IBinder mAdServicesManager;
 
     @Override
     public void loadSdk(
             String callingPackageName,
+            IBinder clientApplicationThreadBinder,
             String sdkName,
             long timeAppCalledSystemServer,
             Bundle params,
@@ -91,4 +93,9 @@ public class StubSdkSandboxManagerService extends ISdkSandboxManager.Stub {
 
     @Override
     public void logLatencyFromSystemServerToApp(String method, int latency) {}
+
+    @Override
+    public IBinder getAdServicesManager() {
+        return mAdServicesManager;
+    }
 }

@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-package android.adservices.test.scenario.adservices.fledge;
+package com.android.sdksandbox.app2;
 
-import android.platform.test.microbenchmark.Microbenchmark;
+import android.app.Activity;
 
-import org.junit.runner.RunWith;
-
-@RunWith(Microbenchmark.class)
-public class SelectAdsLatencyMicroBenchmark extends SelectAdsLatency {}
+public class SdkSandboxEmptyActivity extends Activity {}

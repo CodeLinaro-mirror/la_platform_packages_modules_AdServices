@@ -17,6 +17,7 @@
 package com.android.adservices.tests.cts.topics;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.adservices.clients.topics.AdvertisingTopicsClient;
 import android.adservices.topics.GetTopicsResponse;
@@ -51,6 +52,8 @@ public class TopicsManagerTest {
 
     // Override the Epoch Job Period to this value to speed up the epoch computation.
     private static final long TEST_EPOCH_JOB_PERIOD_MS = 3000;
+    // Expected asset versions.
+    private static final long EXPECTED_ASSET_VERSION = 3L;
 
     // Default Epoch Period.
     private static final long TOPICS_EPOCH_JOB_PERIOD_MS = 7 * 86_400_000; // 7 days.
@@ -82,6 +85,13 @@ public class TopicsManagerTest {
     // Used to get the package name. Copied over from com.android.adservices.AdServicesCommon
     private static final String TOPICS_SERVICE_NAME = "android.adservices.TOPICS_SERVICE";
     private static final String ADSERVICES_PACKAGE_NAME = getAdServicesPackageName();
+
+    // Assert message statements.
+    private static final String INCORRECT_MODEL_VERSION_MESSAGE =
+            "Incorrect model version detected. Please repo sync, build and install the new apex.";
+    private static final String INCORRECT_TAXONOMY_VERSION_MESSAGE =
+            "Incorrect taxonomy version detected. Please repo sync, build and install the new"
+                    + " apex.";
 
     @Before
     public void setup() throws Exception {
@@ -136,11 +146,17 @@ public class TopicsManagerTest {
         assertThat(sdk1Result.getTopics()).hasSize(1);
         Topic topic = sdk1Result.getTopics().get(0);
 
+        // Expected asset versions to be bundled in the build.
+        // If old assets are being picked up, repo sync, build and install the new apex again.
+        assertWithMessage(INCORRECT_MODEL_VERSION_MESSAGE)
+                .that(topic.getModelVersion())
+                .isEqualTo(EXPECTED_ASSET_VERSION);
+        assertWithMessage(INCORRECT_TAXONOMY_VERSION_MESSAGE)
+                .that(topic.getTaxonomyVersion())
+                .isEqualTo(EXPECTED_ASSET_VERSION);
+
         // topic is one of the 5 classification topics of the Test App.
         assertThat(topic.getTopicId()).isIn(Arrays.asList(10147, 10253, 10175, 10254, 10333));
-
-        assertThat(topic.getModelVersion()).isAtLeast(1L);
-        assertThat(topic.getTaxonomyVersion()).isAtLeast(1L);
 
         // Sdk 2 did not call getTopics API. So it should not receive any topic.
         AdvertisingTopicsClient advertisingTopicsClient2 =
@@ -194,14 +210,20 @@ public class TopicsManagerTest {
         assertThat(sdk3Result.getTopics()).hasSize(1);
         Topic topic = sdk3Result.getTopics().get(0);
 
-        // Top 5 classifications for empty string with v2 model are [10230, 10253, 10227, 10250,
-        // 10257]. This is computed by running the model on the device for empty string.
-        // topic is one of the 5 classification topics of the Test App.
-        List<Integer> expectedTopTopicIds = Arrays.asList(10230, 10253, 10227, 10250, 10257);
-        assertThat(topic.getTopicId()).isIn(expectedTopTopicIds);
+        // Expected asset versions to be bundled in the build.
+        // If old assets are being picked up, repo sync, build and install the new apex again.
+        assertWithMessage(INCORRECT_MODEL_VERSION_MESSAGE)
+                .that(topic.getModelVersion())
+                .isEqualTo(EXPECTED_ASSET_VERSION);
+        assertWithMessage(INCORRECT_TAXONOMY_VERSION_MESSAGE)
+                .that(topic.getTaxonomyVersion())
+                .isEqualTo(EXPECTED_ASSET_VERSION);
 
-        assertThat(topic.getModelVersion()).isAtLeast(2L);
-        assertThat(topic.getTaxonomyVersion()).isAtLeast(2L);
+        // Top 5 classifications for empty string with v3 model are [10230, 10228, 10253, 10232,
+        // 10140]. This is computed by running the model on the device for empty string.
+        // topic is one of the 5 classification topics of the Test App.
+        List<Integer> expectedTopTopicIds = Arrays.asList(10230, 10228, 10253, 10232, 10140);
+        assertThat(topic.getTopicId()).isIn(expectedTopTopicIds);
 
         // Set classifier flag back to default.
         overrideClassifierType(DEFAULT_CLASSIFIER_TYPE);

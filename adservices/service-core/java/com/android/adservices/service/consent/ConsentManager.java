@@ -78,6 +78,16 @@ public class ConsentManager {
     @VisibleForTesting
     static final String NOTIFICATION_DISPLAYED_ONCE = "NOTIFICATION-DISPLAYED-ONCE";
 
+    @VisibleForTesting
+    static final String GA_UX_NOTIFICATION_DISPLAYED_ONCE = "GA-UX-NOTIFICATION-DISPLAYED-ONCE";
+
+    @VisibleForTesting
+    static final String TOPICS_CONSENT_PAGE_DISPLAYED = "TOPICS-CONSENT-PAGE-DISPLAYED";
+
+    @VisibleForTesting
+    static final String FLEDGE_AND_MSMT_CONSENT_PAGE_DISPLAYED =
+            "FLEDGE-AND-MSMT-CONSENT-PAGE-DISPLAYED";
+
     @VisibleForTesting static final String CONSENT_KEY = "CONSENT";
     private static final String ERROR_MESSAGE_WHILE_SET_CONTENT = "setConsent method failed.";
     private static final String ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH =
@@ -167,11 +177,7 @@ public class ConsentManager {
                 // Execute one-time consent migration if needed.
                 int consentSourceOfTruth = FlagsFactory.getFlags().getConsentSourceOfTruth();
                 BooleanFileDatastore datastore = createAndInitializeDataStore(context);
-                AdServicesManager adServicesManager =
-                        context.getSystemService(AdServicesManager.class);
-                if (adServicesManager == null) {
-                    throw new RuntimeException("Adservices System Server is not available!");
-                }
+                AdServicesManager adServicesManager = AdServicesManager.getInstance(context);
                 handleConsentMigrationIfNeeded(
                         context, datastore, adServicesManager, consentSourceOfTruth);
 
@@ -260,6 +266,70 @@ public class ConsentManager {
     }
 
     /**
+     * Enables the {@code apiType} PP API service. It gives consent to an API which is provided in
+     * the parameter.
+     *
+     * <p>To write consent to PPAPI if consent source of truth is PPAPI_ONLY or dual sources. To
+     * write to system server consent if source of truth is system server or dual sources.
+     *
+     * @param context Context of the application.
+     * @param apiType Type of the API (Topics, Fledge, Measurement) which should be enabled.
+     */
+    public void enable(@NonNull Context context, AdServicesApiType apiType) {
+        Objects.requireNonNull(context);
+
+        // TODO(b/258185102): add missing logging once they are added
+
+        BackgroundJobsManager.scheduleJobsPerApi(context, apiType);
+
+        try {
+            // reset all state data which should be removed
+            resetByApi(apiType);
+        } catch (IOException e) {
+            throw new RuntimeException(ERROR_MESSAGE_WHILE_SET_CONTENT, e);
+        }
+
+        setPerApiConsentToSourceOfTruth(/* isGiven */ true, apiType);
+    }
+
+    /**
+     * Disables {@code apiType} PP API service. It revokes consent to an API which is provided in
+     * the parameter.
+     *
+     * <p>To write consent to PPAPI if consent source of truth is PPAPI_ONLY or dual sources. To
+     * write to system server consent if source of truth is system server or dual sources.
+     */
+    public void disable(@NonNull Context context, AdServicesApiType apiType) {
+        Objects.requireNonNull(context);
+
+        // TODO(b/258185102): add missing logging once they are added
+
+        try {
+            resetByApi(apiType);
+            BackgroundJobsManager.unscheduleJobsPerApi(
+                    context.getSystemService(JobScheduler.class), apiType);
+        } catch (IOException e) {
+            throw new RuntimeException(ERROR_MESSAGE_WHILE_SET_CONTENT, e);
+        }
+
+        setPerApiConsentToSourceOfTruth(/* isGiven */ false, apiType);
+
+        if (areAllApisDisabled()) {
+            BackgroundJobsManager.unscheduleAllBackgroundJobs(
+                    context.getSystemService(JobScheduler.class));
+        }
+    }
+
+    private boolean areAllApisDisabled() {
+        if (getConsent(AdServicesApiType.TOPICS).isGiven()
+                || getConsent(AdServicesApiType.MEASUREMENTS).isGiven()
+                || getConsent(AdServicesApiType.FLEDGE).isGiven()) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Retrieves the consent for all PP API services.
      *
      * <p>To read from PPAPI consent if source of truth is PPAPI. To read from system server consent
@@ -282,6 +352,46 @@ public class ConsentManager {
                     case Flags.PPAPI_AND_SYSTEM_SERVER:
                         ConsentParcel consentParcel =
                                 mAdServicesManager.getConsent(ConsentParcel.ALL_API);
+                        return AdServicesApiConsent.getConsent(consentParcel.isIsGiven());
+                    default:
+                        LogUtil.e(ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                        return AdServicesApiConsent.REVOKED;
+                }
+            } catch (RuntimeException e) {
+                LogUtil.e(e, ERROR_MESSAGE_WHILE_GET_CONTENT);
+            }
+
+            return AdServicesApiConsent.REVOKED;
+        }
+    }
+
+    /**
+     * Retrieves the consent per API.
+     *
+     * @param apiType apiType for which the consent should be provided
+     * @return {@link AdServicesApiConsent} providing information whether the consent was given or
+     *     revoked.
+     */
+    public AdServicesApiConsent getConsent(AdServicesApiType apiType) {
+        if (!mFlags.getGaUxFeatureEnabled()) {
+            throw new IllegalStateException("GA UX feature is disabled.");
+        }
+
+        if (mFlags.getConsentManagerDebugMode()) {
+            return AdServicesApiConsent.GIVEN;
+        }
+
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        return AdServicesApiConsent.getConsent(
+                                mDatastore.get(apiType.toPpApiDatastoreKey()));
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        // Intentional fallthrough
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        ConsentParcel consentParcel =
+                                mAdServicesManager.getConsent(apiType.toConsentApiType());
                         return AdServicesApiConsent.getConsent(consentParcel.isIsGiven());
                     default:
                         LogUtil.e(ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
@@ -448,7 +558,14 @@ public class ConsentManager {
     public boolean isFledgeConsentRevokedForApp(@NonNull String packageName)
             throws IllegalArgumentException {
         // TODO(b/238464639): Implement API-specific consent for FLEDGE
-        if (!getConsent().isGiven()) {
+        AdServicesApiConsent consent;
+        if (!mFlags.getGaUxFeatureEnabled()) {
+            consent = getConsent();
+        } else {
+            consent = getConsent(AdServicesApiType.FLEDGE);
+        }
+
+        if (!consent.isGiven()) {
             return true;
         }
 
@@ -479,7 +596,14 @@ public class ConsentManager {
     public boolean isFledgeConsentRevokedForAppAfterSettingFledgeUse(@NonNull String packageName)
             throws IllegalArgumentException {
         // TODO(b/238464639): Implement API-specific consent for FLEDGE
-        if (!getConsent().isGiven()) {
+        AdServicesApiConsent consent;
+        if (!mFlags.getGaUxFeatureEnabled()) {
+            consent = getConsent();
+        } else {
+            consent = getConsent(AdServicesApiType.FLEDGE);
+        }
+
+        if (!consent.isGiven()) {
             return true;
         }
 
@@ -562,6 +686,187 @@ public class ConsentManager {
         }
     }
 
+    /**
+     * Saves information to the storage that GA UX notification was displayed for the first time to
+     * the user.
+     *
+     * <p>To write to PPAPI if consent source of truth is PPAPI_ONLY or dual sources. To write to
+     * system server if consent source of truth is SYSTEM_SERVER_ONLY or dual sources.
+     */
+    public void recordGaUxNotificationDisplayed() {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        mDatastore.put(GA_UX_NOTIFICATION_DISPLAYED_ONCE, true);
+                        break;
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        mAdServicesManager.recordGaUxNotificationDisplayed();
+                        break;
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        mDatastore.put(GA_UX_NOTIFICATION_DISPLAYED_ONCE, true);
+                        mAdServicesManager.recordGaUxNotificationDisplayed();
+                        break;
+                    default:
+                        throw new RuntimeException(ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                }
+            } catch (IOException | RuntimeException e) {
+                throw new RuntimeException("Record GA UX Notification Displayed failed", e);
+            }
+        }
+    }
+
+    /**
+     * Retrieves if GA UX notification has been displayed.
+     *
+     * <p>To read from PPAPI consent if source of truth is PPAPI. To read from system server consent
+     * if source of truth is system server or dual sources.
+     *
+     * @return true if GA UX Consent Notification was displayed, otherwise false.
+     */
+    public Boolean wasGaUxNotificationDisplayed() {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        return mDatastore.get(GA_UX_NOTIFICATION_DISPLAYED_ONCE);
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        // Intentional fallthrough
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        return mAdServicesManager.wasGaUxNotificationDisplayed();
+                    default:
+                        LogUtil.e(ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                        return false;
+                }
+            } catch (RuntimeException e) {
+                LogUtil.e(e, "Get GA UX notification failed.");
+            }
+
+            return false;
+        }
+    }
+
+    /**
+     * Saves information to the storage that topics consent page was displayed for the first time to
+     * the user.
+     *
+     * <p>To write to PPAPI if consent source of truth is PPAPI_ONLY or dual sources. To write to
+     * system server if consent source of truth is SYSTEM_SERVER_ONLY or dual sources.
+     */
+    public void recordTopicsConsentPageDisplayed() {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        mDatastore.put(TOPICS_CONSENT_PAGE_DISPLAYED, true);
+                        break;
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        mAdServicesManager.recordTopicsConsentPageDisplayed();
+                        break;
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        mDatastore.put(TOPICS_CONSENT_PAGE_DISPLAYED, true);
+                        mAdServicesManager.recordTopicsConsentPageDisplayed();
+                        break;
+                    default:
+                        throw new RuntimeException(ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                }
+            } catch (IOException | RuntimeException e) {
+                throw new RuntimeException("Record Topics Consent Page Displayed failed", e);
+            }
+        }
+    }
+
+    /**
+     * Retrieves if topics consent page has been displayed.
+     *
+     * <p>To read from PPAPI consent if source of truth is PPAPI. To read from system server consent
+     * if source of truth is system server or dual sources.
+     *
+     * @return true if topics consent page was displayed, otherwise false.
+     */
+    public Boolean wasTopicsConsentPageDisplayed() {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        return mDatastore.get(TOPICS_CONSENT_PAGE_DISPLAYED);
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        // Intentional fallthrough
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        return mAdServicesManager.wasTopicsConsentPageDisplayed();
+                    default:
+                        LogUtil.e(ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                        return false;
+                }
+            } catch (RuntimeException e) {
+                LogUtil.e(e, "Get Topics Consent Page Displayed failed.");
+            }
+
+            return false;
+        }
+    }
+
+    /**
+     * Saves information to the storage that fledge and msmt consent page was displayed for the
+     * first time to the user.
+     *
+     * <p>To write to PPAPI if consent source of truth is PPAPI_ONLY or dual sources. To write to
+     * system server if consent source of truth is SYSTEM_SERVER_ONLY or dual sources.
+     */
+    public void recordFledgeAndMsmtConsentPageDisplayed() {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        mDatastore.put(FLEDGE_AND_MSMT_CONSENT_PAGE_DISPLAYED, true);
+                        break;
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        mAdServicesManager.recordFledgeAndMsmtConsentPageDisplayed();
+                        break;
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        mDatastore.put(FLEDGE_AND_MSMT_CONSENT_PAGE_DISPLAYED, true);
+                        mAdServicesManager.recordFledgeAndMsmtConsentPageDisplayed();
+                        break;
+                    default:
+                        throw new RuntimeException(ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                }
+            } catch (IOException | RuntimeException e) {
+                throw new RuntimeException(
+                        "Record FLEDGE and MSMT Consent Page Displayed failed", e);
+            }
+        }
+    }
+
+    /**
+     * Retrieves if fledge and msmt consent page has been displayed.
+     *
+     * <p>To read from PPAPI consent if source of truth is PPAPI. To read from system server consent
+     * if source of truth is system server or dual sources.
+     *
+     * @return true if fledge and msmt consent page was displayed, otherwise false.
+     */
+    public Boolean wasFledgeAndMsmtConsentPageDisplayed() {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        return mDatastore.get(FLEDGE_AND_MSMT_CONSENT_PAGE_DISPLAYED);
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        // Intentional fallthrough
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        return mAdServicesManager.wasFledgeAndMsmtConsentPageDisplayed();
+                    default:
+                        LogUtil.e(ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                        return false;
+                }
+            } catch (RuntimeException e) {
+                LogUtil.e(e, "Get Fledge Consent Page Displayed failed.");
+            }
+
+            return false;
+        }
+    }
+
     @VisibleForTesting
     static BooleanFileDatastore createAndInitializeDataStore(@NonNull Context context) {
         BooleanFileDatastore booleanFileDatastore =
@@ -574,6 +879,15 @@ public class ConsentManager {
             // in the parameter (similar to SP apply etc.)
             if (booleanFileDatastore.get(NOTIFICATION_DISPLAYED_ONCE) == null) {
                 booleanFileDatastore.put(NOTIFICATION_DISPLAYED_ONCE, false);
+            }
+            if (booleanFileDatastore.get(GA_UX_NOTIFICATION_DISPLAYED_ONCE) == null) {
+                booleanFileDatastore.put(GA_UX_NOTIFICATION_DISPLAYED_ONCE, false);
+            }
+            if (booleanFileDatastore.get(TOPICS_CONSENT_PAGE_DISPLAYED) == null) {
+                booleanFileDatastore.put(TOPICS_CONSENT_PAGE_DISPLAYED, false);
+            }
+            if (booleanFileDatastore.get(FLEDGE_AND_MSMT_CONSENT_PAGE_DISPLAYED) == null) {
+                booleanFileDatastore.put(FLEDGE_AND_MSMT_CONSENT_PAGE_DISPLAYED, false);
             }
         } catch (IOException | IllegalArgumentException | NullPointerException e) {
             throw new RuntimeException("Failed to initialize the File Datastore!", e);
@@ -619,6 +933,47 @@ public class ConsentManager {
     }
 
     @VisibleForTesting
+    void setConsentPerApiToPpApi(AdServicesApiType apiType, boolean isGiven) throws IOException {
+        mDatastore.put(apiType.toPpApiDatastoreKey(), isGiven);
+    }
+
+    // Set the aggregated consent so that after the rollback of the module
+    // and the flag which controls the consent flow everything works as expected.
+    // The problematic edge case which is covered:
+    // T1: AdServices is installed in pre-GA UX version and the consent is given
+    // T2: AdServices got upgraded to GA UX binary and GA UX feature flag is enabled
+    // T3: Consent for the Topics API got revoked
+    // T4: AdServices got rolledback and the feature flags which controls consent flow
+    // (SYSTEM_SERVER_ONLY and DUAL_WRITE) also got rolledback
+    // T5: Restored consent should be revoked
+    @VisibleForTesting
+    void setAggregatedConsentToPpApi() throws IOException {
+        if (getConsent(AdServicesApiType.TOPICS).isGiven()
+                && getConsent(AdServicesApiType.MEASUREMENTS).isGiven()
+                && getConsent(AdServicesApiType.FLEDGE).isGiven()) {
+            setConsentToPpApi(true);
+        } else {
+            setConsentToPpApi(false);
+        }
+    }
+
+    // Reset data for the specific AdServicesApiType
+    @VisibleForTesting
+    void resetByApi(AdServicesApiType apiType) throws IOException {
+        switch (apiType) {
+            case TOPICS:
+                resetTopicsAndBlockedTopics();
+                break;
+            case FLEDGE:
+                resetAppsAndBlockedApps();
+                break;
+            case MEASUREMENTS:
+                resetMeasurement();
+                break;
+        }
+    }
+
+    @VisibleForTesting
     static void setConsentToSystemServer(
             @NonNull AdServicesManager adServicesManager, boolean isGiven) {
         Objects.requireNonNull(adServicesManager);
@@ -629,6 +984,20 @@ public class ConsentManager {
                         .setIsGiven(isGiven)
                         .build();
         adServicesManager.setConsent(consentParcel);
+    }
+
+    @VisibleForTesting
+    static void setPerApiConsentToSystemServer(
+            @NonNull AdServicesManager adServicesManager,
+            @ConsentParcel.ConsentApiType int consentApiType,
+            boolean isGiven) {
+        Objects.requireNonNull(adServicesManager);
+
+        if (isGiven) {
+            adServicesManager.setConsent(ConsentParcel.createGivenConsent(consentApiType));
+        } else {
+            adServicesManager.setConsent(ConsentParcel.createRevokedConsent(consentApiType));
+        }
     }
 
     // Perform a one-time migration to migrate existing PPAPI Consent
@@ -745,6 +1114,34 @@ public class ConsentManager {
                             setConsentToPpApi(isGiven);
                             setConsentToSystemServer(mAdServicesManager, isGiven);
                         }
+                        break;
+                    default:
+                        throw new RuntimeException(ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
+                }
+            } catch (IOException | RuntimeException e) {
+                throw new RuntimeException(ERROR_MESSAGE_WHILE_SET_CONTENT, e);
+            }
+        }
+    }
+
+    private void setPerApiConsentToSourceOfTruth(boolean isGiven, AdServicesApiType apiType) {
+        synchronized (ConsentManager.class) {
+            try {
+                switch (mConsentSourceOfTruth) {
+                    case Flags.PPAPI_ONLY:
+                        setConsentPerApiToPpApi(apiType, isGiven);
+                        setAggregatedConsentToPpApi();
+                        break;
+                    case Flags.SYSTEM_SERVER_ONLY:
+                        setPerApiConsentToSystemServer(
+                                mAdServicesManager, apiType.toConsentApiType(), isGiven);
+                        break;
+                    case Flags.PPAPI_AND_SYSTEM_SERVER:
+                        // Ensure data is consistent in PPAPI and system server.
+                        setConsentPerApiToPpApi(apiType, isGiven);
+                        setPerApiConsentToSystemServer(
+                                mAdServicesManager, apiType.toConsentApiType(), isGiven);
+                        setAggregatedConsentToPpApi();
                         break;
                     default:
                         throw new RuntimeException(ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);

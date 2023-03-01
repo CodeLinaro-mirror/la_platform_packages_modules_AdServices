@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
-package com.android.tests.sdksandbox;
+package android.adservices.test.scenario.adservices.fledge;
 
-import android.app.Activity;
+import android.platform.test.microbenchmark.Microbenchmark;
 
-public class TestActivity extends Activity {}
+import org.junit.runner.RunWith;
+
+@RunWith(Microbenchmark.class)
+public class BaselinePerfTestMicroBenchmark extends BaselinePerfTest {}
