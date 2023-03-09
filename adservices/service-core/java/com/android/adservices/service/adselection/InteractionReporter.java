@@ -16,32 +16,36 @@
 
 package com.android.adservices.service.adselection;
 
-import static android.adservices.adselection.ReportInteractionInput.FLAG_DESTINATION_BUYER;
-import static android.adservices.adselection.ReportInteractionInput.FLAG_DESTINATION_SELLER;
+import static android.adservices.adselection.ReportInteractionRequest.FLAG_REPORTING_DESTINATION_BUYER;
+import static android.adservices.adselection.ReportInteractionRequest.FLAG_REPORTING_DESTINATION_SELLER;
 
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN;
 
 import android.adservices.adselection.ReportInteractionCallback;
 import android.adservices.adselection.ReportInteractionInput;
+import android.adservices.adselection.ReportInteractionRequest;
 import android.adservices.common.AdServicesStatusUtils;
 import android.adservices.common.AdTechIdentifier;
 import android.adservices.common.FledgeErrorResponse;
 import android.annotation.NonNull;
 import android.content.Context;
 import android.net.Uri;
+import android.os.Build;
 import android.os.LimitExceededException;
 import android.os.RemoteException;
 import android.os.Trace;
 
+import androidx.annotation.RequiresApi;
+
 import com.android.adservices.LogUtil;
 import com.android.adservices.data.adselection.AdSelectionEntryDao;
 import com.android.adservices.service.Flags;
-import com.android.adservices.service.common.AdServicesHttpsClient;
 import com.android.adservices.service.common.AppImportanceFilter;
 import com.android.adservices.service.common.FledgeAllowListsFilter;
 import com.android.adservices.service.common.FledgeAuthorizationFilter;
 import com.android.adservices.service.common.FledgeServiceFilter;
 import com.android.adservices.service.common.Throttler;
+import com.android.adservices.service.common.httpclient.AdServicesHttpsClient;
 import com.android.adservices.service.consent.ConsentManager;
 import com.android.adservices.service.profiling.Tracing;
 import com.android.adservices.service.stats.AdServicesLogger;
@@ -52,16 +56,20 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 
 /** Encapsulates the Interaction Reporting logic */
+// TODO(b/269798827): Enable for R.
+@RequiresApi(Build.VERSION_CODES.S)
 public class InteractionReporter {
-    @ReportInteractionInput.Destination
+    @ReportInteractionRequest.ReportingDestination
     private static final int[] POSSIBLE_DESTINATIONS =
-            new int[] {FLAG_DESTINATION_SELLER, FLAG_DESTINATION_BUYER};
+            new int[] {FLAG_REPORTING_DESTINATION_SELLER, FLAG_REPORTING_DESTINATION_BUYER};
 
     @NonNull private final Context mContext;
     @NonNull private final AdSelectionEntryDao mAdSelectionEntryDao;
@@ -78,8 +86,8 @@ public class InteractionReporter {
             @NonNull Context context,
             @NonNull AdSelectionEntryDao adSelectionEntryDao,
             @NonNull AdServicesHttpsClient adServicesHttpsClient,
-            @NonNull ListeningExecutorService lightweightExecutorService,
-            @NonNull ListeningExecutorService backgroundExecutorService,
+            @NonNull ExecutorService lightweightExecutorService,
+            @NonNull ExecutorService backgroundExecutorService,
             @NonNull AdServicesLogger adServicesLogger,
             @NonNull Flags flags,
             @NonNull FledgeServiceFilter fledgeServiceFilter,
@@ -98,8 +106,8 @@ public class InteractionReporter {
         mContext = context;
         mAdSelectionEntryDao = adSelectionEntryDao;
         mAdServicesHttpsClient = adServicesHttpsClient;
-        mLightweightExecutorService = lightweightExecutorService;
-        mBackgroundExecutorService = backgroundExecutorService;
+        mLightweightExecutorService = MoreExecutors.listeningDecorator(lightweightExecutorService);
+        mBackgroundExecutorService = MoreExecutors.listeningDecorator(backgroundExecutorService);
         mAdServicesLogger = adServicesLogger;
         mFlags = flags;
         mFledgeServiceFilter = fledgeServiceFilter;
@@ -135,6 +143,7 @@ public class InteractionReporter {
                                                 callerPackageName,
                                                 mFlags
                                                         .getEnforceForegroundStatusForFledgeReportInteraction(),
+                                                true,
                                                 mCallerUid,
                                                 AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN,
                                                 Throttler.ApiKey.FLEDGE_API_REPORT_INTERACTION);
@@ -218,14 +227,14 @@ public class InteractionReporter {
                 "Fetching ad selection entry ID %d for caller \"%s\"",
                 inputParams.getAdSelectionId(), inputParams.getCallerPackageName());
         long adSelectionId = inputParams.getAdSelectionId();
-        int destinationsBitField = inputParams.getDestinations();
+        int destinationsBitField = inputParams.getReportingDestinations();
         String interactionKey = inputParams.getInteractionKey();
 
         return FluentFuture.from(
                 mBackgroundExecutorService.submit(
                         () -> {
                             List<Uri> resultingReportingUris = new ArrayList<>();
-                            for (@ReportInteractionInput.Destination
+                            for (@ReportInteractionRequest.ReportingDestination
                             int destination : POSSIBLE_DESTINATIONS) {
                                 if (bitExists(destination, destinationsBitField)) {
                                     if (mAdSelectionEntryDao.doesRegisteredAdInteractionExist(
@@ -290,8 +299,7 @@ public class InteractionReporter {
             resultCode = statusCode;
         } catch (RemoteException e) {
             LogUtil.e(e, "Unable to send failed result to the callback");
-            resultCode = AdServicesStatusUtils.STATUS_UNKNOWN_ERROR;
-            throw e.rethrowFromSystemServer();
+            resultCode = AdServicesStatusUtils.STATUS_INTERNAL_ERROR;
         } finally {
             mAdServicesLogger.logFledgeApiCallStats(
                     AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN, resultCode, 0);
@@ -303,10 +311,9 @@ public class InteractionReporter {
             callback.onSuccess();
         } catch (RemoteException e) {
             LogUtil.e(e, "Unable to send successful result to the callback");
-            int resultCode = AdServicesStatusUtils.STATUS_UNKNOWN_ERROR;
+            int resultCode = AdServicesStatusUtils.STATUS_INTERNAL_ERROR;
             mAdServicesLogger.logFledgeApiCallStats(
                     AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN, resultCode, 0);
-            throw e.rethrowFromSystemServer();
         }
     }
 
@@ -330,8 +337,8 @@ public class InteractionReporter {
     }
 
     private boolean bitExists(
-            @ReportInteractionInput.Destination int bit,
-            @ReportInteractionInput.Destination int bitSet) {
+            @ReportInteractionRequest.ReportingDestination int bit,
+            @ReportInteractionRequest.ReportingDestination int bitSet) {
         return (bit & bitSet) != 0;
     }
 

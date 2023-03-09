@@ -16,6 +16,7 @@
 package android.adservices.measurement;
 
 import static android.adservices.common.AdServicesPermissions.ACCESS_ADSERVICES_ATTRIBUTION;
+import static android.adservices.common.AdServicesStatusUtils.ILLEGAL_STATE_EXCEPTION_ERROR_MESSAGE;
 
 import android.adservices.AdServicesState;
 import android.adservices.adid.AdId;
@@ -31,10 +32,13 @@ import android.annotation.RequiresPermission;
 import android.app.sdksandbox.SandboxedSdkContext;
 import android.content.Context;
 import android.net.Uri;
+import android.os.Build;
 import android.os.OutcomeReceiver;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.view.InputEvent;
+
+import androidx.annotation.RequiresApi;
 
 import com.android.adservices.AdServicesCommon;
 import com.android.adservices.LogUtil;
@@ -47,9 +51,9 @@ import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-/**
- * MeasurementManager.
- */
+/** MeasurementManager. */
+// TODO(b/269798827): Enable for R.
+@RequiresApi(Build.VERSION_CODES.S)
 public class MeasurementManager {
     /** @hide */
     public static final String MEASUREMENT_SERVICE = "measurement_service";
@@ -81,11 +85,30 @@ public class MeasurementManager {
     private Executor mAdIdExecutor = Executors.newCachedThreadPool();
 
     /**
+     * Factory method for creating an instance of MeasurementManager.
+     *
+     * @param context The {@link Context} to use
+     * @return A {@link MeasurementManager} instance
+     */
+    @NonNull
+    public static MeasurementManager get(@NonNull Context context) {
+        // On T+, context.getSystemService() does more than just call constructor.
+        return (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                ? context.getSystemService(MeasurementManager.class)
+                : new MeasurementManager(context);
+    }
+
+    /**
      * Create MeasurementManager.
      *
      * @hide
      */
     public MeasurementManager(Context context) {
+        // TODO(b/269798827): Enable for R.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            throw new IllegalStateException(ILLEGAL_STATE_EXCEPTION_ERROR_MESSAGE);
+        }
+
         // In case the MeasurementManager is initiated from inside a sdk_sandbox process the
         // fields will be immediately rewritten by the initialize method below.
         initialize(context);
