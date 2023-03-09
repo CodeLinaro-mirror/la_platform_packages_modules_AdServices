@@ -32,7 +32,6 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
 import android.net.Uri;
-import android.os.Binder;
 import android.os.Build;
 import android.os.RemoteException;
 import android.os.Trace;
@@ -49,6 +48,7 @@ import com.android.adservices.service.Flags;
 import com.android.adservices.service.common.AdSelectionServiceFilter;
 import com.android.adservices.service.common.AdTechUriValidator;
 import com.android.adservices.service.common.AppImportanceFilter;
+import com.android.adservices.service.common.BinderFlagReader;
 import com.android.adservices.service.common.FledgeAllowListsFilter;
 import com.android.adservices.service.common.FledgeAuthorizationFilter;
 import com.android.adservices.service.common.Throttler;
@@ -133,12 +133,8 @@ public class ImpressionReporter {
         mScheduledExecutor = scheduledExecutor;
         mAdSelectionEntryDao = adSelectionEntryDao;
         mAdServicesHttpsClient = adServicesHttpsClient;
-        // Clearing calling identity to check device config permission read by flags on the
-        // local process and not on the process called. Once the device configs are read,
-        // restore calling identity.
-        final long token = Binder.clearCallingIdentity();
-        boolean isRegisterAdBeaconEnabled = flags.getFledgeRegisterAdBeaconEnabled();
-        Binder.restoreCallingIdentity(token);
+        boolean isRegisterAdBeaconEnabled =
+                BinderFlagReader.readFlag(flags::getFledgeRegisterAdBeaconEnabled);
 
         ReportImpressionScriptEngine.RegisterAdBeaconScriptEngineHelper
                 registerAdBeaconScriptEngineHelper;
@@ -202,12 +198,8 @@ public class ImpressionReporter {
         mScheduledExecutor = scheduledExecutor;
         mAdSelectionEntryDao = adSelectionEntryDao;
         mAdServicesHttpsClient = adServicesHttpsClient;
-        // Clearing calling identity to check device config permission read by flags on the
-        // local process and not on the process called. Once the device configs are read,
-        // restore calling identity.
-        final long token = Binder.clearCallingIdentity();
-        boolean isRegisterAdBeaconEnabled = flags.getFledgeRegisterAdBeaconEnabled();
-        Binder.restoreCallingIdentity(token);
+        boolean isRegisterAdBeaconEnabled =
+                BinderFlagReader.readFlag(flags::getFledgeRegisterAdBeaconEnabled);
 
         ReportImpressionScriptEngine.RegisterAdBeaconScriptEngineHelper
                 registerAdBeaconScriptEngineHelper;
@@ -282,32 +274,8 @@ public class ImpressionReporter {
             @NonNull ReportImpressionInput requestParams,
             @NonNull ReportImpressionCallback callback) {
         LogUtil.v("Executing reportImpression API");
-        // Getting PH flags in a non binder thread
-        FluentFuture<Long> timeoutFuture =
-                FluentFuture.from(
-                        mLightweightExecutorService.submit(
-                                mFlags::getReportImpressionOverallTimeoutMs));
-
-        timeoutFuture.addCallback(
-                new FutureCallback<Long>() {
-                    @Override
-                    public void onSuccess(Long timeout) {
-                        invokeReporting(requestParams, callback);
-                    }
-
-                    @Override
-                    public void onFailure(Throwable t) {
-                        LogUtil.e(t, "Report Impression failed!");
-                        notifyFailureToCaller(callback, t);
-                    }
-                },
-                mLightweightExecutorService);
-    }
-
-    private void invokeReporting(
-            @NonNull ReportImpressionInput requestParams,
-            @NonNull ReportImpressionCallback callback) {
         long adSelectionId = requestParams.getAdSelectionId();
+        long timeoutMs = BinderFlagReader.readFlag(mFlags::getReportImpressionOverallTimeoutMs);
         AdSelectionConfig adSelectionConfig = requestParams.getAdSelectionConfig();
         ListenableFuture<Void> filterAndValidateRequestFuture =
                 Futures.submit(
@@ -348,7 +316,7 @@ public class ImpressionReporter {
                                         reportingUrisAndContext.second),
                         mLightweightExecutorService)
                 .withTimeout(
-                        mFlags.getReportImpressionOverallTimeoutMs(),
+                        timeoutMs,
                         TimeUnit.MILLISECONDS,
                         // TODO(b/237103033): Comply with thread usage policy for AdServices;
                         //  use a global scheduled executor
