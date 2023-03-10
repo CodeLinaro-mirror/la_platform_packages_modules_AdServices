@@ -87,6 +87,7 @@ import static com.android.adservices.service.Flags.FLEDGE_HTTP_CACHE_DEFAULT_MAX
 import static com.android.adservices.service.Flags.FLEDGE_HTTP_CACHE_ENABLE;
 import static com.android.adservices.service.Flags.FLEDGE_HTTP_CACHE_ENABLE_JS_CACHING;
 import static com.android.adservices.service.Flags.FLEDGE_HTTP_CACHE_MAX_ENTRIES;
+import static com.android.adservices.service.Flags.FLEDGE_REGISTER_AD_BEACON_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_REPORT_IMPRESSION_MAX_EVENT_URI_ENTRIES_COUNT;
 import static com.android.adservices.service.Flags.FLEDGE_REPORT_IMPRESSION_OVERALL_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_SELECT_ADS_KILL_SWITCH;
@@ -224,6 +225,7 @@ import static com.android.adservices.service.PhFlags.KEY_FLEDGE_HTTP_CACHE_DEFAU
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_HTTP_CACHE_ENABLE;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_HTTP_CACHE_ENABLE_JS_CACHING;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_HTTP_CACHE_MAX_ENTRIES;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_REGISTER_AD_BEACON_ENABLED;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_REPORT_IMPRESSION_MAX_EVENT_URI_ENTRIES_COUNT;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_REPORT_IMPRESSION_OVERALL_TIMEOUT_MS;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_SELECT_ADS_KILL_SWITCH;
@@ -304,6 +306,8 @@ import android.provider.DeviceConfig;
 import androidx.test.filters.SmallTest;
 
 import com.android.adservices.service.Flags.ClassifierType;
+import com.android.adservices.service.topics.fixture.SysPropForceDefaultValueFixture;
+import com.android.modules.utils.testing.StaticMockFixtureRule;
 import com.android.modules.utils.testing.TestableDeviceConfig;
 
 import com.google.common.collect.ImmutableList;
@@ -321,8 +325,9 @@ import java.util.concurrent.TimeUnit;
 @SmallTest
 public class PhFlagsTest {
     @Rule
-    public final TestableDeviceConfig.TestableDeviceConfigRule mDeviceConfigRule =
-            new TestableDeviceConfig.TestableDeviceConfigRule();
+    public final StaticMockFixtureRule mStaticMockFixtureRule =
+            new StaticMockFixtureRule(
+                    TestableDeviceConfig::new, SysPropForceDefaultValueFixture::new);
 
     @Test
     public void testGetTopicsEpochJobPeriodMs() {
@@ -1671,6 +1676,24 @@ public class PhFlagsTest {
 
         Flags phFlags = FlagsFactory.getFlags();
         assertThat(phFlags.getFledgeBackgroundFetchMaxResponseSizeB()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testGetFledgeRegisterAdBeaconEnabled() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getFledgeRegisterAdBeaconEnabled())
+                .isEqualTo(FLEDGE_REGISTER_AD_BEACON_ENABLED);
+
+        final boolean phOverridingValue = !FLEDGE_REGISTER_AD_BEACON_ENABLED;
+
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_REGISTER_AD_BEACON_ENABLED,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeRegisterAdBeaconEnabled()).isEqualTo(phOverridingValue);
     }
 
     @Test
@@ -3922,7 +3945,7 @@ public class PhFlagsTest {
                 DeviceConfig.NAMESPACE_ADSERVICES,
                 KEY_GLOBAL_BLOCKED_TOPIC_IDS,
                 blockedTopicIds,
-                /* makeDefault = */ false);
+                /* makeDefault= */ false);
     }
 
     private void disableGlobalKillSwitch() {
