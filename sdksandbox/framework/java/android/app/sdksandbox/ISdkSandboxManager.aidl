@@ -29,6 +29,7 @@ import android.app.sdksandbox.SharedPreferencesUpdate;
 /** @hide */
 interface ISdkSandboxManager {
     /**
+    * TODO(b/267994332): Add enum for method calls from SDK for latency metrics
     * List of methods for which latencies are logged with logLatencyFromSystemServerToApp
     */
     const String LOAD_SDK = "LOAD_SDK";
@@ -36,7 +37,7 @@ interface ISdkSandboxManager {
 
     void addSdkSandboxProcessDeathCallback(in String callingPackageName, long timeAppCalledSystemServer, in ISdkSandboxProcessDeathCallback callback);
     void removeSdkSandboxProcessDeathCallback(in String callingPackageName, long timeAppCalledSystemServer, in ISdkSandboxProcessDeathCallback callback);
-    oneway void loadSdk(in String callingPackageName, in IBinder applicationThreadBinder, in String sdkName, long timeAppCalledSystemServer, in Bundle params, in ILoadSdkCallback callback);
+    oneway void loadSdk(in String callingPackageName, in IBinder appProcessToken, in String sdkName, long timeAppCalledSystemServer, in Bundle params, in ILoadSdkCallback callback);
     void unloadSdk(in String callingPackageName, in String sdkName, long timeAppCalledSystemServer);
     // TODO(b/242031240): wrap the many input params in one parcelable object
     oneway void requestSurfacePackage(in String callingPackageName, in String sdkName, in IBinder hostToken, int displayId, int width, int height, long timeAppCalledSystemServer, in Bundle params, IRequestSurfacePackageCallback callback);

@@ -106,6 +106,7 @@ public abstract class E2ETest {
         // Keys used to compare actual with expected output
         List<String> STRINGS = ImmutableList.of(
                 "attribution_destination",
+                "scheduled_report_time",
                 "source_event_id",
                 "trigger_data",
                 "source_type");
@@ -804,6 +805,8 @@ public abstract class E2ETest {
             long jobTime = sourceTime + 1000 * validExpiry + 3600000L;
 
             reportingJobsActions.add(new EventReportingJob(jobTime));
+            // Add a job two days earlier for interop tests
+            reportingJobsActions.add(new EventReportingJob(jobTime - TimeUnit.DAYS.toMillis(2)));
         }
 
         return reportingJobsActions;

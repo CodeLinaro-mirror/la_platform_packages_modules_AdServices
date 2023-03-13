@@ -22,6 +22,7 @@ import android.adservices.adid.AdId;
 import android.adservices.adid.AdIdManager;
 import android.adservices.common.AdServicesStatusUtils;
 import android.adservices.common.CallerMetadata;
+import android.adservices.common.SandboxedSdkContextUtils;
 import android.annotation.CallbackExecutor;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
@@ -177,7 +178,8 @@ public class MeasurementManager {
      * Register an attribution source (click or view).
      *
      * @param attributionSource the platform issues a request to this URI in order to fetch metadata
-     *     associated with the attribution source.
+     *     associated with the attribution source. The source metadata is stored on device, making
+     *     it eligible to be matched to future triggers.
      * @param inputEvent either an {@link InputEvent} object (for a click event) or null (for a view
      *     event).
      * @param executor used by callback to dispatch results.
@@ -438,7 +440,8 @@ public class MeasurementManager {
      * Register a trigger (conversion).
      *
      * @param trigger the API issues a request to this URI to fetch metadata associated with the
-     *     trigger.
+     *     trigger. The trigger metadata is stored on-device, and is eligible to be matched with
+     *     sources during the attribution process.
      * @param executor used by callback to dispatch results.
      * @param callback intended to notify asynchronously the API result.
      */
@@ -625,20 +628,18 @@ public class MeasurementManager {
 
     /** Returns the package name of the app from the SDK or app context */
     private String getAppPackageName() {
-        if (mContext instanceof SandboxedSdkContext) {
-            return ((SandboxedSdkContext) mContext).getClientPackageName();
-        } else {
-            return mContext.getPackageName();
-        }
+        SandboxedSdkContext sandboxedSdkContext =
+                SandboxedSdkContextUtils.getAsSandboxedSdkContext(mContext);
+        return sandboxedSdkContext == null
+                ? mContext.getPackageName()
+                : sandboxedSdkContext.getClientPackageName();
     }
 
     /** Returns the package name of the sdk from the SDK or empty if no SDK found */
     private String getSdkPackageName() {
-        if (mContext instanceof SandboxedSdkContext) {
-            return ((SandboxedSdkContext) mContext).getSdkPackageName();
-        } else {
-            return "";
-        }
+        SandboxedSdkContext sandboxedSdkContext =
+                SandboxedSdkContextUtils.getAsSandboxedSdkContext(mContext);
+        return sandboxedSdkContext == null ? "" : sandboxedSdkContext.getSdkPackageName();
     }
 
     private CallerMetadata generateCallerMetadataWithCurrentTime() {

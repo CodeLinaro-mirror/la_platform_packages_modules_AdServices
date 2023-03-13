@@ -19,9 +19,12 @@ package android.adservices.common;
 import android.net.Uri;
 import android.os.Process;
 
+import androidx.test.core.app.ApplicationProvider;
+
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.common.ValidatorUtil;
+import com.android.modules.utils.build.SdkLevel;
 
 import com.google.common.truth.Truth;
 
@@ -34,7 +37,11 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class CommonFixture {
-    public static final String TEST_PACKAGE_NAME = Process.myProcessName();
+    public static final String TEST_PACKAGE_NAME = processName();
+    public static final String TEST_PACKAGE_NAME_1 = "android.adservices.tests1";
+    public static final String TEST_PACKAGE_NAME_2 = "android.adservices.tests2";
+    public static final Set<String> PACKAGE_SET =
+            new HashSet<>(Arrays.asList(TEST_PACKAGE_NAME_1, TEST_PACKAGE_NAME_2));
 
     public static final Flags FLAGS_FOR_TEST = FlagsFactory.getFlagsForTest();
 
@@ -66,5 +73,11 @@ public class CommonFixture {
     public static <T> void assertDifferentHashCode(T... objs) {
         Set<T> helperSet = new HashSet<>(Arrays.asList(objs));
         Truth.assertThat(helperSet).hasSize(objs.length);
+    }
+
+    private static String processName() {
+        return SdkLevel.isAtLeastT()
+                ? Process.myProcessName()
+                : ApplicationProvider.getApplicationContext().getPackageName();
     }
 }
