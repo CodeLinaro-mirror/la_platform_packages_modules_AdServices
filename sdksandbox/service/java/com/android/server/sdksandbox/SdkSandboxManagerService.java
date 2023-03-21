@@ -181,13 +181,16 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
 
     private final SdkSandboxPulledAtoms mSdkSandboxPulledAtoms;
 
+    // All U devices have the visibility patch, so we can consider it already checked on U+ devices.
+    private static final boolean DEFAULT_VALUE_VISIBILITY_PATCH_CHECKED = SdkLevel.isAtLeastU();
+
     // The device must have a change that allows the Webview provider to be visible in order for the
-    // sandbox to be enabled.
+    // sandbox to be enabled. This change is present on all U+ devices, but not all T devices.
     @GuardedBy("mLock")
-    private boolean mHasVisibilityPatch;
+    private boolean mHasVisibilityPatch = DEFAULT_VALUE_VISIBILITY_PATCH_CHECKED;
 
     @GuardedBy("mLock")
-    private boolean mCheckedVisibilityPatch = false;
+    private boolean mCheckedVisibilityPatch = DEFAULT_VALUE_VISIBILITY_PATCH_CHECKED;
 
     private SdkSandboxSettingsListener mSdkSandboxSettingsListener;
 
@@ -1439,7 +1442,7 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
     @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
     void clearSdkSandboxState() {
         synchronized (mLock) {
-            mCheckedVisibilityPatch = false;
+            mCheckedVisibilityPatch = DEFAULT_VALUE_VISIBILITY_PATCH_CHECKED;
             getSdkSandboxSettingsListener().setKillSwitchState(DEFAULT_VALUE_DISABLE_SDK_SANDBOX);
         }
     }
@@ -1834,26 +1837,31 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         return null;
     }
 
-    private ApplicationInfo getSdkSandboxApplicationInfo(
+    private ApplicationInfo getSdkSandboxApplicationInfoForInstrumentation(
             ApplicationInfo clientAppInfo, int userId, boolean isSdkInSandbox)
             throws PackageManager.NameNotFoundException {
         PackageManager pm = mContext.getPackageManager();
-        ApplicationInfo sdkSandboxInfo;
-        if (isSdkInSandbox) {
-            sdkSandboxInfo = new ApplicationInfo(clientAppInfo);
-            sdkSandboxInfo.packageName = pm.getSdkSandboxPackageName();
-        } else {
-            sdkSandboxInfo =
-                    pm.getApplicationInfoAsUser(
-                            pm.getSdkSandboxPackageName(),
-                            /* flags= */ 0,
-                            UserHandle.getUserHandleForUid(userId));
-        }
+        ApplicationInfo sdkSandboxInfo =
+                pm.getApplicationInfoAsUser(
+                        pm.getSdkSandboxPackageName(),
+                        /* flags= */ 0,
+                        UserHandle.getUserHandleForUid(userId));
+        ApplicationInfo sdkSandboxInfoForInstrumentation =
+                (isSdkInSandbox)
+                        ? createCustomizedApplicationInfo(
+                                clientAppInfo,
+                                new StorageDirInfo(
+                                        sdkSandboxInfo.dataDir,
+                                        sdkSandboxInfo.deviceProtectedDataDir))
+                        : sdkSandboxInfo;
 
-        sdkSandboxInfo.uid = Process.toSdkSandboxUid(clientAppInfo.uid);
-        sdkSandboxInfo.processName =
+        // Required to allow adopt shell permissions in tests.
+        sdkSandboxInfoForInstrumentation.uid = Process.toSdkSandboxUid(clientAppInfo.uid);
+        // We want to use a predictable process name during testing.
+        sdkSandboxInfoForInstrumentation.processName =
                 getLocalManager().getSdkSandboxProcessNameForInstrumentation(clientAppInfo);
-        return sdkSandboxInfo;
+
+        return sdkSandboxInfoForInstrumentation;
     }
 
     @VisibleForTesting
@@ -2103,7 +2111,7 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         public ApplicationInfo getSdkSandboxApplicationInfoForInstrumentation(
                 @NonNull ApplicationInfo clientAppInfo, int userId, boolean isSdkInSandbox)
                 throws PackageManager.NameNotFoundException {
-            return SdkSandboxManagerService.this.getSdkSandboxApplicationInfo(
+            return SdkSandboxManagerService.this.getSdkSandboxApplicationInfoForInstrumentation(
                     clientAppInfo, userId, isSdkInSandbox);
         }
 
