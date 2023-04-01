@@ -42,6 +42,7 @@ import androidx.test.uiautomator.UiSelector;
 import androidx.test.uiautomator.Until;
 
 import com.android.adservices.api.R;
+import com.android.adservices.common.AdservicesTestHelper;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.consent.AdServicesApiType;
@@ -49,10 +50,11 @@ import com.android.adservices.service.consent.ConsentManager;
 import com.android.adservices.service.consent.DeviceRegionProvider;
 import com.android.adservices.service.stats.AdServicesLoggerImpl;
 import com.android.adservices.service.stats.UiStatsLogger;
-import com.android.compatibility.common.util.ShellUtils;
+import com.android.adservices.ui.util.ApkTestUtil;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -82,6 +84,9 @@ public class ConsentNotificationTriggerTest {
 
     @Before
     public void setUp() {
+        // Skip the test if it runs on unsupported platforms.
+        Assume.assumeTrue(ApkTestUtil.isDeviceSupported());
+
         mContext = InstrumentationRegistry.getInstrumentation().getContext();
         // Initialize UiDevice instance
         sDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
@@ -109,10 +114,9 @@ public class ConsentNotificationTriggerTest {
 
     @After
     public void tearDown() throws IOException {
-        ShellUtils.runShellCommand("am force-stop com.google.android.adservices.api");
-        Runtime.getRuntime()
-                .exec(new String[] {"am", "force-stop", "com.android.adservices.tests.ui"});
+        if (!ApkTestUtil.isDeviceSupported()) return;
 
+        AdservicesTestHelper.killAdservicesProcess(mContext);
         mStaticMockSession.finishMocking();
     }
 

@@ -22,8 +22,12 @@ import android.app.adservices.consent.ConsentParcel;
 import android.app.job.JobScheduler;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
+
+import androidx.annotation.RequiresApi;
 
 import com.android.adservices.LogUtil;
+import com.android.adservices.concurrency.AdServicesExecutors;
 import com.android.adservices.data.common.BooleanFileDatastore;
 import com.android.adservices.data.consent.AppConsentDao;
 import com.android.adservices.data.customaudience.CustomAudienceDao;
@@ -46,8 +50,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 /**
@@ -65,6 +67,8 @@ import java.util.stream.Collectors;
  * </ul>
  */
 // TODO(b/259791134): Add a CTS/UI test to test the Consent Migration
+// TODO(b/269798827): Enable for R.
+@RequiresApi(Build.VERSION_CODES.S)
 public class ConsentManager {
     private static volatile ConsentManager sConsentManager;
 
@@ -76,7 +80,6 @@ public class ConsentManager {
     private final EnrollmentDao mEnrollmentDao;
     private final MeasurementImpl mMeasurementImpl;
     private final CustomAudienceDao mCustomAudienceDao;
-    private final ExecutorService mExecutor;
     private final AdServicesManager mAdServicesManager;
     private final int mConsentSourceOfTruth;
 
@@ -98,8 +101,11 @@ public class ConsentManager {
         Objects.requireNonNull(appConsentDao);
         Objects.requireNonNull(measurementImpl);
         Objects.requireNonNull(customAudienceDao);
-        Objects.requireNonNull(adServicesManager);
         Objects.requireNonNull(booleanFileDatastore);
+
+        if (consentSourceOfTruth != Flags.PPAPI_ONLY) {
+            Objects.requireNonNull(adServicesManager);
+        }
 
         mContext = context;
         mAdServicesManager = adServicesManager;
@@ -109,7 +115,6 @@ public class ConsentManager {
         mEnrollmentDao = enrollmentDao;
         mMeasurementImpl = measurementImpl;
         mCustomAudienceDao = customAudienceDao;
-        mExecutor = Executors.newSingleThreadExecutor();
         mFlags = flags;
         mConsentSourceOfTruth = consentSourceOfTruth;
     }
@@ -1420,7 +1425,9 @@ public class ConsentManager {
             @Flags.ConsentSourceOfTruth int consentSourceOfTruth) {
         Objects.requireNonNull(context);
         Objects.requireNonNull(datastore);
-        Objects.requireNonNull(adServicesManager);
+        if (consentSourceOfTruth != Flags.PPAPI_ONLY) {
+            Objects.requireNonNull(adServicesManager);
+        }
 
         switch (consentSourceOfTruth) {
             case Flags.PPAPI_ONLY:
@@ -1684,6 +1691,6 @@ public class ConsentManager {
     }
 
     private void asyncExecute(Runnable runnable) {
-        mExecutor.execute(runnable);
+        AdServicesExecutors.getBackgroundExecutor().execute(runnable);
     }
 }

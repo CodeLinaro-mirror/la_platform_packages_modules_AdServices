@@ -183,7 +183,9 @@ public class AsyncRegistrationQueueRunnerTest {
 
     @After
     public void cleanup() {
-        SQLiteDatabase db = DbTestUtil.getDbHelperForTest().getWritableDatabase();
+        SQLiteDatabase db = DbTestUtil.getMeasurementDbHelperForTest().getWritableDatabase();
+        SQLiteDatabase enrollmentDb = DbTestUtil.getDbHelperForTest().getWritableDatabase();
+        enrollmentDb.delete("enrollment_data", null, null);
         emptyTables(db);
         mStaticMockSession.finishMocking();
     }
@@ -1560,7 +1562,7 @@ public class AsyncRegistrationQueueRunnerTest {
                                 mDebugReportApi));
 
         // Execution
-        doReturn(SystemHealthParams.MAX_SOURCES_PER_PUBLISHER)
+        doReturn((long) SystemHealthParams.getMaxSourcesPerPublisher())
                 .when(mMeasurementDao)
                 .getNumSourcesPerPublisher(any(), anyInt());
         boolean status =
@@ -1704,7 +1706,7 @@ public class AsyncRegistrationQueueRunnerTest {
                                 mEnrollmentDao,
                                 new FakeDatastoreManager(),
                                 mDebugReportApi));
-        doReturn(SystemHealthParams.MAX_SOURCES_PER_PUBLISHER)
+        doReturn((long) SystemHealthParams.getMaxSourcesPerPublisher())
                 .when(mMeasurementDao)
                 .getNumSourcesPerPublisher(any(), anyInt());
 
@@ -1735,7 +1737,7 @@ public class AsyncRegistrationQueueRunnerTest {
                                 new FakeDatastoreManager(),
                                 mDebugReportApi));
 
-        doReturn(SystemHealthParams.MAX_SOURCES_PER_PUBLISHER)
+        doReturn((long) SystemHealthParams.getMaxSourcesPerPublisher())
                 .when(mMeasurementDao)
                 .getNumSourcesPerPublisher(any(), anyInt());
 
@@ -1863,7 +1865,7 @@ public class AsyncRegistrationQueueRunnerTest {
                                                 + "\""
                                                 + "}")));
         DatastoreManager datastoreManager =
-                spy(new SQLDatastoreManager(DbTestUtil.getDbHelperForTest()));
+                spy(new SQLDatastoreManager(DbTestUtil.getMeasurementDbHelperForTest()));
         AsyncRegistrationQueueRunner asyncRegistrationQueueRunner =
                 spy(
                         new AsyncRegistrationQueueRunner(
@@ -1891,7 +1893,7 @@ public class AsyncRegistrationQueueRunnerTest {
         verify(datastoreManager, times(3)).runInTransaction(consumerArgCaptor.capture());
         consumerArgCaptor.getValue().accept(mMeasurementDao);
         try (Cursor cursor =
-                DbTestUtil.getDbHelperForTest()
+                DbTestUtil.getMeasurementDbHelperForTest()
                         .getReadableDatabase()
                         .query(
                                 MeasurementTables.SourceContract.TABLE,
@@ -1944,7 +1946,7 @@ public class AsyncRegistrationQueueRunnerTest {
                                                 + "\""
                                                 + "}")));
         DatastoreManager datastoreManager =
-                spy(new SQLDatastoreManager(DbTestUtil.getDbHelperForTest()));
+                spy(new SQLDatastoreManager(DbTestUtil.getMeasurementDbHelperForTest()));
         AsyncRegistrationQueueRunner asyncRegistrationQueueRunner =
                 spy(
                         new AsyncRegistrationQueueRunner(
@@ -1972,7 +1974,7 @@ public class AsyncRegistrationQueueRunnerTest {
         verify(datastoreManager, times(2)).runInTransaction(consumerArgCaptor.capture());
         consumerArgCaptor.getValue().accept(mMeasurementDao);
         try (Cursor cursor =
-                DbTestUtil.getDbHelperForTest()
+                DbTestUtil.getMeasurementDbHelperForTest()
                         .getReadableDatabase()
                         .query(
                                 MeasurementTables.SourceContract.TABLE,
@@ -2130,7 +2132,6 @@ public class AsyncRegistrationQueueRunnerTest {
         db.delete("msmt_event_report", null, null);
         db.delete("msmt_attribution", null, null);
         db.delete("msmt_aggregate_report", null, null);
-        db.delete("enrollment_data", null, null);
         db.delete("msmt_async_registration_contract", null, null);
     }
 }

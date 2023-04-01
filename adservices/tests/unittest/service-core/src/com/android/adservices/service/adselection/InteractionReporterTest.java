@@ -39,10 +39,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.never;
 
 import android.adservices.adselection.CustomAudienceSignalsFixture;
 import android.adservices.adselection.ReportInteractionCallback;
 import android.adservices.adselection.ReportInteractionInput;
+import android.adservices.adselection.ReportInteractionRequest;
 import android.adservices.common.AdServicesStatusUtils;
 import android.adservices.common.AdTechIdentifier;
 import android.adservices.common.CommonFixture;
@@ -66,14 +68,15 @@ import com.android.adservices.data.adselection.DBAdSelection;
 import com.android.adservices.data.adselection.DBRegisteredAdInteraction;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
-import com.android.adservices.service.common.AdServicesHttpsClient;
+import com.android.adservices.service.common.AdSelectionServiceFilter;
 import com.android.adservices.service.common.AppImportanceFilter;
 import com.android.adservices.service.common.FledgeAllowListsFilter;
 import com.android.adservices.service.common.FledgeAuthorizationFilter;
-import com.android.adservices.service.common.FledgeServiceFilter;
 import com.android.adservices.service.common.Throttler;
 import com.android.adservices.service.common.cache.CacheProviderFactory;
+import com.android.adservices.service.common.httpclient.AdServicesHttpsClient;
 import com.android.adservices.service.consent.ConsentManager;
+import com.android.adservices.service.exception.FilterException;
 import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 
@@ -110,8 +113,10 @@ public class InteractionReporterTest {
     private static final String BUYER_INTERACTION_REPORTING_PATH = "/buyer/interactionReporting/";
     private static final Uri RENDER_URI = Uri.parse("https://test.com/advert/");
 
-    private static final int BUYER_DESTINATION = ReportInteractionInput.FLAG_DESTINATION_BUYER;
-    private static final int SELLER_DESTINATION = ReportInteractionInput.FLAG_DESTINATION_SELLER;
+    private static final int BUYER_DESTINATION =
+            ReportInteractionRequest.FLAG_REPORTING_DESTINATION_BUYER;
+    private static final int SELLER_DESTINATION =
+            ReportInteractionRequest.FLAG_REPORTING_DESTINATION_SELLER;
     private static final String CLICK_EVENT = "click";
 
     private AdSelectionEntryDao mAdSelectionEntryDao;
@@ -140,7 +145,7 @@ public class InteractionReporterTest {
 
     @Rule public MockWebServerRule mMockWebServerRule = MockWebServerRuleFactory.createForHttps();
 
-    @Mock private FledgeServiceFilter mFledgeServiceFilterMock;
+    @Mock private AdSelectionServiceFilter mAdSelectionServiceFilterMock;
 
     private InteractionReporter mInteractionReporter;
 
@@ -173,7 +178,7 @@ public class InteractionReporterTest {
                         mBackgroundExecutorService,
                         mAdServicesLoggerMock,
                         mFlags,
-                        mFledgeServiceFilterMock,
+                        mAdSelectionServiceFilterMock,
                         MY_UID,
                         mFledgeAuthorizationFilterMock);
 
@@ -247,10 +252,11 @@ public class InteractionReporterTest {
                         .setCallerPackageName(TEST_PACKAGE_NAME)
                         .setInteractionKey(CLICK_EVENT)
                         .setInteractionData(mInteractionData)
-                        .setDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
+                        .setReportingDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
                         .build();
 
-        ReportInteractionTestCallback callback = callReportInteraction(inputParams);
+        // Count down callback + log interaction.
+        ReportInteractionTestCallback callback = callReportInteraction(inputParams, true);
 
         assertTrue(callback.mIsSuccess);
 
@@ -299,10 +305,11 @@ public class InteractionReporterTest {
                         .setCallerPackageName(TEST_PACKAGE_NAME)
                         .setInteractionKey(CLICK_EVENT)
                         .setInteractionData(mInteractionData)
-                        .setDestinations(BUYER_DESTINATION)
+                        .setReportingDestinations(BUYER_DESTINATION)
                         .build();
 
-        ReportInteractionTestCallback callback = callReportInteraction(inputParams);
+        // Count down callback + log interaction.
+        ReportInteractionTestCallback callback = callReportInteraction(inputParams, true);
 
         assertTrue(callback.mIsSuccess);
 
@@ -347,10 +354,11 @@ public class InteractionReporterTest {
                         .setCallerPackageName(TEST_PACKAGE_NAME)
                         .setInteractionKey(CLICK_EVENT)
                         .setInteractionData(mInteractionData)
-                        .setDestinations(SELLER_DESTINATION)
+                        .setReportingDestinations(SELLER_DESTINATION)
                         .build();
 
-        ReportInteractionTestCallback callback = callReportInteraction(inputParams);
+        // Count down callback + log interaction.
+        ReportInteractionTestCallback callback = callReportInteraction(inputParams, true);
 
         assertTrue(callback.mIsSuccess);
 
@@ -386,7 +394,7 @@ public class InteractionReporterTest {
                         mBackgroundExecutorService,
                         mAdServicesLoggerMock,
                         mFlags,
-                        mFledgeServiceFilterMock,
+                        mAdSelectionServiceFilterMock,
                         MY_UID,
                         mFledgeAuthorizationFilterMock);
 
@@ -423,10 +431,11 @@ public class InteractionReporterTest {
                         .setCallerPackageName(TEST_PACKAGE_NAME)
                         .setInteractionKey(CLICK_EVENT)
                         .setInteractionData(mInteractionData)
-                        .setDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
+                        .setReportingDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
                         .build();
 
-        ReportInteractionTestCallback callback = callReportInteraction(inputParams);
+        // Count down callback + log interaction.
+        ReportInteractionTestCallback callback = callReportInteraction(inputParams, true);
 
         assertTrue(callback.mIsSuccess);
 
@@ -439,12 +448,6 @@ public class InteractionReporterTest {
         // Assert only one reporting call to http client was made
         RecordedRequest recordedRequest = server.takeRequest();
         assertTrue(recordedRequest.getPath().contains(CLICK_EVENT));
-
-        verify(mAdServicesLoggerMock)
-                .logFledgeApiCallStats(
-                        eq(AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN),
-                        eq(STATUS_SUCCESS),
-                        anyInt());
     }
 
     @Test
@@ -469,7 +472,7 @@ public class InteractionReporterTest {
                         mBackgroundExecutorService,
                         mAdServicesLoggerMock,
                         mFlags,
-                        mFledgeServiceFilterMock,
+                        mAdSelectionServiceFilterMock,
                         MY_UID,
                         mFledgeAuthorizationFilterMock);
 
@@ -496,10 +499,11 @@ public class InteractionReporterTest {
                         .setCallerPackageName(TEST_PACKAGE_NAME)
                         .setInteractionKey(CLICK_EVENT)
                         .setInteractionData(mInteractionData)
-                        .setDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
+                        .setReportingDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
                         .build();
 
-        ReportInteractionTestCallback callback = callReportInteraction(inputParams);
+        // Count down callback + log interaction.
+        ReportInteractionTestCallback callback = callReportInteraction(inputParams, true);
 
         assertTrue(callback.mIsSuccess);
 
@@ -518,11 +522,12 @@ public class InteractionReporterTest {
                         mDBRegisteredAdInteractionBuyerClick,
                         mDBRegisteredAdInteractionSellerClick));
 
-        doThrow(new FledgeAuthorizationFilter.CallerMismatchException())
-                .when(mFledgeServiceFilterMock)
+        doThrow(new FilterException(new FledgeAuthorizationFilter.CallerMismatchException()))
+                .when(mAdSelectionServiceFilterMock)
                 .filterRequest(
                         null,
                         TEST_PACKAGE_NAME,
+                        true,
                         true,
                         MY_UID,
                         AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN,
@@ -543,7 +548,7 @@ public class InteractionReporterTest {
                         .setCallerPackageName(TEST_PACKAGE_NAME)
                         .setInteractionKey(CLICK_EVENT)
                         .setInteractionData(mInteractionData)
-                        .setDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
+                        .setReportingDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
                         .build();
 
         ReportInteractionTestCallback callback = callReportInteraction(inputParams);
@@ -555,7 +560,9 @@ public class InteractionReporterTest {
                 AdServicesStatusUtils
                         .SECURITY_EXCEPTION_CALLER_NOT_ALLOWED_ON_BEHALF_ERROR_MESSAGE);
 
-        verify(mAdServicesLoggerMock)
+        // Confirm a duplicate log entry does not exist.
+        // AdSelectionServiceFilter ensures the failing assertion is logged internally.
+        verify(mAdServicesLoggerMock, never())
                 .logFledgeApiCallStats(
                         eq(AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN),
                         eq(STATUS_UNAUTHORIZED),
@@ -570,11 +577,14 @@ public class InteractionReporterTest {
                         mDBRegisteredAdInteractionBuyerClick,
                         mDBRegisteredAdInteractionSellerClick));
 
-        doThrow(new AppImportanceFilter.WrongCallingApplicationStateException())
-                .when(mFledgeServiceFilterMock)
+        doThrow(
+                        new FilterException(
+                                new AppImportanceFilter.WrongCallingApplicationStateException()))
+                .when(mAdSelectionServiceFilterMock)
                 .filterRequest(
                         null,
                         TEST_PACKAGE_NAME,
+                        true,
                         true,
                         MY_UID,
                         AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN,
@@ -595,7 +605,7 @@ public class InteractionReporterTest {
                         .setCallerPackageName(TEST_PACKAGE_NAME)
                         .setInteractionKey(CLICK_EVENT)
                         .setInteractionData(mInteractionData)
-                        .setDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
+                        .setReportingDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
                         .build();
 
         ReportInteractionTestCallback callback = callReportInteraction(inputParams);
@@ -606,7 +616,9 @@ public class InteractionReporterTest {
                 callback.mFledgeErrorResponse.getErrorMessage(),
                 AdServicesStatusUtils.ILLEGAL_STATE_BACKGROUND_CALLER_ERROR_MESSAGE);
 
-        verify(mAdServicesLoggerMock)
+        // Confirm a duplicate log entry does not exist.
+        // AdSelectionServiceFilter ensures the failing assertion is logged internally.
+        verify(mAdServicesLoggerMock, never())
                 .logFledgeApiCallStats(
                         eq(AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN),
                         eq(STATUS_BACKGROUND_CALLER),
@@ -644,17 +656,19 @@ public class InteractionReporterTest {
                         .setCallerPackageName(TEST_PACKAGE_NAME)
                         .setInteractionKey(CLICK_EVENT)
                         .setInteractionData(mInteractionData)
-                        .setDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
+                        .setReportingDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
                         .build();
 
         // First call should succeed
-        ReportInteractionTestCallback callbackFirstCall = callReportInteraction(inputParams);
+        // Count down callback + log interaction.
+        ReportInteractionTestCallback callbackFirstCall = callReportInteraction(inputParams, true);
 
-        doThrow(new LimitExceededException(RATE_LIMIT_REACHED_ERROR_MESSAGE))
-                .when(mFledgeServiceFilterMock)
+        doThrow(new FilterException(new LimitExceededException(RATE_LIMIT_REACHED_ERROR_MESSAGE)))
+                .when(mAdSelectionServiceFilterMock)
                 .filterRequest(
                         null,
                         TEST_PACKAGE_NAME,
+                        true,
                         true,
                         MY_UID,
                         AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN,
@@ -685,7 +699,10 @@ public class InteractionReporterTest {
         assertEquals(
                 callbackSubsequentCall.mFledgeErrorResponse.getErrorMessage(),
                 RATE_LIMIT_REACHED_ERROR_MESSAGE);
-        verify(mAdServicesLoggerMock)
+
+        // Confirm a duplicate log entry does not exist.
+        // AdSelectionServiceFilter ensures the failing assertion is logged internally.
+        verify(mAdServicesLoggerMock, never())
                 .logFledgeApiCallStats(
                         eq(AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN),
                         eq(STATUS_RATE_LIMIT_REACHED),
@@ -700,11 +717,12 @@ public class InteractionReporterTest {
                         mDBRegisteredAdInteractionBuyerClick,
                         mDBRegisteredAdInteractionSellerClick));
 
-        doThrow(new FledgeAllowListsFilter.AppNotAllowedException())
-                .when(mFledgeServiceFilterMock)
+        doThrow(new FilterException(new FledgeAllowListsFilter.AppNotAllowedException()))
+                .when(mAdSelectionServiceFilterMock)
                 .filterRequest(
                         null,
                         TEST_PACKAGE_NAME,
+                        true,
                         true,
                         MY_UID,
                         AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN,
@@ -725,7 +743,7 @@ public class InteractionReporterTest {
                         .setCallerPackageName(TEST_PACKAGE_NAME)
                         .setInteractionKey(CLICK_EVENT)
                         .setInteractionData(mInteractionData)
-                        .setDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
+                        .setReportingDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
                         .build();
 
         ReportInteractionTestCallback callback = callReportInteraction(inputParams);
@@ -733,7 +751,9 @@ public class InteractionReporterTest {
         assertFalse(callback.mIsSuccess);
         assertEquals(callback.mFledgeErrorResponse.getStatusCode(), STATUS_CALLER_NOT_ALLOWED);
 
-        verify(mAdServicesLoggerMock)
+        // Confirm a duplicate log entry does not exist.
+        // AdSelectionServiceFilter ensures the failing assertion is logged internally.
+        verify(mAdServicesLoggerMock, never())
                 .logFledgeApiCallStats(
                         eq(AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN),
                         eq(STATUS_CALLER_NOT_ALLOWED),
@@ -748,11 +768,12 @@ public class InteractionReporterTest {
                         mDBRegisteredAdInteractionBuyerClick,
                         mDBRegisteredAdInteractionSellerClick));
 
-        doThrow(new ConsentManager.RevokedConsentException())
-                .when(mFledgeServiceFilterMock)
+        doThrow(new FilterException(new ConsentManager.RevokedConsentException()))
+                .when(mAdSelectionServiceFilterMock)
                 .filterRequest(
                         null,
                         TEST_PACKAGE_NAME,
+                        true,
                         true,
                         MY_UID,
                         AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN,
@@ -773,14 +794,16 @@ public class InteractionReporterTest {
                         .setCallerPackageName(TEST_PACKAGE_NAME)
                         .setInteractionKey(CLICK_EVENT)
                         .setInteractionData(mInteractionData)
-                        .setDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
+                        .setReportingDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
                         .build();
 
         ReportInteractionTestCallback callback = callReportInteraction(inputParams);
 
         assertTrue(callback.mIsSuccess);
 
-        verify(mAdServicesLoggerMock)
+        // Confirm a duplicate log entry does not exist.
+        // AdSelectionServiceFilter ensures the failing assertion is logged internally.
+        verify(mAdServicesLoggerMock, never())
                 .logFledgeApiCallStats(
                         eq(AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN),
                         eq(STATUS_USER_CONSENT_REVOKED),
@@ -810,7 +833,7 @@ public class InteractionReporterTest {
                         .setCallerPackageName(TEST_PACKAGE_NAME)
                         .setInteractionKey(CLICK_EVENT)
                         .setInteractionData(mInteractionData)
-                        .setDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
+                        .setReportingDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
                         .build();
 
         ReportInteractionTestCallback callback = callReportInteraction(inputParams);
@@ -826,7 +849,7 @@ public class InteractionReporterTest {
     }
 
     @Test
-    public void testReportInteractionSuccedsWhenNotFindingRegisteredAdInteractions()
+    public void testReportInteractionSucceedsWhenNotFindingRegisteredAdInteractions()
             throws Exception {
         mAdSelectionEntryDao.persistAdSelection(mDBAdSelection);
 
@@ -846,10 +869,11 @@ public class InteractionReporterTest {
                         .setCallerPackageName(TEST_PACKAGE_NAME)
                         .setInteractionKey(CLICK_EVENT)
                         .setInteractionData(mInteractionData)
-                        .setDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
+                        .setReportingDestinations(BUYER_DESTINATION | SELLER_DESTINATION)
                         .build();
 
-        ReportInteractionTestCallback callback = callReportInteraction(inputParams);
+        // Count down callback + log interaction.
+        ReportInteractionTestCallback callback = callReportInteraction(inputParams, true);
 
         assertTrue(callback.mIsSuccess);
 
@@ -860,22 +884,32 @@ public class InteractionReporterTest {
                         anyInt());
     }
 
+
+
     private ReportInteractionTestCallback callReportInteraction(ReportInteractionInput inputParams)
             throws Exception {
-        // Counted down in 1) callback and 2) logApiCall
-        CountDownLatch resultLatch = new CountDownLatch(2);
+        return callReportInteraction(inputParams, false);
+    }
+
+    /** @param shouldCountLog if true, adds a latch to the log interaction as well. */
+    private ReportInteractionTestCallback callReportInteraction(
+            ReportInteractionInput inputParams, boolean shouldCountLog) throws Exception {
+        // Counted down in callback
+        CountDownLatch resultLatch = new CountDownLatch(shouldCountLog ? 2 : 1);
+
+        if (shouldCountLog) {
+            // Wait for the logging call, which happens after the callback
+            Answer<Void> countDownAnswer =
+                    unused -> {
+                        resultLatch.countDown();
+                        return null;
+                    };
+            doAnswer(countDownAnswer)
+                    .when(mAdServicesLoggerMock)
+                    .logFledgeApiCallStats(anyInt(), anyInt(), anyInt());
+        }
+
         ReportInteractionTestCallback callback = new ReportInteractionTestCallback(resultLatch);
-
-        // Wait for the logging call, which happens after the callback
-        Answer<Void> countDownAnswer =
-                unused -> {
-                    resultLatch.countDown();
-                    return null;
-                };
-        doAnswer(countDownAnswer)
-                .when(mAdServicesLoggerMock)
-                .logFledgeApiCallStats(anyInt(), anyInt(), anyInt());
-
         mInteractionReporter.reportInteraction(inputParams, callback);
         resultLatch.await();
         return callback;

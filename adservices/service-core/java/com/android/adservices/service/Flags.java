@@ -20,7 +20,6 @@ import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREG
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
-import android.util.Dumpable;
 
 import androidx.annotation.Nullable;
 
@@ -39,7 +38,7 @@ import java.util.concurrent.TimeUnit;
  * AdServices Feature Flags interface. This Flags interface hold the default values of Ad Services
  * Flags.
  */
-public interface Flags extends Dumpable {
+public interface Flags {
     /** Topics Epoch Job Period. */
     long TOPICS_EPOCH_JOB_PERIOD_MS = 7 * 86_400_000; // 7 days.
 
@@ -78,6 +77,14 @@ public interface Flags extends Dumpable {
     /** Returns the number of top topics. */
     default int getTopicsNumberOfRandomTopics() {
         return TOPICS_NUMBER_OF_RANDOM_TOPICS;
+    }
+
+    /** Global blocked Topics. Default value is empty list. */
+    ImmutableList<Integer> TOPICS_GLOBAL_BLOCKED_TOPIC_IDS = ImmutableList.of();
+
+    /** Returns a list of global blocked topics. */
+    default ImmutableList<Integer> getGlobalBlockedTopicIds() {
+        return TOPICS_GLOBAL_BLOCKED_TOPIC_IDS;
     }
 
     /** How many epochs to look back when deciding if a caller has observed a topic before. */
@@ -287,6 +294,13 @@ public interface Flags extends Dumpable {
     /** Returns whether XNA should be used for eligible sources. */
     default boolean getMeasurementEnableXNA() {
         return MEASUREMENT_ENABLE_XNA;
+    }
+
+    long MEASUREMENT_DATA_EXPIRY_WINDOW_MS = TimeUnit.DAYS.toMillis(37);
+
+    /** Returns the data expiry window in milliseconds. */
+    default long getMeasurementDataExpiryWindowMs() {
+        return MEASUREMENT_DATA_EXPIRY_WINDOW_MS;
     }
 
     long FLEDGE_CUSTOM_AUDIENCE_MAX_COUNT = 4000L;
@@ -606,6 +620,14 @@ public interface Flags extends Dumpable {
      */
     default long getAdSelectionExpirationWindowS() {
         return FLEDGE_AD_SELECTION_EXPIRATION_WINDOW_S;
+    }
+
+    // Filtering feature flag disabled by default
+    boolean FLEDGE_AD_SELECTION_FILTERING_ENABLED = false;
+
+    /** Returns {@code true} if negative filtering of ads during ad selection is enabled. */
+    default boolean getFledgeAdSelectionFilteringEnabled() {
+        return FLEDGE_AD_SELECTION_FILTERING_ENABLED;
     }
 
     boolean FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED = false;
@@ -1574,6 +1596,22 @@ public interface Flags extends Dumpable {
         return UI_DIALOGS_FEATURE_ENABLED;
     }
 
+    /** The EEA device region feature is off by default. */
+    boolean IS_EEA_DEVICE_FEATURE_ENABLED = false;
+
+    /** Returns if the EEA device region feature has been enabled. */
+    default boolean isEeaDeviceFeatureEnabled() {
+        return IS_EEA_DEVICE_FEATURE_ENABLED;
+    }
+
+    /** Default is that the device is in the EEA region. */
+    boolean IS_EEA_DEVICE = true;
+
+    /** Returns if device is in the EEA region. */
+    default boolean isEeaDevice() {
+        return IS_EEA_DEVICE;
+    }
+
     String UI_EEA_COUNTRIES =
             "AT," // Austria
                     + "BE," // Belgium
@@ -1713,5 +1751,13 @@ public interface Flags extends Dumpable {
     /** Returns true if backward-compatible logging should be disabled; false otherwise. */
     default boolean getCompatLoggingKillSwitch() {
         return COMPAT_LOGGING_KILL_SWITCH;
+    }
+
+    // New Feature Flags
+    boolean FLEDGE_REGISTER_AD_BEACON_ENABLED = false;
+
+    /** Returns whether the {@code registerAdBeacon} feature is enabled. */
+    default boolean getFledgeRegisterAdBeaconEnabled() {
+        return FLEDGE_REGISTER_AD_BEACON_ENABLED;
     }
 }

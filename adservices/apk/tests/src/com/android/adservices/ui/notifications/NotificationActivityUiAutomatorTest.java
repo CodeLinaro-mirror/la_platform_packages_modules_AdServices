@@ -39,15 +39,18 @@ import androidx.test.uiautomator.UiSelector;
 import androidx.test.uiautomator.Until;
 
 import com.android.adservices.api.R;
+import com.android.adservices.common.AdservicesTestHelper;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.PhFlags;
 import com.android.adservices.service.common.BackgroundJobsManager;
 import com.android.adservices.service.consent.AdServicesApiType;
 import com.android.adservices.service.consent.ConsentManager;
+import com.android.adservices.ui.util.ApkTestUtil;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -74,6 +77,9 @@ public class NotificationActivityUiAutomatorTest {
 
     @Before
     public void setup() throws UiObjectNotFoundException, IOException {
+        // Skip the test if it runs on unsupported platforms.
+        Assume.assumeTrue(ApkTestUtil.isDeviceSupported());
+
         MockitoAnnotations.initMocks(this);
         mStaticMockSession =
                 ExtendedMockito.mockitoSession()
@@ -114,13 +120,12 @@ public class NotificationActivityUiAutomatorTest {
 
     @After
     public void teardown() throws IOException {
+        if (!ApkTestUtil.isDeviceSupported()) return;
+
+        AdservicesTestHelper.killAdservicesProcess(sContext);
         if (mStaticMockSession != null) {
             mStaticMockSession.finishMocking();
         }
-        // kill the previous apps to avoid starting the same locality as the previous activity in
-        // the next test
-        Runtime.getRuntime()
-                .exec(new String[] {"am", "force-stop", "com.android.adservices.tests.ui"});
     }
 
     @Test
