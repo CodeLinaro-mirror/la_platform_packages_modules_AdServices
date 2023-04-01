@@ -377,6 +377,8 @@ public final class PhFlags implements Flags {
 
     static final String KEY_GA_UX_FEATURE_ENABLED = "ga_ux_enabled";
 
+    static final String KEY_FLEDGE_PER_APP_CONSENT_ENABLED = "fledge_per_app_consent_enabled";
+
     // Back-compat keys
     static final String KEY_COMPAT_LOGGING_KILL_SWITCH = "compat_logging_kill_switch";
 
@@ -405,6 +407,9 @@ public final class PhFlags implements Flags {
 
     static final String KEY_MEASUREMENT_DEBUG_JOIN_KEY_ENROLLMENT_ALLOWLIST =
             "measurement_debug_join_key_enrollment_allowlist";
+
+    static final String KEY_MEASUREMENT_FLEXIBLE_EVENT_REPORTING_API_ENABLED =
+            "measurement_flexible_event_reporting_api_enabled";
 
     // AdServices Namespace String from DeviceConfig class not available in S Minus
     static final String NAMESPACE_ADSERVICES = "adservices";
@@ -2070,11 +2075,34 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getFledgePerAppConsentEnabled() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+
+        // Per-app consent is only enabled in FLEDGE if GA UX is enabled
+        return getGaUxFeatureEnabled()
+                && SystemProperties.getBoolean(
+                        getSystemPropertyName(KEY_FLEDGE_PER_APP_CONSENT_ENABLED),
+                        /* defaultValue */ DeviceConfig.getBoolean(
+                                NAMESPACE_ADSERVICES,
+                                /* flagName */ KEY_FLEDGE_PER_APP_CONSENT_ENABLED,
+                                /* defaultValue */ FLEDGE_PER_APP_CONSENT_ENABLED));
+    }
+
+    @Override
     public long getAdSelectionExpirationWindowS() {
         return DeviceConfig.getLong(
                 NAMESPACE_ADSERVICES,
                 /* flagName */ KEY_FLEDGE_AD_SELECTION_EXPIRATION_WINDOW_S,
                 /* defaultValue */ FLEDGE_AD_SELECTION_EXPIRATION_WINDOW_S);
+    }
+
+    @Override
+    public boolean getMeasurementFlexibleEventReportingAPIEnabled() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_FLEXIBLE_EVENT_REPORTING_API_ENABLED,
+                /* defaultValue */ MEASUREMENT_FLEXIBLE_EVENT_REPORTING_API_ENABLED);
     }
 
     @Override
@@ -2292,6 +2320,11 @@ public final class PhFlags implements Flags {
                         + KEY_MEASUREMENT_DEBUG_JOIN_KEY_HASH_LIMIT
                         + " = "
                         + getMeasurementDebugJoinKeyHashLimit());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_FLEXIBLE_EVENT_REPORTING_API_ENABLED
+                        + " = "
+                        + getMeasurementFlexibleEventReportingAPIEnabled());
         writer.println(
                 "\t"
                         + KEY_WEB_CONTEXT_CLIENT_ALLOW_LIST
@@ -2551,6 +2584,11 @@ public final class PhFlags implements Flags {
                         + getForegroundStatuslLevelForValidation());
         writer.println(
                 "\t"
+                        + KEY_FLEDGE_PER_APP_CONSENT_ENABLED
+                        + " = "
+                        + getFledgePerAppConsentEnabled());
+        writer.println(
+                "\t"
                         + KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED
                         + " = "
                         + getAdSelectionOffDeviceEnabled());
@@ -2596,6 +2634,11 @@ public final class PhFlags implements Flags {
                         + " = "
                         + isBackCompatActivityFeatureEnabled());
         writer.println("\t" + KEY_UI_EEA_COUNTRIES + " = " + getUiEeaCountries());
+        writer.println(
+                "\t"
+                        + KEY_NOTIFICATION_DISMISSED_ON_CLICK
+                        + " = "
+                        + getNotificationDismissedOnClick());
         writer.println(
                 "\t"
                         + KEY_UI_OTA_STRINGS_FEATURE_ENABLED
@@ -2727,5 +2770,15 @@ public final class PhFlags implements Flags {
                 NAMESPACE_ADSERVICES,
                 /* flagName */ KEY_EU_NOTIF_FLOW_CHANGE_ENABLED,
                 /* defaultValue */ DEFAULT_EU_NOTIF_FLOW_CHANGE_ENABLED);
+    }
+
+    static final String KEY_NOTIFICATION_DISMISSED_ON_CLICK = "notification_dmsmissed_on_click";
+
+    @Override
+    public boolean getNotificationDismissedOnClick() {
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_NOTIFICATION_DISMISSED_ON_CLICK,
+                /* defaultValue */ DEFAULT_NOTIFICATION_DISMISSED_ON_CLICK);
     }
 }
