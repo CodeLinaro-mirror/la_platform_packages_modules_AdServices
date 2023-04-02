@@ -298,6 +298,27 @@ public interface Flags {
         return MEASUREMENT_ENABLE_XNA;
     }
 
+    boolean MEASUREMENT_ENABLE_DEBUG_REPORT = true;
+
+    /** Returns whether verbose debug report generation is enabled. */
+    default boolean getMeasurementEnableDebugReport() {
+        return MEASUREMENT_ENABLE_DEBUG_REPORT;
+    }
+
+    boolean MEASUREMENT_ENABLE_SOURCE_DEBUG_REPORT = true;
+
+    /** Returns whether source debug report generation is enabled. */
+    default boolean getMeasurementEnableSourceDebugReport() {
+        return MEASUREMENT_ENABLE_SOURCE_DEBUG_REPORT;
+    }
+
+    boolean MEASUREMENT_ENABLE_TRIGGER_DEBUG_REPORT = true;
+
+    /** Returns whether trigger debug report generation is enabled. */
+    default boolean getMeasurementEnableTriggerDebugReport() {
+        return MEASUREMENT_ENABLE_TRIGGER_DEBUG_REPORT;
+    }
+
     long MEASUREMENT_DATA_EXPIRY_WINDOW_MS = TimeUnit.DAYS.toMillis(37);
 
     /** Returns the data expiry window in milliseconds. */
@@ -1528,7 +1549,7 @@ public interface Flags {
     boolean MEASUREMENT_ENFORCE_FOREGROUND_STATUS_REGISTER_WEB_SOURCE = true;
     boolean MEASUREMENT_ENFORCE_FOREGROUND_STATUS_REGISTER_WEB_TRIGGER = true;
     boolean MEASUREMENT_ENFORCE_FOREGROUND_STATUS_GET_STATUS = true;
-
+    boolean MEASUREMENT_ENFORCE_ENROLLMENT_ORIGIN_MATCH = true;
     /**
      * @return true if Measurement Delete Registrations API should require that the calling API is
      *     running in foreground.
@@ -1575,6 +1596,11 @@ public interface Flags {
      */
     default boolean getEnforceForegroundStatusForMeasurementStatus() {
         return MEASUREMENT_ENFORCE_FOREGROUND_STATUS_GET_STATUS;
+    }
+
+    /** @return true if the Enrollment match is based on url origin matching */
+    default boolean getEnforceEnrollmentOriginMatch() {
+        return MEASUREMENT_ENFORCE_ENROLLMENT_ORIGIN_MATCH;
     }
 
     /** @return true if Topics API should require that the calling API is running in foreground. */

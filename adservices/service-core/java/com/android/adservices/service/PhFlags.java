@@ -98,11 +98,18 @@ public final class PhFlags implements Flags {
             "measurement_enforce_foreground_status_register_web_source";
     static final String KEY_MEASUREMENT_ENFORCE_FOREGROUND_STATUS_REGISTER_WEB_TRIGGER =
             "measurement_enforce_foreground_status_register_web_trigger";
+    static final String KEY_MEASUREMENT_ENFORCE_ENROLLMENT_ORIGIN_MATCH =
+            "measurement_enforce_enrollment_origin_match";
     static final String KEY_MEASUREMENT_ENFORCE_FOREGROUND_STATUS_DELETE_REGISTRATIONS =
             "measurement_enforce_foreground_status_delete_registrations";
     static final String KEY_MEASUREMENT_ENFORCE_FOREGROUND_STATUS_GET_STATUS =
             "measurement_enforce_foreground_status_get_status";
     static final String KEY_MEASUREMENT_ENABLE_XNA = "measurement_enable_xna";
+    static final String KEY_MEASUREMENT_ENABLE_DEBUG_REPORT = "measurement_enable_debug_report";
+    static final String KEY_MEASUREMENT_ENABLE_SOURCE_DEBUG_REPORT =
+            "measurement_enable_source_debug_report";
+    static final String KEY_MEASUREMENT_ENABLE_TRIGGER_DEBUG_REPORT =
+            "measurement_enable_trigger_debug_report";
     static final String KEY_MEASUREMENT_DATA_EXPIRY_WINDOW_MS = "measurement_data_expiry_window_ms";
 
     static final String KEY_MEASUREMENT_MAX_REGISTRATION_REDIRECTS =
@@ -740,6 +747,30 @@ public final class PhFlags implements Flags {
                 NAMESPACE_ADSERVICES,
                 /* flagName */ KEY_MEASUREMENT_ENABLE_XNA,
                 /* defaultValue */ MEASUREMENT_ENABLE_XNA);
+    }
+
+    @Override
+    public boolean getMeasurementEnableDebugReport() {
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_ENABLE_DEBUG_REPORT,
+                /* defaultValue */ MEASUREMENT_ENABLE_DEBUG_REPORT);
+    }
+
+    @Override
+    public boolean getMeasurementEnableSourceDebugReport() {
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_ENABLE_SOURCE_DEBUG_REPORT,
+                /* defaultValue */ MEASUREMENT_ENABLE_SOURCE_DEBUG_REPORT);
+    }
+
+    @Override
+    public boolean getMeasurementEnableTriggerDebugReport() {
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_ENABLE_TRIGGER_DEBUG_REPORT,
+                /* defaultValue */ MEASUREMENT_ENABLE_TRIGGER_DEBUG_REPORT);
     }
 
     @Override
@@ -1920,6 +1951,14 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getEnforceEnrollmentOriginMatch() {
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_ENFORCE_ENROLLMENT_ORIGIN_MATCH,
+                /* defaultValue */ MEASUREMENT_ENFORCE_ENROLLMENT_ORIGIN_MATCH);
+    }
+
+    @Override
     public boolean getEnforceIsolateMaxHeapSize() {
         return DeviceConfig.getBoolean(
                 NAMESPACE_ADSERVICES,
@@ -2305,6 +2344,26 @@ public final class PhFlags implements Flags {
                         + " = "
                         + getEnforceForegroundStatusForMeasurementRegisterWebTrigger());
         writer.println("\t" + KEY_MEASUREMENT_ENABLE_XNA + " = " + getMeasurementEnableXNA());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_ENFORCE_ENROLLMENT_ORIGIN_MATCH
+                        + " = "
+                        + getEnforceEnrollmentOriginMatch());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_ENABLE_DEBUG_REPORT
+                        + " = "
+                        + getMeasurementEnableDebugReport());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_ENABLE_SOURCE_DEBUG_REPORT
+                        + " = "
+                        + getMeasurementEnableSourceDebugReport());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_ENABLE_TRIGGER_DEBUG_REPORT
+                        + " = "
+                        + getMeasurementEnableTriggerDebugReport());
         writer.println(
                 "\t"
                         + KEY_MEASUREMENT_DATA_EXPIRY_WINDOW_MS
