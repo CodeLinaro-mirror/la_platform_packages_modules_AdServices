@@ -22,7 +22,6 @@ import android.net.Uri;
 import android.os.Trace;
 
 import com.android.adservices.LoggerFactory;
-import com.android.adservices.service.Flags;
 import com.android.adservices.service.common.httpclient.AdServicesHttpClientRequest;
 import com.android.adservices.service.common.httpclient.AdServicesHttpClientResponse;
 import com.android.adservices.service.common.httpclient.AdServicesHttpsClient;
@@ -31,12 +30,10 @@ import com.android.adservices.service.profiling.Tracing;
 import com.android.adservices.service.stats.RunAdBiddingPerCAExecutionLogger;
 import com.android.internal.annotations.VisibleForTesting;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
-import java.util.List;
 import java.util.Objects;
 
 /** Class to fetch JavaScript code both on and off device. */
@@ -50,25 +47,21 @@ public class JsFetcher {
     private final ListeningExecutorService mLightweightExecutorService;
     private final CustomAudienceDevOverridesHelper mCustomAudienceDevOverridesHelper;
     private final AdServicesHttpsClient mAdServicesHttpsClient;
-    private final Flags mFlags;
 
     public JsFetcher(
             @NonNull ListeningExecutorService backgroundExecutorService,
             @NonNull ListeningExecutorService lightweightExecutorService,
             @NonNull CustomAudienceDevOverridesHelper customAudienceDevOverridesHelper,
-            @NonNull AdServicesHttpsClient adServicesHttpsClient,
-            @NonNull Flags flags) {
+            @NonNull AdServicesHttpsClient adServicesHttpsClient) {
         Objects.requireNonNull(backgroundExecutorService);
         Objects.requireNonNull(lightweightExecutorService);
         Objects.requireNonNull(customAudienceDevOverridesHelper);
         Objects.requireNonNull(adServicesHttpsClient);
-        Objects.requireNonNull(flags);
 
         mBackgroundExecutorService = backgroundExecutorService;
         mCustomAudienceDevOverridesHelper = customAudienceDevOverridesHelper;
         mAdServicesHttpsClient = adServicesHttpsClient;
         mLightweightExecutorService = lightweightExecutorService;
-        mFlags = flags;
     }
 
     /**
@@ -179,15 +172,9 @@ public class JsFetcher {
                                         "Developer options enabled and an override JS is provided "
                                                 + "for the current Custom Audience. "
                                                 + "Skipping call to server.");
-                                final ImmutableMap<String, List<String>> versionHeader =
-                                        JsVersionHelper.constructVersionHeader(
-                                                JsVersionHelper
-                                                        .JS_PAYLOAD_TYPE_BUYER_BIDDING_LOGIC_JS,
-                                                mFlags.getFledgeAdSelectionBiddingLogicJsVersion());
                                 return Futures.immediateFuture(
                                         AdServicesHttpClientResponse.builder()
                                                 .setResponseBody(jsOverride)
-                                                .setResponseHeaders(versionHeader)
                                                 .build());
                             }
                         },
