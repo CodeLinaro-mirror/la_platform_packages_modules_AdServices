@@ -262,6 +262,21 @@ public abstract class AdSelectionEntryDao {
             @ReportInteractionRequest.ReportingDestination int destination);
 
     /**
+     * Gets the {@link DBAdSelectionHistogramInfo} representing the histogram information associated
+     * with a given ad selection.
+     *
+     * @return a {@link DBAdSelectionHistogramInfo} containing the histogram info associated with
+     *     the ad selection, or {@code null} if no match is found
+     */
+    @Query(
+            "SELECT custom_audience_signals_buyer, ad_counter_keys FROM ad_selection "
+                    + "WHERE ad_selection_id = :adSelectionId "
+                    + "AND caller_package_name = :callerPackageName")
+    @Nullable
+    public abstract DBAdSelectionHistogramInfo getAdSelectionHistogramInfo(
+            long adSelectionId, @NonNull String callerPackageName);
+
+    /**
      * Clean up expired adSelection entries if it is older than the given timestamp. If
      * creation_timestamp < expirationTime, the ad selection entry will be removed from the
      * ad_selection table.

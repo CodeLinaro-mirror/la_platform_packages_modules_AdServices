@@ -656,11 +656,26 @@ public interface Flags {
         return FLEDGE_AD_SELECTION_FILTERING_ENABLED;
     }
 
+    // Enable contextual Ads feature, based on Filtering feature enabled or not
+    boolean FLEDGE_AD_SELECTION_CONTEXTUAL_ADS_ENABLED = FLEDGE_AD_SELECTION_FILTERING_ENABLED;
+
+    /** Returns {@code true} if negative filtering of ads during ad selection is enabled. */
+    default boolean getFledgeAdSelectionContextualAdsEnabled() {
+        return FLEDGE_AD_SELECTION_CONTEXTUAL_ADS_ENABLED;
+    }
+
     boolean FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED = false;
 
     /** @return whether to call trusted servers for off device ad selection. */
     default boolean getAdSelectionOffDeviceEnabled() {
         return FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED;
+    }
+
+    boolean FLEDGE_AD_SELECTION_PREBUILT_URI_ENABLED = true;
+
+    /** @return whether to call trusted servers for off device ad selection. */
+    default boolean getFledgeAdSelectionPrebuiltUriEnabled() {
+        return FLEDGE_AD_SELECTION_PREBUILT_URI_ENABLED;
     }
 
     boolean FLEDGE_AD_SELECTION_OFF_DEVICE_REQUEST_COMPRESSION_ENABLED = true;
@@ -1659,6 +1674,22 @@ public interface Flags {
     /** Returns if device is in the EEA region. */
     default boolean isEeaDevice() {
         return IS_EEA_DEVICE;
+    }
+
+    /** Default is that the ui feature type logging is enabled. */
+    boolean UI_FEATURE_TYPE_LOGGING_ENABLED = true;
+
+    /** Returns if device is in the EEA region. */
+    default boolean isUiFeatureTypeLoggingEnabled() {
+        return UI_FEATURE_TYPE_LOGGING_ENABLED;
+    }
+
+    /** Default is that the manual interaction feature is enabled. */
+    boolean RECORD_MANUAL_INTERACTION_ENABLED = true;
+
+    /** Returns if the manual interaction feature is enabled. */
+    default boolean getRecordManualInteractionEnabled() {
+        return RECORD_MANUAL_INTERACTION_ENABLED;
     }
 
     /**

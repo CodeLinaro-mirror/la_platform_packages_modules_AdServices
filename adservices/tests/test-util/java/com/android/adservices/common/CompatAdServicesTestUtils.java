@@ -14,24 +14,22 @@
  * limitations under the License.
  */
 
-package android.adservices.test.scenario.adservices.utils;
+package com.android.adservices.common;
 
 import com.android.compatibility.common.util.ShellUtils;
-import com.android.modules.utils.build.SdkLevel;
 
-/** Utils for back-compat CB tests. */
-public final class CompatTestUtils {
+/** Class to place back-compat Adservices related helper methods */
+public class CompatAdServicesTestUtils {
     private static final int PPAPI_ONLY_SOURCE_OF_TRUTH = 1;
     private static final int PPAPI_AND_SYSTEM_SERVER_SOURCE_OF_TRUTH = 2;
-    private static final String ADSERVICES_PACKAGE = "com.google.android.adservices.api";
-    private static final String COMPAT_ADSERVICES_PACKAGE = "com.google.android.ext.adservices.api";
 
-    private CompatTestUtils() {
+    private CompatAdServicesTestUtils() {
         /* cannot be instantiated */
     }
 
     /**
-     * Flags that need to be set to avoid invoking system server related code on S- before CB tests.
+     * Common flags that need to be set to avoid invoking system server related code on S- before
+     * running various PPAPI related tests.
      */
     public static void setFlags() {
         setBlockedTopicsSourceOfTruth(PPAPI_ONLY_SOURCE_OF_TRUTH);
@@ -42,19 +40,11 @@ public final class CompatTestUtils {
         disableMeasurementRollbackDelete();
     }
 
-    /** Reset system-server related flags to their default values after CB tests. */
+    /** Reset system-server related flags to their default values after test execution. */
     public static void resetFlagsToDefault() {
         setBlockedTopicsSourceOfTruth(PPAPI_AND_SYSTEM_SERVER_SOURCE_OF_TRUTH);
         setConsentSourceOfTruth(PPAPI_AND_SYSTEM_SERVER_SOURCE_OF_TRUTH);
         enableMeasurementRollbackDelete();
-    }
-
-    /**
-     * AdServices on S- is accessible via ExtServices apex with a different package name compared to
-     * T+. Returns appropriate package name based on SDK level.
-     */
-    public static String getAdServicesPackageName() {
-        return SdkLevel.isAtLeastT() ? ADSERVICES_PACKAGE : COMPAT_ADSERVICES_PACKAGE;
     }
 
     private static void setConsentSourceOfTruth(int source) {
@@ -75,5 +65,17 @@ public final class CompatTestUtils {
     private static void enableMeasurementRollbackDelete() {
         ShellUtils.runShellCommand(
                 "device_config put adservices measurement_rollback_deletion_kill_switch false");
+    }
+
+    public static void setPpapiAppAllowList(String allowList) {
+        ShellUtils.runShellCommand(
+                "device_config put adservices ppapi_app_allow_list " + allowList);
+    }
+
+    public static String getAndOverridePpapiAppAllowList(String packageName) {
+        String mPreviousAppAllowList =
+                ShellUtils.runShellCommand("device_config get adservices ppapi_app_allow_list");
+        setPpapiAppAllowList(mPreviousAppAllowList + "," + packageName);
+        return mPreviousAppAllowList;
     }
 }
