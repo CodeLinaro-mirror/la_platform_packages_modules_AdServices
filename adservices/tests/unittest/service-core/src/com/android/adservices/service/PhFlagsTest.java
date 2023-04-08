@@ -19,6 +19,7 @@ package com.android.adservices.service;
 import static com.android.adservices.service.Flags.ADID_KILL_SWITCH;
 import static com.android.adservices.service.Flags.ADID_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.Flags.ADSERVICES_ENABLED;
+import static com.android.adservices.service.Flags.ADSERVICES_ERROR_LOGGING_ENABLED;
 import static com.android.adservices.service.Flags.APPSETID_KILL_SWITCH;
 import static com.android.adservices.service.Flags.APPSETID_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.Flags.ASYNC_REGISTRATION_JOB_QUEUE_INTERVAL_MS;
@@ -120,6 +121,8 @@ import static com.android.adservices.service.Flags.MEASUREMENT_API_REGISTER_TRIG
 import static com.android.adservices.service.Flags.MEASUREMENT_API_REGISTER_WEB_SOURCE_KILL_SWITCH;
 import static com.android.adservices.service.Flags.MEASUREMENT_API_REGISTER_WEB_TRIGGER_KILL_SWITCH;
 import static com.android.adservices.service.Flags.MEASUREMENT_API_STATUS_KILL_SWITCH;
+import static com.android.adservices.service.Flags.MEASUREMENT_ATTRIBUTION_FALLBACK_JOB_KILL_SWITCH;
+import static com.android.adservices.service.Flags.MEASUREMENT_ATTRIBUTION_FALLBACK_JOB_PERIOD_MS;
 import static com.android.adservices.service.Flags.MEASUREMENT_DATA_EXPIRY_WINDOW_MS;
 import static com.android.adservices.service.Flags.MEASUREMENT_DB_SIZE_LIMIT;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_DEBUG_REPORT;
@@ -185,6 +188,7 @@ import static com.android.adservices.service.PhFlags.DEFAULT_EU_NOTIF_FLOW_CHANG
 import static com.android.adservices.service.PhFlags.KEY_ADID_KILL_SWITCH;
 import static com.android.adservices.service.PhFlags.KEY_ADID_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.PhFlags.KEY_ADSERVICES_ENABLED;
+import static com.android.adservices.service.PhFlags.KEY_ADSERVICES_ERROR_LOGGING_ENABLED;
 import static com.android.adservices.service.PhFlags.KEY_APPSETID_KILL_SWITCH;
 import static com.android.adservices.service.PhFlags.KEY_APPSETID_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.PhFlags.KEY_ASYNC_REGISTRATION_JOB_QUEUE_INTERVAL_MS;
@@ -280,6 +284,8 @@ import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_API_REGISTE
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_API_REGISTER_WEB_SOURCE_KILL_SWITCH;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_API_REGISTER_WEB_TRIGGER_KILL_SWITCH;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_API_STATUS_KILL_SWITCH;
+import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_ATTRIBUTION_FALLBACK_JOB_KILL_SWITCH;
+import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_ATTRIBUTION_FALLBACK_JOB_PERIOD_MS;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_DATA_EXPIRY_WINDOW_MS;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_DB_SIZE_LIMIT;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_DEBUG_JOIN_KEY_ENROLLMENT_ALLOWLIST;
@@ -2305,6 +2311,27 @@ public class PhFlagsTest {
     }
 
     @Test
+    public void testGetAdServicesErrorLoggingEnabled() {
+        // Disable global_kill_switch so that this flag can be tested.
+        disableGlobalKillSwitch();
+
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getAdServicesErrorLoggingEnabled())
+                .isEqualTo(ADSERVICES_ERROR_LOGGING_ENABLED);
+
+        // Now overriding with the value from PH.
+        final boolean phOverridingValue = true;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_ADSERVICES_ERROR_LOGGING_ENABLED,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getAdServicesErrorLoggingEnabled()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
     public void testGetGaUxFeatureEnabled() {
         // Without any overriding, the value is the hard coded constant.
         assertThat(FlagsFactory.getFlags().getGaUxFeatureEnabled())
@@ -3014,6 +3041,91 @@ public class PhFlagsTest {
 
         Flags phFlags = FlagsFactory.getFlags();
         assertThat(phFlags.getMeasurementJobAttributionKillSwitch()).isEqualTo(phOverrideValue);
+    }
+
+    @Test
+    public void testGetMeasurementAttributionFallbackJobKillSwitch() {
+        // Disable global_kill_switch so that this flag can be tested.
+        disableGlobalKillSwitch();
+
+        // without any overrides the Attribution Fallback Job kill switch should be off
+        assertThat(FlagsFactory.getFlags().getMeasurementAttributionFallbackJobKillSwitch())
+                .isEqualTo(MEASUREMENT_ATTRIBUTION_FALLBACK_JOB_KILL_SWITCH);
+
+        // Now overriding with the value from PH.
+        final boolean phOverrideValue = true;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_MEASUREMENT_ATTRIBUTION_FALLBACK_JOB_KILL_SWITCH,
+                Boolean.toString(phOverrideValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getMeasurementAttributionFallbackJobKillSwitch())
+                .isEqualTo(phOverrideValue);
+    }
+
+    @Test
+    public void testGetMeasurementAttributionFallbackJobKillSwitch_measurementOverride() {
+        // Disable global_kill_switch so that this flag can be tested.
+        disableGlobalKillSwitch();
+
+        // without any overrides the Attribution Fallback Job kill switch should be off
+        assertThat(FlagsFactory.getFlags().getMeasurementAttributionFallbackJobKillSwitch())
+                .isEqualTo(MEASUREMENT_ATTRIBUTION_FALLBACK_JOB_KILL_SWITCH);
+
+        // Now overriding with the value from PH.
+        final boolean phOverrideValue = true;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_MEASUREMENT_KILL_SWITCH,
+                Boolean.toString(phOverrideValue),
+                false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getMeasurementAttributionFallbackJobKillSwitch())
+                .isEqualTo(phOverrideValue);
+    }
+
+    @Test
+    public void testGetMeasurementAttributionFallbackJobKillSwitch_globalOverride() {
+        // Disable global_kill_switch so that this flag can be tested.
+        disableGlobalKillSwitch();
+
+        // without any overrides the Attribution Fallback Job  kill switch should be off
+        assertThat(FlagsFactory.getFlags().getMeasurementAttributionFallbackJobKillSwitch())
+                .isEqualTo(MEASUREMENT_ATTRIBUTION_FALLBACK_JOB_KILL_SWITCH);
+
+        // Now overriding with the value from PH.
+        final boolean phOverrideValue = true;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_GLOBAL_KILL_SWITCH,
+                Boolean.toString(phOverrideValue),
+                false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getMeasurementAttributionFallbackJobKillSwitch())
+                .isEqualTo(phOverrideValue);
+    }
+
+    @Test
+    public void testGetMeasurementAttributionFallbackJobPeriodMs() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getMeasurementAttributionFallbackJobPeriodMs())
+                .isEqualTo(MEASUREMENT_ATTRIBUTION_FALLBACK_JOB_PERIOD_MS);
+
+        final long phOverridingValue = 10;
+
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_MEASUREMENT_ATTRIBUTION_FALLBACK_JOB_PERIOD_MS,
+                Long.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getMeasurementAttributionFallbackJobPeriodMs())
+                .isEqualTo(phOverridingValue);
     }
 
     @Test
