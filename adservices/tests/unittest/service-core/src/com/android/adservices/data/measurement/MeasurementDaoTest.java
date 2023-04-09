@@ -17,6 +17,7 @@
 package com.android.adservices.data.measurement;
 
 import static com.android.adservices.data.measurement.MeasurementTables.ALL_MSMT_TABLES;
+import static com.android.adservices.data.measurement.MeasurementTables.AsyncRegistrationContract;
 import static com.android.adservices.data.measurement.MeasurementTables.AttributionContract;
 import static com.android.adservices.data.measurement.MeasurementTables.EventReportContract;
 import static com.android.adservices.data.measurement.MeasurementTables.MSMT_TABLE_PREFIX;
@@ -49,11 +50,13 @@ import androidx.test.core.app.ApplicationProvider;
 
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
-import com.android.adservices.service.measurement.AsyncRegistration;
 import com.android.adservices.service.measurement.AsyncRegistrationFixture;
+import com.android.adservices.service.measurement.AsyncRegistrationFixture.ValidAsyncRegistrationParams;
 import com.android.adservices.service.measurement.Attribution;
 import com.android.adservices.service.measurement.EventReport;
 import com.android.adservices.service.measurement.EventSurfaceType;
+import com.android.adservices.service.measurement.KeyValueData;
+import com.android.adservices.service.measurement.KeyValueData.DataType;
 import com.android.adservices.service.measurement.PrivacyParams;
 import com.android.adservices.service.measurement.Source;
 import com.android.adservices.service.measurement.SourceFixture;
@@ -63,6 +66,7 @@ import com.android.adservices.service.measurement.WebUtil;
 import com.android.adservices.service.measurement.aggregation.AggregateEncryptionKey;
 import com.android.adservices.service.measurement.aggregation.AggregateReport;
 import com.android.adservices.service.measurement.aggregation.AggregateReportFixture;
+import com.android.adservices.service.measurement.registration.AsyncRegistration;
 import com.android.adservices.service.measurement.reporting.DebugReport;
 import com.android.adservices.service.measurement.util.UnsignedLong;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
@@ -86,9 +90,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -1934,7 +1940,6 @@ public class MeasurementDaoTest {
         AbstractDbIntegrationTest.insertToDb(att33, db);
         AbstractDbIntegrationTest.insertToDb(att44, db);
     }
-
     @Test
     public void testUndoInstallAttribution_noMarkedSource() {
         long currentTimestamp = System.currentTimeMillis();
@@ -3751,6 +3756,297 @@ public class MeasurementDaoTest {
     }
 
     @Test
+    public void testDeleteAppRecordsNotPresentForAsyncRegistrations() {
+        SQLiteDatabase db = MeasurementDbHelper.getInstance(sContext).safeGetWritableDatabase();
+
+        List<AsyncRegistration> asyncRegistrationList = new ArrayList<>();
+
+        asyncRegistrationList.add(buildAsyncRegistration("1"));
+
+        asyncRegistrationList.add(buildAsyncRegistration("2"));
+
+        asyncRegistrationList.add(buildAsyncRegistrationWithNotRegistrant("3"));
+
+        asyncRegistrationList.add(buildAsyncRegistration("4"));
+
+        asyncRegistrationList.add(buildAsyncRegistrationWithNotRegistrant("5"));
+
+        asyncRegistrationList.forEach(
+                asyncRegistration -> {
+                    ContentValues values = new ContentValues();
+                    values.put(AsyncRegistrationContract.ID, asyncRegistration.getId());
+                    values.put(
+                            AsyncRegistrationContract.REGISTRANT,
+                            asyncRegistration.getRegistrant().toString());
+                    values.put(
+                            AsyncRegistrationContract.TOP_ORIGIN,
+                            asyncRegistration.getTopOrigin().toString());
+                    values.put(
+                            AsyncRegistrationContract.AD_ID_PERMISSION,
+                            asyncRegistration.getDebugKeyAllowed());
+                    values.put(
+                            AsyncRegistrationContract.TYPE, asyncRegistration.getType().toString());
+                    values.put(
+                            AsyncRegistrationContract.REGISTRATION_ID,
+                            asyncRegistration.getRegistrationId());
+                    db.insert(AsyncRegistrationContract.TABLE, /* nullColumnHack */ null, values);
+                });
+
+        long count =
+                DatabaseUtils.queryNumEntries(
+                        db, AsyncRegistrationContract.TABLE, /* selection */ null);
+        assertEquals(5, count);
+
+        List<Uri> installedUriList = new ArrayList<>();
+        installedUriList.add(Uri.parse("android-app://installed-registrant"));
+
+        assertTrue(
+                DatastoreManagerFactory.getDatastoreManager(sContext)
+                        .runInTransaction(
+                                measurementDao ->
+                                        measurementDao.deleteAppRecordsNotPresent(
+                                                installedUriList)));
+
+        count =
+                DatabaseUtils.queryNumEntries(
+                        db, AsyncRegistrationContract.TABLE, /* selection */ null);
+        assertEquals(3, count);
+
+        Cursor cursor =
+                db.query(
+                        AsyncRegistrationContract.TABLE,
+                        /* columns */ null,
+                        /* selection */ null,
+                        /* selectionArgs */ null,
+                        /* groupBy */ null,
+                        /* having */ null,
+                        /* orderBy */ null);
+
+        Set<String> ids = new HashSet<>(Arrays.asList("1", "2", "4"));
+        List<AsyncRegistration> asyncRegistrations = new ArrayList<>();
+        while (cursor.moveToNext()) {
+            AsyncRegistration asyncRegistration =
+                    SqliteObjectMapper.constructAsyncRegistration(cursor);
+            asyncRegistrations.add(asyncRegistration);
+        }
+        assertTrue(asyncRegistrations.size() == 3);
+        for (AsyncRegistration asyncRegistration : asyncRegistrations) {
+            assertTrue(ids.contains(asyncRegistration.getId()));
+        }
+    }
+
+    @Test
+    public void testDeleteAppRecordsForAsyncRegistrations() {
+        SQLiteDatabase db = MeasurementDbHelper.getInstance(sContext).safeGetWritableDatabase();
+
+        List<AsyncRegistration> asyncRegistrationList = new ArrayList<>();
+
+        asyncRegistrationList.add(buildAsyncRegistration("1"));
+
+        asyncRegistrationList.add(buildAsyncRegistrationWithNotDestination("2"));
+
+        asyncRegistrationList.add(buildAsyncRegistrationWithNotRegistrant("3"));
+
+        asyncRegistrationList.add(buildAsyncRegistration("4"));
+
+        asyncRegistrationList.add(buildAsyncRegistrationWithNotRegistrant("5"));
+
+        asyncRegistrationList.forEach(
+                asyncRegistration -> {
+                    ContentValues values = new ContentValues();
+                    values.put(AsyncRegistrationContract.ID, asyncRegistration.getId());
+                    values.put(
+                            AsyncRegistrationContract.REGISTRANT,
+                            asyncRegistration.getRegistrant().toString());
+                    values.put(
+                            AsyncRegistrationContract.TOP_ORIGIN,
+                            asyncRegistration.getTopOrigin().toString());
+                    values.put(
+                            AsyncRegistrationContract.OS_DESTINATION,
+                            asyncRegistration.getOsDestination().toString());
+                    values.put(
+                            AsyncRegistrationContract.AD_ID_PERMISSION,
+                            asyncRegistration.getDebugKeyAllowed());
+                    values.put(
+                            AsyncRegistrationContract.TYPE, asyncRegistration.getType().toString());
+                    values.put(
+                            AsyncRegistrationContract.REGISTRATION_ID,
+                            asyncRegistration.getRegistrationId());
+                    db.insert(AsyncRegistrationContract.TABLE, /* nullColumnHack */ null, values);
+                });
+
+        long count =
+                DatabaseUtils.queryNumEntries(
+                        db, AsyncRegistrationContract.TABLE, /* selection */ null);
+        assertEquals(5, count);
+
+        assertTrue(
+                DatastoreManagerFactory.getDatastoreManager(sContext)
+                        .runInTransaction(
+                                measurementDao ->
+                                        measurementDao.deleteAppRecords(
+                                                Uri.parse("android-app://installed-registrant"))));
+
+        count =
+                DatabaseUtils.queryNumEntries(
+                        db, AsyncRegistrationContract.TABLE, /* selection */ null);
+        assertEquals(2, count);
+
+        Cursor cursor =
+                db.query(
+                        AsyncRegistrationContract.TABLE,
+                        /* columns */ null,
+                        /* selection */ null,
+                        /* selectionArgs */ null,
+                        /* groupBy */ null,
+                        /* having */ null,
+                        /* orderBy */ null);
+
+        Set<String> ids = new HashSet<>(Arrays.asList("3", "5"));
+        List<AsyncRegistration> asyncRegistrations = new ArrayList<>();
+        while (cursor.moveToNext()) {
+            AsyncRegistration asyncRegistration =
+                    SqliteObjectMapper.constructAsyncRegistration(cursor);
+            asyncRegistrations.add(asyncRegistration);
+        }
+        for (AsyncRegistration asyncRegistration : asyncRegistrations) {
+            assertTrue(ids.contains(asyncRegistration.getId()));
+        }
+    }
+
+    private static AsyncRegistration buildAsyncRegistration(String id) {
+
+        return new AsyncRegistration.Builder()
+                .setId(id)
+                .setOsDestination(Uri.parse("android-app://installed-app-destination"))
+                .setRegistrant(Uri.parse("android-app://installed-registrant"))
+                .setTopOrigin(Uri.parse("android-app://installed-registrant"))
+                .setAdIdPermission(false)
+                .setType(AsyncRegistration.RegistrationType.APP_SOURCE)
+                .setRegistrationId(UUID.randomUUID().toString())
+                .build();
+    }
+
+    private static AsyncRegistration buildAsyncRegistrationWithNotDestination(String id) {
+        return new AsyncRegistration.Builder()
+                .setId(id)
+                .setOsDestination(Uri.parse("android-app://not-installed-app-destination"))
+                .setRegistrant(Uri.parse("android-app://installed-registrant"))
+                .setTopOrigin(Uri.parse("android-app://installed-registrant"))
+                .setAdIdPermission(false)
+                .setType(AsyncRegistration.RegistrationType.APP_SOURCE)
+                .setRequestTime(Long.MAX_VALUE)
+                .setRegistrationId(UUID.randomUUID().toString())
+                .build();
+    }
+
+    private static AsyncRegistration buildAsyncRegistrationWithNotRegistrant(String id) {
+        return new AsyncRegistration.Builder()
+                .setId(id)
+                .setOsDestination(Uri.parse("android-app://installed-app-destination"))
+                .setRegistrant(Uri.parse("android-app://not-installed-registrant"))
+                .setTopOrigin(Uri.parse("android-app://not-installed-registrant"))
+                .setAdIdPermission(false)
+                .setType(AsyncRegistration.RegistrationType.APP_SOURCE)
+                .setRegistrationId(UUID.randomUUID().toString())
+                .build();
+    }
+
+    @Test
+    public void testDeleteExpiredRecordsForAsyncRegistrations() {
+        SQLiteDatabase db = MeasurementDbHelper.getInstance(sContext).safeGetWritableDatabase();
+
+        List<AsyncRegistration> asyncRegistrationList = new ArrayList<>();
+
+        asyncRegistrationList.add(
+                new AsyncRegistration.Builder()
+                        .setId("1")
+                        .setOsDestination(Uri.parse("android-app://installed-app-destination"))
+                        .setRegistrant(Uri.parse("android-app://installed-registrant"))
+                        .setTopOrigin(Uri.parse("android-app://installed-registrant"))
+                        .setAdIdPermission(false)
+                        .setType(AsyncRegistration.RegistrationType.APP_SOURCE)
+                        .setRequestTime(1)
+                        .setRegistrationId(UUID.randomUUID().toString())
+                        .build());
+
+        asyncRegistrationList.add(
+                new AsyncRegistration.Builder()
+                        .setId("2")
+                        .setOsDestination(Uri.parse("android-app://not-installed-app-destination"))
+                        .setRegistrant(Uri.parse("android-app://installed-registrant"))
+                        .setTopOrigin(Uri.parse("android-app://installed-registrant"))
+                        .setAdIdPermission(false)
+                        .setType(AsyncRegistration.RegistrationType.APP_SOURCE)
+                        .setRequestTime(Long.MAX_VALUE)
+                        .setRegistrationId(UUID.randomUUID().toString())
+                        .build());
+
+        asyncRegistrationList.forEach(
+                asyncRegistration -> {
+                    ContentValues values = new ContentValues();
+                    values.put(AsyncRegistrationContract.ID, asyncRegistration.getId());
+                    values.put(
+                            AsyncRegistrationContract.REGISTRANT,
+                            asyncRegistration.getRegistrant().toString());
+                    values.put(
+                            AsyncRegistrationContract.TOP_ORIGIN,
+                            asyncRegistration.getTopOrigin().toString());
+                    values.put(
+                            AsyncRegistrationContract.OS_DESTINATION,
+                            asyncRegistration.getOsDestination().toString());
+                    values.put(
+                            AsyncRegistrationContract.AD_ID_PERMISSION,
+                            asyncRegistration.getDebugKeyAllowed());
+                    values.put(
+                            AsyncRegistrationContract.TYPE, asyncRegistration.getType().toString());
+                    values.put(
+                            AsyncRegistrationContract.REQUEST_TIME,
+                            asyncRegistration.getRequestTime());
+                    values.put(
+                            AsyncRegistrationContract.REGISTRATION_ID,
+                            asyncRegistration.getRegistrationId());
+                    db.insert(AsyncRegistrationContract.TABLE, /* nullColumnHack */ null, values);
+                });
+
+        long count =
+                DatabaseUtils.queryNumEntries(
+                        db, AsyncRegistrationContract.TABLE, /* selection */ null);
+        assertEquals(2, count);
+
+        assertTrue(
+                DatastoreManagerFactory.getDatastoreManager(sContext)
+                        .runInTransaction(
+                                measurementDao -> measurementDao.deleteExpiredRecords(2)));
+
+        count =
+                DatabaseUtils.queryNumEntries(
+                        db, AsyncRegistrationContract.TABLE, /* selection */ null);
+        assertEquals(1, count);
+
+        Cursor cursor =
+                db.query(
+                        AsyncRegistrationContract.TABLE,
+                        /* columns */ null,
+                        /* selection */ null,
+                        /* selectionArgs */ null,
+                        /* groupBy */ null,
+                        /* having */ null,
+                        /* orderBy */ null);
+
+        Set<String> ids = new HashSet<>(Arrays.asList("2"));
+        List<AsyncRegistration> asyncRegistrations = new ArrayList<>();
+        while (cursor.moveToNext()) {
+            AsyncRegistration asyncRegistration =
+                    SqliteObjectMapper.constructAsyncRegistration(cursor);
+            asyncRegistrations.add(asyncRegistration);
+        }
+        for (AsyncRegistration asyncRegistration : asyncRegistrations) {
+            assertTrue(ids.contains(asyncRegistration.getId()));
+        }
+    }
+
+    @Test
     public void testDeleteDebugReport() {
         SQLiteDatabase db = MeasurementDbHelper.getInstance(sContext).safeGetWritableDatabase();
         DebugReport debugReport = createDebugReport();
@@ -3805,6 +4101,237 @@ public class MeasurementDaoTest {
                                         assertEquals(
                                                 List.of(debugReport.getId()),
                                                 measurementDao.getDebugReportIds())));
+    }
+
+    @Test
+    public void deleteExpiredRecords_registrationRedirectCount() {
+        SQLiteDatabase db = MeasurementDbHelper.getInstance(sContext).safeGetWritableDatabase();
+        List<Pair<String, String>> regIdCounts =
+                List.of(
+                        new Pair<>("reg1", "1"),
+                        new Pair<>("reg2", "2"),
+                        new Pair<>("reg3", "3"),
+                        new Pair<>("reg4", "4"));
+        for (Pair<String, String> regIdCount : regIdCounts) {
+            ContentValues contentValues = new ContentValues();
+            contentValues.put(
+                    MeasurementTables.KeyValueDataContract.DATA_TYPE,
+                    KeyValueData.DataType.REGISTRATION_REDIRECT_COUNT.toString());
+            contentValues.put(MeasurementTables.KeyValueDataContract.KEY, regIdCount.first);
+            contentValues.put(MeasurementTables.KeyValueDataContract.VALUE, regIdCount.second);
+            db.insert(MeasurementTables.KeyValueDataContract.TABLE, null, contentValues);
+        }
+        DatastoreManager datastoreManager = DatastoreManagerFactory.getDatastoreManager(sContext);
+
+        AsyncRegistration asyncRegistration1 =
+                AsyncRegistrationFixture.getValidAsyncRegistrationBuilder()
+                        .setRegistrationId("reg1")
+                        .setRequestTime(System.currentTimeMillis() + 60000) // Avoid deletion
+                        .build();
+        AsyncRegistration asyncRegistration2 =
+                AsyncRegistrationFixture.getValidAsyncRegistrationBuilder()
+                        .setRegistrationId("reg2")
+                        .setRequestTime(System.currentTimeMillis() + 60000) // Avoid deletion
+                        .build();
+        List<AsyncRegistration> asyncRegistrations =
+                List.of(asyncRegistration1, asyncRegistration2);
+        asyncRegistrations.forEach(
+                asyncRegistration ->
+                        datastoreManager.runInTransaction(
+                                dao -> dao.insertAsyncRegistration(asyncRegistration)));
+
+        assertTrue(datastoreManager.runInTransaction((dao) -> dao.deleteExpiredRecords(60000)));
+
+        Cursor cursor =
+                db.query(
+                        MeasurementTables.KeyValueDataContract.TABLE,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        MeasurementTables.KeyValueDataContract.KEY);
+        assertEquals(2, cursor.getCount());
+        cursor.moveToNext();
+        assertEquals(
+                KeyValueData.DataType.REGISTRATION_REDIRECT_COUNT.toString(),
+                cursor.getString(
+                        cursor.getColumnIndex(MeasurementTables.KeyValueDataContract.DATA_TYPE)));
+        assertEquals(
+                "reg1",
+                cursor.getString(
+                        cursor.getColumnIndex(MeasurementTables.KeyValueDataContract.KEY)));
+        assertEquals(
+                "1",
+                cursor.getString(
+                        cursor.getColumnIndex(MeasurementTables.KeyValueDataContract.VALUE)));
+        cursor.moveToNext();
+        assertEquals(
+                KeyValueData.DataType.REGISTRATION_REDIRECT_COUNT.toString(),
+                cursor.getString(
+                        cursor.getColumnIndex(MeasurementTables.KeyValueDataContract.DATA_TYPE)));
+        assertEquals(
+                "reg2",
+                cursor.getString(
+                        cursor.getColumnIndex(MeasurementTables.KeyValueDataContract.KEY)));
+        assertEquals(
+                "2",
+                cursor.getString(
+                        cursor.getColumnIndex(MeasurementTables.KeyValueDataContract.VALUE)));
+        cursor.close();
+    }
+
+    @Test
+    public void getRegistrationRedirectCount_keyMissing() {
+        Optional<KeyValueData> optKeyValueData =
+                DatastoreManagerFactory.getDatastoreManager(sContext)
+                        .runInTransactionWithResult(
+                                (dao) ->
+                                        dao.getKeyValueData(
+                                                "missing_random_id",
+                                                DataType.REGISTRATION_REDIRECT_COUNT));
+        assertTrue(optKeyValueData.isPresent());
+        KeyValueData keyValueData = optKeyValueData.get();
+        assertEquals(KeyValueData.DataType.REGISTRATION_REDIRECT_COUNT, keyValueData.getDataType());
+        assertEquals("missing_random_id", keyValueData.getKey());
+        assertNull(keyValueData.getValue());
+        assertEquals(1, keyValueData.getRegistrationRedirectCount());
+    }
+
+    @Test
+    public void getRegistrationRedirectCount_keyExists() {
+        SQLiteDatabase db = MeasurementDbHelper.getInstance(sContext).safeGetWritableDatabase();
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(
+                MeasurementTables.KeyValueDataContract.DATA_TYPE,
+                KeyValueData.DataType.REGISTRATION_REDIRECT_COUNT.toString());
+        contentValues.put(MeasurementTables.KeyValueDataContract.KEY, "random_id");
+        contentValues.put(MeasurementTables.KeyValueDataContract.VALUE, "2");
+        db.insert(MeasurementTables.KeyValueDataContract.TABLE, null, contentValues);
+        Optional<KeyValueData> optKeyValueData =
+                DatastoreManagerFactory.getDatastoreManager(sContext)
+                        .runInTransactionWithResult(
+                                (dao) ->
+                                        dao.getKeyValueData(
+                                                "random_id",
+                                                KeyValueData.DataType.REGISTRATION_REDIRECT_COUNT));
+        assertTrue(optKeyValueData.isPresent());
+        KeyValueData keyValueData = optKeyValueData.get();
+        assertEquals(KeyValueData.DataType.REGISTRATION_REDIRECT_COUNT, keyValueData.getDataType());
+        assertEquals("random_id", keyValueData.getKey());
+        assertEquals("2", keyValueData.getValue());
+        assertEquals(2, keyValueData.getRegistrationRedirectCount());
+    }
+
+    @Test
+    public void updateRegistrationRedirectCount_keyMissing() {
+        KeyValueData keyValueData =
+                new KeyValueData.Builder()
+                        .setDataType(KeyValueData.DataType.REGISTRATION_REDIRECT_COUNT)
+                        .setKey("key_1")
+                        .setValue("4")
+                        .build();
+        DatastoreManagerFactory.getDatastoreManager(sContext)
+                .runInTransaction((dao) -> dao.insertOrUpdateKeyValueData(keyValueData));
+        SQLiteDatabase db = MeasurementDbHelper.getInstance(sContext).safeGetWritableDatabase();
+        Cursor cursor =
+                db.query(
+                        MeasurementTables.KeyValueDataContract.TABLE,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null);
+        assertEquals(1, cursor.getCount());
+        cursor.moveToNext();
+        assertEquals(
+                KeyValueData.DataType.REGISTRATION_REDIRECT_COUNT.toString(),
+                cursor.getString(
+                        cursor.getColumnIndex(MeasurementTables.KeyValueDataContract.DATA_TYPE)));
+        assertEquals(
+                "key_1",
+                cursor.getString(
+                        cursor.getColumnIndex(MeasurementTables.KeyValueDataContract.KEY)));
+        assertEquals(
+                "4",
+                cursor.getString(
+                        cursor.getColumnIndex(MeasurementTables.KeyValueDataContract.VALUE)));
+        cursor.close();
+    }
+
+    @Test
+    public void updateRegistrationRedirectCount_keyExists() {
+        SQLiteDatabase db = MeasurementDbHelper.getInstance(sContext).safeGetWritableDatabase();
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(
+                MeasurementTables.KeyValueDataContract.DATA_TYPE,
+                KeyValueData.DataType.REGISTRATION_REDIRECT_COUNT.toString());
+        contentValues.put(MeasurementTables.KeyValueDataContract.KEY, "key_1");
+        contentValues.put(MeasurementTables.KeyValueDataContract.VALUE, "2");
+        db.insert(MeasurementTables.KeyValueDataContract.TABLE, null, contentValues);
+
+        KeyValueData keyValueData =
+                new KeyValueData.Builder()
+                        .setDataType(KeyValueData.DataType.REGISTRATION_REDIRECT_COUNT)
+                        .setKey("key_1")
+                        .setValue("4")
+                        .build();
+        DatastoreManagerFactory.getDatastoreManager(sContext)
+                .runInTransaction((dao) -> dao.insertOrUpdateKeyValueData(keyValueData));
+
+        Cursor cursor =
+                db.query(
+                        MeasurementTables.KeyValueDataContract.TABLE,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null);
+        assertEquals(1, cursor.getCount());
+        cursor.moveToNext();
+        assertEquals(
+                KeyValueData.DataType.REGISTRATION_REDIRECT_COUNT.toString(),
+                cursor.getString(
+                        cursor.getColumnIndex(MeasurementTables.KeyValueDataContract.DATA_TYPE)));
+        assertEquals(
+                "key_1",
+                cursor.getString(
+                        cursor.getColumnIndex(MeasurementTables.KeyValueDataContract.KEY)));
+        assertEquals(
+                "4",
+                cursor.getString(
+                        cursor.getColumnIndex(MeasurementTables.KeyValueDataContract.VALUE)));
+        cursor.close();
+    }
+
+    @Test
+    public void keyValueDataTable_PrimaryKeyConstraint() {
+        SQLiteDatabase db = MeasurementDbHelper.getInstance(sContext).safeGetWritableDatabase();
+        ContentValues contentValues1 = new ContentValues();
+        contentValues1.put(
+                MeasurementTables.KeyValueDataContract.DATA_TYPE,
+                KeyValueData.DataType.REGISTRATION_REDIRECT_COUNT.toString());
+        contentValues1.put(MeasurementTables.KeyValueDataContract.KEY, "key_1");
+        contentValues1.put(MeasurementTables.KeyValueDataContract.VALUE, "2");
+
+        assertNotEquals(
+                -1, db.insert(MeasurementTables.KeyValueDataContract.TABLE, null, contentValues1));
+
+        // Should fail because we are using <DataType, Key> as primary key
+        assertEquals(
+                -1, db.insert(MeasurementTables.KeyValueDataContract.TABLE, null, contentValues1));
+
+        ContentValues contentValues2 = new ContentValues();
+        contentValues2.put(
+                MeasurementTables.KeyValueDataContract.DATA_TYPE,
+                KeyValueData.DataType.REGISTRATION_REDIRECT_COUNT.toString());
+        contentValues2.put(MeasurementTables.KeyValueDataContract.KEY, "key_2");
+        contentValues2.put(MeasurementTables.KeyValueDataContract.VALUE, "2");
+
+        assertNotEquals(
+                -1, db.insert(MeasurementTables.KeyValueDataContract.TABLE, null, contentValues2));
     }
 
     private static Source getSourceWithDifferentDestinations(
@@ -4078,9 +4605,6 @@ public class MeasurementDaoTest {
             assertNotNull(asyncRegistration);
             assertNotNull(asyncRegistration.getId());
             assertEquals(asyncRegistration.getId(), validAsyncRegistration.getId());
-            assertNotNull(asyncRegistration.getEnrollmentId());
-            assertEquals(
-                    asyncRegistration.getEnrollmentId(), validAsyncRegistration.getEnrollmentId());
             assertNotNull(asyncRegistration.getRegistrationUri());
             assertNotNull(asyncRegistration.getTopOrigin());
             assertEquals(asyncRegistration.getTopOrigin(), validAsyncRegistration.getTopOrigin());
@@ -4101,15 +4625,6 @@ public class MeasurementDaoTest {
             assertEquals(
                     asyncRegistration.getOsDestination(),
                     validAsyncRegistration.getOsDestination());
-            assertNotNull(asyncRegistration.getLastProcessingTime());
-            assertEquals(
-                    asyncRegistration.getLastProcessingTime(),
-                    validAsyncRegistration.getLastProcessingTime());
-            assertEquals(
-                    asyncRegistration.getRedirectType(), validAsyncRegistration.getRedirectType());
-            assertEquals(
-                    asyncRegistration.getRedirectCount(),
-                    validAsyncRegistration.getRedirectCount());
             assertNotNull(asyncRegistration.getRegistrationUri());
             assertEquals(
                     asyncRegistration.getRegistrationUri(),
@@ -4134,7 +4649,7 @@ public class MeasurementDaoTest {
                         (dao) -> {
                             AsyncRegistration fetchedAsyncRegistration =
                                     dao.fetchNextQueuedAsyncRegistration(
-                                            (short) 1, new ArrayList<>());
+                                            (short) 1, new HashSet<>());
                             assertNotNull(fetchedAsyncRegistration);
                             assertEquals(fetchedAsyncRegistration.getId(), asyncRegistrationId);
                             fetchedAsyncRegistration.incrementRetryCount();
@@ -4146,49 +4661,56 @@ public class MeasurementDaoTest {
                         (dao) -> {
                             AsyncRegistration fetchedAsyncRegistration =
                                     dao.fetchNextQueuedAsyncRegistration(
-                                            (short) 1, new ArrayList<>());
+                                            (short) 1, new HashSet<>());
                             assertNull(fetchedAsyncRegistration);
                         });
     }
 
     /** Test that records in AsyncRegistration queue are fetched properly. */
     @Test
-    public void testFetchNextQueuedAsyncRegistration_excludeByEnrollmentId() {
-        AsyncRegistration firstAsyncRegistration =
-                AsyncRegistrationFixture.getValidAsyncRegistration();
-        AsyncRegistration secondAsyncRegistration =
-                AsyncRegistrationFixture.getValidAsyncRegistration();
-        String firstAsyncRegistrationEnrollmentId = firstAsyncRegistration.getEnrollmentId();
-        String secondAsyncRegistrationEnrollmentId = secondAsyncRegistration.getEnrollmentId();
+    public void testFetchNextQueuedAsyncRegistration_excludeByOrigin() {
+        Uri origin1 = Uri.parse("https://adtech1.test");
+        Uri origin2 = Uri.parse("https://adtech2.test");
+        Uri regUri1 = origin1.buildUpon().appendPath("/hello").build();
+        Uri regUri2 = origin2;
+        AsyncRegistration asyncRegistration1 =
+                AsyncRegistrationFixture.getValidAsyncRegistrationBuilder()
+                        .setRegistrationUri(regUri1)
+                        .build();
+        AsyncRegistration asyncRegistration2 =
+                AsyncRegistrationFixture.getValidAsyncRegistrationBuilder()
+                        .setRegistrationUri(regUri2)
+                        .build();
 
-        DatastoreManagerFactory.getDatastoreManager(sContext)
-                .runInTransaction((dao) -> dao.insertAsyncRegistration(firstAsyncRegistration));
-        DatastoreManagerFactory.getDatastoreManager(sContext)
-                .runInTransaction((dao) -> dao.insertAsyncRegistration(secondAsyncRegistration));
-        DatastoreManagerFactory.getDatastoreManager(sContext)
-                .runInTransaction(
-                        (dao) -> {
-                            ArrayList<String> excludedEnrollmentIds = new ArrayList<>();
-                            excludedEnrollmentIds.add(firstAsyncRegistrationEnrollmentId);
-                            AsyncRegistration fetchedAsyncRegistration =
-                                    dao.fetchNextQueuedAsyncRegistration(
-                                            (short) 1, excludedEnrollmentIds);
-                            assertNotNull(fetchedAsyncRegistration);
-                            assertEquals(
-                                    fetchedAsyncRegistration.getEnrollmentId(),
-                                    secondAsyncRegistrationEnrollmentId);
-                        });
-        DatastoreManagerFactory.getDatastoreManager(sContext)
-                .runInTransaction(
-                        (dao) -> {
-                            ArrayList<String> excludedEnrollmentIds = new ArrayList<>();
-                            excludedEnrollmentIds.add(firstAsyncRegistrationEnrollmentId);
-                            excludedEnrollmentIds.add(secondAsyncRegistrationEnrollmentId);
-                            AsyncRegistration fetchedAsyncRegistration =
-                                    dao.fetchNextQueuedAsyncRegistration(
-                                            (short) 1, excludedEnrollmentIds);
-                            assertNull(fetchedAsyncRegistration);
-                        });
+        DatastoreManager datastoreManager = DatastoreManagerFactory.getDatastoreManager(sContext);
+
+        datastoreManager.runInTransaction(
+                (dao) -> {
+                    dao.insertAsyncRegistration(asyncRegistration1);
+                    dao.insertAsyncRegistration(asyncRegistration2);
+                });
+        // Should fetch none
+        Set<Uri> excludedOrigins1 = Set.of(origin1, origin2);
+        Optional<AsyncRegistration> optAsyncRegistration =
+                datastoreManager.runInTransactionWithResult(
+                        (dao) -> dao.fetchNextQueuedAsyncRegistration((short) 4, excludedOrigins1));
+        assertTrue(optAsyncRegistration.isEmpty());
+
+        // Should fetch only origin1
+        Set<Uri> excludedOrigins2 = Set.of(origin2);
+        optAsyncRegistration =
+                datastoreManager.runInTransactionWithResult(
+                        (dao) -> dao.fetchNextQueuedAsyncRegistration((short) 4, excludedOrigins2));
+        assertTrue(optAsyncRegistration.isPresent());
+        assertEquals(regUri1, optAsyncRegistration.get().getRegistrationUri());
+
+        // Should fetch only origin2
+        Set<Uri> excludedOrigins3 = Set.of(origin1);
+        optAsyncRegistration =
+                datastoreManager.runInTransactionWithResult(
+                        (dao) -> dao.fetchNextQueuedAsyncRegistration((short) 4, excludedOrigins3));
+        assertTrue(optAsyncRegistration.isPresent());
+        assertEquals(regUri2, optAsyncRegistration.get().getRegistrationUri());
     }
 
     /** Test that AsyncRegistration is deleted correctly. */
@@ -4244,6 +4766,100 @@ public class MeasurementDaoTest {
                                         /* orderedBy */ null)
                                 .getCount())
                 .isEqualTo(0);
+    }
+
+    @Test
+    public void testDeleteAsyncRegistrationsProvidedRegistrant() {
+        SQLiteDatabase db = MeasurementDbHelper.getInstance(sContext).safeGetWritableDatabase();
+        AsyncRegistration ar1 =
+                new AsyncRegistration.Builder()
+                        .setId("1")
+                        .setRegistrant(Uri.parse("android-app://installed-registrant1"))
+                        .setTopOrigin(Uri.parse("android-app://installed-registrant1"))
+                        .setAdIdPermission(false)
+                        .setType(AsyncRegistration.RegistrationType.APP_SOURCE)
+                        .setRequestTime(1)
+                        .setRegistrationId(ValidAsyncRegistrationParams.REGISTRATION_ID)
+                        .build();
+
+        AsyncRegistration ar2 =
+                new AsyncRegistration.Builder()
+                        .setId("2")
+                        .setRegistrant(Uri.parse("android-app://installed-registrant2"))
+                        .setTopOrigin(Uri.parse("android-app://installed-registrant2"))
+                        .setAdIdPermission(false)
+                        .setType(AsyncRegistration.RegistrationType.APP_SOURCE)
+                        .setRequestTime(Long.MAX_VALUE)
+                        .setRegistrationId(ValidAsyncRegistrationParams.REGISTRATION_ID)
+                        .build();
+
+        AsyncRegistration ar3 =
+                new AsyncRegistration.Builder()
+                        .setId("3")
+                        .setRegistrant(Uri.parse("android-app://installed-registrant3"))
+                        .setTopOrigin(Uri.parse("android-app://installed-registrant3"))
+                        .setAdIdPermission(false)
+                        .setType(AsyncRegistration.RegistrationType.APP_SOURCE)
+                        .setRequestTime(Long.MAX_VALUE)
+                        .setRegistrationId(ValidAsyncRegistrationParams.REGISTRATION_ID)
+                        .build();
+
+        List<AsyncRegistration> asyncRegistrationList = List.of(ar1, ar2, ar3);
+        asyncRegistrationList.forEach(
+                asyncRegistration -> {
+                    ContentValues values = new ContentValues();
+                    values.put(AsyncRegistrationContract.ID, asyncRegistration.getId());
+                    values.put(
+                            AsyncRegistrationContract.REQUEST_TIME,
+                            asyncRegistration.getRequestTime());
+                    values.put(
+                            AsyncRegistrationContract.REGISTRANT,
+                            asyncRegistration.getRegistrant().toString());
+                    values.put(
+                            AsyncRegistrationContract.TOP_ORIGIN,
+                            asyncRegistration.getTopOrigin().toString());
+                    values.put(
+                            AsyncRegistrationContract.REGISTRATION_ID,
+                            asyncRegistration.getRegistrationId());
+                    db.insert(AsyncRegistrationContract.TABLE, /* nullColumnHack */ null, values);
+                });
+
+        DatastoreManagerFactory.getDatastoreManager(sContext)
+                .runInTransaction(
+                        (dao) -> {
+                            dao.deleteAsyncRegistrationsProvidedRegistrant(
+                                    "android-app://installed-registrant1");
+                            dao.deleteAsyncRegistrationsProvidedRegistrant(
+                                    "android-app://installed-registrant2");
+                        });
+
+        assertThat(
+                        db.query(
+                                        /* table */ MeasurementTables.AsyncRegistrationContract
+                                                .TABLE,
+                                        /* columns */ null,
+                                        /* selection */ null,
+                                        /* selectionArgs */ null,
+                                        /* groupBy */ null,
+                                        /* having */ null,
+                                        /* orderedBy */ null)
+                                .getCount())
+                .isEqualTo(1);
+
+        assertThat(
+                        db.query(
+                                        /* table */ MeasurementTables.AsyncRegistrationContract
+                                                .TABLE,
+                                        /* columns */ null,
+                                        /* selection */ MeasurementTables.AsyncRegistrationContract
+                                                        .ID
+                                                + " = ? ",
+                                        /* selectionArgs */ new String[] {"3"},
+                                        /* groupBy */ null,
+                                        /* having */ null,
+                                        /* orderedBy */ null)
+                                .getCount())
+                .isEqualTo(1);
     }
 
     /** Test that retry count in AsyncRegistration is updated correctly. */
