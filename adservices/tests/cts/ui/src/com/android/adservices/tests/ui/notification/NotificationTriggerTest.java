@@ -15,8 +15,6 @@
  */
 package com.android.adservices.tests.ui.notification;
 
-import static android.Manifest.permission.POST_NOTIFICATIONS;
-
 import static com.android.adservices.tests.ui.libs.UiConstants.AD_ID_DISABLED;
 import static com.android.adservices.tests.ui.libs.UiConstants.AD_ID_ENABLED;
 import static com.android.adservices.tests.ui.libs.UiConstants.ENTRY_POINT_DISABLED;
@@ -25,6 +23,7 @@ import static com.android.adservices.tests.ui.libs.UiConstants.ENTRY_POINT_ENABL
 import android.adservices.common.AdServicesCommonManager;
 import android.content.Context;
 
+import androidx.test.filters.FlakyTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 import androidx.test.uiautomator.UiDevice;
@@ -44,6 +43,7 @@ import org.junit.runner.RunWith;
 public class NotificationTriggerTest {
 
     private AdServicesCommonManager mCommonManager;
+
     private UiDevice mDevice;
 
     private static final Context sContext =
@@ -58,9 +58,7 @@ public class NotificationTriggerTest {
 
         // TO-DO (b/271567864): grant the permission in our apk code and remove this in the future.
         // Grant runtime permission to the AOSP adservices app.
-        InstrumentationRegistry.getInstrumentation()
-                .getUiAutomation()
-                .grantRuntimePermission("com.android.adservices.api", POST_NOTIFICATIONS);
+        UiUtils.enableNotificationPermission();
 
         mCommonManager = AdServicesCommonManager.get(sContext);
 
@@ -81,6 +79,7 @@ public class NotificationTriggerTest {
 
     /** Verify no notification is displayed when the entry point is disabled for EU devices. */
     @Test
+    @FlakyTest(bugId = 272946901)
     public void testBetaEuEntryPointDisabled() throws Exception {
         UiUtils.setAsEuDevice();
         UiUtils.enableBeta();
@@ -93,6 +92,7 @@ public class NotificationTriggerTest {
 
     /** Verify no notification is displayed when the entry point is disabled for ROW devices. */
     @Test
+    @FlakyTest(bugId = 272946901)
     public void testBetaRowEntryPointDisabled() throws Exception {
         UiUtils.setAsRowDevice();
         UiUtils.enableBeta();
@@ -105,6 +105,7 @@ public class NotificationTriggerTest {
 
     /** Verify that for EU devices with zeroed-out AdId, the EU notification is displayed. */
     @Test
+    @FlakyTest(bugId = 272946901)
     public void testBetaEuAdIdDisabled() throws Exception {
         UiUtils.setAsEuDevice();
         UiUtils.enableBeta();
@@ -117,6 +118,7 @@ public class NotificationTriggerTest {
 
     /** Verify that for ROW devices with zeroed-out AdId, the EU notification is displayed. */
     @Test
+    @FlakyTest(bugId = 272946901)
     public void testBetaRowAdIdDisabled() throws Exception {
         UiUtils.setAsRowDevice();
         UiUtils.enableBeta();
@@ -129,6 +131,7 @@ public class NotificationTriggerTest {
 
     /** Verify that for EU devices with non zeroed-out AdId, the EU notification is displayed. */
     @Test
+    @FlakyTest(bugId = 272946901)
     public void testBetaEuAdIdEnabled() throws Exception {
         UiUtils.setAsEuDevice();
         UiUtils.enableBeta();
@@ -141,6 +144,7 @@ public class NotificationTriggerTest {
 
     /** Verify that for ROW devices with non zeroed-out AdId, the ROW notification is displayed. */
     @Test
+    @FlakyTest(bugId = 272946901)
     public void testBetaRowAdIdEnabled() throws Exception {
         UiUtils.setAsRowDevice();
         UiUtils.enableBeta();
@@ -156,6 +160,7 @@ public class NotificationTriggerTest {
      * displayed.
      */
     @Test
+    @FlakyTest(bugId = 272946901)
     public void testGaRowAdIdEnabled() throws Exception {
         UiUtils.setAsRowDevice();
         UiUtils.enableGa();
@@ -170,6 +175,7 @@ public class NotificationTriggerTest {
      * Verify that for GA, ROW devices with zeroed-out AdId, the GA EU notification is displayed.
      */
     @Test
+    @FlakyTest(bugId = 272946901)
     public void testGaRowAdIdDisabled() throws Exception {
         UiUtils.setAsRowDevice();
         UiUtils.enableGa();
@@ -184,6 +190,7 @@ public class NotificationTriggerTest {
      * Verify that for GA, EU devices with non zeroed-out AdId, the GA EU notification is displayed.
      */
     @Test
+    @FlakyTest(bugId = 272946901)
     public void testGaEuAdIdEnabled() throws Exception {
         UiUtils.setAsEuDevice();
         UiUtils.enableGa();
@@ -196,6 +203,7 @@ public class NotificationTriggerTest {
 
     /** Verify that for GA, EU devices with zeroed-out AdId, the EU notification is displayed. */
     @Test
+    @FlakyTest(bugId = 272946901)
     public void testGaEuAdIdDisabled() throws Exception {
         UiUtils.setAsEuDevice();
         UiUtils.enableGa();

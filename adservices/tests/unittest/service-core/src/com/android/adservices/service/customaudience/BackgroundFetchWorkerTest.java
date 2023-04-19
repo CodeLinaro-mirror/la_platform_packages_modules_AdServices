@@ -39,11 +39,12 @@ import android.content.pm.PackageManager;
 import androidx.room.Room;
 import androidx.test.core.app.ApplicationProvider;
 
-import com.android.adservices.LogUtil;
+import com.android.adservices.LoggerFactory;
 import com.android.adservices.concurrency.AdServicesExecutors;
 import com.android.adservices.customaudience.DBCustomAudienceBackgroundFetchDataFixture;
 import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.customaudience.CustomAudienceDatabase;
+import com.android.adservices.data.customaudience.DBCustomAudience;
 import com.android.adservices.data.customaudience.DBCustomAudienceBackgroundFetchData;
 import com.android.adservices.data.enrollment.EnrollmentDao;
 import com.android.adservices.service.Flags;
@@ -74,6 +75,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class BackgroundFetchWorkerTest {
+    private static final LoggerFactory.Logger sLogger = LoggerFactory.getFledgeLogger();
     private static final Context CONTEXT = ApplicationProvider.getApplicationContext();
 
     private final Flags mFlags =
@@ -100,6 +102,7 @@ public class BackgroundFetchWorkerTest {
         mCustomAudienceDaoSpy =
                 Mockito.spy(
                         Room.inMemoryDatabaseBuilder(CONTEXT, CustomAudienceDatabase.class)
+                                .addTypeConverter(new DBCustomAudience.Converters(true))
                                 .build()
                                 .customAudienceDao());
 
@@ -341,7 +344,7 @@ public class BackgroundFetchWorkerTest {
                     try {
                         mBackgroundFetchWorker.runBackgroundFetch().get();
                     } catch (Exception exception) {
-                        LogUtil.e(
+                        sLogger.e(
                                 exception, "Exception encountered while running background fetch");
                     } finally {
                         bgfWorkStoppedLatch.countDown();
@@ -502,7 +505,7 @@ public class BackgroundFetchWorkerTest {
                     try {
                         mBackgroundFetchWorker.runBackgroundFetch().get();
                     } catch (Exception exception) {
-                        LogUtil.e(
+                        sLogger.e(
                                 exception, "Exception encountered while running background fetch");
                     } finally {
                         bgfWorkStoppedLatch.countDown();
