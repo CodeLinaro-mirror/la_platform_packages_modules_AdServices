@@ -29,8 +29,6 @@ import androidx.annotation.RequiresApi;
 
 import com.android.adservices.LogUtil;
 import com.android.adservices.concurrency.AdServicesExecutors;
-import com.android.adservices.data.adselection.AdSelectionDatabase;
-import com.android.adservices.data.adselection.AdSelectionEntryDao;
 import com.android.adservices.data.adselection.AppInstallDao;
 import com.android.adservices.data.adselection.SharedStorageDatabase;
 import com.android.adservices.data.common.BooleanFileDatastore;
@@ -42,7 +40,7 @@ import com.android.adservices.data.topics.Topic;
 import com.android.adservices.data.topics.TopicsTables;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
-import com.android.adservices.service.appsearch.AppSearchConsentService;
+import com.android.adservices.service.appsearch.AppSearchConsentManager;
 import com.android.adservices.service.common.BackgroundJobsManager;
 import com.android.adservices.service.common.feature.PrivacySandboxFeatureType;
 import com.android.adservices.service.measurement.MeasurementImpl;
@@ -50,6 +48,7 @@ import com.android.adservices.service.stats.UiStatsLogger;
 import com.android.adservices.service.topics.TopicsWorker;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Preconditions;
+import com.android.modules.utils.build.SdkLevel;
 
 import com.google.common.collect.ImmutableList;
 
@@ -97,11 +96,10 @@ public class ConsentManager {
     private final EnrollmentDao mEnrollmentDao;
     private final MeasurementImpl mMeasurementImpl;
     private final CustomAudienceDao mCustomAudienceDao;
-    private final AdSelectionEntryDao mAdSelectionEntryDao;
     private final AppInstallDao mAppInstallDao;
     private final AdServicesManager mAdServicesManager;
     private final int mConsentSourceOfTruth;
-    private final AppSearchConsentService mAppSearchConsentService;
+    private final AppSearchConsentManager mAppSearchConsentManager;
 
     private static final Object LOCK = new Object();
 
@@ -112,11 +110,10 @@ public class ConsentManager {
             @NonNull EnrollmentDao enrollmentDao,
             @NonNull MeasurementImpl measurementImpl,
             @NonNull CustomAudienceDao customAudienceDao,
-            @NonNull AdSelectionEntryDao adSelectionEntryDao,
             @NonNull AppInstallDao appInstallDao,
             @NonNull AdServicesManager adServicesManager,
             @NonNull BooleanFileDatastore booleanFileDatastore,
-            @NonNull AppSearchConsentService appSearchConsentService,
+            @NonNull AppSearchConsentManager appSearchConsentManager,
             @NonNull Flags flags,
             @Flags.ConsentSourceOfTruth int consentSourceOfTruth) {
         Objects.requireNonNull(context);
@@ -124,7 +121,6 @@ public class ConsentManager {
         Objects.requireNonNull(appConsentDao);
         Objects.requireNonNull(measurementImpl);
         Objects.requireNonNull(customAudienceDao);
-        Objects.requireNonNull(adSelectionEntryDao);
         Objects.requireNonNull(appInstallDao);
         Objects.requireNonNull(booleanFileDatastore);
 
@@ -134,7 +130,7 @@ public class ConsentManager {
         }
 
         if (flags.getEnableAppsearchConsentData()) {
-            Objects.requireNonNull(appSearchConsentService);
+            Objects.requireNonNull(appSearchConsentManager);
         }
 
         mContext = context;
@@ -145,10 +141,9 @@ public class ConsentManager {
         mEnrollmentDao = enrollmentDao;
         mMeasurementImpl = measurementImpl;
         mCustomAudienceDao = customAudienceDao;
-        mAdSelectionEntryDao = adSelectionEntryDao;
         mAppInstallDao = appInstallDao;
 
-        mAppSearchConsentService = appSearchConsentService;
+        mAppSearchConsentManager = appSearchConsentManager;
         mFlags = flags;
         mConsentSourceOfTruth = consentSourceOfTruth;
     }
@@ -169,23 +164,33 @@ public class ConsentManager {
                 int consentSourceOfTruth = FlagsFactory.getFlags().getConsentSourceOfTruth();
                 BooleanFileDatastore datastore = createAndInitializeDataStore(context);
                 AdServicesManager adServicesManager = AdServicesManager.getInstance(context);
+                AppConsentDao appConsentDao = AppConsentDao.getInstance(context);
                 handleConsentMigrationIfNeeded(
                         context, datastore, adServicesManager, consentSourceOfTruth);
 
+                AppSearchConsentManager appSearchConsentManager = null;
+                if (FlagsFactory.getFlags().getEnableAppsearchConsentData()) {
+                    appSearchConsentManager = AppSearchConsentManager.getInstance(context);
+                    handleConsentMigrationFromAppSearchIfNeeded(
+                            context,
+                            datastore,
+                            appConsentDao,
+                            appSearchConsentManager,
+                            adServicesManager);
+                }
                 if (sConsentManager == null) {
                     sConsentManager =
                             new ConsentManager(
                                     context,
                                     TopicsWorker.getInstance(context),
-                                    AppConsentDao.getInstance(context),
+                                    appConsentDao,
                                     EnrollmentDao.getInstance(context),
                                     MeasurementImpl.getInstance(context),
                                     CustomAudienceDatabase.getInstance(context).customAudienceDao(),
-                                    AdSelectionDatabase.getInstance(context).adSelectionEntryDao(),
                                     SharedStorageDatabase.getInstance(context).appInstallDao(),
                                     adServicesManager,
                                     datastore,
-                                    AppSearchConsentService.getInstance(context),
+                                    appSearchConsentManager,
                                     // TODO(b/260601944): Remove Flag Instance.
                                     FlagsFactory.getFlags(),
                                     consentSourceOfTruth);
@@ -339,8 +344,11 @@ public class ConsentManager {
                         // This is the default for back compat. All consent data is written to and
                         // read from AppSearch on S- devices.
                     case Flags.APPSEARCH_ONLY:
-                        return AdServicesApiConsent.getConsent(
-                                mAppSearchConsentService.getConsent(ConsentConstants.CONSENT_KEY));
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            return AdServicesApiConsent.getConsent(
+                                    mAppSearchConsentManager.getConsent(
+                                            ConsentConstants.CONSENT_KEY));
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                         return AdServicesApiConsent.REVOKED;
@@ -382,8 +390,11 @@ public class ConsentManager {
                                 mAdServicesManager.getConsent(apiType.toConsentApiType());
                         return AdServicesApiConsent.getConsent(consentParcel.isIsGiven());
                     case Flags.APPSEARCH_ONLY:
-                        return AdServicesApiConsent.getConsent(
-                                mAppSearchConsentService.getConsent(apiType.toPpApiDatastoreKey()));
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            return AdServicesApiConsent.getConsent(
+                                    mAppSearchConsentManager.getConsent(
+                                            apiType.toPpApiDatastoreKey()));
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                         return AdServicesApiConsent.REVOKED;
@@ -482,6 +493,9 @@ public class ConsentManager {
                                         .map(App::create)
                                         .collect(Collectors.toList()));
                     case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            return mAppSearchConsentManager.getKnownAppsWithConsent();
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                         return ImmutableList.of();
@@ -523,6 +537,9 @@ public class ConsentManager {
                                         .map(App::create)
                                         .collect(Collectors.toList()));
                     case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            return mAppSearchConsentManager.getAppsWithRevokedConsent();
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                         return ImmutableList.of();
@@ -563,6 +580,10 @@ public class ConsentManager {
                                 true);
                         break;
                     case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.revokeConsentForApp(app);
+                            break;
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                 }
@@ -572,12 +593,6 @@ public class ConsentManager {
         }
         asyncExecute(
                 () -> mCustomAudienceDao.deleteCustomAudienceDataByOwner(app.getPackageName()));
-        if (mFlags.getFledgePerAppConsentEnabled()) {
-            asyncExecute(
-                    () ->
-                            mAdSelectionEntryDao.removeAdSelectionDataByPackageName(
-                                    app.getPackageName()));
-        }
         if (mFlags.getFledgeAdSelectionFilteringEnabled()) {
             asyncExecute(() -> mAppInstallDao.deleteByPackageName(app.getPackageName()));
         }
@@ -610,6 +625,10 @@ public class ConsentManager {
                                 false);
                         break;
                     case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.restoreConsentForApp(app);
+                            break;
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                 }
@@ -641,6 +660,10 @@ public class ConsentManager {
                         mAdServicesManager.clearAllAppConsentData();
                         break;
                     case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.clearAllAppConsentData();
+                            break;
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                 }
@@ -649,9 +672,6 @@ public class ConsentManager {
             }
         }
         asyncExecute(mCustomAudienceDao::deleteAllCustomAudienceData);
-        if (mFlags.getFledgePerAppConsentEnabled()) {
-            asyncExecute(mAdSelectionEntryDao::removeAllAdSelectionData);
-        }
         if (mFlags.getFledgeAdSelectionFilteringEnabled()) {
             asyncExecute(mAppInstallDao::deleteAllAppInstallData);
         }
@@ -679,6 +699,10 @@ public class ConsentManager {
                         mAdServicesManager.clearKnownAppsWithConsent();
                         break;
                     case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.clearKnownAppsWithConsent();
+                            break;
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                 }
@@ -687,9 +711,6 @@ public class ConsentManager {
             }
         }
         asyncExecute(mCustomAudienceDao::deleteAllCustomAudienceData);
-        if (mFlags.getFledgePerAppConsentEnabled()) {
-            asyncExecute(mAdSelectionEntryDao::removeAllAdSelectionData);
-        }
         if (mFlags.getFledgeAdSelectionFilteringEnabled()) {
             asyncExecute(mAppInstallDao::deleteAllAppInstallData);
         }
@@ -738,6 +759,9 @@ public class ConsentManager {
                     return mAdServicesManager.isConsentRevokedForApp(
                             packageName, mAppConsentDao.getUidForInstalledPackageName(packageName));
                 case Flags.APPSEARCH_ONLY:
+                    if (mFlags.getEnableAppsearchConsentData()) {
+                        return mAppSearchConsentManager.isFledgeConsentRevokedForApp(packageName);
+                    }
                 default:
                     LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                     return true;
@@ -801,6 +825,10 @@ public class ConsentManager {
                             mAppConsentDao.getUidForInstalledPackageName(packageName),
                             false);
                 case Flags.APPSEARCH_ONLY:
+                    if (mFlags.getEnableAppsearchConsentData()) {
+                        return mAppSearchConsentManager
+                                .isFledgeConsentRevokedForAppAfterSettingFledgeUse(packageName);
+                    }
                 default:
                     LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                     return true;
@@ -885,6 +913,12 @@ public class ConsentManager {
                         mAdServicesManager.clearConsentForUninstalledApp(packageName, packageUid);
                         break;
                     case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            // AppSearch is written only for S- where we don't have permission to
+                            // receive UID info when package is uninstalled, so clear for all.
+                            mAppSearchConsentManager.clearConsentForUninstalledApp(packageName);
+                            break;
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                 }
@@ -925,6 +959,11 @@ public class ConsentManager {
                                     packageName);
                         }
                         break;
+                    case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.clearConsentForUninstalledApp(packageName);
+                            break;
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                 }
@@ -968,7 +1007,10 @@ public class ConsentManager {
                         mAdServicesManager.recordNotificationDisplayed();
                         break;
                     case Flags.APPSEARCH_ONLY:
-                        break;
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.recordNotificationDisplayed();
+                            break;
+                        }
                     default:
                         throw new RuntimeException(
                                 ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
@@ -998,6 +1040,9 @@ public class ConsentManager {
                     case Flags.PPAPI_AND_SYSTEM_SERVER:
                         return mAdServicesManager.wasNotificationDisplayed();
                     case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            return mAppSearchConsentManager.wasNotificationDisplayed();
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                         return false;
@@ -1031,6 +1076,11 @@ public class ConsentManager {
                         mDatastore.put(ConsentConstants.GA_UX_NOTIFICATION_DISPLAYED_ONCE, true);
                         mAdServicesManager.recordGaUxNotificationDisplayed();
                         break;
+                    case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.recordGaUxNotificationDisplayed();
+                            break;
+                        }
                     default:
                         throw new RuntimeException(
                                 ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
@@ -1059,6 +1109,10 @@ public class ConsentManager {
                         // Intentional fallthrough
                     case Flags.PPAPI_AND_SYSTEM_SERVER:
                         return mAdServicesManager.wasGaUxNotificationDisplayed();
+                    case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            return mAppSearchConsentManager.wasGaUxNotificationDisplayed();
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                         return false;
@@ -1088,6 +1142,11 @@ public class ConsentManager {
                         // Intentional fallthrough
                     case Flags.PPAPI_AND_SYSTEM_SERVER:
                         return mAdServicesManager.getDefaultConsent();
+                    case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            return mAppSearchConsentManager.getConsent(
+                                    ConsentConstants.DEFAULT_CONSENT);
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                         return false;
@@ -1117,6 +1176,11 @@ public class ConsentManager {
                         // Intentional fallthrough
                     case Flags.PPAPI_AND_SYSTEM_SERVER:
                         return mAdServicesManager.getTopicsDefaultConsent();
+                    case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            return mAppSearchConsentManager.getConsent(
+                                    ConsentConstants.TOPICS_DEFAULT_CONSENT);
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                         return false;
@@ -1146,6 +1210,11 @@ public class ConsentManager {
                         // Intentional fallthrough
                     case Flags.PPAPI_AND_SYSTEM_SERVER:
                         return mAdServicesManager.getFledgeDefaultConsent();
+                    case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            return mAppSearchConsentManager.getConsent(
+                                    ConsentConstants.FLEDGE_DEFAULT_CONSENT);
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                         return false;
@@ -1175,6 +1244,9 @@ public class ConsentManager {
                         // Intentional fallthrough
                     case Flags.PPAPI_AND_SYSTEM_SERVER:
                         return mAdServicesManager.getMeasurementDefaultConsent();
+                    case Flags.APPSEARCH_ONLY:
+                        return mAppSearchConsentManager.getConsent(
+                                ConsentConstants.MEASUREMENT_DEFAULT_CONSENT);
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                         return false;
@@ -1204,6 +1276,11 @@ public class ConsentManager {
                         // Intentional fallthrough
                     case Flags.PPAPI_AND_SYSTEM_SERVER:
                         return mAdServicesManager.getDefaultAdIdState();
+                    case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            return mAppSearchConsentManager.getConsent(
+                                    ConsentConstants.DEFAULT_AD_ID_STATE);
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                         return false;
@@ -1235,6 +1312,12 @@ public class ConsentManager {
                         mDatastore.put(ConsentConstants.DEFAULT_CONSENT, defaultConsent);
                         mAdServicesManager.recordDefaultConsent(defaultConsent);
                         break;
+                    case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.setConsent(
+                                    ConsentConstants.DEFAULT_CONSENT, defaultConsent);
+                            break;
+                        }
                     default:
                         throw new RuntimeException(
                                 ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
@@ -1265,6 +1348,12 @@ public class ConsentManager {
                         mDatastore.put(ConsentConstants.TOPICS_DEFAULT_CONSENT, defaultConsent);
                         mAdServicesManager.recordTopicsDefaultConsent(defaultConsent);
                         break;
+                    case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.setConsent(
+                                    ConsentConstants.TOPICS_DEFAULT_CONSENT, defaultConsent);
+                            break;
+                        }
                     default:
                         throw new RuntimeException(
                                 ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
@@ -1295,6 +1384,12 @@ public class ConsentManager {
                         mDatastore.put(ConsentConstants.FLEDGE_DEFAULT_CONSENT, defaultConsent);
                         mAdServicesManager.recordFledgeDefaultConsent(defaultConsent);
                         break;
+                    case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.setConsent(
+                                    ConsentConstants.FLEDGE_DEFAULT_CONSENT, defaultConsent);
+                            break;
+                        }
                     default:
                         throw new RuntimeException(
                                 ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
@@ -1327,6 +1422,12 @@ public class ConsentManager {
                                 ConsentConstants.MEASUREMENT_DEFAULT_CONSENT, defaultConsent);
                         mAdServicesManager.recordMeasurementDefaultConsent(defaultConsent);
                         break;
+                    case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.setConsent(
+                                    ConsentConstants.MEASUREMENT_DEFAULT_CONSENT, defaultConsent);
+                            break;
+                        }
                     default:
                         throw new RuntimeException(
                                 ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
@@ -1357,6 +1458,12 @@ public class ConsentManager {
                         mDatastore.put(ConsentConstants.DEFAULT_AD_ID_STATE, defaultAdIdState);
                         mAdServicesManager.recordDefaultAdIdState(defaultAdIdState);
                         break;
+                    case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.setConsent(
+                                    ConsentConstants.DEFAULT_AD_ID_STATE, defaultAdIdState);
+                            break;
+                        }
                     default:
                         throw new RuntimeException(
                                 ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
@@ -1403,6 +1510,12 @@ public class ConsentManager {
                         mAdServicesManager.setCurrentPrivacySandboxFeature(
                                 currentFeatureType.name());
                         break;
+                    case Flags.APPSEARCH_ONLY:
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.setCurrentPrivacySandboxFeature(
+                                    currentFeatureType);
+                            break;
+                        }
                     default:
                         throw new RuntimeException(
                                 ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
@@ -1429,7 +1542,11 @@ public class ConsentManager {
                         mAdServicesManager.recordUserManualInteractionWithConsent(interaction);
                         break;
                     case Flags.APPSEARCH_ONLY:
-                        break;
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.recordUserManualInteractionWithConsent(
+                                    interaction);
+                            break;
+                        }
                     default:
                         throw new RuntimeException(
                                 ConsentConstants.MANUAL_INTERACTION_WITH_CONSENT_RECORDED);
@@ -1471,7 +1588,9 @@ public class ConsentManager {
                         }
                         break;
                     case Flags.APPSEARCH_ONLY:
-                        break;
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            return mAppSearchConsentManager.getCurrentPrivacySandboxFeature();
+                        }
                     default:
                         LogUtil.e(ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
                         return PrivacySandboxFeatureType.PRIVACY_SANDBOX_UNSUPPORTED;
@@ -1526,7 +1645,9 @@ public class ConsentManager {
                     case Flags.PPAPI_AND_SYSTEM_SERVER:
                         return mAdServicesManager.getUserManualInteractionWithConsent();
                     case Flags.APPSEARCH_ONLY:
-                        return UNKNOWN;
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            return mAppSearchConsentManager.getUserManualInteractionWithConsent();
+                        }
                     default:
                         LogUtil.e(ConsentConstants.MANUAL_INTERACTION_WITH_CONSENT_RECORDED);
                         return UNKNOWN;
@@ -1586,6 +1707,13 @@ public class ConsentManager {
 
         switch (consentSourceOfTruth) {
             case Flags.PPAPI_ONLY:
+                // Technically we only need to reset the SHARED_PREFS_KEY_HAS_MIGRATED bit once.
+                // What we need is clearIfSet operation which is not available in SP. So here we
+                // always reset the bit since otherwise we need to read the SP to read the value and
+                // the clear the value.
+                // The only flow we would do are:
+                // Case 1: DUAL-> PPAPI if there is a bug in System Server
+                // Case 2: DUAL -> SYSTEM_SERVER_ONLY: if everything goes smoothly.
                 resetSharedPreference(context, ConsentConstants.SHARED_PREFS_KEY_HAS_MIGRATED);
                 break;
             case Flags.PPAPI_AND_SYSTEM_SERVER:
@@ -1596,6 +1724,8 @@ public class ConsentManager {
                 clearPpApiConsent(context, datastore);
                 break;
             case Flags.APPSEARCH_ONLY:
+                // If this is an S- device, the consent source of truth is always APPSEARCH_ONLY.
+                break;
             default:
                 break;
         }
@@ -1801,8 +1931,11 @@ public class ConsentManager {
                         setConsentToSystemServer(mAdServicesManager, isGiven);
                         break;
                     case Flags.APPSEARCH_ONLY:
-                        mAppSearchConsentService.setConsent(ConsentConstants.CONSENT_KEY, isGiven);
-                        break;
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.setConsent(
+                                    ConsentConstants.CONSENT_KEY, isGiven);
+                            break;
+                        }
                     default:
                         throw new RuntimeException(
                                 ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
@@ -1834,8 +1967,11 @@ public class ConsentManager {
                         setAggregatedConsentToPpApi();
                         break;
                     case Flags.APPSEARCH_ONLY:
-                        mAppSearchConsentService.setConsent(apiType.toPpApiDatastoreKey(), isGiven);
-                        break;
+                        if (mFlags.getEnableAppsearchConsentData()) {
+                            mAppSearchConsentManager.setConsent(
+                                    apiType.toPpApiDatastoreKey(), isGiven);
+                            break;
+                        }
                     default:
                         throw new RuntimeException(
                                 ConsentConstants.ERROR_MESSAGE_INVALID_CONSENT_SOURCE_OF_TRUTH);
@@ -1844,6 +1980,28 @@ public class ConsentManager {
                 throw new RuntimeException(ConsentConstants.ERROR_MESSAGE_WHILE_SET_CONTENT, e);
             }
         }
+    }
+
+    /**
+     * This method handles migration of consent data from AppSearch to AdServices. Consent data is
+     * written to AppSearch on S- and ported to AdServices after OTA to T. If any new data is
+     * written for consent, we need to make sure it is migrated correctly post-OTA in this method.
+     */
+    @VisibleForTesting
+    static void handleConsentMigrationFromAppSearchIfNeeded(
+            @NonNull Context context,
+            @NonNull BooleanFileDatastore datastore,
+            @NonNull AppConsentDao appConsentDao,
+            @NonNull AppSearchConsentManager appSearchConsentManager,
+            @NonNull AdServicesManager adServicesManager) {
+        Objects.requireNonNull(context);
+        Objects.requireNonNull(datastore);
+        Objects.requireNonNull(appConsentDao);
+        Objects.requireNonNull(appSearchConsentManager);
+        if (SdkLevel.isAtLeastT()) {
+            Objects.requireNonNull(adServicesManager);
+        }
+        // TODO(b/263297331): Implement migration of AppSearch data to AdServices.
     }
 
     /**
