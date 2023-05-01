@@ -62,6 +62,7 @@ import android.content.pm.ProviderInfo;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -78,6 +79,8 @@ import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.Log;
 import android.webkit.WebViewUpdateService;
+
+import androidx.annotation.RequiresApi;
 
 import com.android.adservices.AdServicesCommon;
 import com.android.internal.annotations.GuardedBy;
@@ -171,13 +174,16 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
 
     private final SdkSandboxPulledAtoms mSdkSandboxPulledAtoms;
 
+    // All U devices have the visibility patch, so we can consider it already checked on U+ devices.
+    private static final boolean DEFAULT_VALUE_VISIBILITY_PATCH_CHECKED = SdkLevel.isAtLeastU();
+
     // The device must have a change that allows the Webview provider to be visible in order for the
-    // sandbox to be enabled.
+    // sandbox to be enabled. This change is present on all U+ devices, but not all T devices.
     @GuardedBy("mLock")
-    private boolean mHasVisibilityPatch;
+    private boolean mHasVisibilityPatch = DEFAULT_VALUE_VISIBILITY_PATCH_CHECKED;
 
     @GuardedBy("mLock")
-    private boolean mCheckedVisibilityPatch = false;
+    private boolean mCheckedVisibilityPatch = DEFAULT_VALUE_VISIBILITY_PATCH_CHECKED;
 
     private SdkSandboxSettingsListener mSdkSandboxSettingsListener;
 
@@ -360,6 +366,7 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         return sandboxedSdks;
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private void registerSandboxActivityInterceptor() {
         final ActivityInterceptorCallback mActivityInterceptorCallback =
                 info -> {
@@ -1340,7 +1347,6 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         }
     }
 
-    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
     boolean isSdkSandboxDisabled(ISdkSandboxService boundService) {
         synchronized (mLock) {
             if (!mCheckedVisibilityPatch) {
@@ -1374,10 +1380,9 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
      * Clears the SDK sandbox state. This will result in the state being checked again the next time
      * an SDK is loaded.
      */
-    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
     void clearSdkSandboxState() {
         synchronized (mLock) {
-            mCheckedVisibilityPatch = false;
+            mCheckedVisibilityPatch = DEFAULT_VALUE_VISIBILITY_PATCH_CHECKED;
             getSdkSandboxSettingsListener().setKillSwitchState(DEFAULT_VALUE_DISABLE_SDK_SANDBOX);
         }
     }
@@ -1386,7 +1391,6 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
      * Enables the sandbox for testing purposes. Note that the sandbox can still be disabled by
      * setting the killswitch.
      */
-    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
     void forceEnableSandbox() {
         synchronized (mLock) {
             mCheckedVisibilityPatch = true;
@@ -2077,6 +2081,10 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                 @NonNull IntentFilter intentFilter, int flags, boolean onlyProtectedBroadcasts) {
             if (!Process.isSdkSandboxUid(Binder.getCallingUid())) {
                 return true;
+            }
+
+            if (intentFilter.countActions() == 0) {
+                return false;
             }
 
             /**

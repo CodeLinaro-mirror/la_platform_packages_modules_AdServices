@@ -16,6 +16,9 @@
 
 package com.android.adservices.data.measurement;
 
+import com.android.adservices.data.measurement.migration.MeasurementDbMigratorV11;
+import com.android.adservices.data.measurement.migration.MeasurementTablesDeprecated;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -35,6 +38,7 @@ public final class MeasurementTables {
     //  tables.
     public static final String[] ALL_MSMT_TABLES = {
         MeasurementTables.SourceContract.TABLE,
+        MeasurementTables.SourceDestination.TABLE,
         MeasurementTables.TriggerContract.TABLE,
         MeasurementTables.EventReportContract.TABLE,
         MeasurementTables.AggregateReport.TABLE,
@@ -42,7 +46,8 @@ public final class MeasurementTables {
         MeasurementTables.AttributionContract.TABLE,
         MeasurementTables.AsyncRegistrationContract.TABLE,
         MeasurementTables.DebugReportContract.TABLE,
-        MeasurementTables.XnaIgnoredSourcesContract.TABLE
+        MeasurementTables.XnaIgnoredSourcesContract.TABLE,
+        KeyValueDataContract.TABLE,
     };
 
     public static final String[] V6_TABLES = {
@@ -73,16 +78,12 @@ public final class MeasurementTables {
     public interface AsyncRegistrationContract {
         String TABLE = MSMT_TABLE_PREFIX + "async_registration_contract";
         String ID = "_id";
-        String ENROLLMENT_ID = "enrollment_id";
         String REGISTRATION_URI = "registration_uri";
         String TOP_ORIGIN = "top_origin";
         String SOURCE_TYPE = "source_type";
-        String REDIRECT_TYPE = "redirect_type";
-        String REDIRECT_COUNT = "redirect_count";
         String REGISTRANT = "registrant";
         String REQUEST_TIME = "request_time";
         String RETRY_COUNT = "retry_count";
-        String LAST_PROCESSING_TIME = "last_processing_time";
         String TYPE = "type";
         String WEB_DESTINATION = "web_destination";
         String OS_DESTINATION = "os_destination";
@@ -99,8 +100,6 @@ public final class MeasurementTables {
         String EVENT_ID = "event_id";
         String PUBLISHER = "publisher";
         String PUBLISHER_TYPE = "publisher_type";
-        String APP_DESTINATION = "app_destination";
-        String WEB_DESTINATION = "web_destination";
         String EVENT_REPORT_DEDUP_KEYS = "event_report_dedup_keys";
         String AGGREGATE_REPORT_DEDUP_KEYS = "aggregate_report_dedup_keys";
         String EVENT_TIME = "event_time";
@@ -127,6 +126,14 @@ public final class MeasurementTables {
         String SHARED_AGGREGATION_KEYS = "shared_aggregation_keys";
         String INSTALL_TIME = "install_time";
         String DEBUG_JOIN_KEY = "debug_join_key";
+    }
+
+    /** Contract for sub-table for destinations in Source. */
+    public interface SourceDestination {
+        String TABLE = MSMT_TABLE_PREFIX + "source_destination";
+        String SOURCE_ID = "source_id";
+        String DESTINATION_TYPE = "destination_type";
+        String DESTINATION = "destination";
     }
 
     /** Contract for Trigger. */
@@ -208,6 +215,7 @@ public final class MeasurementTables {
         String TRIGGER_DEBUG_KEY = "trigger_debug_key";
         String SOURCE_ID = "source_id";
         String TRIGGER_ID = "trigger_id";
+        String DEDUP_KEY = "dedup_key";
     }
 
     /** Contract for aggregate encryption key. */
@@ -235,13 +243,21 @@ public final class MeasurementTables {
         String ENROLLMENT_ID = "enrollment_id";
     }
 
+    /** Contract for key-value store */
+    public interface KeyValueDataContract {
+        String TABLE = MSMT_TABLE_PREFIX + "key_value_data";
+        String DATA_TYPE = "data_type";
+        String KEY = "_key"; // Avoid collision with SQLite keyword 'key'
+        String VALUE = "value";
+    }
+
     public static final String CREATE_TABLE_ASYNC_REGISTRATION_V6 =
             "CREATE TABLE "
                     + AsyncRegistrationContract.TABLE
                     + " ("
                     + AsyncRegistrationContract.ID
                     + " TEXT PRIMARY KEY NOT NULL, "
-                    + AsyncRegistrationContract.ENROLLMENT_ID
+                    + MeasurementTablesDeprecated.AsyncRegistration.ENROLLMENT_ID
                     + " TEXT, "
                     + AsyncRegistrationContract.REGISTRATION_URI
                     + " TEXT, "
@@ -253,9 +269,9 @@ public final class MeasurementTables {
                     + " TEXT, "
                     + AsyncRegistrationContract.TOP_ORIGIN
                     + " TEXT, "
-                    + AsyncRegistrationContract.REDIRECT_TYPE
+                    + MeasurementTablesDeprecated.AsyncRegistration.REDIRECT_TYPE
                     + " INTEGER, "
-                    + AsyncRegistrationContract.REDIRECT_COUNT
+                    + MeasurementTablesDeprecated.AsyncRegistration.REDIRECT_COUNT
                     + " INTEGER, "
                     + AsyncRegistrationContract.SOURCE_TYPE
                     + " INTEGER, "
@@ -265,7 +281,7 @@ public final class MeasurementTables {
                     + " INTEGER, "
                     + AsyncRegistrationContract.RETRY_COUNT
                     + " INTEGER, "
-                    + AsyncRegistrationContract.LAST_PROCESSING_TIME
+                    + MeasurementTablesDeprecated.AsyncRegistration.LAST_PROCESSING_TIME
                     + " INTEGER, "
                     + AsyncRegistrationContract.TYPE
                     + " INTEGER, "
@@ -278,46 +294,7 @@ public final class MeasurementTables {
                     + ")";
 
     public static final String CREATE_TABLE_ASYNC_REGISTRATION_LATEST =
-            "CREATE TABLE "
-                    + AsyncRegistrationContract.TABLE
-                    + " ("
-                    + AsyncRegistrationContract.ID
-                    + " TEXT PRIMARY KEY NOT NULL, "
-                    + AsyncRegistrationContract.ENROLLMENT_ID
-                    + " TEXT, "
-                    + AsyncRegistrationContract.REGISTRATION_URI
-                    + " TEXT, "
-                    + AsyncRegistrationContract.WEB_DESTINATION
-                    + " TEXT, "
-                    + AsyncRegistrationContract.OS_DESTINATION
-                    + " TEXT, "
-                    + AsyncRegistrationContract.VERIFIED_DESTINATION
-                    + " TEXT, "
-                    + AsyncRegistrationContract.TOP_ORIGIN
-                    + " TEXT, "
-                    + AsyncRegistrationContract.REDIRECT_TYPE
-                    + " INTEGER, "
-                    + AsyncRegistrationContract.REDIRECT_COUNT
-                    + " INTEGER, "
-                    + AsyncRegistrationContract.SOURCE_TYPE
-                    + " INTEGER, "
-                    + AsyncRegistrationContract.REGISTRANT
-                    + " TEXT, "
-                    + AsyncRegistrationContract.REQUEST_TIME
-                    + " INTEGER, "
-                    + AsyncRegistrationContract.RETRY_COUNT
-                    + " INTEGER, "
-                    + AsyncRegistrationContract.LAST_PROCESSING_TIME
-                    + " INTEGER, "
-                    + AsyncRegistrationContract.TYPE
-                    + " INTEGER, "
-                    + AsyncRegistrationContract.DEBUG_KEY_ALLOWED
-                    + " INTEGER, "
-                    + AsyncRegistrationContract.AD_ID_PERMISSION
-                    + " INTEGER, "
-                    + AsyncRegistrationContract.REGISTRATION_ID
-                    + " TEXT "
-                    + ")";
+            MeasurementDbMigratorV11.CREATE_TABLE_ASYNC_REGISTRATION_V11;
 
     public static final String CREATE_TABLE_SOURCE_V6 =
             "CREATE TABLE "
@@ -331,7 +308,7 @@ public final class MeasurementTables {
                     + " TEXT, "
                     + SourceContract.PUBLISHER_TYPE
                     + " INTEGER, "
-                    + SourceContract.APP_DESTINATION
+                    + MeasurementTablesDeprecated.SourceContract.APP_DESTINATION
                     + " TEXT, "
                     + SourceContract.ENROLLMENT_ID
                     + " TEXT, "
@@ -369,7 +346,7 @@ public final class MeasurementTables {
                     + " TEXT, "
                     + SourceContract.AGGREGATE_CONTRIBUTIONS
                     + " INTEGER, "
-                    + SourceContract.WEB_DESTINATION
+                    + MeasurementTablesDeprecated.SourceContract.WEB_DESTINATION
                     + " TEXT, "
                     + SourceContract.DEBUG_KEY
                     + " INTEGER , "
@@ -398,8 +375,6 @@ public final class MeasurementTables {
                     + " TEXT, "
                     + SourceContract.PUBLISHER_TYPE
                     + " INTEGER, "
-                    + SourceContract.APP_DESTINATION
-                    + " TEXT, "
                     + SourceContract.ENROLLMENT_ID
                     + " TEXT, "
                     + SourceContract.EVENT_TIME
@@ -436,8 +411,6 @@ public final class MeasurementTables {
                     + " TEXT, "
                     + SourceContract.AGGREGATE_CONTRIBUTIONS
                     + " INTEGER, "
-                    + SourceContract.WEB_DESTINATION
-                    + " TEXT, "
                     + SourceContract.DEBUG_KEY
                     + " INTEGER , "
                     + SourceContract.DEBUG_REPORTING
@@ -454,6 +427,25 @@ public final class MeasurementTables {
                     + " INTEGER, "
                     + SourceContract.DEBUG_JOIN_KEY
                     + " TEXT "
+                    + ")";
+
+    public static final String CREATE_TABLE_SOURCE_DESTINATION_LATEST =
+            "CREATE TABLE "
+                    + SourceDestination.TABLE
+                    + " ("
+                    + SourceDestination.SOURCE_ID
+                    + " TEXT, "
+                    + SourceDestination.DESTINATION_TYPE
+                    + " INTEGER, "
+                    + SourceDestination.DESTINATION
+                    + " TEXT, "
+                    + "FOREIGN KEY ("
+                    + SourceDestination.SOURCE_ID
+                    + ") REFERENCES "
+                    + SourceContract.TABLE
+                    + "("
+                    + SourceContract.ID
+                    + ") ON DELETE CASCADE "
                     + ")";
 
     public static final String CREATE_TABLE_TRIGGER_V6 =
@@ -693,7 +685,54 @@ public final class MeasurementTables {
                     + ")";
 
     public static final String CREATE_TABLE_AGGREGATE_REPORT_LATEST =
-            CREATE_TABLE_AGGREGATE_REPORT_V6;
+            "CREATE TABLE "
+                    + AggregateReport.TABLE
+                    + " ("
+                    + AggregateReport.ID
+                    + " TEXT PRIMARY KEY NOT NULL, "
+                    + AggregateReport.PUBLISHER
+                    + " TEXT, "
+                    + AggregateReport.ATTRIBUTION_DESTINATION
+                    + " TEXT, "
+                    + AggregateReport.SOURCE_REGISTRATION_TIME
+                    + " INTEGER, "
+                    + AggregateReport.SCHEDULED_REPORT_TIME
+                    + " INTEGER, "
+                    + AggregateReport.ENROLLMENT_ID
+                    + " TEXT, "
+                    + AggregateReport.DEBUG_CLEARTEXT_PAYLOAD
+                    + " TEXT, "
+                    + AggregateReport.STATUS
+                    + " INTEGER, "
+                    + AggregateReport.DEBUG_REPORT_STATUS
+                    + " INTEGER, "
+                    + AggregateReport.API_VERSION
+                    + " TEXT, "
+                    + AggregateReport.SOURCE_DEBUG_KEY
+                    + " INTEGER, "
+                    + AggregateReport.TRIGGER_DEBUG_KEY
+                    + " INTEGER, "
+                    + AggregateReport.SOURCE_ID
+                    + " TEXT, "
+                    + AggregateReport.TRIGGER_ID
+                    + " TEXT, "
+                    + AggregateReport.DEDUP_KEY
+                    + " INTEGER, "
+                    + "FOREIGN KEY ("
+                    + AggregateReport.SOURCE_ID
+                    + ") REFERENCES "
+                    + SourceContract.TABLE
+                    + "("
+                    + SourceContract.ID
+                    + ") ON DELETE CASCADE "
+                    + "FOREIGN KEY ("
+                    + AggregateReport.TRIGGER_ID
+                    + ") REFERENCES "
+                    + TriggerContract.TABLE
+                    + "("
+                    + TriggerContract.ID
+                    + ") ON DELETE CASCADE"
+                    + ")";
 
     public static final String CREATE_TABLE_AGGREGATE_ENCRYPTION_KEY_V6 =
             "CREATE TABLE "
@@ -748,16 +787,17 @@ public final class MeasurementTables {
     public static final String CREATE_TABLE_XNA_IGNORED_SOURCES_LATEST =
             CREATE_TABLE_XNA_IGNORED_SOURCES_V6;
 
+    public static final String CREATE_TABLE_KEY_VALUE_STORE_LATEST =
+            MeasurementDbMigratorV11.CREATE_TABLE_KEY_VALUE_DATA_V11;
+
     public static final String[] CREATE_INDEXES = {
         "CREATE INDEX "
                 + INDEX_PREFIX
                 + SourceContract.TABLE
-                + "_ad_ei_et "
+                + "_ei_et "
                 + "ON "
                 + SourceContract.TABLE
                 + "( "
-                + SourceContract.APP_DESTINATION
-                + ", "
                 + SourceContract.ENROLLMENT_ID
                 + ", "
                 + SourceContract.EXPIRY_TIME
@@ -775,19 +815,42 @@ public final class MeasurementTables {
         "CREATE INDEX "
                 + INDEX_PREFIX
                 + SourceContract.TABLE
-                + "_p_ad_wd_s_et "
+                + "_p_s_et "
                 + "ON "
                 + SourceContract.TABLE
                 + "("
                 + SourceContract.PUBLISHER
                 + ", "
-                + SourceContract.APP_DESTINATION
-                + ", "
-                + SourceContract.WEB_DESTINATION
-                + ", "
                 + SourceContract.STATUS
                 + ", "
                 + SourceContract.EVENT_TIME
+                + ")",
+        "CREATE INDEX "
+                + INDEX_PREFIX
+                + SourceContract.TABLE
+                + "_ei "
+                + "ON "
+                + SourceContract.TABLE
+                + "("
+                + SourceContract.ENROLLMENT_ID
+                + ")",
+        "CREATE INDEX "
+                + MeasurementTables.INDEX_PREFIX
+                + MeasurementTables.SourceDestination.TABLE
+                + "_d"
+                + " ON "
+                + MeasurementTables.SourceDestination.TABLE
+                + "("
+                + MeasurementTables.SourceDestination.DESTINATION
+                + ")",
+        "CREATE INDEX "
+                + MeasurementTables.INDEX_PREFIX
+                + MeasurementTables.SourceDestination.TABLE
+                + "_s"
+                + " ON "
+                + MeasurementTables.SourceDestination.TABLE
+                + "("
+                + MeasurementTables.SourceDestination.SOURCE_ID
                 + ")",
         "CREATE INDEX "
                 + INDEX_PREFIX
@@ -832,15 +895,6 @@ public final class MeasurementTables {
                 + ")",
         "CREATE INDEX "
                 + INDEX_PREFIX
-                + SourceContract.TABLE
-                + "_ei "
-                + "ON "
-                + SourceContract.TABLE
-                + "("
-                + SourceContract.ENROLLMENT_ID
-                + ")",
-        "CREATE INDEX "
-                + INDEX_PREFIX
                 + XnaIgnoredSourcesContract.TABLE
                 + "_ei "
                 + "ON "
@@ -858,7 +912,7 @@ public final class MeasurementTables {
                 + "ON "
                 + SourceContract.TABLE
                 + "( "
-                + SourceContract.APP_DESTINATION
+                + MeasurementTablesDeprecated.SourceContract.APP_DESTINATION
                 + ", "
                 + SourceContract.ENROLLMENT_ID
                 + ", "
@@ -883,9 +937,9 @@ public final class MeasurementTables {
                 + "("
                 + SourceContract.PUBLISHER
                 + ", "
-                + SourceContract.APP_DESTINATION
+                + MeasurementTablesDeprecated.SourceContract.APP_DESTINATION
                 + ", "
-                + SourceContract.WEB_DESTINATION
+                + MeasurementTablesDeprecated.SourceContract.WEB_DESTINATION
                 + ", "
                 + SourceContract.STATUS
                 + ", "
@@ -939,6 +993,7 @@ public final class MeasurementTables {
             Collections.unmodifiableList(
                     Arrays.asList(
                             CREATE_TABLE_SOURCE_LATEST,
+                            CREATE_TABLE_SOURCE_DESTINATION_LATEST,
                             CREATE_TABLE_TRIGGER_LATEST,
                             CREATE_TABLE_EVENT_REPORT_LATEST,
                             CREATE_TABLE_ATTRIBUTION_LATEST,
@@ -946,7 +1001,8 @@ public final class MeasurementTables {
                             CREATE_TABLE_AGGREGATE_ENCRYPTION_KEY_LATEST,
                             CREATE_TABLE_ASYNC_REGISTRATION_LATEST,
                             CREATE_TABLE_DEBUG_REPORT_LATEST,
-                            CREATE_TABLE_XNA_IGNORED_SOURCES_LATEST));
+                            CREATE_TABLE_XNA_IGNORED_SOURCES_LATEST,
+                            CREATE_TABLE_KEY_VALUE_STORE_LATEST));
 
     // Consolidated list of create statements for all tables at version 6.
     public static final List<String> CREATE_STATEMENTS_V6 =

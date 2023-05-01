@@ -296,7 +296,7 @@ public class MeasurementDbMigratorV6Test extends MeasurementDbMigratorTestBaseDe
     private static void insertAsyncRegistration(SQLiteDatabase db, String id, String enrollmentId) {
         ContentValues values = new ContentValues();
         values.put(MeasurementTables.AsyncRegistrationContract.ID, id);
-        values.put(MeasurementTables.AsyncRegistrationContract.ENROLLMENT_ID, enrollmentId);
+        values.put(MeasurementTablesDeprecated.AsyncRegistration.ENROLLMENT_ID, enrollmentId);
         db.insert(MeasurementTables.AsyncRegistrationContract.TABLE, null, values);
     }
 
@@ -323,7 +323,7 @@ public class MeasurementDbMigratorV6Test extends MeasurementDbMigratorTestBaseDe
                         MeasurementTables.AsyncRegistrationContract.TABLE,
                         new String[] {
                             MeasurementTables.AsyncRegistrationContract.ID,
-                            MeasurementTables.AsyncRegistrationContract.ENROLLMENT_ID,
+                            MeasurementTablesDeprecated.AsyncRegistration.ENROLLMENT_ID,
                             MeasurementTables.AsyncRegistrationContract.REGISTRATION_ID
                         },
                         null,
@@ -402,7 +402,7 @@ public class MeasurementDbMigratorV6Test extends MeasurementDbMigratorTestBaseDe
                 MIGRATED_ASYNC_REGISTRATION[i][1],
                 cursor.getString(
                         cursor.getColumnIndex(
-                                MeasurementTables.AsyncRegistrationContract.ENROLLMENT_ID)));
+                                MeasurementTablesDeprecated.AsyncRegistration.ENROLLMENT_ID)));
         assertNotNull(
                 cursor.getString(
                         cursor.getColumnIndex(
@@ -522,11 +522,11 @@ public class MeasurementDbMigratorV6Test extends MeasurementDbMigratorTestBaseDe
             ContentValues sourceV6 = cursorRowToContentValues(cursor);
 
             for (String column : sourceV3.keySet()) {
-                if (column.equals(MeasurementTablesDeprecated.Source.DEDUP_KEYS)) {
+                if (column.equals(MeasurementTablesDeprecated.SourceContract.DEDUP_KEYS)) {
                     // The migration renamed the column from "dedup_keys" to
                     // "event_report_dedup_keys"
                     assertEquals(
-                            sourceV3.get(MeasurementTablesDeprecated.Source.DEDUP_KEYS),
+                            sourceV3.get(MeasurementTablesDeprecated.SourceContract.DEDUP_KEYS),
                             sourceV6.get(MeasurementTables.SourceContract.EVENT_REPORT_DEDUP_KEYS));
                 } else {
                     assertEquals(sourceV3.get(column), sourceV6.get(column));

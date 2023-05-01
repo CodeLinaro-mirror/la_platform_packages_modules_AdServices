@@ -17,20 +17,29 @@
 package com.android.adservices.service.adselection;
 
 import android.annotation.IntDef;
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.net.Uri;
 
+import com.android.adservices.LoggerFactory;
 import com.android.adservices.service.common.httpclient.AdServicesHttpClientRequest;
 import com.android.internal.annotations.VisibleForTesting;
 
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 /** Provides JS version related payload helper methods. */
 public class JsVersionHelper {
+    private static final LoggerFactory.Logger LOGGER = LoggerFactory.getFledgeLogger();
+    public static final Long DEFAULT_JS_VERSION_IF_ABSENT = 0L;
 
     @VisibleForTesting
     public static final String VERSION_HEADER_NAME_FORMAT = "X_FLEDGE_%s_VERSION";
@@ -50,8 +59,8 @@ public class JsVersionHelper {
     static final String JS_PAYLOAD_NAME_BUYER_BIDDING_LOGIC_JS = "BUYER_BIDDING_LOGIC";
 
     @VisibleForTesting
-    static final ImmutableMap<Integer, String> JS_PAYLOAD_TYPE_HEADER_NAME_MAP =
-            ImmutableMap.<Integer, String>builder()
+    static final ImmutableBiMap<Integer, String> JS_PAYLOAD_TYPE_HEADER_NAME_MAP =
+            ImmutableBiMap.<Integer, String>builder()
                     .put(
                             JS_PAYLOAD_TYPE_BUYER_BIDDING_LOGIC_JS,
                             String.format(
@@ -61,25 +70,38 @@ public class JsVersionHelper {
 
     /** Returns the URI with appended version query parameter. */
     public static AdServicesHttpClientRequest getRequestWithVersionHeader(
-            Uri uri, @JsPayloadType int jsPayloadType, long version, boolean useCache) {
+            @NonNull Uri uri, @NonNull Map<Integer, Long> jsVersionMap, boolean useCache) {
+        ImmutableMap<String, String> requestProperties =
+                ImmutableMap.copyOf(
+                        jsVersionMap.entrySet().stream()
+                                .collect(
+                                        Collectors.toMap(
+                                                e -> getVersionHeaderName(e.getKey()),
+                                                e -> Long.toString(e.getValue()))));
         return AdServicesHttpClientRequest.builder()
                 .setUri(uri)
-                .setRequestProperties(
-                        ImmutableMap.of(
-                                getVersionHeaderName(jsPayloadType), Long.toString(version)))
+                .setRequestProperties(requestProperties)
                 .setUseCache(useCache)
+                .setResponseHeaderKeys(requestProperties.keySet())
                 .build();
     }
 
     /** Returns a payload header contains the js version attribute. */
     public static ImmutableMap<String, List<String>> constructVersionHeader(
-            @JsPayloadType int jsPayloadType, long version) {
+            @JsPayloadType int jsPayloadType, Long version) {
+        final long nonNullVersion = Optional.ofNullable(version).orElse(0L);
         return ImmutableMap.of(
-                getVersionHeaderName(jsPayloadType), ImmutableList.of(Long.toString(version)));
+                getVersionHeaderName(jsPayloadType),
+                ImmutableList.of(Long.toString(nonNullVersion)));
     }
 
     @VisibleForTesting
-    static String getVersionHeaderName(@JsPayloadType int jsPayloadType) {
+    public static String getVersionHeaderName(@JsPayloadType int jsPayloadType) {
         return JS_PAYLOAD_TYPE_HEADER_NAME_MAP.get(jsPayloadType);
+    }
+
+    @Nullable
+    static Integer getJsPayloadType(@NonNull String versionHeaderName) {
+        return JS_PAYLOAD_TYPE_HEADER_NAME_MAP.inverse().get(versionHeaderName);
     }
 }

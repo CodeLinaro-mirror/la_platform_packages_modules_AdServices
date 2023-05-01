@@ -131,18 +131,11 @@ public class AppInstallAdvertisersSetter {
                                         && t.getCause()
                                                 instanceof
                                                 ConsentManager.RevokedConsentException)) {
-                                    invokeSuccess(callback);
-                                } else if (t instanceof ConsentManager.RevokedConsentException) {
-                                    // TODO(b/271921887): Remove the duplicate check once
-                                    // app-specific consent check has been moved to a shared
-                                    // validation component.
-                                    // TODO(b/271921887): Remove the failure log once app-specific
-                                    //  consent check has been moved to a shared validation
-                                    // component.
-                                    mAdServicesLogger.logFledgeApiCallStats(
-                                            shortApiName,
-                                            AdServicesStatusUtils.STATUS_USER_CONSENT_REVOKED,
-                                            0);
+                                    // Skip logging if a FilterException occurs.
+                                    // AdSelectionServiceFilter ensures the failing assertion is
+                                    // logged internally.
+
+                                    // Fail Silently by notifying success to caller
                                     invokeSuccess(callback);
                                 } else {
                                     notifyFailureToCaller(callback, t);
@@ -210,6 +203,9 @@ public class AppInstallAdvertisersSetter {
             Set<AdTechIdentifier> advertisers, String callerPackageName) {
         validateRequest(advertisers, callerPackageName);
 
+        sLogger.v(
+                "Writing %d adtechs to the calling app's app install permission list",
+                advertisers.size());
         ArrayList<DBAppInstallPermissions> permissions = new ArrayList<>();
         for (AdTechIdentifier advertiser : advertisers) {
             permissions.add(
@@ -219,6 +215,9 @@ public class AppInstallAdvertisersSetter {
                             .build());
         }
         mAppInstallDao.setAdTechsForPackage(callerPackageName, permissions);
+        sLogger.v(
+                "Wrote %d adtechs to the calling app's app install permission list",
+                advertisers.size());
         return null;
     }
 
@@ -237,8 +236,12 @@ public class AppInstallAdvertisersSetter {
                                 AD_TECH_IDENTIFIER_ERROR_MESSAGE_SCOPE,
                                 AD_TECH_IDENTIFIER_ERROR_MESSAGE_ROLE)))
                 .validate(advertisers);
-        if (mConsentManager.isFledgeConsentRevokedForAppAfterSettingFledgeUse(callerPackageName)) {
-            throw new ConsentManager.RevokedConsentException();
+        // TODO(b/269378272): Remove the duplicate check once advertiser check has been moved to a
+        //  shared validation component.
+        try {
+            mConsentManager.assertFledgeCallerHasUserConsent(callerPackageName);
+        } catch (Exception e) {
+            throw new FilterException(e);
         }
     }
 }

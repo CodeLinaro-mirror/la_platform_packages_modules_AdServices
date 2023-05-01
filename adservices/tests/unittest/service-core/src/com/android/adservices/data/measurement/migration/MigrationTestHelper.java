@@ -32,9 +32,12 @@ import androidx.annotation.NonNull;
 
 import com.android.adservices.data.measurement.MeasurementDbSchemaTrail;
 
+import com.google.common.collect.ImmutableMap;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class MigrationTestHelper {
     private static final float FLOAT_COMPARISON_EPSILON = 0.00005f;
@@ -68,6 +71,21 @@ public class MigrationTestHelper {
 
     public static void verifyDataInDb(
             SQLiteDatabase newDb, Map<String, List<ContentValues>> fakeData) {
+        verifyDataInDb(newDb, fakeData, ImmutableMap.of(), ImmutableMap.of());
+    }
+
+    /**
+     * @param newDb    Database from where the data should be read
+     * @param fakeData Data to me verified in <Table: <Column, Value>> format
+     * @param droppedKeys Columns that have been dropped in <Table: Set<Column> format
+     * @param columnsToBeSkipped Columns that shouldn't be match in <Table: Set<Column> format.
+     *                           This is for columns that need custom matching logic.
+     */
+    public static void verifyDataInDb(
+            SQLiteDatabase newDb,
+            Map<String, List<ContentValues>> fakeData,
+            Map<String, Set<String>> droppedKeys,
+            Map<String, Set<String>> columnsToBeSkipped) {
         fakeData.forEach(
                 (table, rows) -> {
                     List<ContentValues> newRows = new ArrayList<>();
@@ -87,26 +105,45 @@ public class MigrationTestHelper {
                                 String.format(
                                         "Table: %s, Row: %d, Expected: %s, Actual: %s",
                                         table, i, expected, actual),
-                                doContentValueMatch(expected, actual));
+                                doContentValueMatch(
+                                        expected,
+                                        actual,
+                                        droppedKeys.getOrDefault(table, Set.of()),
+                                        columnsToBeSkipped.getOrDefault(table, Set.of())));
                     }
                 });
     }
 
-    private static boolean doContentValueMatch(ContentValues values1, ContentValues values2) {
-        for (Map.Entry<String, Object> element : values1.valueSet()) {
-            String key1 = element.getKey();
-            Object value1 = element.getValue();
-            if (!values2.containsKey(key1)) {
-                return false;
-            }
-            Object value2 = values2.get(key1);
-            if (value1.equals(value2)) {
+    // 'Expected' here are the original "fake values" seeding the datastore. If we have a datastore
+    // upgrade that's dropping columns, the "fake values" may still contain those values.
+    private static boolean doContentValueMatch(
+            ContentValues expected,
+            ContentValues actual,
+            Set<String> droppedKeys,
+            Set<String> columnsToBeSkipped) {
+        for (Map.Entry<String, Object> expectedElement : expected.valueSet()) {
+            String expectedKey = expectedElement.getKey();
+            Object expectedValue = expectedElement.getValue();
+            if (droppedKeys.contains(expectedKey)) {
+                if (actual.containsKey(expectedKey)) {
+                    return false;
+                }
                 continue;
             }
-            if (value1 instanceof Number
+            if (columnsToBeSkipped.contains(expectedKey)) {
+                continue;
+            }
+            if (!actual.containsKey(expectedKey)) {
+                return false;
+            }
+            Object actualValue = actual.get(expectedKey);
+            if (expectedValue.equals(actualValue)) {
+                continue;
+            }
+            if (expectedValue instanceof Number
                     && !nearlyEqual(
-                            ((Number) value1).floatValue(),
-                            ((Number) value2).floatValue(),
+                            ((Number) expectedValue).floatValue(),
+                            ((Number) actualValue).floatValue(),
                             FLOAT_COMPARISON_EPSILON)) {
                 return false;
             }
