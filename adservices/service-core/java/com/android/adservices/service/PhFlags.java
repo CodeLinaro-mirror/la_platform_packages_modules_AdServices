@@ -209,6 +209,8 @@ public final class PhFlags implements Flags {
     static final String
             KEY_FLEDGE_REPORT_IMPRESSION_REGISTERED_AD_BEACONS_MAX_INTERACTION_KEY_SIZE_B =
                     "fledge_report_impression_registered_ad_beacons_max_interaction_key_size_b";
+    static final String KEY_FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B =
+            "fledge_report_interaction_max_interaction_data_size_b";
     static final String KEY_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_BUYER_MS =
             "fledge_ad_selection_bidding_timeout_per_buyer_ms";
     static final String KEY_FLEDGE_HTTP_CACHE_ENABLE = "fledge_http_cache_enable";
@@ -315,6 +317,8 @@ public final class PhFlags implements Flags {
     static final String KEY_MEASUREMENT_ROLLBACK_DELETION_KILL_SWITCH =
             "measurement_rollback_deletion_kill_switch";
     static final String KEY_TOPICS_KILL_SWITCH = "topics_kill_switch";
+    static final String KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH =
+            "topics_on_device_classifier_kill_switch";
     static final String KEY_MDD_BACKGROUND_TASK_KILL_SWITCH = "mdd_background_task_kill_switch";
     static final String KEY_MDD_LOGGER_KILL_SWITCH = "mdd_logger_kill_switch";
     static final String KEY_ADID_KILL_SWITCH = "adid_kill_switch";
@@ -1229,6 +1233,16 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public long getFledgeReportInteractionMaxInteractionDataSizeB() {
+        return DeviceConfig.getLong(
+                NAMESPACE_ADSERVICES,
+                /* flagName */
+                KEY_FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B,
+                /* defaultValue */
+                FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B);
+    }
+
+    @Override
     public boolean getFledgeHttpCachingEnabled() {
         return DeviceConfig.getBoolean(
                 NAMESPACE_ADSERVICES,
@@ -1682,6 +1696,19 @@ public final class PhFlags implements Flags {
                                 NAMESPACE_ADSERVICES,
                                 /* flagName */ KEY_TOPICS_KILL_SWITCH,
                                 /* defaultValue */ TOPICS_KILL_SWITCH));
+    }
+
+    @Override
+    public boolean getTopicsOnDeviceClassifierKillSwitch() {
+        // We check the Global Killswitch first. As a result, it overrides all other killswitches.
+        // The priority of applying the flag values: SystemProperties, PH (DeviceConfig), then
+        // hard-coded value.
+        return SystemProperties.getBoolean(
+                getSystemPropertyName(KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH),
+                /* defaultValue */ DeviceConfig.getBoolean(
+                        NAMESPACE_ADSERVICES,
+                        /* flagName */ KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH,
+                        /* defaultValue */ TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH));
     }
 
     // MDD Killswitches
@@ -2355,6 +2382,11 @@ public final class PhFlags implements Flags {
         writer.println("==== AdServices PH Flags Dump killswitches ====");
         writer.println("\t" + KEY_GLOBAL_KILL_SWITCH + " = " + getGlobalKillSwitch());
         writer.println("\t" + KEY_TOPICS_KILL_SWITCH + " = " + getTopicsKillSwitch());
+        writer.println(
+                "\t"
+                        + KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH
+                        + " = "
+                        + getTopicsOnDeviceClassifierKillSwitch());
         writer.println("\t" + KEY_ADID_KILL_SWITCH + " = " + getAdIdKillSwitch());
         writer.println("\t" + KEY_APPSETID_KILL_SWITCH + " = " + getAppSetIdKillSwitch());
         writer.println(
@@ -2617,7 +2649,8 @@ public final class PhFlags implements Flags {
                 "\t"
                         + KEY_MEASUREMENT_REGISTRATION_FALLBACK_JOB_KILL_SWITCH
                         + " = "
-                        + getAsyncRegistrationFallbackJobKillSwitch());        writer.println(
+                        + getAsyncRegistrationFallbackJobKillSwitch());
+        writer.println(
                 "\t"
                         + KEY_MEASUREMENT_ATTRIBUTION_FALLBACK_JOB_KILL_SWITCH
                         + " = "
@@ -2868,6 +2901,11 @@ public final class PhFlags implements Flags {
                         + KEY_FLEDGE_REPORT_IMPRESSION_REGISTERED_AD_BEACONS_MAX_INTERACTION_KEY_SIZE_B
                         + " = "
                         + getFledgeReportImpressionRegisteredAdBeaconsMaxInteractionKeySizeB());
+        writer.println(
+                "\t"
+                        + KEY_FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B
+                        + " = "
+                        + getFledgeReportInteractionMaxInteractionDataSizeB());
         writer.println(
                 "\t"
                         + KEY_ENFORCE_FOREGROUND_STATUS_FLEDGE_OVERRIDE

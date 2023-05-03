@@ -18,6 +18,7 @@ package com.android.adservices.service;
 
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE;
 
+import android.adservices.adselection.ReportInteractionInput;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 
@@ -650,6 +651,9 @@ public interface Flags {
     long FLEDGE_REPORT_IMPRESSION_REGISTERED_AD_BEACONS_MAX_INTERACTION_KEY_SIZE_B =
             20 * 2; // Num characters * 2 bytes per char in UTF-8
 
+    // ReportInteraction Constants
+    long FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B = 64 * 1024; // 64 KB
+
     /** Returns the timeout constant in milliseconds that limits the bidding per CA */
     default long getAdSelectionBiddingTimeoutPerCaMs() {
         return FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_CA_MS;
@@ -731,6 +735,11 @@ public interface Flags {
      */
     default long getFledgeReportImpressionRegisteredAdBeaconsMaxInteractionKeySizeB() {
         return FLEDGE_REPORT_IMPRESSION_REGISTERED_AD_BEACONS_MAX_INTERACTION_KEY_SIZE_B;
+    }
+
+    /** Returns the maximum size in bytes of {@link ReportInteractionInput#getInteractionData()} */
+    default long getFledgeReportInteractionMaxInteractionDataSizeB() {
+        return FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B;
     }
 
     // 24 hours in seconds
@@ -1332,6 +1341,17 @@ public interface Flags {
     default boolean getTopicsKillSwitch() {
         // We check the Global Killswitch first. As a result, it overrides all other killswitches.
         return getGlobalKillSwitch() || TOPICS_KILL_SWITCH;
+    }
+
+    /**
+     * Topics on-device classifier Kill Switch. The default value is false which means the on-device
+     * classifier in enabled. This flag is used for emergency turning off the on-device classifier.
+     */
+    boolean TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH = false;
+
+    /** @return value of Topics on-device classifier kill switch. */
+    default boolean getTopicsOnDeviceClassifierKillSwitch() {
+        return TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH;
     }
 
     // MDD Killswitches

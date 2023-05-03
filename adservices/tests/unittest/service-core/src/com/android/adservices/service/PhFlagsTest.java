@@ -101,6 +101,7 @@ import static com.android.adservices.service.Flags.FLEDGE_REPORT_IMPRESSION_MAX_
 import static com.android.adservices.service.Flags.FLEDGE_REPORT_IMPRESSION_MAX_REGISTERED_AD_BEACONS_TOTAL_COUNT;
 import static com.android.adservices.service.Flags.FLEDGE_REPORT_IMPRESSION_OVERALL_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_REPORT_IMPRESSION_REGISTERED_AD_BEACONS_MAX_INTERACTION_KEY_SIZE_B;
+import static com.android.adservices.service.Flags.FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B;
 import static com.android.adservices.service.Flags.FLEDGE_REPORT_INTERACTION_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.Flags.FLEDGE_SELECT_ADS_KILL_SWITCH;
 import static com.android.adservices.service.Flags.FOREGROUND_STATUS_LEVEL;
@@ -187,6 +188,7 @@ import static com.android.adservices.service.Flags.TOPICS_KILL_SWITCH;
 import static com.android.adservices.service.Flags.TOPICS_NUMBER_OF_LOOK_BACK_EPOCHS;
 import static com.android.adservices.service.Flags.TOPICS_NUMBER_OF_RANDOM_TOPICS;
 import static com.android.adservices.service.Flags.TOPICS_NUMBER_OF_TOP_TOPICS;
+import static com.android.adservices.service.Flags.TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH;
 import static com.android.adservices.service.Flags.TOPICS_PERCENTAGE_FOR_RANDOM_TOPIC;
 import static com.android.adservices.service.Flags.UI_EEA_COUNTRIES;
 import static com.android.adservices.service.Flags.UI_FEATURE_TYPE_LOGGING_ENABLED;
@@ -271,6 +273,7 @@ import static com.android.adservices.service.PhFlags.KEY_FLEDGE_REPORT_IMPRESSIO
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_REPORT_IMPRESSION_MAX_REGISTERED_AD_BEACONS_TOTAL_COUNT;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_REPORT_IMPRESSION_OVERALL_TIMEOUT_MS;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_REPORT_IMPRESSION_REGISTERED_AD_BEACONS_MAX_INTERACTION_KEY_SIZE_B;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_REPORT_INTERACTION_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_SELECT_ADS_KILL_SWITCH;
 import static com.android.adservices.service.PhFlags.KEY_FOREGROUND_STATUS_LEVEL;
@@ -359,6 +362,7 @@ import static com.android.adservices.service.PhFlags.KEY_TOPICS_KILL_SWITCH;
 import static com.android.adservices.service.PhFlags.KEY_TOPICS_NUMBER_OF_LOOK_BACK_EPOCHS;
 import static com.android.adservices.service.PhFlags.KEY_TOPICS_NUMBER_OF_RANDOM_TOPICS;
 import static com.android.adservices.service.PhFlags.KEY_TOPICS_NUMBER_OF_TOP_TOPICS;
+import static com.android.adservices.service.PhFlags.KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH;
 import static com.android.adservices.service.PhFlags.KEY_TOPICS_PERCENTAGE_FOR_RANDOM_TOPIC;
 import static com.android.adservices.service.PhFlags.KEY_UI_EEA_COUNTRIES;
 import static com.android.adservices.service.PhFlags.KEY_UI_FEATURE_TYPE_LOGGING_ENABLED;
@@ -3807,6 +3811,27 @@ public class PhFlagsTest {
     }
 
     @Test
+    public void testGetOnDeviceClassifierKillSwitch() {
+        // Disable global_kill_switch so that this flag can be tested.
+        disableGlobalKillSwitch();
+
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getTopicsOnDeviceClassifierKillSwitch())
+                .isEqualTo(TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH);
+
+        // Now overriding with the value from PH.
+        final boolean phOverridingValue = true;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getTopicsOnDeviceClassifierKillSwitch()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
     public void testGetMddBackgroundTaskKillSwitch() {
         // Disable global_kill_switch so that this flag can be tested.
         disableGlobalKillSwitch();
@@ -4353,6 +4378,24 @@ public class PhFlagsTest {
 
         Flags phFlags = FlagsFactory.getFlags();
         assertThat(phFlags.getFledgeReportImpressionRegisteredAdBeaconsMaxInteractionKeySizeB())
+                .isEqualTo(phOverrideValue);
+    }
+
+    @Test
+    public void testFledgeReportInteractionMaxInteractionDataSize_B() {
+        // without any overriding, the value is hard coded constant
+        assertThat(FlagsFactory.getFlags().getFledgeReportInteractionMaxInteractionDataSizeB())
+                .isEqualTo(FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B);
+
+        final long phOverrideValue = 4;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B,
+                Long.toString(phOverrideValue),
+                false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeReportInteractionMaxInteractionDataSizeB())
                 .isEqualTo(phOverrideValue);
     }
 
