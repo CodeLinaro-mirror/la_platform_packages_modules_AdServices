@@ -47,6 +47,7 @@ import android.app.sdksandbox.ISharedPreferencesSyncCallback;
 import android.app.sdksandbox.LoadSdkException;
 import android.app.sdksandbox.SdkSandboxManager;
 import android.app.sdksandbox.SharedPreferencesUpdate;
+import android.app.sdksandbox.testutils.DeviceSupportUtils;
 import android.app.sdksandbox.testutils.FakeLoadSdkCallbackBinder;
 import android.app.sdksandbox.testutils.FakeRequestSurfacePackageCallbackBinder;
 import android.app.sdksandbox.testutils.FakeSdkSandboxManagerLocal;
@@ -134,9 +135,7 @@ public class SdkSandboxManagerServiceUnitTest {
 
     private static SdkSandboxManagerService.SdkSandboxSettingsListener sSdkSandboxSettingsListener;
 
-    private static final String CLIENT_PACKAGE_NAME = "com.android.client";
-
-    private static SdkSandboxStorageManager sSdkSandboxStorageManager;
+    private SdkSandboxStorageManager mSdkSandboxStorageManager;
     private static SdkSandboxManagerLocal sSdkSandboxManagerLocal;
     private static final String SDK_NAME = "com.android.codeprovider";
     private static final String SDK_PROVIDER_PACKAGE = "com.android.codeprovider_1";
@@ -175,6 +174,9 @@ public class SdkSandboxManagerServiceUnitTest {
 
     @Before
     public void setup() {
+        assumeTrue(
+                DeviceSupportUtils.isSdkSandboxSupported(
+                        InstrumentationRegistry.getInstrumentation().getContext()));
         StaticMockitoSessionBuilder mockitoSessionBuilder =
                 ExtendedMockito.mockitoSession()
                         .mockStatic(LocalManagerRegistry.class)
@@ -200,21 +202,22 @@ public class SdkSandboxManagerServiceUnitTest {
         }
 
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
-        String testDir = context.getDir("test_dir", Context.MODE_PRIVATE).getPath();
         mSpyContext = Mockito.spy(context);
         ActivityManager am = context.getSystemService(ActivityManager.class);
         mAmSpy = Mockito.spy(Objects.requireNonNull(am));
 
         Mockito.when(mSpyContext.getSystemService(ActivityManager.class)).thenReturn(mAmSpy);
 
-        // Required to access <sdk-library> information and DeviceConfig.
+        // Required to access <sdk-library> information and DeviceConfig update.
         InstrumentationRegistry.getInstrumentation()
                 .getUiAutomation()
                 .adoptShellPermissionIdentity(
                         Manifest.permission.ACCESS_SHARED_LIBRARIES,
-                                Manifest.permission.INSTALL_PACKAGES,
+                        Manifest.permission.INSTALL_PACKAGES,
                         Manifest.permission.READ_DEVICE_CONFIG,
-                                Manifest.permission.WRITE_DEVICE_CONFIG);
+                        Manifest.permission.WRITE_DEVICE_CONFIG,
+                        // for Context#registerReceiverForAllUsers
+                        Manifest.permission.INTERACT_ACROSS_USERS_FULL);
         mSdkSandboxService = Mockito.spy(FakeSdkSandboxService.class);
         mSdkSandboxService.setTimeValues(
                 TIME_SYSTEM_SERVER_CALLED_SANDBOX,
@@ -231,13 +234,15 @@ public class SdkSandboxManagerServiceUnitTest {
         mPmLocal = Mockito.spy(PackageManagerLocal.class);
 
         sSdkSandboxPulledAtoms = Mockito.spy(new SdkSandboxPulledAtoms());
-        sSdkSandboxStorageManager =
+
+        String testDir = context.getDir("test_dir", Context.MODE_PRIVATE).getPath();
+        mSdkSandboxStorageManager =
                 new SdkSandboxStorageManager(
                         mSpyContext, new FakeSdkSandboxManagerLocal(), mPmLocal, testDir);
         mSdkSandboxStorageManagerUtility =
-                new SdkSandboxStorageManagerUtility(sSdkSandboxStorageManager);
+                new SdkSandboxStorageManagerUtility(mSdkSandboxStorageManager);
 
-        mInjector = Mockito.spy(new InjectorForTest(mSpyContext, sSdkSandboxStorageManager));
+        mInjector = Mockito.spy(new InjectorForTest(mSpyContext, mSdkSandboxStorageManager));
 
         mService = new SdkSandboxManagerService(mSpyContext, mInjector);
         mService.forceEnableSandbox();
@@ -252,7 +257,9 @@ public class SdkSandboxManagerServiceUnitTest {
 
     @After
     public void tearDown() {
-        sSdkSandboxSettingsListener.unregisterPropertiesListener();
+        if (sSdkSandboxSettingsListener != null) {
+            sSdkSandboxSettingsListener.unregisterPropertiesListener();
+        }
         mStaticMockSession.finishMocking();
     }
 
@@ -808,7 +815,7 @@ public class SdkSandboxManagerServiceUnitTest {
         killSandbox();
 
         // Check that death is recorded correctly
-        assertThat(lifecycleCallback.isSdkSandboxDeathDetected()).isTrue();
+        assertThat(lifecycleCallback.getSdkSandboxDeathCount()).isEqualTo(1);
     }
 
     @Test
@@ -825,7 +832,7 @@ public class SdkSandboxManagerServiceUnitTest {
         killSandbox();
 
         // Check that death is recorded correctly
-        assertThat(lifecycleCallback.isSdkSandboxDeathDetected()).isTrue();
+        assertThat(lifecycleCallback.getSdkSandboxDeathCount()).isEqualTo(1);
     }
 
     @Test
@@ -838,7 +845,7 @@ public class SdkSandboxManagerServiceUnitTest {
         mService.addSdkSandboxProcessDeathCallback(
                 TEST_PACKAGE, TIME_APP_CALLED_SYSTEM_SERVER, lifecycleCallback1);
         killSandbox();
-        assertThat(lifecycleCallback1.isSdkSandboxDeathDetected()).isTrue();
+        assertThat(lifecycleCallback1.getSdkSandboxDeathCount()).isEqualTo(1);
 
         restartAndSetSandboxService();
 
@@ -847,9 +854,9 @@ public class SdkSandboxManagerServiceUnitTest {
                 new FakeSdkSandboxProcessDeathCallbackBinder();
         mService.addSdkSandboxProcessDeathCallback(
                 TEST_PACKAGE, TIME_APP_CALLED_SYSTEM_SERVER, lifecycleCallback2);
-        assertThat(lifecycleCallback2.isSdkSandboxDeathDetected()).isFalse();
+        assertThat(lifecycleCallback2.getSdkSandboxDeathCount()).isEqualTo(0);
         killSandbox();
-        assertThat(lifecycleCallback2.isSdkSandboxDeathDetected()).isTrue();
+        assertThat(lifecycleCallback2.getSdkSandboxDeathCount()).isEqualTo(1);
     }
 
     @Test
@@ -872,8 +879,8 @@ public class SdkSandboxManagerServiceUnitTest {
         killSandbox();
 
         // Check that death is recorded correctly
-        assertThat(lifecycleCallback1.isSdkSandboxDeathDetected()).isTrue();
-        assertThat(lifecycleCallback2.isSdkSandboxDeathDetected()).isTrue();
+        assertThat(lifecycleCallback1.getSdkSandboxDeathCount()).isEqualTo(1);
+        assertThat(lifecycleCallback2.getSdkSandboxDeathCount()).isEqualTo(1);
     }
 
     @Test
@@ -900,8 +907,8 @@ public class SdkSandboxManagerServiceUnitTest {
         killSandbox();
 
         // Check that death is recorded correctly
-        assertThat(lifecycleCallback1.isSdkSandboxDeathDetected()).isFalse();
-        assertThat(lifecycleCallback2.isSdkSandboxDeathDetected()).isTrue();
+        assertThat(lifecycleCallback1.getSdkSandboxDeathCount()).isEqualTo(0);
+        assertThat(lifecycleCallback2.getSdkSandboxDeathCount()).isEqualTo(1);
     }
 
     @Test(expected = SecurityException.class)
@@ -2836,9 +2843,9 @@ public class SdkSandboxManagerServiceUnitTest {
         mSdkSandboxService.sendStorageInfoToSystemServer();
 
         final List<SdkSandboxStorageManager.StorageDirInfo> internalStorageDirInfo =
-                sSdkSandboxStorageManager.getInternalStorageDirInfo(callingInfo);
+                mSdkSandboxStorageManager.getInternalStorageDirInfo(callingInfo);
         final List<SdkSandboxStorageManager.StorageDirInfo> sdkStorageDirInfo =
-                sSdkSandboxStorageManager.getSdkStorageDirInfo(callingInfo);
+                mSdkSandboxStorageManager.getSdkStorageDirInfo(callingInfo);
 
         Mockito.verify(sSdkSandboxPulledAtoms, Mockito.timeout(5000))
                 .logStorage(mClientAppUid, /*sharedStorage=*/ 0, /*sdkStorage=*/ 0);
