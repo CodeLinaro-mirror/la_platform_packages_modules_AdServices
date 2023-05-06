@@ -35,7 +35,9 @@ import android.os.Looper;
 import android.os.RemoteException;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.MediaController;
 import android.widget.Toast;
 import android.widget.VideoView;
 
@@ -50,6 +52,7 @@ public class SampleSandboxedSdkProvider extends SandboxedSdkProvider {
 
     private static final String VIEW_TYPE_KEY = "view-type";
     private static final String VIDEO_VIEW_VALUE = "video-view";
+    private static final String VIEW_TYPE_INFLATED_VIEW = "view-type-inflated-view";
     private static final String VIDEO_URL_KEY = "video-url";
     private static final String EXTRA_SDK_SDK_ENABLED_KEY = "sdkSdkCommEnabled";
     private static final String APP_OWNED_SDK_NAME = "app-sdk-1";
@@ -71,6 +74,11 @@ public class SampleSandboxedSdkProvider extends SandboxedSdkProvider {
         if (VIDEO_VIEW_VALUE.equals(type)) {
             String videoUrl = params.getString(VIDEO_URL_KEY, "");
             return new TestVideoView(windowContext, videoUrl);
+        } else if (VIEW_TYPE_INFLATED_VIEW.equals(type)) {
+            final LayoutInflater inflater =
+                    (LayoutInflater)
+                            windowContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+            return inflater.inflate(R.layout.sample_layout, null);
         }
         mSdkSdkCommEnabled = params.getString(EXTRA_SDK_SDK_ENABLED_KEY, null);
         return new TestView(windowContext, getContext(), mSdkSdkCommEnabled);
@@ -181,8 +189,26 @@ public class SampleSandboxedSdkProvider extends SandboxedSdkProvider {
                             () -> {
                                 setVideoURI(Uri.parse(url));
                                 requestFocus();
+
+                                // Add playback controls to the video.
+                                MediaController mediaController = new MediaController(getContext());
+                                mediaController.setAnchorView(this);
+                                setMediaController(mediaController);
+
                                 start();
                             });
+        }
+
+        @Override
+        public void pause() {
+            super.pause();
+            Log.i(TAG, "Video was paused.");
+        }
+
+        @Override
+        public void start() {
+            super.start();
+            Log.i(TAG, "Video was started.");
         }
     }
 }

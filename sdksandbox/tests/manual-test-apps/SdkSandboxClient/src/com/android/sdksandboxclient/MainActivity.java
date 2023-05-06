@@ -32,6 +32,7 @@ import android.app.sdksandbox.SandboxedSdk;
 import android.app.sdksandbox.SdkSandboxManager;
 import android.app.sdksandbox.interfaces.IActivityStarter;
 import android.app.sdksandbox.interfaces.ISdkApi;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
@@ -40,7 +41,6 @@ import android.os.Looper;
 import android.os.OutcomeReceiver;
 import android.os.RemoteException;
 import android.os.StrictMode;
-import android.preference.PreferenceManager;
 import android.text.InputType;
 import android.util.Log;
 import android.view.SurfaceControlViewHost.SurfacePackage;
@@ -49,16 +49,21 @@ import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.preference.PreferenceManager;
 
 import com.android.modules.utils.BackgroundThread;
 import com.android.modules.utils.build.SdkLevel;
 
 import java.util.Set;
+import java.util.concurrent.Executors;
 
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {
     // TODO(b/253202014): Add toggle button
     private static final Boolean IS_WEBVIEW_TESTING_ENABLED = false;
     private static final String SDK_NAME =
@@ -71,6 +76,7 @@ public class MainActivity extends Activity {
     private static final String VIEW_TYPE_KEY = "view-type";
     private static final String VIDEO_VIEW_VALUE = "video-view";
     private static final String VIDEO_URL_KEY = "video-url";
+    private static final String VIEW_TYPE_INFLATED_VIEW = "view-type-inflated-view";
 
     private static final Handler sHandler = new Handler(Looper.getMainLooper());
     private static final String EXTRA_SDK_SDK_ENABLED_KEY = "sdkSdkCommEnabled";
@@ -78,8 +84,10 @@ public class MainActivity extends Activity {
     private static final String DROPDOWN_KEY_SDK_APP = "SDK_IN_APP";
     private static final String APP_OWNED_SDK_NAME = "app-sdk-1";
 
-    private static String sVideoUrl;
+    // Saved instance state keys
+    private static final String SDKS_LOADED_KEY = "sdks_loaded";
 
+    private static String sVideoUrl;
     private boolean mSdksLoaded = false;
     private boolean mSdkToSdkCommEnabled = false;
     private SdkSandboxManager mSdkSandboxManager;
@@ -87,6 +95,7 @@ public class MainActivity extends Activity {
     private Button mLoadSdksButton;
     private Button mDeathCallbackButton;
     private Button mNewBannerAdButton;
+    private ImageButton mBannerAdOptionsButton;
     private Button mCreateFileButton;
     private Button mPlayVideoButton;
     private Button mSyncKeysButton;
@@ -96,11 +105,28 @@ public class MainActivity extends Activity {
     private SurfaceView mRenderedView;
 
     private SandboxedSdk mSandboxedSdk;
+    private SharedPreferences mSharedPreferences;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         enableStrictMode();
         super.onCreate(savedInstanceState);
+
+        if (savedInstanceState != null) {
+            mSdksLoaded = savedInstanceState.getBoolean(SDKS_LOADED_KEY);
+        }
+
+        Executors.newSingleThreadExecutor()
+                .execute(
+                        () -> {
+                            Looper.prepare();
+                            mSharedPreferences =
+                                    PreferenceManager.getDefaultSharedPreferences(
+                                            MainActivity.this);
+                            PreferenceManager.setDefaultValues(
+                                    this, R.xml.banner_preferences, false);
+                        });
+
         setContentView(R.layout.activity_main);
         mSdkSandboxManager = getApplicationContext().getSystemService(SdkSandboxManager.class);
         Bundle extras = getIntent().getExtras();
@@ -116,6 +142,7 @@ public class MainActivity extends Activity {
         mDeathCallbackButton = findViewById(R.id.register_death_callback_button);
 
         mNewBannerAdButton = findViewById(R.id.new_banner_ad_button);
+        mBannerAdOptionsButton = findViewById(R.id.banner_ad_options_button);
         mNewFullScreenAd = findViewById(R.id.new_fullscreen_ad_button);
 
         mCreateFileButton = findViewById(R.id.create_file_button);
@@ -134,10 +161,29 @@ public class MainActivity extends Activity {
         registerPlayVideoButton();
         registerSyncKeysButton();
         registerSdkToSdkButton();
-        // Register AppOwnedSdkInterface
-        mSdkSandboxManager.registerAppOwnedSdkSandboxInterface(
-                new AppOwnedSdkSandboxInterface(
-                        APP_OWNED_SDK_NAME, (long) 1.01, new AppOwnedSdkApi()));
+
+        if (savedInstanceState == null) {
+            // Register AppOwnedSdkInterface when activity first created
+            mSdkSandboxManager.registerAppOwnedSdkSandboxInterface(
+                    new AppOwnedSdkSandboxInterface(
+                            APP_OWNED_SDK_NAME, (long) 1.01, new AppOwnedSdkApi()));
+        }
+
+        refreshLoadSdksButtonText();
+    }
+
+    private void refreshLoadSdksButtonText() {
+        if (mSdksLoaded) {
+            mLoadSdksButton.setText("Unload SDKs");
+        } else {
+            mLoadSdksButton.setText("Load SDKs");
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(SDKS_LOADED_KEY, mSdksLoaded);
     }
 
     private void registerDeathCallbackButton() {
@@ -163,7 +209,6 @@ public class MainActivity extends Activity {
                             new OutcomeReceiver<SandboxedSdk, LoadSdkException>() {
                                 @Override
                                 public void onResult(SandboxedSdk sandboxedSdk) {
-                                    mSdksLoaded = true;
                                     mSandboxedSdk = sandboxedSdk;
                                     makeToast("First SDK Loaded successfully!");
                                 }
@@ -180,8 +225,8 @@ public class MainActivity extends Activity {
                                 public void onResult(SandboxedSdk sandboxedSdk) {
                                     makeToast("All SDKs Loaded successfully!");
                                     Log.d(TAG, "All SDKs Loaded successfully!");
-                                    mLoadSdksButton.setText("Unload SDKs");
-                                    mLoadSdksButton.forceLayout();
+                                    mSdksLoaded = true;
+                                    refreshLoadSdksButtonText();
                                 }
 
                                 @Override
@@ -198,8 +243,8 @@ public class MainActivity extends Activity {
     private void resetStateForLoadSdkButton() {
         mSdkSandboxManager.unloadSdk(SDK_NAME);
         mSdkSandboxManager.unloadSdk(MEDIATEE_SDK_NAME);
-        mLoadSdksButton.setText("Load SDKs");
         mSdksLoaded = false;
+        refreshLoadSdksButtonText();
     }
 
     private void registerNewBannerAdButton() {
@@ -208,13 +253,17 @@ public class MainActivity extends Activity {
         mNewBannerAdButton.setOnClickListener(
                 v -> {
                     if (mSdksLoaded) {
+                        final BannerOptions options =
+                                BannerOptions.fromSharedPreferences(mSharedPreferences);
+                        Log.i(TAG, options.toString());
+                        final Bundle params = getRequestSurfacePackageParams(null);
+                        if (options.getViewType() == BannerOptions.ViewType.INFLATED) {
+                            params.putString(VIEW_TYPE_KEY, VIEW_TYPE_INFLATED_VIEW);
+                        }
                         sHandler.post(
                                 () -> {
                                     mSdkSandboxManager.requestSurfacePackage(
-                                            SDK_NAME,
-                                            getRequestSurfacePackageParams(null),
-                                            Runnable::run,
-                                            receiver);
+                                            SDK_NAME, params, Runnable::run, receiver);
                                 });
                     } else {
                         makeToast("Sdk is not loaded");
@@ -223,7 +272,8 @@ public class MainActivity extends Activity {
     }
 
     private void registerBannerAdOptionsButton() {
-        // TODO(b/280417818): Implement options button
+        mBannerAdOptionsButton.setOnClickListener(
+                v -> startActivity(new Intent(MainActivity.this, BannerOptionsActivity.class)));
     }
 
     private void registerCreateFileButton() {
@@ -298,6 +348,7 @@ public class MainActivity extends Activity {
                     }
                 });
     }
+
 
     private void registerSdkToSdkButton() {
         mSdkToSdkCommButton.setOnClickListener(
