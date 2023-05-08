@@ -920,13 +920,32 @@ public interface Flags {
         return DEFAULT_CONSENT_SOURCE_OF_TRUTH;
     }
 
-    /* Blocked topics source of truth intended to be used by default */
-    @ConsentSourceOfTruth int DEFAULT_BLOCKED_TOPICS_SOURCE_OF_TRUTH = PPAPI_AND_SYSTEM_SERVER;
+    /**
+     * Blocked topics source of truth intended to be used by default. On S- devices, there is no
+     * AdServices code running in the system server, so the default for those is PPAPI_ONLY.
+     */
+    @ConsentSourceOfTruth
+    int DEFAULT_BLOCKED_TOPICS_SOURCE_OF_TRUTH =
+            SdkLevel.isAtLeastT() ? PPAPI_AND_SYSTEM_SERVER : PPAPI_ONLY;
 
     /** Returns the blocked topics source of truth currently used for PPAPI */
     @ConsentSourceOfTruth
     default int getBlockedTopicsSourceOfTruth() {
         return DEFAULT_BLOCKED_TOPICS_SOURCE_OF_TRUTH;
+    }
+
+    /**
+     * The SHA certificates of the AdServices and the AdExtServices APKs. This is required when
+     * writing consent data to AppSearch in order to allow reads from T+ APK. This is a comma
+     * searpated list.
+     */
+    // TODO: Add the release key signed cert.
+    String ADSERVICES_APK_SHA_CERTIFICATE =
+            "686d5c450e00ebe600f979300a29234644eade42f24ede07a073f2bc6b94a3a2";
+
+    /** Only App signatures belonging to this Allow List can use PP APIs. */
+    default String getAdservicesApkShaCertificate() {
+        return ADSERVICES_APK_SHA_CERTIFICATE;
     }
 
     // Group of All Killswitches
@@ -1313,6 +1332,17 @@ public interface Flags {
     default boolean getTopicsKillSwitch() {
         // We check the Global Killswitch first. As a result, it overrides all other killswitches.
         return getGlobalKillSwitch() || TOPICS_KILL_SWITCH;
+    }
+
+    /**
+     * Topics on-device classifier Kill Switch. The default value is false which means the on-device
+     * classifier in enabled. This flag is used for emergency turning off the on-device classifier.
+     */
+    boolean TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH = false;
+
+    /** @return value of Topics on-device classifier kill switch. */
+    default boolean getTopicsOnDeviceClassifierKillSwitch() {
+        return TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH;
     }
 
     // MDD Killswitches
@@ -1914,14 +1944,6 @@ public interface Flags {
     /** Returns if the GA UX feature is enabled. */
     default boolean getGaUxFeatureEnabled() {
         return GA_UX_FEATURE_ENABLED;
-    }
-
-    // Enable per-app consent in FLEDGE if GA UX is enabled
-    boolean FLEDGE_PER_APP_CONSENT_ENABLED = GA_UX_FEATURE_ENABLED;
-
-    /** Returns {@code true} if per-app consent is enabled in FLEDGE. */
-    default boolean getFledgePerAppConsentEnabled() {
-        return FLEDGE_PER_APP_CONSENT_ENABLED;
     }
 
     long ASYNC_REGISTRATION_JOB_QUEUE_INTERVAL_MS = (int) TimeUnit.HOURS.toMillis(1);

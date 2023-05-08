@@ -315,6 +315,8 @@ public final class PhFlags implements Flags {
     static final String KEY_MEASUREMENT_ROLLBACK_DELETION_KILL_SWITCH =
             "measurement_rollback_deletion_kill_switch";
     static final String KEY_TOPICS_KILL_SWITCH = "topics_kill_switch";
+    static final String KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH =
+            "topics_on_device_classifier_kill_switch";
     static final String KEY_MDD_BACKGROUND_TASK_KILL_SWITCH = "mdd_background_task_kill_switch";
     static final String KEY_MDD_LOGGER_KILL_SWITCH = "mdd_logger_kill_switch";
     static final String KEY_ADID_KILL_SWITCH = "adid_kill_switch";
@@ -329,6 +331,9 @@ public final class PhFlags implements Flags {
     // App/SDK AllowList/DenyList keys
     static final String KEY_PPAPI_APP_ALLOW_LIST = "ppapi_app_allow_list";
     static final String KEY_PPAPI_APP_SIGNATURE_ALLOW_LIST = "ppapi_app_signature_allow_list";
+
+    // AdServices APK sha certs.
+    static final String KEY_ADSERVICES_APK_SHA_CERTS = "adservices_apk_sha_certs";
 
     // Rate Limit keys
     static final String KEY_SDK_REQUEST_PERMITS_PER_SECOND = "sdk_request_permits_per_second";
@@ -418,8 +423,6 @@ public final class PhFlags implements Flags {
     static final String KEY_UI_DIALOGS_FEATURE_ENABLED = "ui_dialogs_feature_enabled";
 
     static final String KEY_GA_UX_FEATURE_ENABLED = "ga_ux_enabled";
-
-    static final String KEY_FLEDGE_PER_APP_CONSENT_ENABLED = "fledge_per_app_consent_enabled";
 
     // Back-compat keys
     static final String KEY_COMPAT_LOGGING_KILL_SWITCH = "compat_logging_kill_switch";
@@ -1683,6 +1686,19 @@ public final class PhFlags implements Flags {
                                 /* defaultValue */ TOPICS_KILL_SWITCH));
     }
 
+    @Override
+    public boolean getTopicsOnDeviceClassifierKillSwitch() {
+        // We check the Global Killswitch first. As a result, it overrides all other killswitches.
+        // The priority of applying the flag values: SystemProperties, PH (DeviceConfig), then
+        // hard-coded value.
+        return SystemProperties.getBoolean(
+                getSystemPropertyName(KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH),
+                /* defaultValue */ DeviceConfig.getBoolean(
+                        NAMESPACE_ADSERVICES,
+                        /* flagName */ KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH,
+                        /* defaultValue */ TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH));
+    }
+
     // MDD Killswitches
     @Override
     public boolean getMddBackgroundTaskKillSwitch() {
@@ -1750,6 +1766,15 @@ public final class PhFlags implements Flags {
                 NAMESPACE_ADSERVICES,
                 /* flagName */ KEY_PPAPI_APP_ALLOW_LIST,
                 /* defaultValue */ PPAPI_APP_ALLOW_LIST);
+    }
+
+    // AdServices APK SHA certs.
+    @Override
+    public String getAdservicesApkShaCertificate() {
+        return DeviceConfig.getString(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_ADSERVICES_APK_SHA_CERTS,
+                /* defaultValue */ ADSERVICES_APK_SHA_CERTIFICATE);
     }
 
     // PPAPI Signature allow-list.
@@ -2268,20 +2293,6 @@ public final class PhFlags implements Flags {
     }
 
     @Override
-    public boolean getFledgePerAppConsentEnabled() {
-        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
-
-        // Per-app consent is only enabled in FLEDGE if GA UX is enabled
-        return getGaUxFeatureEnabled()
-                && SystemProperties.getBoolean(
-                        getSystemPropertyName(KEY_FLEDGE_PER_APP_CONSENT_ENABLED),
-                        /* defaultValue */ DeviceConfig.getBoolean(
-                                NAMESPACE_ADSERVICES,
-                                /* flagName */ KEY_FLEDGE_PER_APP_CONSENT_ENABLED,
-                                /* defaultValue */ FLEDGE_PER_APP_CONSENT_ENABLED));
-    }
-
-    @Override
     public long getAdSelectionExpirationWindowS() {
         return DeviceConfig.getLong(
                 NAMESPACE_ADSERVICES,
@@ -2359,6 +2370,11 @@ public final class PhFlags implements Flags {
         writer.println("==== AdServices PH Flags Dump killswitches ====");
         writer.println("\t" + KEY_GLOBAL_KILL_SWITCH + " = " + getGlobalKillSwitch());
         writer.println("\t" + KEY_TOPICS_KILL_SWITCH + " = " + getTopicsKillSwitch());
+        writer.println(
+                "\t"
+                        + KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH
+                        + " = "
+                        + getTopicsOnDeviceClassifierKillSwitch());
         writer.println("\t" + KEY_ADID_KILL_SWITCH + " = " + getAdIdKillSwitch());
         writer.println("\t" + KEY_APPSETID_KILL_SWITCH + " = " + getAppSetIdKillSwitch());
         writer.println(
@@ -2621,7 +2637,8 @@ public final class PhFlags implements Flags {
                 "\t"
                         + KEY_MEASUREMENT_REGISTRATION_FALLBACK_JOB_KILL_SWITCH
                         + " = "
-                        + getAsyncRegistrationFallbackJobKillSwitch());        writer.println(
+                        + getAsyncRegistrationFallbackJobKillSwitch());
+        writer.println(
                 "\t"
                         + KEY_MEASUREMENT_ATTRIBUTION_FALLBACK_JOB_KILL_SWITCH
                         + " = "
@@ -2902,11 +2919,6 @@ public final class PhFlags implements Flags {
                         + KEY_FOREGROUND_STATUS_LEVEL
                         + " = "
                         + getForegroundStatuslLevelForValidation());
-        writer.println(
-                "\t"
-                        + KEY_FLEDGE_PER_APP_CONSENT_ENABLED
-                        + " = "
-                        + getFledgePerAppConsentEnabled());
         writer.println(
                 "\t"
                         + KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED

@@ -19,7 +19,6 @@ import static com.android.adservices.service.measurement.SystemHealthParams.MAX_
 import static com.android.adservices.service.measurement.SystemHealthParams.MAX_AGGREGATE_DEDUPLICATION_KEYS_PER_REGISTRATION;
 import static com.android.adservices.service.measurement.SystemHealthParams.MAX_AGGREGATE_KEYS_PER_REGISTRATION;
 import static com.android.adservices.service.measurement.SystemHealthParams.MAX_ATTRIBUTION_EVENT_TRIGGER_DATA;
-import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_MEASUREMENT_REGISTRATIONS__TYPE__TRIGGER;
 
 import android.annotation.NonNull;
 import android.content.Context;
@@ -275,12 +274,7 @@ public class AsyncTriggerFetcher {
             urlConnection.setRequestMethod("POST");
             urlConnection.setInstanceFollowRedirects(false);
             headers = urlConnection.getHeaderFields();
-            FetcherUtil.emitHeaderMetrics(
-                    mFlags,
-                    mLogger,
-                    AD_SERVICES_MEASUREMENT_REGISTRATIONS__TYPE__TRIGGER,
-                    headers,
-                    asyncRegistration.getRegistrationUri());
+            asyncFetchStatus.setResponseSize(FetcherUtil.calculateHeadersCharactersLength(headers));
             int responseCode = urlConnection.getResponseCode();
             LogUtil.d("Response code = " + responseCode);
             if (!FetcherUtil.isRedirect(responseCode) && !FetcherUtil.isSuccess(responseCode)) {
@@ -488,11 +482,12 @@ public class AsyncTriggerFetcher {
         for (int i = 0; i < aggregateDeduplicationKeys.length(); i++) {
             JSONObject aggregateDedupKey = new JSONObject();
             JSONObject deduplication_key = aggregateDeduplicationKeys.getJSONObject(i);
+
             String deduplicationKey = deduplication_key.optString("deduplication_key");
-            if (!FetcherUtil.isValidAggregateDeduplicationKey(deduplicationKey)) {
-                return Optional.empty();
+            if (!deduplication_key.isNull("deduplication_key")
+                    && FetcherUtil.isValidAggregateDeduplicationKey(deduplicationKey)) {
+                aggregateDedupKey.put("deduplication_key", deduplicationKey);
             }
-            aggregateDedupKey.put("deduplication_key", deduplicationKey);
             if (!deduplication_key.isNull("filters")) {
                 JSONArray filters = Filter.maybeWrapFilters(deduplication_key, "filters");
                 if (!FetcherUtil.areValidAttributionFilters(filters)) {
