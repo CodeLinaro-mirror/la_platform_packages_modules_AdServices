@@ -22,7 +22,9 @@ public class BannerOptions {
 
     public enum ViewType {
         RANDOM_COLOUR,
-        INFLATED
+        INFLATED,
+        VIDEO,
+        WEBVIEW
     }
 
     public enum OnClick {
@@ -30,10 +32,12 @@ public class BannerOptions {
     }
 
     public enum Placement {
-        BOTTOM
+        BOTTOM,
+        SCROLL_VIEW
     }
 
     private final ViewType mViewType;
+    private final String mVideoUrl;
     private final OnClick mOnClick;
     private final Placement mPlacement;
 
@@ -49,15 +53,21 @@ public class BannerOptions {
         return mPlacement;
     }
 
+    public String getVideoUrl() {
+        return mVideoUrl;
+    }
+
     @Override
     public String toString() {
         return String.format(
-                "BannerOptions { ViewType=%s, OnClick=%s, Placement=%s }",
-                mViewType, mOnClick, mPlacement);
+                "BannerOptions { ViewType=%s, VideoUrl=%s, OnClick=%s, Placement=%s }",
+                mViewType, mVideoUrl, mOnClick, mPlacement);
     }
 
-    private BannerOptions(ViewType viewType, OnClick onClick, Placement placement) {
+    private BannerOptions(
+            ViewType viewType, String videoUrl, OnClick onClick, Placement placement) {
         mViewType = viewType;
+        mVideoUrl = videoUrl;
         mOnClick = onClick;
         mPlacement = placement;
     }
@@ -65,6 +75,7 @@ public class BannerOptions {
     public static BannerOptions fromSharedPreferences(SharedPreferences sharedPreferences) {
         return new BannerOptions(
                 ViewType.valueOf(sharedPreferences.getString("banner_view_type", "")),
+                sharedPreferences.getString("banner_video_url", ""),
                 OnClick.valueOf(sharedPreferences.getString("banner_on_click", "")),
                 Placement.valueOf(sharedPreferences.getString("banner_placement", "")));
     }

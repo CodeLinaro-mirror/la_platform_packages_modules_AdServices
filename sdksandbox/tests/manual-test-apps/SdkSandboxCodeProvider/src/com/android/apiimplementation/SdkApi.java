@@ -22,14 +22,19 @@ import android.app.sdksandbox.interfaces.IActivityStarter;
 import android.app.sdksandbox.interfaces.ISdkApi;
 import android.app.sdksandbox.sdkprovider.SdkSandboxController;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.VideoView;
 import android.window.OnBackInvokedCallback;
 import android.window.OnBackInvokedDispatcher;
 
@@ -42,6 +47,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class SdkApi extends ISdkApi.Stub {
+    private static final String VIDEO_URL_KEY = "video-url";
+
     private final Context mContext;
 
     public SdkApi(Context sdkContext) {
@@ -88,17 +95,30 @@ public class SdkApi extends ISdkApi.Stub {
     }
 
     @Override
-    public void startActivity(IActivityStarter iActivityStarter) throws RemoteException {
+    public String getSandboxDump() {
+        // Check if the SDK can access device volume.
+        AudioManager audioManager = mContext.getSystemService(AudioManager.class);
+        int curVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+        int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        return "Current music volume: " + curVolume + ", max music volume: " + maxVolume;
+    }
+
+    @Override
+    public void startActivity(IActivityStarter iActivityStarter, Bundle params)
+            throws RemoteException {
         if (!SdkLevel.isAtLeastU()) {
             throw new IllegalStateException("Starting activity requires Android U or above!");
         }
+
+        String videoUrl = params.getString(VIDEO_URL_KEY, null);
         SdkSandboxController controller = mContext.getSystemService(SdkSandboxController.class);
         IBinder token =
-                controller.registerSdkSandboxActivityHandler(activity -> populateView(activity));
+                controller.registerSdkSandboxActivityHandler(
+                        activity -> populateView(activity, videoUrl));
         iActivityStarter.startActivity(token);
     }
 
-    private void populateView(Activity activity) {
+    private void populateView(Activity activity, String videoUrl) {
         // creating LinearLayout
         LinearLayout linLayout = new LinearLayout(activity);
         // specifying vertical orientation
@@ -122,6 +142,11 @@ public class SdkApi extends ISdkApi.Stub {
 
         final Button finishActivityButton = createFinishActivityButton(activity);
         linLayout.addView(finishActivityButton);
+
+        if (videoUrl != null) {
+            final VideoView videoAd = createVideoAd(activity, videoUrl);
+            linLayout.addView(videoAd);
+        }
 
         final TextView statesChangeLog = createStatesChangeLog(activity);
         linLayout.addView(statesChangeLog);
@@ -170,6 +195,34 @@ public class SdkApi extends ISdkApi.Stub {
         button.setOnClickListener(v -> activity.finish());
 
         return button;
+    }
+
+    private VideoView createVideoAd(Activity activity, String videoUrl) {
+        final VideoView videoView = new VideoView(activity);
+        videoView.setVideoURI(Uri.parse(videoUrl));
+        videoView.requestFocus();
+
+        videoView.setOnPreparedListener(mp -> videoView.start());
+
+        videoView.setOnCompletionListener(
+                new MediaPlayer.OnCompletionListener() {
+                    @Override
+                    public void onCompletion(MediaPlayer mp) {
+                        videoView.setOnTouchListener(
+                                (view, event) -> {
+                                    Context context = view.getContext();
+
+                                    String url = "https://www.google.com";
+                                    Intent visitUrl = new Intent(Intent.ACTION_VIEW);
+                                    visitUrl.setData(Uri.parse(url));
+                                    visitUrl.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                                    context.startActivity(visitUrl);
+                                    return true;
+                                });
+                    }
+                });
+        return videoView;
     }
 
     private TextView createStatesChangeLog(Activity activity) {
