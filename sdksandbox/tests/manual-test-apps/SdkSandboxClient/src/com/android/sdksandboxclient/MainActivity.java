@@ -39,11 +39,14 @@ import android.app.sdksandbox.interfaces.IActivityStarter;
 import android.app.sdksandbox.interfaces.ISdkApi;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.OutcomeReceiver;
+import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.os.StrictMode;
 import android.text.InputType;
@@ -57,6 +60,7 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -65,6 +69,7 @@ import androidx.preference.PreferenceManager;
 import com.android.modules.utils.BackgroundThread;
 import com.android.modules.utils.build.SdkLevel;
 
+import java.io.FileInputStream;
 import java.util.Set;
 import java.util.concurrent.Executors;
 
@@ -78,6 +83,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String VIDEO_URL_KEY = "video-url";
     private static final String VIEW_TYPE_INFLATED_VIEW = "view-type-inflated-view";
     private static final String VIEW_TYPE_WEBVIEW = "view-type-webview";
+    private static final String VIEW_TYPE_AD_REFRESH = "view-type-ad-refresh";
 
     private static final Handler sHandler = new Handler(Looper.getMainLooper());
     private static final String EXTRA_SDK_SDK_ENABLED_KEY = "sdkSdkCommEnabled";
@@ -87,7 +93,9 @@ public class MainActivity extends AppCompatActivity {
 
     // Saved instance state keys
     private static final String SDKS_LOADED_KEY = "sdks_loaded";
+    private static final String CUSTOMIZED_SDK_CONTEXT_ENABLED = "customized_sdk_context_enabled";
 
+    private Bundle mSavedInstanceState = new Bundle();
     private boolean mSdksLoaded = false;
     private boolean mSdkToSdkCommEnabled = false;
     private SdkSandboxManager mSdkSandboxManager;
@@ -113,7 +121,10 @@ public class MainActivity extends AppCompatActivity {
         enableStrictMode();
         super.onCreate(savedInstanceState);
 
+        setAppTitle();
+
         if (savedInstanceState != null) {
+            mSavedInstanceState.putAll(savedInstanceState);
             mSdksLoaded = savedInstanceState.getBoolean(SDKS_LOADED_KEY);
         }
 
@@ -147,11 +158,12 @@ public class MainActivity extends AppCompatActivity {
         mNewBannerAdButton = findViewById(R.id.new_banner_ad_button);
         mBannerAdOptionsButton = findViewById(R.id.banner_ad_options_button);
         mNewFullScreenAd = findViewById(R.id.new_fullscreen_ad_button);
-
         mCreateFileButton = findViewById(R.id.create_file_button);
         mSyncKeysButton = findViewById(R.id.sync_keys_button);
         mSdkToSdkCommButton = findViewById(R.id.enable_sdk_sdk_button);
         mDumpSandboxButton = findViewById(R.id.dump_sandbox_button);
+
+        configureFeatureFlagSection();
 
         registerLoadSdksButton();
         registerDeathCallbackButton();
@@ -160,6 +172,7 @@ public class MainActivity extends AppCompatActivity {
         registerBannerAdOptionsButton();
         registerNewFullscreenAdButton();
 
+        registerGetFileDescriptorButton();
         registerCreateFileButton();
         registerSyncKeysButton();
         registerSdkToSdkButton();
@@ -175,6 +188,20 @@ public class MainActivity extends AppCompatActivity {
         refreshLoadSdksButtonText();
     }
 
+    private void setAppTitle() {
+        try {
+            final PackageInfo packageInfo =
+                    getPackageManager().getPackageInfo(getPackageName(), /*flags=*/ 0);
+            final String versionName = packageInfo.versionName;
+            setTitle(
+                    String.format(
+                            "%s (%s)",
+                            getResources().getString(R.string.title_activity_main), versionName));
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.e(TAG, "Could not find package " + getPackageName());
+        }
+    }
+
     private void handleExtras() {
         Bundle extras = getIntent().getExtras();
         if (extras != null) {
@@ -183,17 +210,42 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void configureFeatureFlagSection() {
+        TextView featureFlagStatus = findViewById(R.id.feature_flags_status);
+        if(!mSdksLoaded) {
+            featureFlagStatus.setText("Load SDK to fetch status of feature flags");
+            return;
+        }
+
+        if (!mSavedInstanceState.containsKey(CUSTOMIZED_SDK_CONTEXT_ENABLED)) {
+            try {
+                IBinder binder = mSandboxedSdk.getInterface();
+                ISdkApi sdkApi = ISdkApi.Stub.asInterface(binder);
+                boolean result = sdkApi.isCustomizedSdkContextEnabled();
+                mSavedInstanceState.putBoolean(CUSTOMIZED_SDK_CONTEXT_ENABLED, result);
+            } catch (RemoteException e) {
+                toastAndLog(e, "Failed to fetch feature flag status: %s", e);
+            }
+        }
+
+        boolean result = mSavedInstanceState.getBoolean(CUSTOMIZED_SDK_CONTEXT_ENABLED);
+        featureFlagStatus.post(() -> {
+            featureFlagStatus.setText("CustomizedSdkContext Enabled: " + result);
+        });
+    }
+
     private void refreshLoadSdksButtonText() {
         if (mSdksLoaded) {
-            mLoadSdksButton.setText("Unload SDKs");
+            mLoadSdksButton.post(() -> mLoadSdksButton.setText("Unload SDKs"));
         } else {
-            mLoadSdksButton.setText("Load SDKs");
+            mLoadSdksButton.post(() -> mLoadSdksButton.setText("Load SDKs"));
         }
     }
 
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
+        outState.putAll(mSavedInstanceState);
         outState.putBoolean(SDKS_LOADED_KEY, mSdksLoaded);
     }
 
@@ -216,26 +268,14 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     Bundle params = new Bundle();
-                    OutcomeReceiver<SandboxedSdk, LoadSdkException> receiver =
-                            new OutcomeReceiver<SandboxedSdk, LoadSdkException>() {
-                                @Override
-                                public void onResult(SandboxedSdk sandboxedSdk) {
-                                    mSandboxedSdk = sandboxedSdk;
-                                    toastAndLog(INFO, "First SDK Loaded successfully!");
-                                }
-
-                                @Override
-                                public void onError(LoadSdkException error) {
-                                    toastAndLog(ERROR, "Failed to load first SDK: %s", error);
-                                }
-                            };
                     OutcomeReceiver<SandboxedSdk, LoadSdkException> mediateeReceiver =
-                            new OutcomeReceiver<SandboxedSdk, LoadSdkException>() {
+                            new OutcomeReceiver<>() {
                                 @Override
                                 public void onResult(SandboxedSdk sandboxedSdk) {
                                     toastAndLog(INFO, "All SDKs Loaded successfully!");
                                     mSdksLoaded = true;
                                     refreshLoadSdksButtonText();
+                                    configureFeatureFlagSection();
                                 }
 
                                 @Override
@@ -243,10 +283,25 @@ public class MainActivity extends AppCompatActivity {
                                     toastAndLog(ERROR, "Failed to load all SDKs: %s", error);
                                 }
                             };
+                    OutcomeReceiver<SandboxedSdk, LoadSdkException> receiver =
+                            new OutcomeReceiver<>() {
+                                @Override
+                                public void onResult(SandboxedSdk sandboxedSdk) {
+                                    mSandboxedSdk = sandboxedSdk;
+                                    mSdkSandboxManager.loadSdk(
+                                            MEDIATEE_SDK_NAME,
+                                            params,
+                                            Runnable::run,
+                                            mediateeReceiver);
+                                }
+
+                                @Override
+                                public void onError(LoadSdkException error) {
+                                    toastAndLog(ERROR, "Failed to load first SDK: %s", error);
+                                }
+                            };
                     Log.i(TAG, "Loading SDKs " + SDK_NAME + " and " + MEDIATEE_SDK_NAME);
                     mSdkSandboxManager.loadSdk(SDK_NAME, params, Runnable::run, receiver);
-                    mSdkSandboxManager.loadSdk(
-                            MEDIATEE_SDK_NAME, params, Runnable::run, mediateeReceiver);
                 });
     }
 
@@ -287,6 +342,9 @@ public class MainActivity extends AppCompatActivity {
                             case WEBVIEW -> {
                                 params.putString(VIEW_TYPE_KEY, VIEW_TYPE_WEBVIEW);
                             }
+                            case AD_REFRESH -> {
+                                params.putString(VIEW_TYPE_KEY, VIEW_TYPE_AD_REFRESH);
+                            }
                         }
                         sHandler.post(
                                 () -> {
@@ -296,6 +354,89 @@ public class MainActivity extends AppCompatActivity {
                     } else {
                         toastAndLog(WARN, "Sdk is not loaded");
                     }
+                });
+    }
+
+    private void registerGetFileDescriptorButton() {
+        final Button mGetFileDescriptorButton = findViewById(R.id.get_filedescriptor_button);
+        mGetFileDescriptorButton.setOnClickListener(
+                v -> {
+                    if (!mSdksLoaded) {
+                        toastAndLog(WARN, "Sdk is not loaded");
+                        return;
+                    }
+                    Log.i(TAG, "Ready to get File Descriptor from SDK to APP");
+
+                    final AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    builder.setTitle("Set the value for FileDescriptor");
+                    final EditText inputValue = new EditText(this);
+                    inputValue.setText("default");
+                    builder.setView(inputValue);
+
+                    builder.setPositiveButton(
+                            "Get",
+                            (dialog, which) -> {
+                                BackgroundThread.getExecutor()
+                                        .execute(
+                                                () -> {
+                                                    IBinder binder = mSandboxedSdk.getInterface();
+                                                    String value = "";
+                                                    final String inputValueString =
+                                                            inputValue.getText().toString();
+                                                    if (inputValueString.length() == 0
+                                                            || inputValueString.length() > 10) {
+                                                        toastAndLog(
+                                                                WARN,
+                                                                "Input string cannot be empty or"
+                                                                    + " have more than 10"
+                                                                    + " characters. Try again.");
+                                                        return;
+                                                    }
+                                                    try {
+                                                        ISdkApi sdkApi =
+                                                                ISdkApi.Stub.asInterface(binder);
+                                                        ParcelFileDescriptor pFd =
+                                                                sdkApi.getFileDescriptor(
+                                                                        inputValueString);
+                                                        FileInputStream fis =
+                                                                new FileInputStream(
+                                                                        pFd.getFileDescriptor());
+                                                        // Reading fileInputStream and adding its
+                                                        // value to a string
+                                                        while (fis.available() != 0) {
+                                                            value += (char) fis.read();
+                                                        }
+                                                        fis.close();
+                                                        pFd.close();
+                                                    } catch (Exception e) {
+                                                        toastAndLog(
+                                                                ERROR,
+                                                                "Failed to get FileDescriptor: %s",
+                                                                e);
+                                                        return;
+                                                    }
+
+                                                    if (inputValueString.equals(value)) {
+                                                        toastAndLog(
+                                                                INFO,
+                                                                "FileDescriptor read successful,"
+                                                                        + " value sent = "
+                                                                        + inputValueString
+                                                                        + " , value received = "
+                                                                        + value);
+                                                    } else {
+                                                        toastAndLog(
+                                                                WARN,
+                                                                "FileDescriptor read unsuccessful,"
+                                                                        + " value sent ="
+                                                                        + inputValueString
+                                                                        + " , value received = "
+                                                                        + value);
+                                                    }
+                                                });
+                            });
+                    builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+                    builder.show();
                 });
     }
 
