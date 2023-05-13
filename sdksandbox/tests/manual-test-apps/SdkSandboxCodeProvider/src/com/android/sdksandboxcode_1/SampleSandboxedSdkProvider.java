@@ -40,6 +40,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.widget.EditText;
 import android.widget.MediaController;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -60,10 +61,16 @@ public class SampleSandboxedSdkProvider extends SandboxedSdkProvider {
     private static final String VIEW_TYPE_INFLATED_VIEW = "view-type-inflated-view";
     private static final String VIEW_TYPE_WEBVIEW = "view-type-webview";
     private static final String VIEW_TYPE_AD_REFRESH = "view-type-ad-refresh";
+    private static final String VIEW_TYPE_EDITTEXT = "view-type-edittext";
     private static final String VIDEO_URL_KEY = "video-url";
     private static final String EXTRA_SDK_SDK_ENABLED_KEY = "sdkSdkCommEnabled";
     private static final String APP_OWNED_SDK_NAME = "app-sdk-1";
+    private static final String ON_CLICK_BEHAVIOUR_TYPE_KEY = "on-click-behavior";
+    private static final String ON_CLICK_OPEN_CHROME = "on-click-open-chrome";
+    private static final String ON_CLICK_OPEN_PACKAGE = "on-click-open-package";
+    private static final String PACKAGE_TO_OPEN_KEY = "package-to-open";
     private String mSdkSdkCommEnabled = null;
+    private String mOnClickOpenPackage = null;
 
     @Override
     public SandboxedSdk onLoadSdk(Bundle params) {
@@ -77,6 +84,9 @@ public class SampleSandboxedSdkProvider extends SandboxedSdkProvider {
 
     @Override
     public View getView(Context windowContext, Bundle params, int width, int height) {
+        if (params.getString(ON_CLICK_BEHAVIOUR_TYPE_KEY, "").equals(ON_CLICK_OPEN_PACKAGE)) {
+            mOnClickOpenPackage = params.getString(PACKAGE_TO_OPEN_KEY, "");
+        }
         String type = params.getString(VIEW_TYPE_KEY, "");
         if (VIDEO_VIEW_VALUE.equals(type)) {
             String videoUrl = params.getString(VIDEO_URL_KEY, "");
@@ -86,7 +96,7 @@ public class SampleSandboxedSdkProvider extends SandboxedSdkProvider {
                     (LayoutInflater)
                             windowContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
             View view = inflater.inflate(R.layout.sample_layout, null);
-            view.setOnClickListener(new OpenBrowserOnClickListener(getContext()));
+            view.setOnClickListener(getOnClickListener(getContext()));
             return view;
         } else if (VIEW_TYPE_WEBVIEW.equals(type)) {
             return new TestWebView(windowContext);
@@ -95,7 +105,7 @@ public class SampleSandboxedSdkProvider extends SandboxedSdkProvider {
                     (LayoutInflater)
                             windowContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
             final View view = inflater.inflate(R.layout.sample_layout, null);
-            view.setOnClickListener(new OpenBrowserOnClickListener(getContext()));
+            view.setOnClickListener(getOnClickListener(getContext()));
             view.postDelayed(
                     () -> {
                         final Random random = new Random();
@@ -121,9 +131,26 @@ public class SampleSandboxedSdkProvider extends SandboxedSdkProvider {
                     1000);
 
             return view;
+        } else if (VIEW_TYPE_EDITTEXT.equals(type)) {
+            EditText editText = new EditText(windowContext);
+            editText.setWidth(width);
+            editText.setHeight(height);
+            editText.setOnClickListener(getOnClickListener(getContext()));
+            editText.setBackgroundColor(Color.BLUE);
+            editText.setTextColor(Color.WHITE);
+            editText.setText("Enter text: ");
+            return editText;
         }
         mSdkSdkCommEnabled = params.getString(EXTRA_SDK_SDK_ENABLED_KEY, null);
-        return new TestView(windowContext, getContext(), mSdkSdkCommEnabled);
+
+        return new TestView(
+                windowContext, getContext(), mSdkSdkCommEnabled, getOnClickListener(getContext()));
+    }
+
+    protected View.OnClickListener getOnClickListener(Context context) {
+        if (mOnClickOpenPackage == null) {
+            return new OpenBrowserOnClickListener(context);
+        } else return new OpenPackageOnClickListener(context, mOnClickOpenPackage);
     }
 
     private static class TestView extends View {
@@ -133,11 +160,17 @@ public class SampleSandboxedSdkProvider extends SandboxedSdkProvider {
         private static final String DROPDOWN_KEY_SDK_APP = "SDK_IN_APP";
         private Context mSdkContext;
         private String mSdkToSdkCommEnabled;
+        private View.OnClickListener mClickListener;
 
-        TestView(Context windowContext, Context sdkContext, String sdkSdkCommEnabled) {
+        TestView(
+                Context windowContext,
+                Context sdkContext,
+                String sdkSdkCommEnabled,
+                View.OnClickListener clickListener) {
             super(windowContext);
             mSdkContext = sdkContext;
             mSdkToSdkCommEnabled = sdkSdkCommEnabled;
+            mClickListener = clickListener;
         }
 
         @Override
@@ -205,7 +238,7 @@ public class SampleSandboxedSdkProvider extends SandboxedSdkProvider {
             int c = Color.rgb(random.nextInt(256), random.nextInt(256), random.nextInt(256));
             canvas.drawColor(c);
             canvas.drawText(message, 75, 75, paint);
-            setOnClickListener(new OpenBrowserOnClickListener(mSdkContext));
+            setOnClickListener(mClickListener);
         }
     }
 
@@ -230,6 +263,36 @@ public class SampleSandboxedSdkProvider extends SandboxedSdkProvider {
             mSdkContext.startActivity(visitUrl);
         }
 
+    }
+
+    private static class OpenPackageOnClickListener implements View.OnClickListener {
+
+        private final Context mSdkContext;
+        private final String mPackageToOpen;
+
+        private OpenPackageOnClickListener(Context sdkContext, String packageToOpen) {
+            mSdkContext = sdkContext;
+            mPackageToOpen = packageToOpen;
+        }
+
+        @Override
+        public void onClick(View view) {
+            Context context = view.getContext();
+            Intent intent =
+                    mSdkContext.getPackageManager().getLaunchIntentForPackage(mPackageToOpen);
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                mSdkContext.startActivity(intent);
+            } else {
+                Log.i(TAG, "Opening the Play store.");
+                intent = new Intent(Intent.ACTION_VIEW);
+                intent.setData(
+                        Uri.parse(
+                                "https://play.google.com/store/apps/details?id=" + mPackageToOpen));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                mSdkContext.startActivity(intent);
+            }
+        }
     }
 
     private static class TestVideoView extends VideoView {

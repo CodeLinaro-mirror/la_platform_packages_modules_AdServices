@@ -40,6 +40,7 @@ import android.widget.VideoView;
 import com.android.modules.utils.build.SdkLevel;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -48,6 +49,7 @@ import java.nio.file.Paths;
 
 public class SdkApi extends ISdkApi.Stub {
     private static final String WEB_VIEW_LINK = "https://youtu.be/pQdzFbmlvOo";
+    private static final String WEBSITE_LINK = "https://www.google.com";
     private static final String VIDEO_URL_KEY = "video-url";
 
     private final Context mContext;
@@ -76,6 +78,25 @@ public class SdkApi extends ISdkApi.Stub {
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    @Override
+    public String parseFileDescriptor(ParcelFileDescriptor pFd) {
+        String value = "";
+
+        try {
+            FileInputStream fis = new FileInputStream(pFd.getFileDescriptor());
+            // Reading fileInputStream and adding its value to a string
+            while (fis.available() != 0) {
+                value += (char) fis.read();
+            }
+            fis.close();
+            pFd.close();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+
+        return value;
     }
 
     @Override
@@ -150,7 +171,7 @@ public class SdkApi extends ISdkApi.Stub {
     }
 
     @Override
-    public boolean isCustomizedSdkContextEnabled() throws RemoteException {
+    public boolean isCustomizedSdkContextEnabled() {
         // If customized-sdk-context is enabled, then per-sdk storage should be returned for all
         // storage apis on Context object
         final String filesDir = mContext.getFilesDir().getAbsolutePath();
@@ -199,7 +220,11 @@ public class SdkApi extends ISdkApi.Stub {
                         return false;
                     }
                 });
-        mWebView.loadUrl(WEB_VIEW_LINK);
+        if (isCustomizedSdkContextEnabled()) {
+            mWebView.loadUrl(WEB_VIEW_LINK);
+        } else {
+            mWebView.loadUrl(WEBSITE_LINK);
+        }
     }
 
     private void initializeSettings(WebSettings settings) {
