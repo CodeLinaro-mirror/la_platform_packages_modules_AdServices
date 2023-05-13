@@ -101,18 +101,20 @@ public class CustomAudienceApiCtsTest extends ForegroundCtsTest {
         InstrumentationRegistry.getInstrumentation()
                 .getUiAutomation()
                 .adoptShellPermissionIdentity(Manifest.permission.WRITE_DEVICE_CONFIG);
-
+        PhFlagsFixture.overrideEnableEnrollmentSeed(true);
         // TODO(b/266725238): Remove/modify once the API rate limit has been adjusted for FLEDGE
         CommonFixture.doSleep(PhFlagsFixture.DEFAULT_API_RATE_LIMIT_SLEEP_MS);
     }
 
     @After
     public void tearDown() throws ExecutionException, InterruptedException, TimeoutException {
+        leaveJoinedCustomAudiences();
+        PhFlagsFixture.overrideEnableEnrollmentSeed(false);
+
         if (!SdkLevel.isAtLeastT()) {
             CompatAdServicesTestUtils.setPpapiAppAllowList(mPreviousAppAllowList);
             CompatAdServicesTestUtils.resetFlagsToDefault();
         }
-        leaveJoinedCustomAudiences();
     }
 
     @Test
@@ -120,6 +122,14 @@ public class CustomAudienceApiCtsTest extends ForegroundCtsTest {
             throws ExecutionException, InterruptedException, TimeoutException {
         joinCustomAudience(
                 CustomAudienceFixture.getValidBuilderForBuyer(CommonFixture.VALID_BUYER_1).build());
+    }
+
+    @Test
+    public void testJoinCustomAudience_validCustomAudience_success_usingGetMethodToCreateManager()
+            throws ExecutionException, InterruptedException, TimeoutException {
+        // Override mClient with a new value that explicitly uses the Get method to create manager
+        createClientUsingGetMethod();
+        testJoinCustomAudience_validCustomAudience_success();
     }
 
     @Test
@@ -140,6 +150,13 @@ public class CustomAudienceApiCtsTest extends ForegroundCtsTest {
     }
 
     @Test
+    public void testJoinCustomAudience_withMissingEnrollment_fail_usingGetMethodToCreateManager() {
+        // Override mClient with a new value that explicitly uses the Get method to create manager
+        createClientUsingGetMethod();
+        testJoinCustomAudience_withMissingEnrollment_fail();
+    }
+
+    @Test
     public void testJoinCustomAudience_invalidAdsMetadata_fail() {
         CustomAudience customAudienceWithInvalidAdDataMetadata =
                 CustomAudienceFixture.getValidBuilderForBuyer(CommonFixture.VALID_BUYER_1)
@@ -152,6 +169,13 @@ public class CustomAudienceApiCtsTest extends ForegroundCtsTest {
                         () -> joinCustomAudience(customAudienceWithInvalidAdDataMetadata));
         assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
         assertThat(exception).hasCauseThat().hasMessageThat().isEqualTo(null);
+    }
+
+    @Test
+    public void testJoinCustomAudience_invalidAdsMetadata_fail_usingGetMethodToCreateManager() {
+        // Override mClient with a new value that explicitly uses the Get method to create manager
+        createClientUsingGetMethod();
+        testJoinCustomAudience_invalidAdsMetadata_fail();
     }
 
     @Test
@@ -424,5 +448,14 @@ public class CustomAudienceApiCtsTest extends ForegroundCtsTest {
         } finally {
             mCustomAudiencesToCleanUp.clear();
         }
+    }
+
+    private void createClientUsingGetMethod() {
+        mClient =
+                new AdvertisingCustomAudienceClient.Builder()
+                        .setContext(sContext)
+                        .setExecutor(MoreExecutors.directExecutor())
+                        .setUseGetMethodToCreateManagerInstance(true)
+                        .build();
     }
 }

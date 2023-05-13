@@ -16,8 +16,6 @@
 
 package com.android.adservices.service.measurement.registration;
 
-import static com.android.adservices.service.measurement.SystemHealthParams.MAX_TRIGGER_REGISTERS_PER_DESTINATION;
-
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -150,7 +148,9 @@ public class AsyncRegistrationQueueRunner {
                 });
     }
 
-    private void storeSource(
+    /** Visible only for testing. */
+    @VisibleForTesting
+    public void storeSource(
             Source source, AsyncRegistration asyncRegistration, IMeasurementDao dao)
             throws DatastoreException {
         Uri topOrigin =
@@ -187,7 +187,9 @@ public class AsyncRegistrationQueueRunner {
                 });
     }
 
-    private void storeTrigger(Trigger trigger, IMeasurementDao dao) throws DatastoreException {
+    /** Visible only for testing. */
+    @VisibleForTesting
+    public void storeTrigger(Trigger trigger, IMeasurementDao dao) throws DatastoreException {
         if (isTriggerAllowedToInsert(dao, trigger)) {
             dao.insertTrigger(trigger);
             notifyTriggerContentProvider();
@@ -319,7 +321,7 @@ public class AsyncRegistrationQueueRunner {
             return false;
         }
 
-        return triggerInsertedPerDestination < MAX_TRIGGER_REGISTERS_PER_DESTINATION;
+        return triggerInsertedPerDestination < SystemHealthParams.getMaxTriggersPerDestination();
     }
 
     private static AsyncRegistration createAsyncRegistrationFromRedirect(
