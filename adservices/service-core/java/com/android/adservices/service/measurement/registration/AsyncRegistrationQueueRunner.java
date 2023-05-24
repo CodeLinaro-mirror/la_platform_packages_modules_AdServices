@@ -266,6 +266,21 @@ public class AsyncRegistrationQueueRunner {
                     source, String.valueOf(numOfSourcesPerPublisher), dao);
             return false;
         }
+        int numOfOriginExcludingRegistrationOrigin =
+                dao.countSourcesPerPublisherXEnrollmentExcludingRegOrigin(
+                        source.getRegistrationOrigin(),
+                        publisher.get(),
+                        publisherType,
+                        source.getEnrollmentId(),
+                        source.getEventTime(),
+                        PrivacyParams.MIN_REPORTING_ORIGIN_UPDATE_WINDOW);
+        if (numOfOriginExcludingRegistrationOrigin > 0) {
+            LogUtil.d(
+                    "insertSources: Max limit of 1 reporting origin for publisher - %s and"
+                            + " enrollment - %s reached.",
+                    publisher, source.getEnrollmentId());
+            return false;
+        }
         if (source.getAppDestinations() != null
                 && !isDestinationWithinBounds(
                         debugReportApi,
@@ -319,15 +334,16 @@ public class AsyncRegistrationQueueRunner {
                         destinationType,
                         windowStartTime,
                         requestTime);
-        if (destinationCount + destinations.size()
-                > PrivacyParams.getMaxDistinctDestinationsPerPublisherXEnrollmentInActiveSource()) {
+        int maxDistinctDestinations =
+                PrivacyParams.getMaxDistinctDestinationsPerPublisherXEnrollmentInActiveSource();
+        if (destinationCount + destinations.size() > maxDistinctDestinations) {
             LogUtil.d(
                     "AsyncRegistrationQueueRunner: "
                             + (destinationType == EventSurfaceType.APP ? "App" : "Web")
                             + " destination count >= "
                             + "MaxDistinctDestinationsPerPublisherXEnrollmentInActiveSource");
             debugReportApi.scheduleSourceDestinationLimitDebugReport(
-                    source, String.valueOf(destinationCount), dao);
+                    source, String.valueOf(maxDistinctDestinations), dao);
             return false;
         }
 

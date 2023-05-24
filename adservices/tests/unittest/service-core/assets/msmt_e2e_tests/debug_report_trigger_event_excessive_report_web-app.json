@@ -119,7 +119,7 @@
               "Attribution-Reporting-Register-Trigger": {
                 "event_trigger_data": [
                   {
-                    "trigger_data": "1",
+                    "trigger_data": "7",
                     "priority": "1"
                   }
                 ],
@@ -222,17 +222,18 @@
         "report_time": "1643235577000"
       }
     ],
-    "debug_report_results": [
+    "verbose_debug_reports": [
       {
         "payload": [
             {
             "type": "trigger-event-excessive-reports",
             "body": {
               "attribution_destination": "android-app://com.example.2d1",
-              "scheduled_report_time": "1643843973000",
+              "scheduled_report_time": "1643843973",
               "source_event_id": "1",
               "source_type": "navigation",
               "randomized_trigger_rate": 0.017022,
+              "trigger_data": "7",
               "source_debug_key": "347982378",
               "trigger_debug_key": "8971346781"
             }
