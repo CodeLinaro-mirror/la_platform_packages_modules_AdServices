@@ -822,6 +822,33 @@ public interface Flags {
         return FLEDGE_AD_SELECTION_PREBUILT_URI_ENABLED;
     }
 
+    boolean FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_ENABLED = false;
+
+    /**
+     * @return whether to call remote URLs for debug reporting.
+     */
+    default boolean getFledgeEventLevelDebugReportingEnabled() {
+        return FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_ENABLED;
+    }
+
+    int FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_BATCH_DELAY_SECONDS = 60 * 15;
+
+    /**
+     * @return minimum number of seconds between debug report batch.
+     */
+    default int getFledgeEventLevelDebugReportingBatchDelaySeconds() {
+        return FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_BATCH_DELAY_SECONDS;
+    }
+
+    int FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH = 1000;
+
+    /**
+     * @return maximum number of items in a debug report batch.
+     */
+    default int getFledgeEventLevelDebugReportingMaxItemsPerBatch() {
+        return FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH;
+    }
+
     boolean FLEDGE_AD_SELECTION_OFF_DEVICE_REQUEST_COMPRESSION_ENABLED = true;
 
     /** Returns whether to compress requests sent off device for ad selection. */
@@ -2248,5 +2275,16 @@ public interface Flags {
     /** Returns the map of UX flags. */
     default Map<String, Boolean> getUxFlags() {
         return new HashMap<>();
+    }
+
+    /** Enable feature to unify destinations for event reports by default. */
+    boolean DEFAULT_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS = true;
+
+    /**
+     * Returns true if event reporting destinations are enabled to be reported in a coarse manner,
+     * i.e. both app and web destinations are merged into a single array in the event report.
+     */
+    default boolean getMeasurementEnableCoarseEventReportDestinations() {
+        return DEFAULT_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS;
     }
 }
