@@ -16,38 +16,28 @@
 
 package com.android.adservices.service.ui.enrollment;
 
-import static com.android.adservices.service.consent.ConsentManager.NO_MANUAL_INTERACTIONS_RECORDED;
-
 import android.content.Context;
 import android.os.Build;
 
 import androidx.annotation.RequiresApi;
 
-import com.android.adservices.service.common.ConsentNotificationJobService;
 import com.android.adservices.service.consent.ConsentManager;
 import com.android.adservices.service.ui.data.UxStatesManager;
 import com.android.adservices.service.ui.ux.PrivacySandboxUxCollection;
 
-/** Enroll through consent notification debug mode. Currently only supported for GA UX. */
+/** Enroll through the U18 detention channel. */
 @RequiresApi(Build.VERSION_CODES.S)
-public class ReconsentNotificationChannel implements PrivacySandboxEnrollmentChannel {
+public class U18DetentionChannel implements PrivacySandboxEnrollmentChannel {
 
-    /** Determines if user is eligible for the reconsent enrollment channel. */
+    /** Checks if user is eligible for the U18 dention channel. */
     public boolean isEligible(
             PrivacySandboxUxCollection uxCollection,
             ConsentManager consentManager,
             UxStatesManager uxStatesManager) {
-        return consentManager.wasNotificationDisplayed()
-                && (consentManager.getConsent().isGiven()
-                        || consentManager.getUserManualInteractionWithConsent()
-                                == NO_MANUAL_INTERACTIONS_RECORDED);
+        return uxCollection == PrivacySandboxUxCollection.U18_UX
+                && consentManager.wasGaUxNotificationDisplayed();
     }
 
-    /** Enroll user through the reconsent enrollment channel. */
-    public void enroll(Context context, ConsentManager consentManager) {
-        ConsentNotificationJobService.schedule(
-                context,
-                /* adidEnabled= */ consentManager.isAdIdEnabled(),
-                /* reConsentStatus= */ true);
-    }
+    /** Enroll U18 users upon graduation. */
+    public void enroll(Context context, ConsentManager consentManager) {}
 }
