@@ -14,23 +14,25 @@
  * limitations under the License.
  */
 
-package android.adservices.common;
+package android.adservices.cts;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
+import android.adservices.common.FrequencyCapFilters;
+import android.adservices.common.FrequencyCapFiltersFixture;
+import android.adservices.common.KeyedFrequencyCap;
+import android.adservices.common.KeyedFrequencyCapFixture;
 import android.os.Parcel;
 
 import androidx.test.filters.SmallTest;
 
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.google.common.collect.ImmutableList;
+
 import org.junit.Test;
 
 /** Unit tests for {@link FrequencyCapFilters}. */
-// TODO(b/221876775): Move to CTS tests once public APIs are unhidden
 @SmallTest
 public class FrequencyCapFiltersTest {
     @Test
@@ -202,95 +204,80 @@ public class FrequencyCapFiltersTest {
     }
 
     @Test
-    public void testGetSizeInBytes() {
-        final FrequencyCapFilters originalFilters =
+    public void testBuildExcessiveNumberOfWinFilters_throws() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new FrequencyCapFilters.Builder()
+                                .setKeyedFrequencyCapsForWinEvents(
+                                        KeyedFrequencyCapFixture
+                                                .getExcessiveNumberOfFrequencyCapsList())
+                                .build());
+    }
+
+    @Test
+    public void testBuildExcessiveNumberOfImpressionFilters_throws() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new FrequencyCapFilters.Builder()
+                                .setKeyedFrequencyCapsForImpressionEvents(
+                                        KeyedFrequencyCapFixture
+                                                .getExcessiveNumberOfFrequencyCapsList())
+                                .build());
+    }
+
+    @Test
+    public void testBuildExcessiveNumberOfViewFilters_throws() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new FrequencyCapFilters.Builder()
+                                .setKeyedFrequencyCapsForViewEvents(
+                                        KeyedFrequencyCapFixture
+                                                .getExcessiveNumberOfFrequencyCapsList())
+                                .build());
+    }
+
+    @Test
+    public void testBuildExcessiveNumberOfClickFilters_throws() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new FrequencyCapFilters.Builder()
+                                .setKeyedFrequencyCapsForClickEvents(
+                                        KeyedFrequencyCapFixture
+                                                .getExcessiveNumberOfFrequencyCapsList())
+                                .build());
+    }
+
+    @Test
+    public void testBuildExcessiveNumberOfTotalFilters_throws() {
+        final int distributedNumFilters = FrequencyCapFilters.MAX_NUM_FREQUENCY_CAP_FILTERS / 4;
+        ImmutableList.Builder<KeyedFrequencyCap> listBuilder = ImmutableList.builder();
+        for (int key = 0; key < distributedNumFilters; key++) {
+            listBuilder.add(
+                    KeyedFrequencyCapFixture.getValidKeyedFrequencyCapBuilderOncePerDay(key)
+                            .build());
+        }
+
+        // Add a spread number of filters across the first three types
+        FrequencyCapFilters.Builder filtersBuilder =
                 new FrequencyCapFilters.Builder()
-                        .setKeyedFrequencyCapsForWinEvents(
-                                KeyedFrequencyCapFixture.VALID_KEYED_FREQUENCY_CAP_LIST)
-                        .setKeyedFrequencyCapsForImpressionEvents(
-                                KeyedFrequencyCapFixture.VALID_KEYED_FREQUENCY_CAP_LIST)
-                        .setKeyedFrequencyCapsForViewEvents(
-                                KeyedFrequencyCapFixture.VALID_KEYED_FREQUENCY_CAP_LIST)
-                        .setKeyedFrequencyCapsForClickEvents(
-                                KeyedFrequencyCapFixture.VALID_KEYED_FREQUENCY_CAP_LIST)
-                        .build();
-        final int[] setSize = new int[1];
-        KeyedFrequencyCapFixture.VALID_KEYED_FREQUENCY_CAP_LIST.forEach(
-                x -> setSize[0] += x.getSizeInBytes());
-        assertEquals(setSize[0] * 4L, originalFilters.getSizeInBytes());
-    }
+                        .setKeyedFrequencyCapsForWinEvents(listBuilder.build())
+                        .setKeyedFrequencyCapsForImpressionEvents(listBuilder.build())
+                        .setKeyedFrequencyCapsForViewEvents(listBuilder.build());
 
-    @Test
-    public void testJsonSerialization() throws JSONException {
-        final FrequencyCapFilters originalFilters =
-                FrequencyCapFiltersFixture.getValidFrequencyCapFiltersBuilder().build();
-        assertEquals(originalFilters, FrequencyCapFilters.fromJson(originalFilters.toJson()));
-    }
+        // Add extra filters to the final list so that the total is exceeded
+        final int numExtraFiltersToExceed =
+                FrequencyCapFilters.MAX_NUM_FREQUENCY_CAP_FILTERS - (4 * distributedNumFilters) + 1;
+        for (int key = 0; key < numExtraFiltersToExceed; key++) {
+            listBuilder.add(
+                    KeyedFrequencyCapFixture.getValidKeyedFrequencyCapBuilderOncePerDay(key)
+                            .build());
+        }
+        filtersBuilder.setKeyedFrequencyCapsForClickEvents(listBuilder.build());
 
-    @Test
-    public void testJsonSerializationEmptyWins() throws JSONException {
-        final FrequencyCapFilters originalFilters =
-                FrequencyCapFiltersFixture.getValidFrequencyCapFiltersBuilder().build();
-        JSONObject json = originalFilters.toJson();
-        json.remove(FrequencyCapFilters.WIN_EVENTS_FIELD_NAME);
-        assertThat(FrequencyCapFilters.fromJson(json).getKeyedFrequencyCapsForWinEvents())
-                .isEmpty();
-    }
-
-    @Test
-    public void testJsonSerializationEmptyImpressions() throws JSONException {
-        final FrequencyCapFilters originalFilters =
-                FrequencyCapFiltersFixture.getValidFrequencyCapFiltersBuilder().build();
-        JSONObject json = originalFilters.toJson();
-        json.remove(FrequencyCapFilters.IMPRESSION_EVENTS_FIELD_NAME);
-        assertThat(FrequencyCapFilters.fromJson(json).getKeyedFrequencyCapsForImpressionEvents())
-                .isEmpty();
-    }
-
-    @Test
-    public void testJsonSerializationEmptyViews() throws JSONException {
-        final FrequencyCapFilters originalFilters =
-                FrequencyCapFiltersFixture.getValidFrequencyCapFiltersBuilder().build();
-        JSONObject json = originalFilters.toJson();
-        json.remove(FrequencyCapFilters.VIEW_EVENTS_FIELD_NAME);
-        assertThat(FrequencyCapFilters.fromJson(json).getKeyedFrequencyCapsForViewEvents())
-                .isEmpty();
-    }
-
-    @Test
-    public void testJsonSerializationEmptyClicks() throws JSONException {
-        final FrequencyCapFilters originalFilters =
-                FrequencyCapFiltersFixture.getValidFrequencyCapFiltersBuilder().build();
-        JSONObject json = originalFilters.toJson();
-        json.remove(FrequencyCapFilters.CLICK_EVENTS_FIELD_NAME);
-        assertThat(FrequencyCapFilters.fromJson(json).getKeyedFrequencyCapsForClickEvents())
-                .isEmpty();
-    }
-
-    @Test
-    public void testJsonSerializationNonStringKeyedFrequencyCap() throws JSONException {
-        final FrequencyCapFilters originalFilters =
-                FrequencyCapFiltersFixture.getValidFrequencyCapFiltersBuilder().build();
-        JSONObject json = originalFilters.toJson();
-        json.put(
-                FrequencyCapFilters.WIN_EVENTS_FIELD_NAME,
-                json.getJSONArray(FrequencyCapFilters.WIN_EVENTS_FIELD_NAME).put(0));
-        assertThrows(JSONException.class, () -> FrequencyCapFilters.fromJson(json));
-    }
-
-    @Test
-    public void testJsonSerializationWrongType() throws JSONException {
-        JSONObject json = new JSONObject();
-        json.put(FrequencyCapFilters.WIN_EVENTS_FIELD_NAME, "value");
-        assertThrows(JSONException.class, () -> FrequencyCapFilters.fromJson(json));
-    }
-
-    @Test
-    public void testJsonSerializationUnrelatedKey() throws JSONException {
-        final FrequencyCapFilters originalFilters =
-                FrequencyCapFiltersFixture.getValidFrequencyCapFiltersBuilder().build();
-        JSONObject json = originalFilters.toJson();
-        json.put("key", "value");
-        assertEquals(originalFilters, FrequencyCapFilters.fromJson(originalFilters.toJson()));
+        assertThrows(IllegalArgumentException.class, filtersBuilder::build);
     }
 }
