@@ -314,7 +314,12 @@ public final class PhFlags implements Flags {
             "measurement_job_registration_fallback_job_kill_switch";
     static final String KEY_MEASUREMENT_ROLLBACK_DELETION_KILL_SWITCH =
             "measurement_rollback_deletion_kill_switch";
+
+    static final String KEY_MEASUREMENT_ROLLBACK_DELETION_APP_SEARCH_KILL_SWITCH =
+            "measurement_rollback_deletion_app_search_kill_switch";
     static final String KEY_TOPICS_KILL_SWITCH = "topics_kill_switch";
+    static final String KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH =
+            "topics_on_device_classifier_kill_switch";
     static final String KEY_MDD_BACKGROUND_TASK_KILL_SWITCH = "mdd_background_task_kill_switch";
     static final String KEY_MDD_LOGGER_KILL_SWITCH = "mdd_logger_kill_switch";
     static final String KEY_ADID_KILL_SWITCH = "adid_kill_switch";
@@ -329,6 +334,9 @@ public final class PhFlags implements Flags {
     // App/SDK AllowList/DenyList keys
     static final String KEY_PPAPI_APP_ALLOW_LIST = "ppapi_app_allow_list";
     static final String KEY_PPAPI_APP_SIGNATURE_ALLOW_LIST = "ppapi_app_signature_allow_list";
+
+    // AdServices APK sha certs.
+    static final String KEY_ADSERVICES_APK_SHA_CERTS = "adservices_apk_sha_certs";
 
     // Rate Limit keys
     static final String KEY_SDK_REQUEST_PERMITS_PER_SECOND = "sdk_request_permits_per_second";
@@ -417,9 +425,9 @@ public final class PhFlags implements Flags {
 
     static final String KEY_UI_DIALOGS_FEATURE_ENABLED = "ui_dialogs_feature_enabled";
 
-    static final String KEY_GA_UX_FEATURE_ENABLED = "ga_ux_enabled";
+    static final String KEY_UI_DIALOG_FRAGMENT_ENABLED = "ui_dialog_fragment_enabled";
 
-    static final String KEY_FLEDGE_PER_APP_CONSENT_ENABLED = "fledge_per_app_consent_enabled";
+    static final String KEY_GA_UX_FEATURE_ENABLED = "ga_ux_enabled";
 
     // Back-compat keys
     static final String KEY_COMPAT_LOGGING_KILL_SWITCH = "compat_logging_kill_switch";
@@ -450,6 +458,11 @@ public final class PhFlags implements Flags {
     static final String KEY_MEASUREMENT_DEBUG_JOIN_KEY_ENROLLMENT_ALLOWLIST =
             "measurement_debug_join_key_enrollment_allowlist";
 
+    static final String KEY_MEASUREMENT_DEBUG_KEY_AD_ID_MATCHING_LIMIT =
+            "measurement_debug_key_ad_id_matching_limit";
+    static final String KEY_MEASUREMENT_DEBUG_KEY_AD_ID_MATCHING_ENROLLMENT_BLOCKLIST =
+            "measurement_debug_key_ad_id_matching_enrollment_blocklist";
+
     static final String KEY_MEASUREMENT_FLEXIBLE_EVENT_REPORTING_API_ENABLED =
             "measurement_flexible_event_reporting_api_enabled";
 
@@ -464,6 +477,15 @@ public final class PhFlags implements Flags {
 
     static final String KEY_MEASUREMENT_MAX_EVENT_REPORTS_PER_DESTINATION =
             "measurement_max_event_reports_per_destination";
+
+    static final String KEY_MEASUREMENT_ENABLE_CONFIGURABLE_EVENT_REPORTING_WINDOWS =
+            "measurement_enable_configurable_event_reporting_windows";
+
+    static final String KEY_MEASUREMENT_EVENT_REPORTS_VTC_EARLY_REPORTING_WINDOWS =
+            "measurement_event_reports_vtc_early_reporting_windows";
+
+    static final String KEY_MEASUREMENT_EVENT_REPORTS_CTC_EARLY_REPORTING_WINDOWS =
+            "measurement_event_reports_ctc_early_reporting_windows";
 
     // AdServices Namespace String from DeviceConfig class not available in S Minus
     static final String NAMESPACE_ADSERVICES = "adservices";
@@ -1633,11 +1655,30 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getMeasurementRollbackDeletionAppSearchKillSwitch() {
+        final boolean defaultValue = MEASUREMENT_ROLLBACK_DELETION_APP_SEARCH_KILL_SWITCH;
+        return SystemProperties.getBoolean(
+                getSystemPropertyName(KEY_MEASUREMENT_ROLLBACK_DELETION_APP_SEARCH_KILL_SWITCH),
+                /* def= */ DeviceConfig.getBoolean(
+                        NAMESPACE_ADSERVICES,
+                        /* name= */ KEY_MEASUREMENT_ROLLBACK_DELETION_APP_SEARCH_KILL_SWITCH,
+                        defaultValue));
+    }
+
+    @Override
     public String getMeasurementDebugJoinKeyEnrollmentAllowlist() {
         return DeviceConfig.getString(
                 NAMESPACE_ADSERVICES,
                 /* flagName */ KEY_MEASUREMENT_DEBUG_JOIN_KEY_ENROLLMENT_ALLOWLIST,
                 /* defaultValue */ DEFAULT_MEASUREMENT_DEBUG_JOIN_KEY_ENROLLMENT_ALLOWLIST);
+    }
+
+    @Override
+    public String getMeasurementPlatformDebugAdIdMatchingEnrollmentBlocklist() {
+        return DeviceConfig.getString(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_DEBUG_KEY_AD_ID_MATCHING_ENROLLMENT_BLOCKLIST,
+                /* defaultValue */ DEFAULT_MEASUREMENT_PLATFORM_DEBUG_AD_ID_MATCHING_BLOCKLIST);
     }
 
     // ADID Killswitches
@@ -1681,6 +1722,19 @@ public final class PhFlags implements Flags {
                                 NAMESPACE_ADSERVICES,
                                 /* flagName */ KEY_TOPICS_KILL_SWITCH,
                                 /* defaultValue */ TOPICS_KILL_SWITCH));
+    }
+
+    @Override
+    public boolean getTopicsOnDeviceClassifierKillSwitch() {
+        // We check the Global Killswitch first. As a result, it overrides all other killswitches.
+        // The priority of applying the flag values: SystemProperties, PH (DeviceConfig), then
+        // hard-coded value.
+        return SystemProperties.getBoolean(
+                getSystemPropertyName(KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH),
+                /* defaultValue */ DeviceConfig.getBoolean(
+                        NAMESPACE_ADSERVICES,
+                        /* flagName */ KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH,
+                        /* defaultValue */ TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH));
     }
 
     // MDD Killswitches
@@ -1750,6 +1804,15 @@ public final class PhFlags implements Flags {
                 NAMESPACE_ADSERVICES,
                 /* flagName */ KEY_PPAPI_APP_ALLOW_LIST,
                 /* defaultValue */ PPAPI_APP_ALLOW_LIST);
+    }
+
+    // AdServices APK SHA certs.
+    @Override
+    public String getAdservicesApkShaCertificate() {
+        return DeviceConfig.getString(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_ADSERVICES_APK_SHA_CERTS,
+                /* defaultValue */ ADSERVICES_APK_SHA_CERTIFICATE);
     }
 
     // PPAPI Signature allow-list.
@@ -2214,6 +2277,17 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getUiDialogFragmentEnabled() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return SystemProperties.getBoolean(
+                getSystemPropertyName(KEY_UI_DIALOG_FRAGMENT_ENABLED),
+                /* defaultValue */ DeviceConfig.getBoolean(
+                        NAMESPACE_ADSERVICES,
+                        /* flagName */ KEY_UI_DIALOG_FRAGMENT_ENABLED,
+                        /* defaultValue */ UI_DIALOG_FRAGMENT));
+    }
+
+    @Override
     public boolean isEeaDeviceFeatureEnabled() {
         return DeviceConfig.getBoolean(
                 NAMESPACE_ADSERVICES,
@@ -2265,20 +2339,6 @@ public final class PhFlags implements Flags {
                         NAMESPACE_ADSERVICES,
                         /* flagName */ KEY_GA_UX_FEATURE_ENABLED,
                         /* defaultValue */ GA_UX_FEATURE_ENABLED));
-    }
-
-    @Override
-    public boolean getFledgePerAppConsentEnabled() {
-        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
-
-        // Per-app consent is only enabled in FLEDGE if GA UX is enabled
-        return getGaUxFeatureEnabled()
-                && SystemProperties.getBoolean(
-                        getSystemPropertyName(KEY_FLEDGE_PER_APP_CONSENT_ENABLED),
-                        /* defaultValue */ DeviceConfig.getBoolean(
-                                NAMESPACE_ADSERVICES,
-                                /* flagName */ KEY_FLEDGE_PER_APP_CONSENT_ENABLED,
-                                /* defaultValue */ FLEDGE_PER_APP_CONSENT_ENABLED));
     }
 
     @Override
@@ -2335,6 +2395,33 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getMeasurementEnableConfigurableEventReportingWindows() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_ENABLE_CONFIGURABLE_EVENT_REPORTING_WINDOWS,
+                /* defaultValue */ MEASUREMENT_ENABLE_CONFIGURABLE_EVENT_REPORTING_WINDOWS);
+    }
+
+    @Override
+    public String getMeasurementEventReportsVtcEarlyReportingWindows() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getString(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_EVENT_REPORTS_VTC_EARLY_REPORTING_WINDOWS,
+                /* defaultValue */ MEASUREMENT_EVENT_REPORTS_VTC_EARLY_REPORTING_WINDOWS);
+    }
+
+    @Override
+    public String getMeasurementEventReportsCtcEarlyReportingWindows() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getString(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_EVENT_REPORTS_CTC_EARLY_REPORTING_WINDOWS,
+                /* defaultValue */ MEASUREMENT_EVENT_REPORTS_CTC_EARLY_REPORTING_WINDOWS);
+    }
+
+    @Override
     public void dump(@NonNull PrintWriter writer, @Nullable String[] args) {
         writer.println("==== AdServices PH Flags Dump Enrollment ====");
         writer.println(
@@ -2359,6 +2446,11 @@ public final class PhFlags implements Flags {
         writer.println("==== AdServices PH Flags Dump killswitches ====");
         writer.println("\t" + KEY_GLOBAL_KILL_SWITCH + " = " + getGlobalKillSwitch());
         writer.println("\t" + KEY_TOPICS_KILL_SWITCH + " = " + getTopicsKillSwitch());
+        writer.println(
+                "\t"
+                        + KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH
+                        + " = "
+                        + getTopicsOnDeviceClassifierKillSwitch());
         writer.println("\t" + KEY_ADID_KILL_SWITCH + " = " + getAdIdKillSwitch());
         writer.println("\t" + KEY_APPSETID_KILL_SWITCH + " = " + getAppSetIdKillSwitch());
         writer.println(
@@ -2574,6 +2666,16 @@ public final class PhFlags implements Flags {
                         + getMeasurementDebugJoinKeyHashLimit());
         writer.println(
                 "\t"
+                        + KEY_MEASUREMENT_DEBUG_KEY_AD_ID_MATCHING_LIMIT
+                        + " = "
+                        + getMeasurementPlatformDebugAdIdMatchingLimit());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_DEBUG_KEY_AD_ID_MATCHING_ENROLLMENT_BLOCKLIST
+                        + " = "
+                        + getMeasurementPlatformDebugAdIdMatchingEnrollmentBlocklist());
+        writer.println(
+                "\t"
                         + KEY_MEASUREMENT_FLEXIBLE_EVENT_REPORTING_API_ENABLED
                         + " = "
                         + getMeasurementFlexibleEventReportingAPIEnabled());
@@ -2621,7 +2723,8 @@ public final class PhFlags implements Flags {
                 "\t"
                         + KEY_MEASUREMENT_REGISTRATION_FALLBACK_JOB_KILL_SWITCH
                         + " = "
-                        + getAsyncRegistrationFallbackJobKillSwitch());        writer.println(
+                        + getAsyncRegistrationFallbackJobKillSwitch());
+        writer.println(
                 "\t"
                         + KEY_MEASUREMENT_ATTRIBUTION_FALLBACK_JOB_KILL_SWITCH
                         + " = "
@@ -2651,6 +2754,21 @@ public final class PhFlags implements Flags {
                         + KEY_MEASUREMENT_MAX_EVENT_REPORTS_PER_DESTINATION
                         + " = "
                         + getMeasurementMaxEventReportsPerDestination());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_ENABLE_CONFIGURABLE_EVENT_REPORTING_WINDOWS
+                        + " = "
+                        + getMeasurementEnableConfigurableEventReportingWindows());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_EVENT_REPORTS_VTC_EARLY_REPORTING_WINDOWS
+                        + " = "
+                        + getMeasurementEventReportsVtcEarlyReportingWindows());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_EVENT_REPORTS_CTC_EARLY_REPORTING_WINDOWS
+                        + " = "
+                        + getMeasurementEventReportsCtcEarlyReportingWindows());
         writer.println("==== AdServices PH Flags Dump FLEDGE related flags: ====");
         writer.println(
                 "\t" + KEY_FLEDGE_SELECT_ADS_KILL_SWITCH + " = " + getFledgeSelectAdsKillSwitch());
@@ -2904,11 +3022,6 @@ public final class PhFlags implements Flags {
                         + getForegroundStatuslLevelForValidation());
         writer.println(
                 "\t"
-                        + KEY_FLEDGE_PER_APP_CONSENT_ENABLED
-                        + " = "
-                        + getFledgePerAppConsentEnabled());
-        writer.println(
-                "\t"
                         + KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED
                         + " = "
                         + getAdSelectionOffDeviceEnabled());
@@ -3002,6 +3115,11 @@ public final class PhFlags implements Flags {
         writer.println("\t" + KEY_ENABLE_BACK_COMPAT + " = " + getEnableBackCompat());
         writer.println(
                 "\t" + KEY_ENABLE_APPSEARCH_CONSENT_DATA + " = " + getEnableAppsearchConsentData());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_ROLLBACK_DELETION_APP_SEARCH_KILL_SWITCH
+                        + " = "
+                        + getMeasurementRollbackDeletionAppSearchKillSwitch());
     }
 
     @Override
@@ -3098,6 +3216,14 @@ public final class PhFlags implements Flags {
                 NAMESPACE_ADSERVICES,
                 /* flagName */ KEY_MEASUREMENT_DEBUG_JOIN_KEY_HASH_LIMIT,
                 /* defaultValue */ DEFAULT_MEASUREMENT_DEBUG_JOIN_KEY_HASH_LIMIT);
+    }
+
+    @Override
+    public long getMeasurementPlatformDebugAdIdMatchingLimit() {
+        return DeviceConfig.getLong(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_DEBUG_KEY_AD_ID_MATCHING_LIMIT,
+                /* defaultValue */ DEFAULT_MEASUREMENT_PLATFORM_DEBUG_AD_ID_MATCHING_LIMIT);
     }
 
     static final String KEY_EU_NOTIF_FLOW_CHANGE_ENABLED = "eu_notif_flow_change_enabled";

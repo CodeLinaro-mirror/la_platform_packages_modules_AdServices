@@ -420,6 +420,7 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
                         mAdServicesLogger,
                         mFlags,
                         mAdSelectionServiceFilter,
+                        mFledgeAuthorizationFilter,
                         callingUid);
         reporter.reportImpression(requestParams, callback);
     }
@@ -446,7 +447,6 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
 
         InteractionReporter interactionReporter =
                 new InteractionReporter(
-                        mContext,
                         mAdSelectionEntryDao,
                         mAdServicesHttpsClient,
                         mLightweightExecutor,

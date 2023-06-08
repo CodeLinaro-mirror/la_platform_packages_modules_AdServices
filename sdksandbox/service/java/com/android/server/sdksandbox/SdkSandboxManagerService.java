@@ -122,6 +122,8 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
     private static final String SANDBOX_NOT_AVAILABLE_MSG = "Sandbox is unavailable";
     private static final String SANDBOX_DISABLED_MSG = "SDK sandbox is disabled";
 
+    private static final String DUMP_ARG_AD_SERVICES = "--AdServices";
+
     private final Context mContext;
 
     private final ActivityManager mActivityManager;
@@ -134,6 +136,8 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
     private IBinder mAdServicesManager;
 
     private final Object mLock = new Object();
+
+    private static final String PACKAGE_MIME_TYPE = "application/vnd.android.package-archive";
 
     /**
      * For each app, keep a mapping from SDK name to it's corresponding LoadSdkSession. This can
@@ -210,6 +214,13 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             "enforce_content_provider_restrictions";
 
     private static final boolean DEFAULT_VALUE_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS = false;
+
+    // On UDC, AdServicesManagerService.Lifecycle implements dumpable so it's dumped as part of
+    // SystemServer.
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
+    static final String POST_UDC_DUMP_AD_SERVICES_MESSAGE =
+            "Don't need to dump AdServices on UDC+ - use "
+                    + "'dumpsys system_server_dumper --name AdServices instead'";
 
     static class Injector {
         private final Context mContext;
@@ -303,22 +314,51 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
     }
 
     private void registerBroadcastReceivers() {
+        registerPackageUpdateBroadcastReceiver();
+        registerVerifierBroadcastReceiver();
+    }
+
+    private void registerPackageUpdateBroadcastReceiver() {
         // Register for package addition and update
         final IntentFilter packageAddedIntentFilter = new IntentFilter();
         packageAddedIntentFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
         packageAddedIntentFilter.addAction(Intent.ACTION_PACKAGE_REPLACED);
         packageAddedIntentFilter.addDataScheme("package");
-        BroadcastReceiver packageAddedIntentReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                final String packageName = intent.getData().getSchemeSpecificPart();
-                final int uid = intent.getIntExtra(Intent.EXTRA_UID, -1);
-                final CallingInfo callingInfo = new CallingInfo(uid, packageName);
-                mHandler.post(() -> mSdkSandboxStorageManager.onPackageAddedOrUpdated(callingInfo));
-            }
-        };
-        mContext.registerReceiver(packageAddedIntentReceiver, packageAddedIntentFilter,
-                /*broadcastPermission=*/null, mHandler);
+        BroadcastReceiver packageAddedIntentReceiver =
+                new BroadcastReceiver() {
+                    @Override
+                    public void onReceive(Context context, Intent intent) {
+                        final String packageName = intent.getData().getSchemeSpecificPart();
+                        final int uid = intent.getIntExtra(Intent.EXTRA_UID, -1);
+                        final CallingInfo callingInfo = new CallingInfo(uid, packageName);
+                        mHandler.post(
+                                () ->
+                                        mSdkSandboxStorageManager.onPackageAddedOrUpdated(
+                                                callingInfo));
+                    }
+                };
+        mContext.registerReceiver(
+                packageAddedIntentReceiver,
+                packageAddedIntentFilter,
+                /*broadcastPermission=*/ null,
+                mHandler);
+    }
+
+    private void registerVerifierBroadcastReceiver() {
+        final IntentFilter packageNeedsVerificationIntentFilter = new IntentFilter();
+        try {
+            packageNeedsVerificationIntentFilter.addDataType(PACKAGE_MIME_TYPE);
+            packageNeedsVerificationIntentFilter.addAction(
+                    Intent.ACTION_PACKAGE_NEEDS_VERIFICATION);
+            mContext.registerReceiverForAllUsers(
+                    new SdkSandboxVerifierReceiver(),
+                    packageNeedsVerificationIntentFilter,
+                    /*broadcastPermission=*/ null,
+                    /*scheduler=*/ null,
+                    Context.RECEIVER_EXPORTED);
+        } catch (IntentFilter.MalformedMimeTypeException e) {
+            Log.e(TAG, "Could not register verifier");
+        }
     }
 
     @Override
@@ -597,7 +637,8 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             ILoadSdkCallback callback,
             long timeSystemServerReceivedCallFromApp) {
         LoadSdkSession loadSdkSession =
-                new LoadSdkSession(mContext, mInjector, sdkName, callingInfo, params, callback);
+                new LoadSdkSession(
+                        mContext, this, mInjector, sdkName, callingInfo, params, callback);
 
         // SDK provider was invalid. This load request should fail.
         String errorMsg = loadSdkSession.getSdkProviderErrorIfExists();
@@ -995,6 +1036,11 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         mContext.enforceCallingPermission(android.Manifest.permission.DUMP,
                 "Can't dump " + TAG);
 
+        if (args != null && args.length > 0 && args[0].equals(DUMP_ARG_AD_SERVICES)) {
+            dumpAdServices(fd, writer, args, /* quiet= */ false);
+            return;
+        }
+
         // TODO(b/211575098): Use IndentingPrintWriter for better formatting
         synchronized (mLock) {
             writer.println("Checked Webview visibility patch exists: " + mCheckedVisibilityPatch);
@@ -1023,6 +1069,41 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
 
         writer.println("mServiceProvider:");
         mServiceProvider.dump(writer);
+        writer.println();
+
+        dumpAdServices(fd, writer, args, /* quiet= */ true);
+    }
+
+    private void dumpAdServices(
+            @Nullable FileDescriptor fd, PrintWriter writer, String[] args, boolean quiet) {
+        if (SdkLevel.isAtLeastU()) {
+            // On UDC, AdServicesManagerService.Lifecycle implements dumpable so it's dumped as
+            // part of SystemServer, hence this special arg option is not needed
+            if (quiet) {
+                Log.d(TAG, POST_UDC_DUMP_AD_SERVICES_MESSAGE);
+            } else {
+                writer.println(POST_UDC_DUMP_AD_SERVICES_MESSAGE);
+            }
+            return;
+        }
+        writer.print("AdServices:");
+        IBinder adServicesManager = getAdServicesManager();
+        if (adServicesManager == null) {
+            // Should not happen on "real life", but it could on unit tests.
+            Log.e(TAG, "dumpAdServices(): mAdServicesManager not set");
+            writer.println(" N/A");
+            return;
+        }
+        writer.println();
+        writer.println();
+        writer.flush(); // must flush, other raw dump on fd below will be printed before it
+        try {
+            adServicesManager.dump(fd, args);
+        } catch (RemoteException e) {
+            Log.e(TAG, "Failed to dump AdServices", e);
+            // Shouldn't happen, but it doesn't hurt to catch
+            writer.printf("Failed to dump Adservices: %s\n", e);
+        }
         writer.println();
     }
 
@@ -1144,12 +1225,17 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             final ISdkSandboxService mService = ISdkSandboxService.Stub.asInterface(service);
+
             // Perform actions needed after every sandbox restart.
-            LoadSdkException exception = onSandboxConnected(mService);
+            if (!onSandboxConnected(mService)) {
+                // We don't need to call sandboxBindingCallback.onBindingFailed() in this case since
+                // onSdkSandboxDeath() will take care of iterating through LoadSdkSessions and
+                // informing SDKs about load failure.
+                return;
+            }
 
             // Set connected service for app once all initialization has finished. This needs to be
             // set after every sandbox restart as well.
-            // TODO(b/259387335): Maybe kill the sandbox if the connection is not valid?
             mServiceProvider.onServiceConnected(mCallingInfo, mService);
 
             // Once bound service has been set, sync manager is notified.
@@ -1172,13 +1258,7 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                     clearAndGetSandboxBindingCallbacks();
             for (int i = 0; i < sandboxBindingCallbacksForApp.size(); i++) {
                 SandboxBindingCallback callback = sandboxBindingCallbacksForApp.get(i);
-                if (exception == null) {
-                    // Connection is valid - set bound service for app and load SDKs.
-                    callback.onBindingSuccessful(mService, timeToLoadSandbox);
-                } else {
-                    // Connection is not valid
-                    callback.onBindingFailed(exception, mStartTimeForLoadingSandbox);
-                }
+                callback.onBindingSuccessful(mService, timeToLoadSandbox);
             }
         }
 
@@ -1214,12 +1294,9 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
          * Actions to be performed every time the sandbox connects for a particular app, such as the
          * first time the sandbox is brought up and every time it restarts.
          *
-         * @return null if all actions were performed successfully, otherwise a {@link
-         *     LoadSdkException} specifying the error that need to be sent back to SDKs waiting to
-         *     be loaded.
+         * @return true if all actions were performed successfully, false otherwise.
          */
-        @Nullable
-        private LoadSdkException onSandboxConnected(ISdkSandboxService service) {
+        private boolean onSandboxConnected(ISdkSandboxService service) {
             Log.i(
                     TAG,
                     String.format(
@@ -1230,24 +1307,19 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             } catch (RemoteException e) {
                 // Sandbox had already died, cleanup sdk links, notify app etc.
                 onSdkSandboxDeath(mCallingInfo);
-                return new LoadSdkException(
-                        SDK_SANDBOX_PROCESS_NOT_AVAILABLE, SANDBOX_NOT_AVAILABLE_MSG, e);
+                return false;
             }
 
             try {
                 service.initialize(
                         new SdkToServiceLink(),
                         mSdkSandboxSettingsListener.isCustomizedSdkContextEnabled());
-            } catch (RemoteException e) {
-                final String errorMsg = "Failed to initialize sandbox";
-                Log.e(TAG, errorMsg + " for " + mCallingInfo);
-                return new LoadSdkException(
-                        SDK_SANDBOX_PROCESS_NOT_AVAILABLE,
-                        SANDBOX_NOT_AVAILABLE_MSG + " : " + errorMsg,
-                        e);
+            } catch (Throwable e) {
+                handleFailedSandboxInitialization(mCallingInfo);
+                return false;
             }
 
-            return null;
+            return true;
         }
 
         private void logSandboxStart(int timeToLoadSandbox) {
@@ -1272,6 +1344,13 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             }
             return sandboxBindingCallbacksForApp;
         }
+    }
+
+    void handleFailedSandboxInitialization(CallingInfo callingInfo) {
+        final String errorMsg = "Failed to initialize sandbox";
+        Log.e(TAG, errorMsg + " for " + callingInfo);
+        // Kill the sandbox if it failed to initialize as it might not be properly usable.
+        stopSdkSandboxService(callingInfo, errorMsg);
     }
 
     private void onSdkSandboxDeath(CallingInfo callingInfo) {
@@ -1331,8 +1410,6 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             }
         }
         sandboxLifecycleCallbacks.finishBroadcast();
-
-        mSandboxLifecycleCallbacks.remove(callingInfo);
     }
 
     @Override
@@ -1358,7 +1435,8 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         }
     }
 
-    private void registerAdServicesManagerService(IBinder iBinder) {
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
+    void registerAdServicesManagerService(IBinder iBinder) {
         synchronized (mLock) {
             mAdServicesManager = iBinder;
         }
