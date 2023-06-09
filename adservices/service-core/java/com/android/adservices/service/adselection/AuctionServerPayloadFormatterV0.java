@@ -19,8 +19,7 @@ package com.android.adservices.service.adselection;
 import android.annotation.NonNull;
 
 import com.android.adservices.LoggerFactory;
-
-import com.google.common.annotations.VisibleForTesting;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -140,10 +139,9 @@ public class AuctionServerPayloadFormatterV0 implements AuctionServerPayloadForm
         // Convert B to KB and round up if necessary
         int sizeInKB = (payloadSize + 1023) >> 10; // Equivalent to (sizeInBytes + 1023) / 1024
 
-        //        int bucketSizeKB = nextPowerOf2(sizeInKB); // get next power of two
         int bucketSizeKB = Arrays.binarySearch(AVAILABLE_BUCKET_SIZES_IN_KB, sizeInKB);
 
-        // Convert KB back to bytes and return
+        // Convert KB back to B
         return bucketSizeKB << 10; // Equivalent to bucketSizeKB * 1024
     }
 

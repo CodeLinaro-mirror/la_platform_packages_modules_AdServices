@@ -52,7 +52,7 @@ public class UxStatesDao {
         mDatastore = datastore;
     }
 
-    /** Returns an instansce of the UxStatesDao. */
+    /** Returns an instance of the UxStatesDao. */
     public static UxStatesDao getInstance(@NonNull Context context) {
 
         if (sUxStatesDao == null) {
@@ -75,15 +75,14 @@ public class UxStatesDao {
                 return uxCollection;
             }
         }
-        return null;
+        return PrivacySandboxUxCollection.UNSUPPORTED_UX;
     }
 
     /** Set the current UX. */
     public void setUx(@NonNull PrivacySandboxUxCollection ux) {
         try {
             for (PrivacySandboxUxCollection uxCollection : PrivacySandboxUxCollection.values()) {
-                mDatastore.put(
-                        uxCollection.toString(), ux.toString().equals(uxCollection.toString()));
+                mDatastore.put(uxCollection.toString(), ux.equals(uxCollection));
             }
         } catch (IOException | RuntimeException e) {
             throw new RuntimeException("UxStatesDao: setUx operation failed.", e);
@@ -114,9 +113,7 @@ public class UxStatesDao {
                     ux.getEnrollmentChannelCollection()) {
                 mDatastore.put(
                         enrollmentChannelCollection.toString(),
-                        enrollmentChannelCollection
-                                .toString()
-                                .equals(enrollmentChannel.toString()));
+                        enrollmentChannelCollection.equals(enrollmentChannel));
             }
         } catch (IOException | RuntimeException e) {
             throw new RuntimeException("UxStatesDao: setEnrollmentChannel operation failed.", e);
