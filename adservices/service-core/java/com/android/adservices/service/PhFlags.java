@@ -149,6 +149,12 @@ public final class PhFlags implements Flags {
     static final String KEY_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS =
             "measurement_enable_coarse_event_report_destinations";
 
+    static final String KEY_MEASUREMENT_ENABLE_VTC_CONFIGURABLE_MAX_EVENT_REPORTS =
+            "measurement_enable_vtc_configurable_max_event_reports_count";
+
+    static final String KEY_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT =
+            "measurement_vtc_configurable_max_event_reports_count";
+
     // FLEDGE Custom Audience keys
     static final String KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_COUNT = "fledge_custom_audience_max_count";
     static final String KEY_FLEDGE_CUSTOM_AUDIENCE_PER_APP_MAX_COUNT =
@@ -237,10 +243,10 @@ public final class PhFlags implements Flags {
     static final String KEY_FLEDGE_HTTP_CACHE_MAX_ENTRIES = "fledge_http_cache_max_entries";
 
     // FLEDGE Ad Counter Histogram keys
-    static final String KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_EVENT_COUNT =
-            "fledge_ad_counter_histogram_absolute_max_event_count";
-    static final String KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_EVENT_COUNT =
-            "fledge_ad_counter_histogram_lower_max_event_count";
+    static final String KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT =
+            "fledge_ad_counter_histogram_absolute_max_total_event_count";
+    static final String KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT =
+            "fledge_ad_counter_histogram_lower_max_total_event_count";
 
     // FLEDGE Off device ad selection keys
     static final String KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_OVERALL_TIMEOUT_MS =
@@ -252,6 +258,12 @@ public final class PhFlags implements Flags {
             "fledge_ad_selection_off_device_enabled";
     static final String KEY_FLEDGE_AD_SELECTION_PREBUILT_URI_ENABLED =
             "fledge_ad_selection_ad_selection_prebuilt_uri_enabled";
+    static final String KEY_AD_SELECTION_DATA_AUCTION_KEY_FETCH_URI =
+            "ad_selection_data_auction_key_fetch_uri";
+    static final String KEY_AD_SELECTION_DATA_AUCTION_KEY_SHARDING =
+            "ad_selection_data_auction_key_sharding";
+    static final String KEY_AD_SELECTION_DATA_JOIN_KEY_FETCH_URI =
+            "ad_selection_data_join_key_fetch_uri";
     // Whether to compress the request object when calling trusted servers for off device ad
     // selection.
     static final String KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_REQUEST_COMPRESSION_ENABLED =
@@ -1347,19 +1359,19 @@ public final class PhFlags implements Flags {
     }
 
     @Override
-    public int getFledgeAdCounterHistogramAbsoluteMaxEventCount() {
+    public int getFledgeAdCounterHistogramAbsoluteMaxTotalEventCount() {
         return DeviceConfig.getInt(
                 NAMESPACE_ADSERVICES,
-                /* flagName */ KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_EVENT_COUNT,
-                /* defaultValue */ FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_EVENT_COUNT);
+                /* flagName */ KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT,
+                /* defaultValue */ FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT);
     }
 
     @Override
-    public int getFledgeAdCounterHistogramLowerMaxEventCount() {
+    public int getFledgeAdCounterHistogramLowerMaxTotalEventCount() {
         return DeviceConfig.getInt(
                 NAMESPACE_ADSERVICES,
-                /* flagName */ KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_EVENT_COUNT,
-                /* defaultValue */ FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_EVENT_COUNT);
+                /* flagName */ KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT,
+                /* defaultValue */ FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT);
     }
 
     // MDD related flags.
@@ -2048,6 +2060,30 @@ public final class PhFlags implements Flags {
                 NAMESPACE_ADSERVICES,
                 KEY_FLEDGE_AD_SELECTION_PREBUILT_URI_ENABLED,
                 FLEDGE_AD_SELECTION_PREBUILT_URI_ENABLED);
+    }
+
+    @Override
+    public String getAdSelectionDataAuctionKeyFetchUri() {
+        return DeviceConfig.getString(
+                NAMESPACE_ADSERVICES,
+                KEY_AD_SELECTION_DATA_AUCTION_KEY_FETCH_URI,
+                AD_SELECTION_DATA_AUCTION_KEY_FETCH_URI);
+    }
+
+    @Override
+    public String getAdSelectionDataJoinKeyFetchUri() {
+        return DeviceConfig.getString(
+                NAMESPACE_ADSERVICES,
+                KEY_AD_SELECTION_DATA_JOIN_KEY_FETCH_URI,
+                AD_SELECTION_DATA_JOIN_KEY_FETCH_URI);
+    }
+
+    @Override
+    public int getAdSelectionDataAuctionKeySharding() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                KEY_AD_SELECTION_DATA_AUCTION_KEY_SHARDING,
+                AD_SELECTION_DATA_AUCTION_KEY_SHARDING);
     }
 
     @Override
@@ -3009,14 +3045,14 @@ public final class PhFlags implements Flags {
                         + getFledgeHttpCacheMaxAgeSeconds());
         writer.println(
                 "\t"
-                        + KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_EVENT_COUNT
+                        + KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT
                         + " = "
-                        + getFledgeAdCounterHistogramAbsoluteMaxEventCount());
+                        + getFledgeAdCounterHistogramAbsoluteMaxTotalEventCount());
         writer.println(
                 "\t"
-                        + KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_EVENT_COUNT
+                        + KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT
                         + " = "
-                        + getFledgeAdCounterHistogramLowerMaxEventCount());
+                        + getFledgeAdCounterHistogramLowerMaxTotalEventCount());
         writer.println(
                 "\t"
                         + KEY_FLEDGE_BACKGROUND_FETCH_ENABLED
@@ -3087,6 +3123,21 @@ public final class PhFlags implements Flags {
                         + KEY_FLEDGE_AD_SELECTION_SELECTING_OUTCOME_TIMEOUT_MS
                         + " = "
                         + getAdSelectionSelectingOutcomeTimeoutMs());
+        writer.println(
+                "\t"
+                        + KEY_AD_SELECTION_DATA_AUCTION_KEY_FETCH_URI
+                        + " = "
+                        + getAdSelectionDataAuctionKeyFetchUri());
+        writer.println(
+                "\t"
+                        + KEY_AD_SELECTION_DATA_JOIN_KEY_FETCH_URI
+                        + " = "
+                        + getAdSelectionDataJoinKeyFetchUri());
+        writer.println(
+                "\t"
+                        + KEY_AD_SELECTION_DATA_AUCTION_KEY_SHARDING
+                        + " = "
+                        + getAdSelectionDataAuctionKeySharding());
         writer.println(
                 "\t"
                         + KEY_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS
@@ -3496,5 +3547,22 @@ public final class PhFlags implements Flags {
                 NAMESPACE_ADSERVICES,
                 /* flagName */ KEY_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS,
                 /* defaultValue */ DEFAULT_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS);
+    }
+
+    @Override
+    public boolean getMeasurementEnableVtcConfigurableMaxEventReports() {
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_ENABLE_VTC_CONFIGURABLE_MAX_EVENT_REPORTS,
+                /* defaultValue */
+                DEFAULT_MEASUREMENT_ENABLE_VTC_CONFIGURABLE_MAX_EVENT_REPORTS);
+    }
+
+    @Override
+    public int getMeasurementVtcConfigurableMaxEventReportsCount() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT,
+                /* defaultValue */ DEFAULT_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT);
     }
 }

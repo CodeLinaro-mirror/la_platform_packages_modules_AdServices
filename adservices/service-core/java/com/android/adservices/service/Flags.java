@@ -639,20 +639,20 @@ public interface Flags {
         return FLEDGE_HTTP_CACHE_DEFAULT_MAX_AGE_SECONDS;
     }
 
-    int FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_EVENT_COUNT = 1000;
-    int FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_EVENT_COUNT = 950;
+    int FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT = 10000;
+    int FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT = 9500;
 
     /** Returns the maximum allowed number of events in the frequency cap histogram table. */
-    default int getFledgeAdCounterHistogramAbsoluteMaxEventCount() {
-        return FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_EVENT_COUNT;
+    default int getFledgeAdCounterHistogramAbsoluteMaxTotalEventCount() {
+        return FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT;
     }
 
     /**
      * Returns the number of events that the frequency cap histogram table should be trimmed to, if
      * there are too many entries.
      */
-    default int getFledgeAdCounterHistogramLowerMaxEventCount() {
-        return FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_EVENT_COUNT;
+    default int getFledgeAdCounterHistogramLowerMaxTotalEventCount() {
+        return FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT;
     }
 
     int FLEDGE_AD_SELECTION_MAX_CONCURRENT_BIDDING_COUNT = 6;
@@ -838,6 +838,41 @@ public interface Flags {
      */
     default int getFledgeEventLevelDebugReportingMaxItemsPerBatch() {
         return FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH;
+    }
+
+    // TODO(b/278054645): Configure key fetch URI for auction.
+    String AD_SELECTION_DATA_AUCTION_KEY_FETCH_URI = "https://";
+
+    /**
+     * @return Uri to fetch auction encryption key for fledge ad selection.
+     */
+    default String getAdSelectionDataAuctionKeyFetchUri() {
+        return AD_SELECTION_DATA_AUCTION_KEY_FETCH_URI;
+    }
+
+    String AD_SELECTION_DATA_JOIN_KEY_FETCH_URI =
+            "https://chromekanonymity-pa.googleapis.com/v1/proxy/keys";
+
+    /**
+     * @return Uri to fetch join encryption key for fledge ad selection.
+     */
+    default String getAdSelectionDataJoinKeyFetchUri() {
+        return AD_SELECTION_DATA_JOIN_KEY_FETCH_URI;
+    }
+
+    int AD_SELECTION_DATA_AUCTION_KEY_SHARDING = 5;
+
+    /**
+     * @return Shard count for using auction key for fledge ad selection.
+     */
+    default int getAdSelectionDataAuctionKeySharding() {
+        return AD_SELECTION_DATA_AUCTION_KEY_SHARDING;
+    }
+
+    long AD_SELECTION_DATA_ENCRYPTION_KEY_MAX_AGE_SECONDS = TimeUnit.DAYS.toSeconds(14);
+
+    default long getAdSelectionDataEncryptionKeyMaxAgeSeconds() {
+        return AD_SELECTION_DATA_ENCRYPTION_KEY_MAX_AGE_SECONDS;
     }
 
     boolean FLEDGE_AD_SELECTION_OFF_DEVICE_REQUEST_COMPRESSION_ENABLED = true;
@@ -2259,6 +2294,24 @@ public interface Flags {
      */
     default String getMeasurementEventReportsCtcEarlyReportingWindows() {
         return MEASUREMENT_EVENT_REPORTS_CTC_EARLY_REPORTING_WINDOWS;
+    }
+
+    /** Disable conversions configurability by default. */
+    boolean DEFAULT_MEASUREMENT_ENABLE_VTC_CONFIGURABLE_MAX_EVENT_REPORTS = false;
+
+    /**
+     * Returns true, if event reports max conversions configurability is enabled, false otherwise.
+     */
+    default boolean getMeasurementEnableVtcConfigurableMaxEventReports() {
+        return DEFAULT_MEASUREMENT_ENABLE_VTC_CONFIGURABLE_MAX_EVENT_REPORTS;
+    }
+
+    /** Disable conversions configurability by default. */
+    int DEFAULT_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT = 2;
+
+    /** Returns the default max allowed number of event reports. */
+    default int getMeasurementVtcConfigurableMaxEventReportsCount() {
+        return DEFAULT_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT;
     }
 
     /** Default U18 UX feature flag.. */
