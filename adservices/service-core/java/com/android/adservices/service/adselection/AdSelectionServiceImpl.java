@@ -39,8 +39,8 @@ import android.adservices.adselection.AdSelectionService;
 import android.adservices.adselection.BuyersDecisionLogic;
 import android.adservices.adselection.GetAdSelectionDataCallback;
 import android.adservices.adselection.GetAdSelectionDataInput;
-import android.adservices.adselection.ProcessAdSelectionResultCallback;
-import android.adservices.adselection.ProcessAdSelectionResultInput;
+import android.adservices.adselection.PersistAdSelectionResultCallback;
+import android.adservices.adselection.PersistAdSelectionResultInput;
 import android.adservices.adselection.RemoveAdCounterHistogramOverrideInput;
 import android.adservices.adselection.ReportImpressionCallback;
 import android.adservices.adselection.ReportImpressionInput;
@@ -237,10 +237,10 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
             throws RemoteException {}
 
     @Override
-    public void processAdSelectionResult(
-            ProcessAdSelectionResultInput processAdSelectionResultInput,
+    public void persistAdSelectionResult(
+            PersistAdSelectionResultInput persistAdSelectionResultInput,
             CallerMetadata callerMetadata,
-            ProcessAdSelectionResultCallback processAdSelectionResultCallback)
+            PersistAdSelectionResultCallback persistAdSelectionResultCallback)
             throws RemoteException {}
 
     // TODO(b/233116758): Validate all the fields inside the adSelectionConfig.
@@ -537,14 +537,22 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
         final int adCounterHistogramLowerMaxTotalEventCount =
                 BinderFlagReader.readFlag(
                         mFlags::getFledgeAdCounterHistogramLowerMaxTotalEventCount);
+        final int adCounterHistogramAbsoluteMaxPerBuyerEventCount =
+                BinderFlagReader.readFlag(
+                        mFlags::getFledgeAdCounterHistogramAbsoluteMaxPerBuyerEventCount);
+        final int adCounterHistogramLowerMaxPerBuyerEventCount =
+                BinderFlagReader.readFlag(
+                        mFlags::getFledgeAdCounterHistogramLowerMaxPerBuyerEventCount);
 
-        UpdateAdCounterHistogramWorker worker =
+        final UpdateAdCounterHistogramWorker worker =
                 new UpdateAdCounterHistogramWorker(
                         new AdCounterHistogramUpdaterImpl(
                                 mAdSelectionEntryDao,
                                 mFrequencyCapDao,
                                 adCounterHistogramAbsoluteMaxTotalEventCount,
-                                adCounterHistogramLowerMaxTotalEventCount),
+                                adCounterHistogramLowerMaxTotalEventCount,
+                                adCounterHistogramAbsoluteMaxPerBuyerEventCount,
+                                adCounterHistogramLowerMaxPerBuyerEventCount),
                         mBackgroundExecutor,
                         // TODO(b/235841960): Use the same injected clock as AdSelectionRunner
                         //  after aligning on Clock usage

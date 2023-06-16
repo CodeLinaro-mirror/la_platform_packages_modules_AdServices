@@ -247,6 +247,10 @@ public final class PhFlags implements Flags {
             "fledge_ad_counter_histogram_absolute_max_total_event_count";
     static final String KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT =
             "fledge_ad_counter_histogram_lower_max_total_event_count";
+    static final String KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_PER_BUYER_EVENT_COUNT =
+            "fledge_ad_counter_histogram_absolute_max_per_buyer_event_count";
+    static final String KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_PER_BUYER_EVENT_COUNT =
+            "fledge_ad_counter_histogram_lower_max_per_buyer_event_count";
 
     // FLEDGE Off device ad selection keys
     static final String KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_OVERALL_TIMEOUT_MS =
@@ -482,6 +486,9 @@ public final class PhFlags implements Flags {
 
     // Back-compat keys
     static final String KEY_COMPAT_LOGGING_KILL_SWITCH = "compat_logging_kill_switch";
+
+    static final String ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH =
+            "adservices_consent_migration_logging_kill_switch";
 
     static final String KEY_ENABLE_BACK_COMPAT = "enable_back_compat";
 
@@ -1379,6 +1386,22 @@ public final class PhFlags implements Flags {
                 NAMESPACE_ADSERVICES,
                 /* flagName */ KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT,
                 /* defaultValue */ FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT);
+    }
+
+    @Override
+    public int getFledgeAdCounterHistogramAbsoluteMaxPerBuyerEventCount() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_PER_BUYER_EVENT_COUNT,
+                /* defaultValue */ FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_PER_BUYER_EVENT_COUNT);
+    }
+
+    @Override
+    public int getFledgeAdCounterHistogramLowerMaxPerBuyerEventCount() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_PER_BUYER_EVENT_COUNT,
+                /* defaultValue */ FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_PER_BUYER_EVENT_COUNT);
     }
 
     // MDD related flags.
@@ -3085,6 +3108,16 @@ public final class PhFlags implements Flags {
                         + getFledgeAdCounterHistogramLowerMaxTotalEventCount());
         writer.println(
                 "\t"
+                        + KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_PER_BUYER_EVENT_COUNT
+                        + " = "
+                        + getFledgeAdCounterHistogramAbsoluteMaxPerBuyerEventCount());
+        writer.println(
+                "\t"
+                        + KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_PER_BUYER_EVENT_COUNT
+                        + " = "
+                        + getFledgeAdCounterHistogramLowerMaxPerBuyerEventCount());
+        writer.println(
+                "\t"
                         + KEY_FLEDGE_BACKGROUND_FETCH_ENABLED
                         + " = "
                         + getFledgeBackgroundFetchEnabled());
@@ -3394,6 +3427,11 @@ public final class PhFlags implements Flags {
                 "\t" + KEY_ENABLE_APPSEARCH_CONSENT_DATA + " = " + getEnableAppsearchConsentData());
         writer.println(
                 "\t"
+                        + ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH
+                        + " = "
+                        + getAdservicesConsentMigrationLoggingKillSwitch());
+        writer.println(
+                "\t"
                         + KEY_MEASUREMENT_ROLLBACK_DELETION_APP_SEARCH_KILL_SWITCH
                         + " = "
                         + getMeasurementRollbackDeletionAppSearchKillSwitch());
@@ -3609,5 +3647,13 @@ public final class PhFlags implements Flags {
                 NAMESPACE_ADSERVICES,
                 /* flagName */ KEY_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT,
                 /* defaultValue */ DEFAULT_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT);
+    }
+
+    @Override
+    public boolean getAdservicesConsentMigrationLoggingKillSwitch() {
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH,
+                /* defaultValue */ DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH);
     }
 }
