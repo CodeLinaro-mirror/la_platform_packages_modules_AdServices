@@ -1689,13 +1689,25 @@ public interface Flags {
      * PP API Rate Limit for measurement register source. This is the max allowed QPS for one API
      * client to one PP API. Negative Value means skipping the rate limiting checking.
      */
-    float MEASUREMENT_REGISTER_SOURCE_REQUEST_PERMITS_PER_SECOND = 5;
+    float MEASUREMENT_REGISTER_SOURCE_REQUEST_PERMITS_PER_SECOND = 25;
 
     /**
      * PP API Rate Limit for measurement register web source. This is the max allowed QPS for one
      * API client to one PP API. Negative Value means skipping the rate limiting checking.
      */
-    float MEASUREMENT_REGISTER_WEB_SOURCE_REQUEST_PERMITS_PER_SECOND = 5;
+    float MEASUREMENT_REGISTER_WEB_SOURCE_REQUEST_PERMITS_PER_SECOND = 25;
+
+    /**
+     * PP API Rate Limit for measurement register trigger. This is the max allowed QPS for one API
+     * client to one PP API. Negative Value means skipping the rate limiting checking.
+     */
+    float MEASUREMENT_REGISTER_TRIGGER_REQUEST_PERMITS_PER_SECOND = 25;
+
+    /**
+     * PP API Rate Limit for measurement register web trigger. This is the max allowed QPS for one
+     * API client to one PP API. Negative Value means skipping the rate limiting checking.
+     */
+    float MEASUREMENT_REGISTER_WEB_TRIGGER_REQUEST_PERMITS_PER_SECOND = 25;
 
     /**
      * PP API Rate Limit for Topics API based on App Package name. This is the max allowed QPS for
@@ -1748,6 +1760,16 @@ public interface Flags {
     /** Returns the Measurement Register Web Source Request Permits Per Second. */
     default float getMeasurementRegisterWebSourceRequestPermitsPerSecond() {
         return MEASUREMENT_REGISTER_WEB_SOURCE_REQUEST_PERMITS_PER_SECOND;
+    }
+
+    /** Returns the Measurement Register Trigger Request Permits Per Second. */
+    default float getMeasurementRegisterTriggerRequestPermitsPerSecond() {
+        return MEASUREMENT_REGISTER_TRIGGER_REQUEST_PERMITS_PER_SECOND;
+    }
+
+    /** Returns the Measurement Register Web Trigger Request Permits Per Second. */
+    default float getMeasurementRegisterWebTriggerRequestPermitsPerSecond() {
+        return MEASUREMENT_REGISTER_WEB_TRIGGER_REQUEST_PERMITS_PER_SECOND;
     }
 
     /** Returns the Fledge Report Interaction API Request Permits Per Second. */
@@ -2329,6 +2351,33 @@ public interface Flags {
      */
     default String getMeasurementEventReportsCtcEarlyReportingWindows() {
         return MEASUREMENT_EVENT_REPORTS_CTC_EARLY_REPORTING_WINDOWS;
+    }
+
+    /** Disable aggregate report delay by default. */
+    boolean MEASUREMENT_ENABLE_CONFIGURABLE_AGGREGATE_REPORT_DELAY = false;
+
+    /** Returns true if aggregate report delay configurability is enabled, false otherwise. */
+    default boolean getMeasurementEnableConfigurableAggregateReportDelay() {
+        return MEASUREMENT_ENABLE_CONFIGURABLE_AGGREGATE_REPORT_DELAY;
+    }
+
+    /**
+     * Default aggregate report delay. Derived from {@link
+     * PrivacyParams#AGGREGATE_REPORT_MIN_DELAY} and {@link
+     * PrivacyParams#AGGREGATE_REPORT_DELAY_SPAN}.
+     */
+    String MEASUREMENT_AGGREGATE_REPORT_DELAY_CONFIG =
+            String.join(
+                    ",",
+                    Long.toString(TimeUnit.MINUTES.toMillis(10L)),
+                    Long.toString(TimeUnit.MINUTES.toMillis(50L)));
+
+    /**
+     * Returns configured comma separated aggregate report min delay and aggregate report delay
+     * span.
+     */
+    default String getMeasurementAggregateReportDelayConfig() {
+        return MEASUREMENT_AGGREGATE_REPORT_DELAY_CONFIG;
     }
 
     /** Disable conversions configurability by default. */

@@ -399,6 +399,10 @@ public final class PhFlags implements Flags {
             "measurement_register_source_request_permits_per_second";
     static final String KEY_MEASUREMENT_REGISTER_WEB_SOURCE_REQUEST_PERMITS_PER_SECOND =
             "measurement_register_web_source_request_permits_per_second";
+    static final String KEY_MEASUREMENT_REGISTER_TRIGGER_REQUEST_PERMITS_PER_SECOND =
+            "measurement_register_trigger_request_permits_per_second";
+    static final String KEY_MEASUREMENT_REGISTER_WEB_TRIGGER_REQUEST_PERMITS_PER_SECOND =
+            "measurement_register_web_trigger_request_permits_per_second";
     static final String KEY_TOPICS_API_APP_REQUEST_PERMITS_PER_SECOND =
             "topics_api_app_request_permits_per_second";
     static final String KEY_TOPICS_API_SDK_REQUEST_PERMITS_PER_SECOND =
@@ -544,6 +548,12 @@ public final class PhFlags implements Flags {
 
     static final String KEY_MEASUREMENT_EVENT_REPORTS_CTC_EARLY_REPORTING_WINDOWS =
             "measurement_event_reports_ctc_early_reporting_windows";
+
+    static final String KEY_MEASUREMENT_ENABLE_CONFIGURABLE_AGGREGATE_REPORT_DELAY =
+            "measurement_enable_configurable_aggregate_report_delay";
+
+    static final String KEY_MEASUREMENT_AGGREGATE_REPORT_DELAY_CONFIG =
+            "measurement_aggregate_report_delay_config";
 
     // AdServices Namespace String from DeviceConfig class not available in S Minus
     static final String NAMESPACE_ADSERVICES = "adservices";
@@ -1965,6 +1975,20 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public float getMeasurementRegisterTriggerRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                KEY_MEASUREMENT_REGISTER_TRIGGER_REQUEST_PERMITS_PER_SECOND,
+                MEASUREMENT_REGISTER_TRIGGER_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
+    public float getMeasurementRegisterWebTriggerRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                KEY_MEASUREMENT_REGISTER_WEB_TRIGGER_REQUEST_PERMITS_PER_SECOND,
+                MEASUREMENT_REGISTER_WEB_TRIGGER_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
     public float getTopicsApiAppRequestPermitsPerSecond() {
         return getPermitsPerSecond(
                 KEY_TOPICS_API_APP_REQUEST_PERMITS_PER_SECOND,
@@ -2629,6 +2653,24 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getMeasurementEnableConfigurableAggregateReportDelay() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_ENABLE_CONFIGURABLE_AGGREGATE_REPORT_DELAY,
+                /* defaultValue */ MEASUREMENT_ENABLE_CONFIGURABLE_AGGREGATE_REPORT_DELAY);
+    }
+
+    @Override
+    public String getMeasurementAggregateReportDelayConfig() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getString(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_AGGREGATE_REPORT_DELAY_CONFIG,
+                /* defaultValue */ MEASUREMENT_AGGREGATE_REPORT_DELAY_CONFIG);
+    }
+
+    @Override
     public boolean isEnrollmentBlocklisted(String enrollmentId) {
         return getEnrollmentBlocklist().contains(enrollmentId);
     }
@@ -2673,7 +2715,26 @@ public final class PhFlags implements Flags {
                         + KEY_SDK_REQUEST_PERMITS_PER_SECOND
                         + " = "
                         + getSdkRequestPermitsPerSecond());
-
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_REGISTER_SOURCE_REQUEST_PERMITS_PER_SECOND
+                        + " = "
+                        + getMeasurementRegisterSourceRequestPermitsPerSecond());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_REGISTER_WEB_SOURCE_REQUEST_PERMITS_PER_SECOND
+                        + " = "
+                        + getMeasurementRegisterWebSourceRequestPermitsPerSecond());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_REGISTER_TRIGGER_REQUEST_PERMITS_PER_SECOND
+                        + " = "
+                        + getMeasurementRegisterTriggerRequestPermitsPerSecond());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_REGISTER_WEB_TRIGGER_REQUEST_PERMITS_PER_SECOND
+                        + " = "
+                        + getMeasurementRegisterWebTriggerRequestPermitsPerSecond());
         writer.println(
                 "\t"
                         + KEY_MDD_BACKGROUND_TASK_KILL_SWITCH
@@ -2984,6 +3045,16 @@ public final class PhFlags implements Flags {
                         + KEY_MEASUREMENT_EVENT_REPORTS_CTC_EARLY_REPORTING_WINDOWS
                         + " = "
                         + getMeasurementEventReportsCtcEarlyReportingWindows());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_ENABLE_CONFIGURABLE_AGGREGATE_REPORT_DELAY
+                        + " = "
+                        + getMeasurementEnableConfigurableAggregateReportDelay());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_AGGREGATE_REPORT_DELAY_CONFIG
+                        + " = "
+                        + getMeasurementAggregateReportDelayConfig());
         writer.println(
                 "\t"
                         + KEY_MEASUREMENT_MAX_ATTRIBUTION_PER_RATE_LIMIT_WINDOW
