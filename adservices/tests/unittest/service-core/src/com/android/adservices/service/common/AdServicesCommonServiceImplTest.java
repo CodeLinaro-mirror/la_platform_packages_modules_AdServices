@@ -555,7 +555,6 @@ public class AdServicesCommonServiceImplTest {
 
     @Test
     public void enableAdServicesTest_unauthorizedCaller() {
-        mGetCommonCallbackLatch = new CountDownLatch(1);
         ExtendedMockito.doReturn(false)
                 .when(() -> PermissionHelper.hasModifyAdServicesStatePermission(any()));
 
@@ -579,7 +578,6 @@ public class AdServicesCommonServiceImplTest {
 
     @Test
     public void enableAdServicesTest_apiDisabled() {
-        mGetCommonCallbackLatch = new CountDownLatch(1);
         ExtendedMockito.doReturn(true)
                 .when(() -> PermissionHelper.hasModifyAdServicesStatePermission(any()));
         doReturn(false).when(mFlags).getEnableAdServicesSystemApi();
@@ -590,7 +588,6 @@ public class AdServicesCommonServiceImplTest {
                     @Override
                     public void onResult(EnableAdServicesResponse response) {
                         assertThat(response.isApiEnabled()).isFalse();
-                        mGetCommonCallbackLatch.countDown();
                     }
 
                     @Override
@@ -606,7 +603,6 @@ public class AdServicesCommonServiceImplTest {
 
     @Test
     public void enableAdServicesTest_engineStarted() {
-        mGetCommonCallbackLatch = new CountDownLatch(1);
         ExtendedMockito.doReturn(true)
                 .when(() -> PermissionHelper.hasModifyAdServicesStatePermission(any()));
         doReturn(true).when(mFlags).getEnableAdServicesSystemApi();
@@ -618,7 +614,6 @@ public class AdServicesCommonServiceImplTest {
                     public void onResult(EnableAdServicesResponse response) {
                         assertThat(response.isApiEnabled()).isTrue();
                         assertThat(response.isSuccess()).isTrue();
-                        mGetCommonCallbackLatch.countDown();
                     }
 
                     @Override

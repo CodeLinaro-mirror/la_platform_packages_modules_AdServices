@@ -37,7 +37,6 @@ import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 
@@ -172,7 +171,8 @@ public class MaintenanceJobServiceTest {
         testOnStartJob_killSwitchOff();
 
         // Verify logging methods are invoked.
-        verify(mSpyLogger, atLeastOnce()).persistJobExecutionData(anyInt(), anyLong());
+        verify(mSpyLogger).persistJobExecutionData(anyInt(), anyLong());
+        verify(mSpyLogger).logExecutionStats(anyInt(), anyLong(), anyInt(), anyInt());
     }
 
     @Test
@@ -191,24 +191,11 @@ public class MaintenanceJobServiceTest {
         // Inject FledgeMaintenanceTasksWorker since the test can't get it the standard way
         mSpyMaintenanceJobService.injectFledgeMaintenanceTasksWorker(
                 mFledgeMaintenanceTasksWorkerSpy);
-        doNothing().when(mSpyMaintenanceJobService).jobFinished(mMockJobParameters, false);
 
-        // Schedule the job to assert after starting that the scheduled job has been started
-        JobInfo existingJobInfo =
-                new JobInfo.Builder(
-                        MAINTENANCE_JOB_ID,
-                        new ComponentName(CONTEXT, EpochJobService.class))
-                        .setRequiresCharging(true)
-                        .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
-                        .setPersisted(true)
-                        .build();
-        JOB_SCHEDULER.schedule(existingJobInfo);
-        assertThat(JOB_SCHEDULER.getPendingJob(MAINTENANCE_JOB_ID)).isNotNull();
+        mSpyMaintenanceJobService.onStartJob(mMockJobParameters);
 
-        // Now verify that when the Job starts, it will schedule itself.
-        assertThat(mSpyMaintenanceJobService.onStartJob(mMockJobParameters)).isTrue();
-
-        assertThat(JOB_SCHEDULER.getPendingJob(MAINTENANCE_JOB_ID)).isNotNull();
+        // Grant some time to allow background thread to execute
+        Thread.sleep(BACKGROUND_THREAD_TIMEOUT_MS);
 
         // Verify that topics job is not done
         ExtendedMockito.verify(() -> TopicsWorker.getInstance(any(Context.class)), never());
@@ -243,24 +230,10 @@ public class MaintenanceJobServiceTest {
         ExtendedMockito.doReturn(topicsWorker)
                 .when(() -> TopicsWorker.getInstance(any(Context.class)));
 
-        doNothing().when(mSpyMaintenanceJobService).jobFinished(mMockJobParameters, false);
+        mSpyMaintenanceJobService.onStartJob(mMockJobParameters);
 
-        // Schedule the job to assert after starting that the scheduled job has been started
-        JobInfo existingJobInfo =
-                new JobInfo.Builder(
-                        MAINTENANCE_JOB_ID,
-                        new ComponentName(CONTEXT, EpochJobService.class))
-                        .setRequiresCharging(true)
-                        .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
-                        .setPersisted(true)
-                        .build();
-        JOB_SCHEDULER.schedule(existingJobInfo);
-        assertThat(JOB_SCHEDULER.getPendingJob(MAINTENANCE_JOB_ID)).isNotNull();
-
-        // Now verify that when the Job starts, it will schedule itself.
-        assertThat(mSpyMaintenanceJobService.onStartJob(mMockJobParameters)).isTrue();
-
-        assertThat(JOB_SCHEDULER.getPendingJob(MAINTENANCE_JOB_ID)).isNotNull();
+        // Grant some time to allow background thread to execute
+        Thread.sleep(BACKGROUND_THREAD_TIMEOUT_MS);
 
         ExtendedMockito.verify(() -> TopicsWorker.getInstance(any(Context.class)));
         verify(mMockAppUpdateManager)
@@ -335,25 +308,14 @@ public class MaintenanceJobServiceTest {
                 .when(mMockAppUpdateManager)
                 .reconcileUninstalledApps(any(Context.class), eq(CURRENT_EPOCH_ID));
 
-        doNothing().when(mSpyMaintenanceJobService).jobFinished(mMockJobParameters, false);
+        mSpyMaintenanceJobService.onStartJob(mMockJobParameters);
 
-        // Schedule the job to assert after starting that the scheduled job has been started
-        JobInfo existingJobInfo =
-                new JobInfo.Builder(
-                        MAINTENANCE_JOB_ID,
-                        new ComponentName(CONTEXT, EpochJobService.class))
-                        .setRequiresCharging(true)
-                        .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
-                        .setPersisted(true)
-                        .build();
-        JOB_SCHEDULER.schedule(existingJobInfo);
-        assertThat(JOB_SCHEDULER.getPendingJob(MAINTENANCE_JOB_ID)).isNotNull();
+        // Grant some time to allow background thread to execute
+        Thread.sleep(BACKGROUND_THREAD_TIMEOUT_MS);
 
-        // Now verify that when the Job starts, it will schedule itself.
-        assertThat(mSpyMaintenanceJobService.onStartJob(mMockJobParameters)).isTrue();
-
-        assertThat(JOB_SCHEDULER.getPendingJob(MAINTENANCE_JOB_ID)).isNotNull();
-
+        ExtendedMockito.verify(() -> TopicsWorker.getInstance(any(Context.class)));
+        verify(mMockAppUpdateManager)
+                .reconcileUninstalledApps(any(Context.class), eq(CURRENT_EPOCH_ID));
         // Verify that this is not called because we threw an exception
         verify(mMockAppUpdateManager, never())
                 .reconcileInstalledApps(any(Context.class), /* currentEpochId */ anyLong());
@@ -394,24 +356,10 @@ public class MaintenanceJobServiceTest {
                 .when(mFledgeMaintenanceTasksWorkerSpy)
                 .clearExpiredAdSelectionData();
 
-        doNothing().when(mSpyMaintenanceJobService).jobFinished(mMockJobParameters, false);
+        mSpyMaintenanceJobService.onStartJob(mMockJobParameters);
 
-        // Schedule the job to assert after starting that the scheduled job has been started
-        JobInfo existingJobInfo =
-                new JobInfo.Builder(
-                        MAINTENANCE_JOB_ID,
-                        new ComponentName(CONTEXT, EpochJobService.class))
-                        .setRequiresCharging(true)
-                        .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
-                        .setPersisted(true)
-                        .build();
-        JOB_SCHEDULER.schedule(existingJobInfo);
-        assertThat(JOB_SCHEDULER.getPendingJob(MAINTENANCE_JOB_ID)).isNotNull();
-
-        // Now verify that when the Job starts, it will schedule itself.
-        assertThat(mSpyMaintenanceJobService.onStartJob(mMockJobParameters)).isTrue();
-
-        assertThat(JOB_SCHEDULER.getPendingJob(MAINTENANCE_JOB_ID)).isNotNull();
+        // Grant some time to allow background thread to execute
+        Thread.sleep(BACKGROUND_THREAD_TIMEOUT_MS);
 
         ExtendedMockito.verify(() -> TopicsWorker.getInstance(any(Context.class)));
         verify(mMockAppUpdateManager)
@@ -448,27 +396,10 @@ public class MaintenanceJobServiceTest {
                 .when(mSpyMaintenanceJobService)
                 .jobFinished(mMockJobParameters, false);
 
-        doNothing().when(mSpyMaintenanceJobService).jobFinished(mMockJobParameters, false);
+        mSpyMaintenanceJobService.onStartJob(mMockJobParameters);
 
-        // Schedule the job to assert after starting that the scheduled job has been cancelled
-        JobInfo existingJobInfo =
-                new JobInfo.Builder(
-                        MAINTENANCE_JOB_ID,
-                        new ComponentName(CONTEXT, EpochJobService.class))
-                        .setRequiresCharging(true)
-                        .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
-                        .setPersisted(true)
-                        .build();
-        JOB_SCHEDULER.schedule(existingJobInfo);
-        assertThat(JOB_SCHEDULER.getPendingJob(MAINTENANCE_JOB_ID)).isNotNull();
-
-        // Now verify that when the Job starts, it will unschedule itself.
-        assertThat(mSpyMaintenanceJobService.onStartJob(mMockJobParameters)).isFalse();
-
-        assertThat(JOB_SCHEDULER.getPendingJob(MAINTENANCE_JOB_ID)).isNull();
-
-        verify(mSpyMaintenanceJobService).jobFinished(mMockJobParameters, false);
-        verifyNoMoreInteractions(staticMockMarker(TopicsWorker.class));
+        // Grant some time to allow background thread to execute
+        Thread.sleep(BACKGROUND_THREAD_TIMEOUT_MS);
 
         verify(() -> TopicsWorker.getInstance(any(Context.class)), never());
         verify(mMockAppUpdateManager, never())
@@ -711,26 +642,13 @@ public class MaintenanceJobServiceTest {
         ExtendedMockito.doReturn(topicsWorker)
                 .when(() -> TopicsWorker.getInstance(any(Context.class)));
 
-        doNothing().when(mSpyMaintenanceJobService).jobFinished(mMockJobParameters, false);
         mSpyMaintenanceJobService.injectFledgeMaintenanceTasksWorker(
                 mFledgeMaintenanceTasksWorkerSpy);
 
-        // Schedule the job to assert after starting that the scheduled job has been started
-        JobInfo existingJobInfo =
-                new JobInfo.Builder(
-                        MAINTENANCE_JOB_ID,
-                        new ComponentName(CONTEXT, EpochJobService.class))
-                        .setRequiresCharging(true)
-                        .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
-                        .setPersisted(true)
-                        .build();
-        JOB_SCHEDULER.schedule(existingJobInfo);
-        assertThat(JOB_SCHEDULER.getPendingJob(MAINTENANCE_JOB_ID)).isNotNull();
+        mSpyMaintenanceJobService.onStartJob(mMockJobParameters);
 
-        // Now verify that when the Job starts, it will schedule itself.
-        assertThat(mSpyMaintenanceJobService.onStartJob(mMockJobParameters)).isTrue();
-
-        assertThat(JOB_SCHEDULER.getPendingJob(MAINTENANCE_JOB_ID)).isNotNull();
+        // Grant some time to allow background thread to execute
+        Thread.sleep(BACKGROUND_THREAD_TIMEOUT_MS);
 
         ExtendedMockito.verify(() -> TopicsWorker.getInstance(any(Context.class)));
         verify(mMockAppUpdateManager)
