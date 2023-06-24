@@ -432,6 +432,7 @@ public interface Flags {
     int FLEDGE_CUSTOM_AUDIENCE_MAX_NUM_ADS = 100;
     // Keeping TTL as long as expiry, could be reduced later as we get more fresh CAs with adoption
     long FLEDGE_CUSTOM_AUDIENCE_ACTIVE_TIME_WINDOW_MS = 60 * 24 * 60L * 60L * 1000; // 60 days
+    long FLEDGE_ENCRYPTION_KEY_MAX_AGE_SECONDS = TimeUnit.DAYS.toSeconds(14);
 
     /** Returns the maximum number of custom audience can stay in the storage. */
     default long getFledgeCustomAudienceMaxCount() {
@@ -929,6 +930,101 @@ public interface Flags {
     /** Returns the payload formatter version */
     default int getFledgeAuctionServerPayloadFormatVersion() {
         return FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION;
+    }
+
+    long FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_TIMEOUT_MS = 3000;
+
+    default long getFledgeAuctionServerAuctionKeyFetchTimeoutMs() {
+        return FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_TIMEOUT_MS;
+    }
+
+    boolean FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_ENABLED = false;
+
+    /** Returns whether to run periodic job to fetch encryption keys. */
+    default boolean getFledgeAuctionServerBackgroundKeyFetchJobEnabled() {
+        return FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_ENABLED;
+    }
+
+    int FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_CONNECT_TIMEOUT_MS =
+            5 * 1000; // 5 seconds
+
+    /**
+     * Returns the maximum time in milliseconds allowed for a network call to open its initial
+     * connection during the FLEDGE encryption key fetch.
+     */
+    default int getFledgeAuctionServerBackgroundKeyFetchNetworkConnectTimeoutMs() {
+        return FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_CONNECT_TIMEOUT_MS;
+    }
+
+    int FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_READ_TIMEOUT_MS =
+            30 * 1000; // 30 seconds
+
+    /**
+     * Returns the maximum time in milliseconds allowed for a network call to read a response from a
+     * target server during the FLEDGE encryption key fetch.
+     */
+    default int getFledgeAuctionServerBackgroundKeyFetchNetworkReadTimeoutMs() {
+        return FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_READ_TIMEOUT_MS;
+    }
+
+    int FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RESPONSE_SIZE_B = 2 * 1024; // 2 KiB
+
+    /**
+     * Returns the maximum size in bytes of a single key fetch response during the FLEDGE encryption
+     * key fetch.
+     */
+    default int getFledgeAuctionServerBackgroundKeyFetchMaxResponseSizeB() {
+        return FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RESPONSE_SIZE_B;
+    }
+
+    boolean FLEDGE_AUCTION_SERVER_BACKGROUND_AUCTION_KEY_FETCH_ENABLED = false;
+
+    /** Returns whether to run periodic job to fetch AUCTION keys. */
+    default boolean getFledgeAuctionServerBackgroundAuctionKeyFetchEnabled() {
+        return getFledgeAuctionServerBackgroundKeyFetchJobEnabled()
+                && FLEDGE_AUCTION_SERVER_BACKGROUND_AUCTION_KEY_FETCH_ENABLED;
+    }
+
+    boolean FLEDGE_AUCTION_SERVER_BACKGROUND_JOIN_KEY_FETCH_ENABLED = false;
+
+    /** Returns whether to run periodic job to fetch JOIN keys. */
+    default boolean getFledgeAuctionServerBackgroundJoinKeyFetchEnabled() {
+        return getFledgeAuctionServerBackgroundKeyFetchJobEnabled()
+                && FLEDGE_AUCTION_SERVER_BACKGROUND_JOIN_KEY_FETCH_ENABLED;
+    }
+
+    long FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS = TimeUnit.MINUTES.toMillis(5);
+
+    /**
+     * Returns the maximum amount of time (in milliseconds) each Ad selection Background key Fetch
+     * job is allowed to run.
+     */
+    default long getFledgeAuctionServerBackgroundKeyFetchJobMaxRuntimeMs() {
+        return FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS;
+    }
+
+    long FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_PERIOD_MS = TimeUnit.HOURS.toMillis(24);
+    /**
+     * Returns the best effort max time (in milliseconds) between each Background Key Fetch job run.
+     */
+    default long getFledgeAuctionServerBackgroundKeyFetchJobPeriodMs() {
+        return FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_PERIOD_MS;
+    }
+
+    long FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_FLEX_MS = TimeUnit.HOURS.toMillis(2);
+
+    /**
+     * Returns the amount of flex (in milliseconds) around the end of each period to run each
+     * Background Key Fetch job.
+     */
+    default long getFledgeAuctionServerBackgroundKeyFetchJobFlexMs() {
+        return FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_FLEX_MS;
+    }
+
+    boolean FLEDGE_AUCTION_SERVER_ENABLE_DEBUG_REPORTING = true;
+
+    default boolean getFledgeAuctionServerEnableDebugReporting() {
+        return FLEDGE_AUCTION_SERVER_ENABLE_DEBUG_REPORTING;
     }
 
     boolean ADSERVICES_ENABLED = false;
@@ -1553,6 +1649,19 @@ public interface Flags {
     }
 
     /**
+     * Fledge Auction Server API Kill switch. The default value is false which means that Auction
+     * server APIs is enabled by default.
+     */
+    boolean FLEDGE_AUCTION_SERVER_KILL_SWITCH = false;
+
+    /**
+     * @return value of Fledge Auction server API kill switch.
+     */
+    default boolean getFledgeAuctionServerKillSwitch() {
+        return getGlobalKillSwitch() || FLEDGE_AUCTION_SERVER_KILL_SWITCH;
+    }
+
+    /**
      * Fledge Join Custom Audience API kill switch. The default value is false which means that Join
      * Custom Audience API is enabled by default. This flag should be should as emergency andon
      * cord.
@@ -1677,7 +1786,7 @@ public interface Flags {
      * PP API Rate Limit for ad id. This is the max allowed QPS for one API client to one PP API.
      * Negative Value means skipping the rate limiting checking.
      */
-    float ADID_REQUEST_PERMITS_PER_SECOND = 5;
+    float ADID_REQUEST_PERMITS_PER_SECOND = 25;
 
     /**
      * PP API Rate Limit for app set id. This is the max allowed QPS for one API client to one PP

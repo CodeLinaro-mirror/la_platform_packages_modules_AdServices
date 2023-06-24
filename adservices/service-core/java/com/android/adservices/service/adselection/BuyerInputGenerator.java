@@ -30,8 +30,6 @@ import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.protobuf.ListValue;
-import com.google.protobuf.Value;
 
 import java.time.Clock;
 import java.util.HashMap;
@@ -74,6 +72,7 @@ public class BuyerInputGenerator {
      * @return a map of buyer name and {@link BuyerInput}
      */
     public FluentFuture<Map<AdTechIdentifier, BuyerInput>> createBuyerInputs() {
+        sLogger.v("Starting create buyer input");
         return FluentFuture.from(getBuyersCustomAudience())
                 .transform(
                         this::generateBuyerInputFromDBCustomAudience, mLightweightExecutorService);
@@ -94,16 +93,25 @@ public class BuyerInputGenerator {
                     .addCustomAudiences(buildCustomAudienceProtoFrom(customAudience));
         }
 
+        sLogger.v(String.format("Created BuyerInput proto for %s buyers", buyerInputs.size()));
         return buyerInputs.entrySet().stream()
                 .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().build()));
     }
 
     private ListenableFuture<List<DBCustomAudience>> getBuyersCustomAudience() {
         return mBackgroundExecutorService.submit(
-                () ->
-                        mCustomAudienceDao.getAllActiveCustomAudienceForServerSideAuction(
-                                mClock.instant(),
-                                mFlags.getFledgeCustomAudienceActiveTimeWindowInMs()));
+                () -> {
+                    List<DBCustomAudience> allActiveCAs =
+                            mCustomAudienceDao.getAllActiveCustomAudienceForServerSideAuction(
+                                    mClock.instant(),
+                                    mFlags.getFledgeCustomAudienceActiveTimeWindowInMs());
+                    int numberOfCAsCollected =
+                            (Objects.isNull(allActiveCAs) ? 0 : allActiveCAs.size());
+                    sLogger.v(
+                            String.format(
+                                    "Collected %s active CAs from device", numberOfCAsCollected));
+                    return allActiveCAs;
+                });
     }
 
     private BuyerInput.CustomAudience buildCustomAudienceProtoFrom(
@@ -137,13 +145,9 @@ public class BuyerInputGenerator {
         return biddingSignalKeys;
     }
 
-    private ListValue getUserBiddingSignals(DBCustomAudience customAudience) {
+    private String getUserBiddingSignals(DBCustomAudience customAudience) {
         Objects.requireNonNull(customAudience.getUserBiddingSignals());
 
-        return ListValue.newBuilder()
-                .addValues(
-                        Value.newBuilder()
-                                .setStringValue(customAudience.getUserBiddingSignals().toString()))
-                .build();
+        return customAudience.getUserBiddingSignals().toString();
     }
 }
