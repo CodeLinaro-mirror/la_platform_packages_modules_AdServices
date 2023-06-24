@@ -255,35 +255,35 @@ public class PermissionsNoPermTest {
         assertThat(exception.getMessage()).isEqualTo(CALLER_NOT_AUTHORIZED);
     }
 
-// TODO(b/274723533): Uncomment after un-hiding the API
-/*
-    @Test
-    public void testPermissionNotRequested_reportInteraction() {
-        long adSelectionId = 1;
-        String interactionKey = "click";
-        String interactionData = "{\"key\":\"value\"}";
+    // TODO(b/274723533): Uncomment after un-hiding the API
+    /*
+        @Test
+        public void testPermissionNotRequested_reportInteraction() {
+            long adSelectionId = 1;
+            String interactionKey = "click";
+            String interactionData = "{\"key\":\"value\"}";
 
-        AdSelectionClient mAdSelectionClient =
-                new AdSelectionClient.Builder()
-                        .setContext(sContext)
-                        .setExecutor(CALLBACK_EXECUTOR)
-                        .build();
+            AdSelectionClient mAdSelectionClient =
+                    new AdSelectionClient.Builder()
+                            .setContext(sContext)
+                            .setExecutor(CALLBACK_EXECUTOR)
+                            .build();
 
-        ReportInteractionRequest request =
-                new ReportInteractionRequest(
-                        adSelectionId,
-                        interactionKey,
-                        interactionData,
-                        ReportInteractionRequest.FLAG_REPORTING_DESTINATION_BUYER
-                                | ReportInteractionRequest.FLAG_REPORTING_DESTINATION_SELLER);
+            ReportEventRequest request =
+                    new ReportEventRequest(
+                            adSelectionId,
+                            interactionKey,
+                            interactionData,
+                            ReportEventRequest.FLAG_REPORTING_DESTINATION_BUYER
+                                    | ReportEventRequest.FLAG_REPORTING_DESTINATION_SELLER);
 
-        ExecutionException exception =
-                assertThrows(
-                        ExecutionException.class,
-                        () -> mAdSelectionClient.reportInteraction(request).get());
-        assertThat(exception.getMessage()).isEqualTo(CALLER_NOT_AUTHORIZED);
-    }
-*/
+            ExecutionException exception =
+                    assertThrows(
+                            ExecutionException.class,
+                            () -> mAdSelectionClient.reportInteraction(request).get());
+            assertThat(exception.getMessage()).isEqualTo(CALLER_NOT_AUTHORIZED);
+        }
+    */
 
     @Test
     public void testPermissionNotRequested_fledgeOverrideAdSelectionConfigRemoteInfo() {
@@ -372,10 +372,10 @@ public class PermissionsNoPermTest {
                         .build();
 
         UpdateAdCounterHistogramRequest request =
-                new UpdateAdCounterHistogramRequest.Builder()
-                        .setAdSelectionId(adSelectionId)
-                        .setAdEventType(FrequencyCapFilters.AD_EVENT_TYPE_IMPRESSION)
-                        .setCallerAdTech(AdTechIdentifier.fromString("test.com"))
+                new UpdateAdCounterHistogramRequest.Builder(
+                                adSelectionId,
+                                FrequencyCapFilters.AD_EVENT_TYPE_IMPRESSION,
+                                AdTechIdentifier.fromString("test.com"))
                         .build();
         ExecutionException exception =
                 assertThrows(

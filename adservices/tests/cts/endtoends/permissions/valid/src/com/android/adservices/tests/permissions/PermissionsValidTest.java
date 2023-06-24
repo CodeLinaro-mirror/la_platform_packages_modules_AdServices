@@ -199,13 +199,13 @@ public class PermissionsValidTest {
                         .setExecutor(CALLBACK_EXECUTOR)
                         .build();
 
-        ReportInteractionRequest request =
-                new ReportInteractionRequest(
+        ReportEventRequest request =
+                new ReportEventRequest(
                         adSelectionId,
                         interactionKey,
                         interactionData,
-                        ReportInteractionRequest.FLAG_REPORTING_DESTINATION_BUYER
-                                | ReportInteractionRequest.FLAG_REPORTING_DESTINATION_SELLER);
+                        ReportEventRequest.FLAG_REPORTING_DESTINATION_BUYER
+                                | ReportEventRequest.FLAG_REPORTING_DESTINATION_SELLER);
 
         ExecutionException exception =
                 assertThrows(
@@ -229,10 +229,10 @@ public class PermissionsValidTest {
                         .build();
 
         UpdateAdCounterHistogramRequest request =
-                new UpdateAdCounterHistogramRequest.Builder()
-                        .setAdSelectionId(adSelectionId)
-                        .setAdEventType(FrequencyCapFilters.AD_EVENT_TYPE_IMPRESSION)
-                        .setCallerAdTech(AdTechIdentifier.fromString("test.com"))
+                new UpdateAdCounterHistogramRequest.Builder(
+                                adSelectionId,
+                                FrequencyCapFilters.AD_EVENT_TYPE_IMPRESSION,
+                                AdTechIdentifier.fromString("test.com"))
                         .build();
         ExecutionException exception =
                 assertThrows(

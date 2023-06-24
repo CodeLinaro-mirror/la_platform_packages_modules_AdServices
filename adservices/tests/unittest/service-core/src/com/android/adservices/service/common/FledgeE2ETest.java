@@ -56,11 +56,11 @@ import android.adservices.adselection.BuyersDecisionLogic;
 import android.adservices.adselection.ContextualAds;
 import android.adservices.adselection.ContextualAdsFixture;
 import android.adservices.adselection.DecisionLogic;
+import android.adservices.adselection.ReportEventRequest;
 import android.adservices.adselection.ReportImpressionCallback;
 import android.adservices.adselection.ReportImpressionInput;
 import android.adservices.adselection.ReportInteractionCallback;
 import android.adservices.adselection.ReportInteractionInput;
-import android.adservices.adselection.ReportInteractionRequest;
 import android.adservices.adselection.SetAppInstallAdvertisersCallback;
 import android.adservices.adselection.SetAppInstallAdvertisersInput;
 import android.adservices.adselection.UpdateAdCounterHistogramInput;
@@ -176,10 +176,10 @@ public class FledgeE2ETest {
             new FrequencyCapFilters.Builder()
                     .setKeyedFrequencyCapsForClickEvents(
                             Collections.singleton(
-                                    new KeyedFrequencyCap.Builder()
-                                            .setInterval(Duration.ofDays(1))
-                                            .setAdCounterKey(KeyedFrequencyCapFixture.KEY1)
-                                            .setMaxCount(0)
+                                    new KeyedFrequencyCap.Builder(
+                                                    KeyedFrequencyCapFixture.KEY1,
+                                                    1,
+                                                    Duration.ofDays(1))
                                             .build()))
                     .build();
     @Spy private static final Context CONTEXT = ApplicationProvider.getApplicationContext();
@@ -228,15 +228,15 @@ public class FledgeE2ETest {
     private static final String INTERACTION_DATA = "{\"key\":\"value\"}";
 
     private static final int BUYER_DESTINATION =
-            ReportInteractionRequest.FLAG_REPORTING_DESTINATION_BUYER;
+            ReportEventRequest.FLAG_REPORTING_DESTINATION_BUYER;
     private static final int SELLER_DESTINATION =
-            ReportInteractionRequest.FLAG_REPORTING_DESTINATION_SELLER;
+            ReportEventRequest.FLAG_REPORTING_DESTINATION_SELLER;
 
     private static final long BINDER_ELAPSED_TIMESTAMP = 100L;
     private static final List<Double> BIDS_FOR_BUYER_1 = ImmutableList.of(1.1, 2.2);
     private static final List<Double> BIDS_FOR_BUYER_2 = ImmutableList.of(4.5, 6.7, 10.0);
     // A list of empty ad counter keys to apply to ads for buyer when not doing fcap filtering.
-    private static final List<Set<String>> EMPTY_AD_COUNTER_KEYS_FOR_BUYER_2 =
+    private static final List<Set<Integer>> EMPTY_AD_COUNTER_KEYS_FOR_BUYER_2 =
             Arrays.asList(new HashSet[BIDS_FOR_BUYER_2.size()]);
     private static final List<Double> INVALID_BIDS = ImmutableList.of(0.0, -1.0, -2.0);
     private final AdServicesLogger mAdServicesLogger = AdServicesLoggerImpl.getInstance();
@@ -1480,7 +1480,7 @@ public class FledgeE2ETest {
                         mLocalhostBuyerDomain, CUSTOM_AUDIENCE_SEQ_1, BIDS_FOR_BUYER_1);
 
         // Using the same generic key across all ads in the CA
-        List<Set<String>> adCounterKeysForCa2 =
+        List<Set<Integer>> adCounterKeysForCa2 =
                 Arrays.asList(
                         Collections.singleton(KeyedFrequencyCapFixture.KEY1),
                         Collections.singleton(KeyedFrequencyCapFixture.KEY1),
@@ -2171,12 +2171,11 @@ public class FledgeE2ETest {
     private void updateHistogramAndAssertSuccess(long adSelectionId, int adEventType)
             throws InterruptedException {
         UpdateAdCounterHistogramInput inputParams =
-                new UpdateAdCounterHistogramInput.Builder()
-                        .setAdSelectionId(adSelectionId)
-                        .setAdEventType(adEventType)
-                        .setCallerAdTech(
-                                AdTechIdentifier.fromString(mLocalhostBuyerDomain.getHost()))
-                        .setCallerPackageName(CommonFixture.TEST_PACKAGE_NAME)
+                new UpdateAdCounterHistogramInput.Builder(
+                                adSelectionId,
+                                adEventType,
+                                AdTechIdentifier.fromString(mLocalhostBuyerDomain.getHost()),
+                                CommonFixture.TEST_PACKAGE_NAME)
                         .build();
         CountDownLatch callbackLatch = new CountDownLatch(1);
         UpdateAdCounterHistogramWorkerTest.UpdateAdCounterHistogramTestCallback callback =
@@ -2745,7 +2744,7 @@ public class FledgeE2ETest {
             final Uri buyerDomain,
             final String customAudienceSeq,
             List<Double> bids,
-            List<Set<String>> adCounterKeysForBids,
+            List<Set<Integer>> adCounterKeysForBids,
             List<AdFilters> filtersForBids) {
 
         // Generate ads for with bids provided

@@ -38,6 +38,7 @@ import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.WorkerThread;
 import android.app.ActivityManager;
+import android.app.sdksandbox.AppOwnedSdkSandboxInterface;
 import android.app.sdksandbox.ILoadSdkCallback;
 import android.app.sdksandbox.IRequestSurfacePackageCallback;
 import android.app.sdksandbox.ISdkSandboxManager;
@@ -153,6 +154,15 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
     private final ArrayMap<CallingInfo, ArrayMap<String, LoadSdkSession>> mLoadSdkSessions =
             new ArrayMap<>();
 
+    /**
+     * For each app, keep a mapping from {@link AppOwnedSdkSandboxInterface} name to its
+     * corresponding {@link AppOwnedSdkSandboxInterface}. This contains all
+     * AppOwnedSdkSandboxInterfaces that are registered.
+     */
+    @GuardedBy("mLock")
+    private final ArrayMap<CallingInfo, ArrayMap<String, AppOwnedSdkSandboxInterface>>
+            mHeldInterfaces = new ArrayMap<>();
+
     @GuardedBy("mLock")
     private final ArrayMap<CallingInfo, IBinder> mCallingInfosWithDeathRecipients =
             new ArrayMap<>();
@@ -219,6 +229,11 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             "enforce_content_provider_restrictions";
 
     private static final boolean DEFAULT_VALUE_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS = false;
+
+    private static final String WEBVIEW_DEVELOPER_MODE_CONTENT_PROVIDER =
+            "DeveloperModeContentProvider";
+
+    private static final String WEBVIEW_SAFE_MODE_CONTENT_PROVIDER = "SafeModeContentProvider";
 
     // On UDC, AdServicesManagerService.Lifecycle implements dumpable so it's dumped as part of
     // SystemServer.
@@ -463,6 +478,16 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                 MAINLINE_SDK_SANDBOX_ORDER_ID, mActivityInterceptorCallback);
     }
 
+    private ArrayList<AppOwnedSdkSandboxInterface> getRegisteredAppOwnedSdkSandboxInterfacesForApp(
+            CallingInfo callingInfo) {
+        synchronized (mLock) {
+            if (!mHeldInterfaces.containsKey(callingInfo)) {
+                return new ArrayList<>();
+            }
+            return new ArrayList<>(mHeldInterfaces.get(callingInfo).values());
+        }
+    }
+
     private ArrayList<LoadSdkSession> getLoadedSdksForApp(CallingInfo callingInfo) {
         ArrayList<LoadSdkSession> loadedSdks = new ArrayList<>();
         synchronized (mLock) {
@@ -580,6 +605,117 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                         .SANDBOX_API_CALLED__METHOD__REMOVE_SDK_SANDBOX_LIFECYCLE_CALLBACK,
                 /*latency=*/ (int)
                         (mInjector.getCurrentTime() - timeSystemServerReceivedCallFromApp),
+                /*success=*/ true,
+                SANDBOX_API_CALLED__STAGE__SYSTEM_SERVER_APP_TO_SANDBOX,
+                callingUid);
+    }
+
+    @Override
+    public List<AppOwnedSdkSandboxInterface> getAppOwnedSdkSandboxInterfaces(
+            String callingPackageName, long timeAppCalledSystemServer) {
+        final long timeSystemServerReceivedCallFromApp = mInjector.getCurrentTime();
+        final int callingUid = Binder.getCallingUid();
+        SdkSandboxStatsLog.write(
+                SdkSandboxStatsLog.SANDBOX_API_CALLED,
+                SdkSandboxStatsLog.SANDBOX_API_CALLED__METHOD__GET_APP_OWNED_SDK_SANDBOX_INTERFACES,
+                /*latency=*/ (int)
+                        (timeSystemServerReceivedCallFromApp - timeAppCalledSystemServer),
+                /*success=*/ true,
+                SdkSandboxStatsLog.SANDBOX_API_CALLED__STAGE__APP_TO_SYSTEM_SERVER,
+                callingUid);
+        final CallingInfo callingInfo = CallingInfo.fromBinder(mContext, callingPackageName);
+        List<AppOwnedSdkSandboxInterface> appOwnedSdkSandboxInterfaces =
+                getRegisteredAppOwnedSdkSandboxInterfacesForApp(callingInfo);
+        SdkSandboxStatsLog.write(
+                SdkSandboxStatsLog.SANDBOX_API_CALLED,
+                SdkSandboxStatsLog.SANDBOX_API_CALLED__METHOD__GET_APP_OWNED_SDK_SANDBOX_INTERFACES,
+                /*latency=*/ (int)
+                        (mInjector.getCurrentTime() - timeSystemServerReceivedCallFromApp),
+                /*success=*/ true,
+                SANDBOX_API_CALLED__STAGE__SYSTEM_SERVER_APP_TO_SANDBOX,
+                callingUid);
+        return appOwnedSdkSandboxInterfaces;
+    }
+
+    @Override
+    public void registerAppOwnedSdkSandboxInterface(
+            String callingPackageName,
+            AppOwnedSdkSandboxInterface appOwnedSdkSandboxInterface,
+            long timeAppCalledSystemServer) {
+        // Log the IPC latency from app to system server
+        final long timeSystemServerReceivedCallFromApp = mInjector.getCurrentTime();
+        final CallingInfo callingInfo = CallingInfo.fromBinder(mContext, callingPackageName);
+        final int callingUid = callingInfo.getUid();
+
+        SdkSandboxStatsLog.write(
+                SdkSandboxStatsLog.SANDBOX_API_CALLED,
+                SdkSandboxStatsLog.SANDBOX_API_CALLED__METHOD__LOAD_SDK,
+                /*latency=*/ (int)
+                        (timeSystemServerReceivedCallFromApp - timeAppCalledSystemServer),
+                /*success=*/ true,
+                SdkSandboxStatsLog.SANDBOX_API_CALLED__STAGE__APP_TO_SYSTEM_SERVER,
+                callingUid);
+
+        synchronized (mLock) {
+            if (mHeldInterfaces.containsKey(callingInfo)) {
+                if (mHeldInterfaces
+                        .get(callingInfo)
+                        .containsKey(appOwnedSdkSandboxInterface.getName())) {
+                    throw new IllegalStateException(
+                            "Already registered interface of name "
+                                    + appOwnedSdkSandboxInterface.getName());
+                }
+            }
+            mHeldInterfaces.computeIfAbsent(callingInfo, k -> new ArrayMap<>());
+            mHeldInterfaces
+                    .get(callingInfo)
+                    .put(appOwnedSdkSandboxInterface.getName(), appOwnedSdkSandboxInterface);
+        }
+        // registerAppOwnedSdkSandboxInterface() can be called without calling loadSdk(). Register
+        // for app death to make sure cleanup occurs.
+        boolean isRegistrationForAppDeathSuccessful =
+                registerForAppDeath(callingInfo, appOwnedSdkSandboxInterface.getInterface());
+        // Log the time taken in System Server before the exception occurred
+        // or no exception occurred in registerForAppDeath method
+        SdkSandboxStatsLog.write(
+                SdkSandboxStatsLog.SANDBOX_API_CALLED,
+                SdkSandboxStatsLog
+                        .SANDBOX_API_CALLED__METHOD__REGISTER_APP_OWNED_SDK_SANDBOX_INTERFACE,
+                /*latency=*/ (int)
+                        (mInjector.getCurrentTime() - timeSystemServerReceivedCallFromApp),
+                /*success=*/ isRegistrationForAppDeathSuccessful,
+                SANDBOX_API_CALLED__STAGE__SYSTEM_SERVER_APP_TO_SANDBOX,
+                callingUid);
+    }
+
+    @Override
+    public void unregisterAppOwnedSdkSandboxInterface(
+            String callingPackageName, String name, long timeAppCalledSystemServer) {
+        final long timeSystemServerReceivedCallFromApp = mInjector.getCurrentTime();
+        final CallingInfo callingInfo = CallingInfo.fromBinder(mContext, callingPackageName);
+        final int callingUid = callingInfo.getUid();
+
+        SdkSandboxStatsLog.write(
+                SdkSandboxStatsLog.SANDBOX_API_CALLED,
+                SdkSandboxStatsLog
+                        .SANDBOX_API_CALLED__METHOD__UNREGISTER_APP_OWNED_SDK_SANDBOX_INTERFACE,
+                /*latency=*/ (int)
+                        (timeSystemServerReceivedCallFromApp - timeAppCalledSystemServer),
+                /*success=*/ true,
+                SdkSandboxStatsLog.SANDBOX_API_CALLED__STAGE__APP_TO_SYSTEM_SERVER,
+                callingUid);
+
+        synchronized (mLock) {
+            if (mHeldInterfaces.containsKey(callingInfo)) {
+                mHeldInterfaces.get(callingInfo).remove(name);
+            }
+        }
+
+        SdkSandboxStatsLog.write(
+                SdkSandboxStatsLog.SANDBOX_API_CALLED,
+                SdkSandboxStatsLog
+                        .SANDBOX_API_CALLED__METHOD__UNREGISTER_APP_OWNED_SDK_SANDBOX_INTERFACE,
+                (int) (mInjector.getCurrentTime() - timeSystemServerReceivedCallFromApp),
                 /*success=*/ true,
                 SANDBOX_API_CALLED__STAGE__SYSTEM_SERVER_APP_TO_SANDBOX,
                 callingUid);
@@ -920,6 +1056,7 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             }
             mSyncDataCallbacks.remove(callingInfo);
             mLoadSdkSessions.remove(callingInfo);
+            mHeldInterfaces.remove(callingInfo);
             stopSdkSandboxService(callingInfo, "Caller " + callingInfo + " has died");
             mServiceProvider.onAppDeath(callingInfo);
         }
@@ -1819,12 +1956,31 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                 SANDBOX_API_CALLED__STAGE__SYSTEM_SERVER_APP_TO_SANDBOX,
                 callingInfo.getUid());
 
+        ApplicationInfo customizedInfo =
+                createCustomizedApplicationInfo(loadSdkSession.getApplicationInfo(), sdkDataInfo);
+
         loadSdkSession.load(
                 service,
-                sdkDataInfo.getCeDataDir(),
-                sdkDataInfo.getDeDataDir(),
+                customizedInfo,
                 timeSystemServerCalledSandbox,
                 timeSystemServerReceivedCallFromApp);
+    }
+
+    /** The customized ApplicationInfo is used to create CustomizedSdkContext for sdks. */
+    ApplicationInfo createCustomizedApplicationInfo(
+            ApplicationInfo original, StorageDirInfo dirInfo) {
+        ApplicationInfo custom = new ApplicationInfo(original);
+
+        // Assign per-sdk storage path as data dir
+        custom.dataDir = dirInfo.getCeDataDir();
+        custom.credentialProtectedDataDir = dirInfo.getCeDataDir();
+        custom.deviceProtectedDataDir = dirInfo.getDeDataDir();
+
+        // Package name still needs to be that of the sandbox because permissions are defined
+        // for the sandbox app.
+        custom.packageName = mContext.getPackageManager().getSdkSandboxPackageName();
+
+        return custom;
     }
 
     private void failStartOrBindService(Intent intent) {
@@ -1882,6 +2038,33 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         return null;
     }
 
+    private ApplicationInfo getSdkSandboxApplicationInfoForInstrumentation(
+            ApplicationInfo clientAppInfo, int userId, boolean isSdkInSandbox)
+            throws PackageManager.NameNotFoundException {
+        PackageManager pm = mContext.getPackageManager();
+        ApplicationInfo sdkSandboxInfo =
+                pm.getApplicationInfoAsUser(
+                        pm.getSdkSandboxPackageName(),
+                        /* flags= */ 0,
+                        UserHandle.getUserHandleForUid(userId));
+        ApplicationInfo sdkSandboxInfoForInstrumentation =
+                (isSdkInSandbox)
+                        ? createCustomizedApplicationInfo(
+                                clientAppInfo,
+                                new StorageDirInfo(
+                                        sdkSandboxInfo.dataDir,
+                                        sdkSandboxInfo.deviceProtectedDataDir))
+                        : sdkSandboxInfo;
+
+        // Required to allow adopt shell permissions in tests.
+        sdkSandboxInfoForInstrumentation.uid = Process.toSdkSandboxUid(clientAppInfo.uid);
+        // We want to use a predictable process name during testing.
+        sdkSandboxInfoForInstrumentation.processName =
+                getLocalManager().getSdkSandboxProcessNameForInstrumentation(clientAppInfo);
+
+        return sdkSandboxInfoForInstrumentation;
+    }
+
     @VisibleForTesting
     String getAdServicesPackageName() {
         return mAdServicesPackageName;
@@ -1897,6 +2080,27 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
      */
     // TODO(b/268043836): Move SdkToServiceLink out of SdkSandboxManagerService
     private class SdkToServiceLink extends ISdkToServiceCallback.Stub {
+
+        /**
+         * Fetches a list of {@link AppOwnedSdkSandboxInterface} registered for an app
+         *
+         * <p>This provides the information on the interfaces that are currently registered in the
+         * app.
+         *
+         * @param clientPackageName of the client package
+         * @return empty list if callingInfo not found in map otherwise a list of {@link
+         *     AppOwnedSdkSandboxInterface}
+         */
+        @Override
+        public List<AppOwnedSdkSandboxInterface> getAppOwnedSdkSandboxInterfaces(
+                String clientPackageName) throws RemoteException {
+            int uid = Binder.getCallingUid();
+            if (Process.isSdkSandboxUid(uid)) {
+                uid = Process.getAppUidForSdkSandboxUid(uid);
+            }
+            CallingInfo callingInfo = new CallingInfo(uid, clientPackageName);
+            return getRegisteredAppOwnedSdkSandboxInterfacesForApp(callingInfo);
+        }
 
         /**
          * Fetches {@link SandboxedSdk} for all SDKs that are loaded in the sandbox.
@@ -2090,6 +2294,19 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         return EXTRA_SANDBOXED_ACTIVITY_HANDLER;
     }
 
+    private static ArraySet<String> getContentProviderAllowlist() {
+        final String curWebViewPackageName = WebViewUpdateService.getCurrentWebViewPackageName();
+        final ArraySet<String> contentProviderAuthoritiesAllowlist = new ArraySet<>();
+        for (String webViewAuthority :
+                new String[] {
+                    WEBVIEW_DEVELOPER_MODE_CONTENT_PROVIDER, WEBVIEW_SAFE_MODE_CONTENT_PROVIDER
+                }) {
+            contentProviderAuthoritiesAllowlist.add(curWebViewPackageName + '.' + webViewAuthority);
+        }
+
+        return contentProviderAuthoritiesAllowlist;
+    }
+
     private class LocalImpl implements SdkSandboxManagerLocal {
         @Override
         public void registerAdServicesManagerService(IBinder iBinder, boolean published) {
@@ -2101,6 +2318,15 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         public String getSdkSandboxProcessNameForInstrumentation(
                 @NonNull ApplicationInfo clientAppInfo) {
             return clientAppInfo.processName + "_sdk_sandbox_instr";
+        }
+
+        @NonNull
+        @Override
+        public ApplicationInfo getSdkSandboxApplicationInfoForInstrumentation(
+                @NonNull ApplicationInfo clientAppInfo, int userId, boolean isSdkInSandbox)
+                throws PackageManager.NameNotFoundException {
+            return SdkSandboxManagerService.this.getSdkSandboxApplicationInfoForInstrumentation(
+                    clientAppInfo, userId, isSdkInSandbox);
         }
 
         @Override
@@ -2170,7 +2396,8 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             final long token = Binder.clearCallingIdentity();
 
             try {
-                return !mSdkSandboxSettingsListener.areContentProviderRestrictionsEnforced();
+                return !mSdkSandboxSettingsListener.areContentProviderRestrictionsEnforced()
+                        || getContentProviderAllowlist().contains(providerInfo.authority);
             } finally {
                 Binder.restoreCallingIdentity(token);
             }

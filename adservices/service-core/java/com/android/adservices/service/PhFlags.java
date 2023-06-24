@@ -225,6 +225,8 @@ public final class PhFlags implements Flags {
             "fledge_ad_selection_expiration_window_s";
     static final String KEY_FLEDGE_AD_SELECTION_FILTERING_ENABLED =
             "fledge_ad_selection_filtering_enabled";
+    static final String KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_ENABLED =
+            "fledge_fetch_custom_audience_enabled";
     static final String KEY_FLEDGE_REPORT_IMPRESSION_OVERALL_TIMEOUT_MS =
             "fledge_report_impression_overall_timeout_ms";
     static final String KEY_FLEDGE_REPORT_IMPRESSION_MAX_REGISTERED_AD_BEACONS_TOTAL_COUNT =
@@ -234,6 +236,8 @@ public final class PhFlags implements Flags {
     static final String
             KEY_FLEDGE_REPORT_IMPRESSION_REGISTERED_AD_BEACONS_MAX_INTERACTION_KEY_SIZE_B =
                     "fledge_report_impression_registered_ad_beacons_max_interaction_key_size_b";
+    static final String KEY_FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B =
+            "fledge_report_interaction_max_interaction_data_size_b";
     static final String KEY_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_BUYER_MS =
             "fledge_ad_selection_bidding_timeout_per_buyer_ms";
     static final String KEY_FLEDGE_HTTP_CACHE_ENABLE = "fledge_http_cache_enable";
@@ -1258,6 +1262,15 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getFledgeFetchCustomAudienceEnabled() {
+        // The priority of applying the flag values: PH (DeviceConfig), then hard-coded value.
+        return DeviceConfig.getBoolean(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_ENABLED,
+                /* defaultValue */ FLEDGE_FETCH_CUSTOM_AUDIENCE_ENABLED);
+    }
+
+    @Override
     public long getFledgeAdSelectionBiddingLogicJsVersion() {
         return DeviceConfig.getLong(
                 NAMESPACE_ADSERVICES,
@@ -1297,6 +1310,16 @@ public final class PhFlags implements Flags {
                 KEY_FLEDGE_REPORT_IMPRESSION_REGISTERED_AD_BEACONS_MAX_INTERACTION_KEY_SIZE_B,
                 /* defaultValue */
                 FLEDGE_REPORT_IMPRESSION_REGISTERED_AD_BEACONS_MAX_INTERACTION_KEY_SIZE_B);
+    }
+
+    @Override
+    public long getFledgeReportInteractionMaxInteractionDataSizeB() {
+        return DeviceConfig.getLong(
+                NAMESPACE_ADSERVICES,
+                /* flagName */
+                KEY_FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B,
+                /* defaultValue */
+                FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B);
     }
 
     @Override
@@ -3046,6 +3069,11 @@ public final class PhFlags implements Flags {
                         + getFledgeAdSelectionContextualAdsEnabled());
         writer.println(
                 "\t"
+                        + KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_ENABLED
+                        + " = "
+                        + getFledgeFetchCustomAudienceEnabled());
+        writer.println(
+                "\t"
                         + KEY_FLEDGE_AD_SELECTION_BIDDING_LOGIC_JS_VERSION
                         + " = "
                         + getFledgeAdSelectionBiddingLogicJsVersion());
@@ -3069,6 +3097,11 @@ public final class PhFlags implements Flags {
                         + KEY_FLEDGE_REPORT_IMPRESSION_REGISTERED_AD_BEACONS_MAX_INTERACTION_KEY_SIZE_B
                         + " = "
                         + getFledgeReportImpressionRegisteredAdBeaconsMaxInteractionKeySizeB());
+        writer.println(
+                "\t"
+                        + KEY_FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B
+                        + " = "
+                        + getFledgeReportInteractionMaxInteractionDataSizeB());
         writer.println(
                 "\t"
                         + KEY_ENFORCE_FOREGROUND_STATUS_FLEDGE_OVERRIDE
