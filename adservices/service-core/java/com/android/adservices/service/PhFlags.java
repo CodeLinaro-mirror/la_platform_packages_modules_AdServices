@@ -332,6 +332,11 @@ public final class PhFlags implements Flags {
     static final String KEY_ENFORCE_FOREGROUND_STATUS_FLEDGE_CUSTOM_AUDIENCE =
             "fledge_ad_selection_enforce_foreground_status_custom_audience";
 
+    static final String KEY_FLEDGE_AD_SELECTION_AD_RENDER_ID_MAX_LENGTH =
+            "fledge_ad_selection_ad_render_id_max_length";
+    static final String KEY_FLEDGE_AD_SELECTION_AD_RENDER_ID_ENABLED =
+            "fledge_ad_selection_ad_render_id_enabled";
+
     // Topics invoking app status key.
     static final String KEY_ENFORCE_FOREGROUND_STATUS_TOPICS = "topics_enforce_foreground_status";
 
@@ -495,6 +500,8 @@ public final class PhFlags implements Flags {
     // UI keys
     static final String KEY_UI_FEATURE_TYPE_LOGGING_ENABLED = "ui_feature_type_logging_enabled";
 
+    static final String KEY_CONSENT_NOTIFICATION_RESET_TOKEN = "consent_notification_reset_token";
+
     static final String KEY_IS_EEA_DEVICE_FEATURE_ENABLED = "is_eea_device_feature_enabled";
 
     static final String KEY_IS_EEA_DEVICE = "is_eea_device";
@@ -546,6 +553,7 @@ public final class PhFlags implements Flags {
 
     // New Feature Flags
     static final String KEY_FLEDGE_REGISTER_AD_BEACON_ENABLED = "fledge_register_ad_beacon_enabled";
+    static final String KEY_FLEDGE_CPC_BILLING_ENABLED = "fledge_cpc_billing_enabled";
 
     static final String KEY_MEASUREMENT_DEBUG_JOIN_KEY_HASH_LIMIT =
             "measurement_debug_join_key_hash_limit";
@@ -2383,6 +2391,23 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getFledgeAdSelectionAdRenderIdEnabled() {
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_FLEDGE_AD_SELECTION_AD_RENDER_ID_ENABLED,
+                /* defaultValue */ FLEDGE_AD_SELECTION_AD_RENDER_ID_ENABLED);
+    }
+
+    /** Returns the max length of Ad Render Id. */
+    @Override
+    public long getFledgeAdSelectionAdRenderIdMaxLength() {
+        return DeviceConfig.getLong(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_FLEDGE_AD_SELECTION_AD_RENDER_ID_MAX_LENGTH,
+                /* defaultValue */ FLEDGE_AD_SELECTION_AD_RENDER_ID_MAX_LENGTH);
+    }
+
+    @Override
     public boolean getEnforceForegroundStatusForAppSetId() {
         return SystemProperties.getBoolean(
                 getSystemPropertyName(KEY_ENFORCE_FOREGROUND_STATUS_APPSETID),
@@ -2475,6 +2500,14 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getFledgeCpcBillingEnabled() {
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_FLEDGE_CPC_BILLING_ENABLED,
+                /* defaultValue */ FLEDGE_CPC_BILLING_ENABLED);
+    }
+
+    @Override
     public boolean getEnforceForegroundStatusForMeasurementDeleteRegistrations() {
         return DeviceConfig.getBoolean(
                 NAMESPACE_ADSERVICES,
@@ -2552,6 +2585,14 @@ public final class PhFlags implements Flags {
                 NAMESPACE_ADSERVICES,
                 /* flagName */ KEY_WEB_CONTEXT_CLIENT_ALLOW_LIST,
                 /* defaultValue */ WEB_CONTEXT_CLIENT_ALLOW_LIST);
+    }
+
+    @Override
+    public String getConsentNotificationResetToken() {
+        return DeviceConfig.getString(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_CONSENT_NOTIFICATION_RESET_TOKEN,
+                /* defaultValue */ CONSENT_NOTIFICATION_RESET_TOKEN);
     }
 
     @Override
@@ -2830,6 +2871,11 @@ public final class PhFlags implements Flags {
                         + KEY_CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE
                         + " = "
                         + getConsentNotificationActivityDebugMode());
+        writer.println(
+                "\t"
+                        + KEY_CONSENT_NOTIFICATION_RESET_TOKEN
+                        + " = "
+                        + getConsentNotificationResetToken());
         writer.println("==== AdServices PH Flags Dump Enrollment ====");
         writer.println(
                 "\t"
@@ -3544,6 +3590,16 @@ public final class PhFlags implements Flags {
                         + getFledgeReportImpressionRegisteredAdBeaconsMaxInteractionKeySizeB());
         writer.println(
                 "\t"
+                        + KEY_FLEDGE_AD_SELECTION_AD_RENDER_ID_ENABLED
+                        + " = "
+                        + getFledgeAdSelectionAdRenderIdEnabled());
+        writer.println(
+                "\t"
+                        + KEY_FLEDGE_AD_SELECTION_AD_RENDER_ID_MAX_LENGTH
+                        + " = "
+                        + getFledgeAdSelectionAdRenderIdMaxLength());
+        writer.println(
+                "\t"
                         + KEY_ENFORCE_FOREGROUND_STATUS_FLEDGE_OVERRIDE
                         + " = "
                         + getEnforceForegroundStatusForFledgeOverrides());
@@ -3680,6 +3736,8 @@ public final class PhFlags implements Flags {
                         + KEY_FLEDGE_REGISTER_AD_BEACON_ENABLED
                         + " = "
                         + getFledgeRegisterAdBeaconEnabled());
+        writer.println(
+                "\t" + KEY_FLEDGE_CPC_BILLING_ENABLED + " = " + getFledgeCpcBillingEnabled());
         writer.println("==== AdServices PH Flags Dump STATUS ====");
         writer.println("\t" + KEY_ADSERVICES_ENABLED + " = " + getAdServicesEnabled());
         writer.println(

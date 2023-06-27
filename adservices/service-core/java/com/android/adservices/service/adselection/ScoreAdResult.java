@@ -34,7 +34,7 @@ abstract class ScoreAdResult {
     abstract String getOwnerAppPackage();
 
     @Nullable
-    abstract AdTechIdentifier getPublisher();
+    abstract AdTechIdentifier getSeller();
 
     @Nullable
     abstract AdTechIdentifier getCustomAudienceBuyer();
@@ -60,7 +60,7 @@ abstract class ScoreAdResult {
 
         abstract Builder setOwnerAppPackage(String ownerAppPackage);
 
-        abstract Builder setPublisher(AdTechIdentifier value);
+        abstract Builder setSeller(AdTechIdentifier value);
 
         abstract Builder setCustomAudienceBuyer(AdTechIdentifier customAudienceOwner);
 

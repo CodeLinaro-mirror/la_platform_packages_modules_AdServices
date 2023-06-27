@@ -831,6 +831,19 @@ public interface Flags {
         return FLEDGE_AD_SELECTION_PREBUILT_URI_ENABLED;
     }
 
+    boolean FLEDGE_AD_SELECTION_AD_RENDER_ID_ENABLED = false;
+    long FLEDGE_AD_SELECTION_AD_RENDER_ID_MAX_LENGTH = 12L;
+
+    /** Returns whether ad render id is enabled. */
+    default boolean getFledgeAdSelectionAdRenderIdEnabled() {
+        return FLEDGE_AD_SELECTION_AD_RENDER_ID_ENABLED;
+    }
+
+    /** Returns the max length of Ad Render Id. */
+    default long getFledgeAdSelectionAdRenderIdMaxLength() {
+        return FLEDGE_AD_SELECTION_AD_RENDER_ID_MAX_LENGTH;
+    }
+
     boolean FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_ENABLED = false;
 
     /**
@@ -2351,10 +2364,16 @@ public interface Flags {
 
     // New Feature Flags
     boolean FLEDGE_REGISTER_AD_BEACON_ENABLED = false;
+    boolean FLEDGE_CPC_BILLING_ENABLED = false;
 
     /** Returns whether the {@code registerAdBeacon} feature is enabled. */
     default boolean getFledgeRegisterAdBeaconEnabled() {
         return FLEDGE_REGISTER_AD_BEACON_ENABLED;
+    }
+
+    /** Returns whether the CPC billing feature is enabled. */
+    default boolean getFledgeCpcBillingEnabled() {
+        return FLEDGE_CPC_BILLING_ENABLED;
     }
 
     /**
@@ -2565,5 +2584,13 @@ public interface Flags {
      */
     default boolean getAdservicesConsentMigrationLoggingEnabled() {
         return DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED;
+    }
+
+    /** The default token for resetting consent notificatio.. */
+    String CONSENT_NOTIFICATION_RESET_TOKEN = "";
+
+    /** Returns the consent notification reset token. */
+    default String getConsentNotificationResetToken() {
+        return CONSENT_NOTIFICATION_RESET_TOKEN;
     }
 }
