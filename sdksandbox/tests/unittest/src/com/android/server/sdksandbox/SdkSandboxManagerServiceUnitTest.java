@@ -180,14 +180,15 @@ public class SdkSandboxManagerServiceUnitTest {
     private static final SharedPreferencesUpdate TEST_UPDATE =
             new SharedPreferencesUpdate(new ArrayList<>(), getTestBundle());
 
-    private static final String PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS =
-            "enforce_broadcast_receiver_restrictions";
-
-    private static final String PROPERTY_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS =
-            "enforce_content_provider_restrictions";
+    private static final String PROPERTY_ENFORCE_RESTRICTIONS = "enforce_restrictions";
 
     private static final String PROPERTY_SERVICES_ALLOWLIST =
             "services_allowlist_per_targetSdkVersion";
+
+    private static final String PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS =
+            "apply_sdk_sandbox_next_restrictions";
+
+    private String mInitialApplyNextSdkSandboxRestrictions = null;
 
     @Before
     public void setup() {
@@ -271,6 +272,13 @@ public class SdkSandboxManagerServiceUnitTest {
         assertThat(sSdkSandboxSettingsListener).isNotNull();
 
         mClientAppUid = Process.myUid();
+
+        mInitialApplyNextSdkSandboxRestrictions =
+                DeviceConfig.getProperty(
+                        DeviceConfig.NAMESPACE_ADSERVICES,
+                        PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS);
+        DeviceConfig.deleteProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS);
     }
 
     @After
@@ -279,6 +287,18 @@ public class SdkSandboxManagerServiceUnitTest {
             sSdkSandboxSettingsListener.unregisterPropertiesListener();
         }
         mStaticMockSession.finishMocking();
+
+        if (Objects.isNull(mInitialApplyNextSdkSandboxRestrictions)) {
+            DeviceConfig.deleteProperty(
+                    DeviceConfig.NAMESPACE_ADSERVICES,
+                    PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS);
+        } else {
+            DeviceConfig.setProperty(
+                    DeviceConfig.NAMESPACE_ADSERVICES,
+                    PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS,
+                    mInitialApplyNextSdkSandboxRestrictions,
+                    /*makeDefault=*/ false);
+        }
     }
 
     /** Mock the ActivityManager::killUid to avoid SecurityException thrown in test. **/
@@ -1364,7 +1384,7 @@ public class SdkSandboxManagerServiceUnitTest {
         sSdkSandboxSettingsListener.onPropertiesChanged(
                 new DeviceConfig.Properties(
                         DeviceConfig.NAMESPACE_ADSERVICES,
-                        Map.of(PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS, "")));
+                        Map.of(PROPERTY_ENFORCE_RESTRICTIONS, "")));
         assertThat(
                         sSdkSandboxManagerLocal.canRegisterBroadcastReceiver(
                                 new IntentFilter(Intent.ACTION_SEND),
@@ -1380,7 +1400,7 @@ public class SdkSandboxManagerServiceUnitTest {
         sSdkSandboxSettingsListener.onPropertiesChanged(
                 new DeviceConfig.Properties(
                         DeviceConfig.NAMESPACE_ADSERVICES,
-                        Map.of(PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS, "false")));
+                        Map.of(PROPERTY_ENFORCE_RESTRICTIONS, "false")));
         assertThat(
                         sSdkSandboxManagerLocal.canRegisterBroadcastReceiver(
                                 new IntentFilter(Intent.ACTION_SEND),
@@ -1396,7 +1416,7 @@ public class SdkSandboxManagerServiceUnitTest {
         sSdkSandboxSettingsListener.onPropertiesChanged(
                 new DeviceConfig.Properties(
                         DeviceConfig.NAMESPACE_ADSERVICES,
-                        Map.of(PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS, "true")));
+                        Map.of(PROPERTY_ENFORCE_RESTRICTIONS, "true")));
         assertThat(
                         sSdkSandboxManagerLocal.canRegisterBroadcastReceiver(
                                 new IntentFilter(Intent.ACTION_SEND),
@@ -1429,20 +1449,21 @@ public class SdkSandboxManagerServiceUnitTest {
     }
 
     /**
-     * Tests expected behavior when broadcast receiver is registering to an unexported broadcast.
+     * Tests expected behavior when broadcast receiver is registering a broadcast which contains
+     * only protected broadcasts
      */
     @Test
-    public void testCanRegisterBroadcastReceiver_exportedBroadcast() {
+    public void testCanRegisterBroadcastReceiver_protectedBroadcast() {
         ExtendedMockito.when(Process.isSdkSandboxUid(Mockito.anyInt())).thenReturn(true);
         sSdkSandboxSettingsListener.onPropertiesChanged(
                 new DeviceConfig.Properties(
                         DeviceConfig.NAMESPACE_ADSERVICES,
-                        Map.of(PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS, "true")));
+                        Map.of(PROPERTY_ENFORCE_RESTRICTIONS, "true")));
         assertThat(
                         sSdkSandboxManagerLocal.canRegisterBroadcastReceiver(
                                 new IntentFilter(Intent.ACTION_SEND),
                                 /*flags= */ Context.RECEIVER_NOT_EXPORTED,
-                                /*onlyProtectedBroadcasts= */ false))
+                                /*onlyProtectedBroadcasts= */ true))
                 .isTrue();
     }
 
@@ -2890,7 +2911,7 @@ public class SdkSandboxManagerServiceUnitTest {
     }
 
     @Test
-    public void testSdkSandboxSettings() {
+    public void testSdkSandboxSettings_killSwitch() {
         assertThat(sSdkSandboxSettingsListener.isKillSwitchEnabled()).isFalse();
         sSdkSandboxSettingsListener.onPropertiesChanged(
                 new DeviceConfig.Properties(
@@ -2911,6 +2932,21 @@ public class SdkSandboxManagerServiceUnitTest {
                 new DeviceConfig.Properties(
                         DeviceConfig.NAMESPACE_ADSERVICES, Map.of("other_property", "true")));
         assertThat(sSdkSandboxSettingsListener.isKillSwitchEnabled()).isFalse();
+    }
+
+    @Test
+    public void testSdkSandboxSettings_applySdkSandboxRestrictionsNext() {
+        assertThat(sSdkSandboxSettingsListener.applySdkSandboxRestrictionsNext()).isFalse();
+        sSdkSandboxSettingsListener.onPropertiesChanged(
+                new DeviceConfig.Properties(
+                        DeviceConfig.NAMESPACE_ADSERVICES,
+                        Map.of(PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS, "true")));
+        assertThat(sSdkSandboxSettingsListener.applySdkSandboxRestrictionsNext()).isTrue();
+        sSdkSandboxSettingsListener.onPropertiesChanged(
+                new DeviceConfig.Properties(
+                        DeviceConfig.NAMESPACE_ADSERVICES,
+                        Map.of(PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS, "false")));
+        assertThat(sSdkSandboxSettingsListener.applySdkSandboxRestrictionsNext()).isFalse();
     }
 
     @Test
@@ -3063,7 +3099,7 @@ public class SdkSandboxManagerServiceUnitTest {
             throws Exception {
         /** Ensuring that the property is not present in DeviceConfig */
         DeviceConfig.deleteProperty(
-                DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS);
+                DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_ENFORCE_RESTRICTIONS);
         ExtendedMockito.when(Process.isSdkSandboxUid(Mockito.anyInt())).thenReturn(true);
         assertThat(
                         sSdkSandboxManagerLocal.canAccessContentProviderFromSdkSandbox(
@@ -3077,7 +3113,7 @@ public class SdkSandboxManagerServiceUnitTest {
         sSdkSandboxSettingsListener.onPropertiesChanged(
                 new DeviceConfig.Properties(
                         DeviceConfig.NAMESPACE_ADSERVICES,
-                        Map.of(PROPERTY_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS, "true")));
+                        Map.of(PROPERTY_ENFORCE_RESTRICTIONS, "true")));
         assertThat(
                         sSdkSandboxManagerLocal.canAccessContentProviderFromSdkSandbox(
                                 new ProviderInfo()))
@@ -3090,7 +3126,7 @@ public class SdkSandboxManagerServiceUnitTest {
         sSdkSandboxSettingsListener.onPropertiesChanged(
                 new DeviceConfig.Properties(
                         DeviceConfig.NAMESPACE_ADSERVICES,
-                        Map.of(PROPERTY_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS, "false")));
+                        Map.of(PROPERTY_ENFORCE_RESTRICTIONS, "false")));
         assertThat(
                         sSdkSandboxManagerLocal.canAccessContentProviderFromSdkSandbox(
                                 new ProviderInfo()))

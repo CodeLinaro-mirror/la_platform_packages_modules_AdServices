@@ -64,7 +64,6 @@ import com.android.modules.utils.build.SdkLevel;
 
 import com.google.common.truth.Expect;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -117,11 +116,6 @@ public class SdkSandboxManagerTest {
         killSandboxIfExists();
         mScenario = mRule.getScenario();
         mDeviceConfig.set(ASM_RESTRICTIONS_ENABLED, "1");
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        killSandboxIfExists();
     }
 
     @Test
@@ -750,6 +744,45 @@ public class SdkSandboxManagerTest {
     }
 
     @Test
+    public void testClientAppCanClearTopWhileOtherActivitiesOnTopIncludingSandboxActivities() {
+        assumeTrue(SdkLevel.isAtLeastU());
+
+        ICtsSdkProviderApi sdk = loadSdk();
+
+        // Start 2 sandbox activities.
+        ActivityStarter sandboxActivity1Starter = new ActivityStarter();
+        ActivityStarter sandboxActivity2Starter = new ActivityStarter();
+        mRule.getScenario()
+                .onActivity(
+                        clientActivity -> {
+                            sandboxActivity1Starter.setFromActivity(clientActivity);
+                            startSandboxActivity(sdk, sandboxActivity1Starter);
+                        });
+        mRule.getScenario()
+                .onActivity(
+                        clientActivity -> {
+                            sandboxActivity2Starter.setFromActivity(clientActivity);
+                            startSandboxActivity(sdk, sandboxActivity2Starter);
+                        });
+        assertThat(mRule.getScenario().getState())
+                .isIn(Arrays.asList(State.CREATED, State.STARTED));
+        assertThat(sandboxActivity1Starter.isActivityResumed()).isFalse();
+        assertThat(sandboxActivity2Starter.isActivityResumed()).isTrue();
+
+        // Clear top (include the sandbox activities on top).
+        ActivityStarter clearTopActivityStarter = new ActivityStarter();
+        mRule.getScenario()
+                .onActivity(
+                        clientActivity -> {
+                            clearTopActivityStarter.setFromActivity(clientActivity);
+                        });
+        clearTopActivityStarter.startLocalActivity(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        assertThat(sandboxActivity1Starter.isActivityResumed()).isFalse();
+        assertThat(sandboxActivity2Starter.isActivityResumed()).isFalse();
+        assertThat(clearTopActivityStarter.isActivityResumed()).isTrue();
+    }
+
+    @Test
     public void testStartSdkSandboxedActivityFailIfTheHandlerUnregistered() {
         assumeTrue(SdkLevel.isAtLeastU());
 
@@ -835,11 +868,18 @@ public class SdkSandboxManagerTest {
         // To start local test activities (can not be called between processes).
         public void startLocalActivity() {
             assertThat(mFromActivity).isNotNull();
+            startLocalActivity(0);
+        }
+
+        // To start local test activities (can not be called between processes).
+        public void startLocalActivity(int flags) {
+            assertThat(mFromActivity).isNotNull();
 
             Intent intent = new Intent(mFromActivity, TestActivity.class);
             Bundle params = new Bundle();
             params.putBinder(ACTIVITY_STARTER_KEY, this);
             intent.putExtras(params);
+            intent.addFlags(flags);
             mFromActivity.startActivity(intent);
             waitForActivityToBeResumed();
         }
@@ -887,7 +927,7 @@ public class SdkSandboxManagerTest {
         mSdkSandboxManager.addSdkSandboxProcessDeathCallback(Runnable::run, callback);
         killSandbox();
 
-        return callback.getSdkSandboxDeathCount() > 0;
+        return callback.waitForSandboxDeath();
     }
 
     private void killSandbox() throws Exception {

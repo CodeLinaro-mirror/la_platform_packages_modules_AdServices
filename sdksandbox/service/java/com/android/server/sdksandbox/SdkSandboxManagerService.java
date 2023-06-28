@@ -225,27 +225,23 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
     private static final boolean DEFAULT_VALUE_CUSTOMIZED_SDK_CONTEXT_ENABLED = false;
 
     /**
-     * Property to enforce broadcast receiver restrictions for SDK sandbox processes. If the value
-     * of this property is {@code true}, the restrictions will be enforced.
-     */
-    private static final String PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS =
-            "enforce_broadcast_receiver_restrictions";
-
-    private static final boolean DEFAULT_VALUE_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS = false;
-
-    /**
      * Property to enforce content provider restrictions for SDK sandbox processes. If the value of
      * this property is {@code true}, the restrictions will be enforced.
      */
-    private static final String PROPERTY_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS =
-            "enforce_content_provider_restrictions";
+    private static final String PROPERTY_ENFORCE_RESTRICTIONS = "enforce_restrictions";
 
-    private static final boolean DEFAULT_VALUE_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS = false;
+    private static final boolean DEFAULT_VALUE_ENFORCE_RESTRICTIONS = false;
 
     private static final String WEBVIEW_DEVELOPER_MODE_CONTENT_PROVIDER =
             "DeveloperModeContentProvider";
 
     private static final String WEBVIEW_SAFE_MODE_CONTENT_PROVIDER = "SafeModeContentProvider";
+
+    /** We need to keep in sync with the property used in ProcessList */
+    private static final String PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS =
+            "apply_sdk_sandbox_next_restrictions";
+
+    private static final boolean DEFAULT_VALUE_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS = false;
 
     // On UDC, AdServicesManagerService.Lifecycle implements dumpable so it's dumped as part of
     // SystemServer.
@@ -1712,18 +1708,11 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                         DEFAULT_VALUE_DISABLE_SDK_SANDBOX);
 
         @GuardedBy("mLock")
-        private boolean mEnforceBroadcastReceiverRestrictions =
+        private boolean mEnforceRestrictions =
                 DeviceConfig.getBoolean(
                         DeviceConfig.NAMESPACE_ADSERVICES,
-                        PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS,
-                        DEFAULT_VALUE_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS);
-
-        @GuardedBy("mLock")
-        private boolean mEnforceContentProviderRestrictions =
-                DeviceConfig.getBoolean(
-                        DeviceConfig.NAMESPACE_ADSERVICES,
-                        PROPERTY_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS,
-                        DEFAULT_VALUE_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS);
+                        PROPERTY_ENFORCE_RESTRICTIONS,
+                        DEFAULT_VALUE_ENFORCE_RESTRICTIONS);
 
         @GuardedBy("mLock")
         private Map<Integer, AllowedServices> mServiceAllowlistPerTargetSdkVersion =
@@ -1732,6 +1721,13 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         @GuardedBy("mLock")
         private Map<Integer, AllowedContentProviders> mContentProviderAllowlistPerTargetSdkVersion =
                 getContentProviderDeviceConfigAllowlist();
+
+        @GuardedBy("mLock")
+        private boolean mSdkSandboxApplyRestrictionsNext =
+                DeviceConfig.getBoolean(
+                        DeviceConfig.NAMESPACE_ADSERVICES,
+                        PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS,
+                        DEFAULT_VALUE_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS);
 
         SdkSandboxSettingsListener(Context context) {
             mContext = context;
@@ -1778,15 +1774,9 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                     DEFAULT_VALUE_CUSTOMIZED_SDK_CONTEXT_ENABLED);
         }
 
-        boolean isBroadcastReceiverRestrictionsEnforced() {
+        boolean areRestrictionsEnforced() {
             synchronized (mLock) {
-                return mEnforceBroadcastReceiverRestrictions;
-            }
-        }
-
-        boolean areContentProviderRestrictionsEnforced() {
-            synchronized (mLock) {
-                return mEnforceContentProviderRestrictions;
+                return mEnforceRestrictions;
             }
         }
 
@@ -1799,6 +1789,13 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         AllowedServices getServiceAllowlistForTargetSdkVersion(int targetSdkVersion) {
             synchronized (mLock) {
                 return mServiceAllowlistPerTargetSdkVersion.get(targetSdkVersion);
+            }
+        }
+
+        @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
+        boolean applySdkSandboxRestrictionsNext() {
+            synchronized (mLock) {
+                return mSdkSandboxApplyRestrictionsNext;
             }
         }
 
@@ -1827,17 +1824,11 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                                 }
                             }
                             break;
-                        case PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS:
-                            mEnforceBroadcastReceiverRestrictions =
+                        case PROPERTY_ENFORCE_RESTRICTIONS:
+                            mEnforceRestrictions =
                                     properties.getBoolean(
-                                            PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS,
-                                            DEFAULT_VALUE_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS);
-                            break;
-                        case PROPERTY_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS:
-                            mEnforceContentProviderRestrictions =
-                                    properties.getBoolean(
-                                            PROPERTY_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS,
-                                            DEFAULT_VALUE_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS);
+                                            PROPERTY_ENFORCE_RESTRICTIONS,
+                                            DEFAULT_VALUE_ENFORCE_RESTRICTIONS);
                             break;
                         case PROPERTY_CONTENTPROVIDER_ALLOWLIST:
                             mContentProviderAllowlistPerTargetSdkVersion =
@@ -1845,6 +1836,12 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                             break;
                         case PROPERTY_SERVICES_ALLOWLIST:
                             mServiceAllowlistPerTargetSdkVersion = getServicesAllowlist();
+                            break;
+                        case PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS:
+                            mSdkSandboxApplyRestrictionsNext =
+                                    properties.getBoolean(
+                                            PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS,
+                                            DEFAULT_VALUE_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS);
                             break;
                         default:
                     }
@@ -2524,7 +2521,7 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             final long token = Binder.clearCallingIdentity();
 
             try {
-                return !mSdkSandboxSettingsListener.areContentProviderRestrictionsEnforced()
+                return !mSdkSandboxSettingsListener.areRestrictionsEnforced()
                         || getContentProviderAllowlist().contains(providerInfo.authority);
             } finally {
                 Binder.restoreCallingIdentity(token);
@@ -2600,7 +2597,7 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
 
             try {
                 final boolean enforceRestrictions =
-                        mSdkSandboxSettingsListener.isBroadcastReceiverRestrictionsEnforced();
+                        mSdkSandboxSettingsListener.areRestrictionsEnforced();
                 final boolean exported = (flags & Context.RECEIVER_NOT_EXPORTED) == 0;
                 return !enforceRestrictions || !exported;
             } finally {
