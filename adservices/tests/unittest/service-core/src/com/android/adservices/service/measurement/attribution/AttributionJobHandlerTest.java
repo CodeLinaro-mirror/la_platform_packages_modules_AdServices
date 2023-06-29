@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -90,10 +91,12 @@ public class AttributionJobHandlerTest {
 
     private static final Context sContext = ApplicationProvider.getApplicationContext();
     private static final Uri APP_DESTINATION = Uri.parse("android-app://com.example.app");
+    private static final Uri WEB_DESTINATION = WebUtil.validUri("https://web.example.test");
     private static final Uri PUBLISHER = Uri.parse("android-app://publisher.app");
     private static final Uri REGISTRATION_URI = WebUtil.validUri("https://subdomain.example.test");
     private static final UnsignedLong SOURCE_DEBUG_KEY = new UnsignedLong(111111L);
     private static final UnsignedLong TRIGGER_DEBUG_KEY = new UnsignedLong(222222L);
+    private static final String TRIGGER_ID = "triggerId1";
     private static final String EVENT_TRIGGERS =
             "[\n"
                     + "{\n"
@@ -112,7 +115,7 @@ public class AttributionJobHandlerTest {
 
     private static Trigger createAPendingTrigger() {
         return TriggerFixture.getValidTriggerBuilder()
-                .setId("triggerId1")
+                .setId(TRIGGER_ID)
                 .setStatus(Trigger.Status.PENDING)
                 .setEventTriggers(EVENT_TRIGGERS)
                 .build();
@@ -441,6 +444,43 @@ public class AttributionJobHandlerTest {
         verify(mMeasurementDao, never()).insertEventReport(any());
         verify(mTransaction, times(2)).begin();
         verify(mTransaction, times(2)).end();
+    }
+
+    @Test
+    public void performPendingAttributions_vtcWithConfiguredReportsCount_attributeUptoConfigLimit()
+            throws DatastoreException {
+        // Setup
+        doReturn(true).when(mFlags).getMeasurementEnableVtcConfigurableMaxEventReports();
+        doReturn(3).when(mFlags).getMeasurementVtcConfigurableMaxEventReportsCount();
+        Source source =
+                SourceFixture.getValidSourceBuilder()
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .build();
+        doReturn(Pair.create(source.getAppDestinations(), source.getWebDestinations()))
+                .when(mMeasurementDao)
+                .getSourceDestinations(source.getId());
+        // 2 event reports already present for the source
+        doReturn(Arrays.asList(mock(EventReport.class), mock(EventReport.class)))
+                .when(mMeasurementDao)
+                .getSourceEventReports(source);
+        List<Source> matchingSourceList = new ArrayList<>();
+        matchingSourceList.add(source);
+        Trigger trigger = createAPendingTrigger();
+        doReturn(trigger).when(mMeasurementDao).getTrigger(trigger.getId());
+        doReturn(matchingSourceList).when(mMeasurementDao).getMatchingActiveSources(trigger);
+        doReturn(Collections.singletonList(trigger.getId()))
+                .when(mMeasurementDao)
+                .getPendingTriggerIds();
+
+        // Execution
+        mHandler.performPendingAttributions();
+        verify(mMeasurementDao)
+                .updateTriggerStatus(
+                        eq(Collections.singletonList(trigger.getId())),
+                        eq(Trigger.Status.ATTRIBUTED));
+
+        // Assertion
+        verify(mMeasurementDao, times(1)).insertEventReport(any());
     }
 
     @Test
@@ -1131,6 +1171,59 @@ public class AttributionJobHandlerTest {
         assertEquals(
                 WebUtil.validUri("https://trigger.example.test"),
                 eventReport.getRegistrationOrigin());
+    }
+
+    @Test
+    public void performPendingAttributions_GeneratesEventReport_WithCoarseDestinations()
+            throws DatastoreException {
+        Trigger trigger1 =
+                TriggerFixture.getValidTriggerBuilder()
+                        .setId("triggerId1")
+                        .setStatus(Trigger.Status.PENDING)
+                        .setEventTriggers(
+                                "[\n"
+                                        + "{\n"
+                                        + "  \"trigger_data\": \"5\",\n"
+                                        + "  \"priority\": \"123\",\n"
+                                        + "  \"deduplication_key\": \"1\"\n"
+                                        + "}"
+                                        + "]\n")
+                        .setRegistrationOrigin(WebUtil.validUri("https://trigger.example.test"))
+                        .build();
+        List<Source> matchingSourceList1 = new ArrayList<>();
+        Source source1 =
+                SourceFixture.getValidSourceBuilder()
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .setRegistrationOrigin(WebUtil.validUri("https://source.example.test"))
+                        .setAppDestinations(Collections.singletonList(APP_DESTINATION))
+                        .setWebDestinations(Collections.singletonList(WEB_DESTINATION))
+                        .setCoarseEventReportDestinations(true)
+                        .build();
+        matchingSourceList1.add(source1);
+        when(mMeasurementDao.getPendingTriggerIds())
+                .thenReturn(Collections.singletonList(trigger1.getId()));
+        when(mMeasurementDao.getTrigger(trigger1.getId())).thenReturn(trigger1);
+        when(mMeasurementDao.getMatchingActiveSources(trigger1)).thenReturn(matchingSourceList1);
+        when(mMeasurementDao.getAttributionsPerRateLimitWindow(any(), any())).thenReturn(5L);
+        when(mMeasurementDao.getSourceDestinations(source1.getId()))
+                .thenReturn(
+                        Pair.create(source1.getAppDestinations(), source1.getWebDestinations()));
+        when(mFlags.getMeasurementEnableCoarseEventReportDestinations()).thenReturn(true);
+
+        assertTrue(mHandler.performPendingAttributions());
+        // Verify trigger status updates.
+        verify(mMeasurementDao).updateTriggerStatus(any(), eq(Trigger.Status.ATTRIBUTED));
+        // Verify new event report insertion.
+        ArgumentCaptor<EventReport> reportArg = ArgumentCaptor.forClass(EventReport.class);
+        verify(mMeasurementDao).insertEventReport(reportArg.capture());
+        EventReport eventReport = reportArg.getValue();
+        assertEquals(
+                WebUtil.validUri("https://trigger.example.test"),
+                eventReport.getRegistrationOrigin());
+        List<Uri> reportDestinations = eventReport.getAttributionDestinations();
+        assertEquals(2, reportDestinations.size());
+        assertEquals(APP_DESTINATION, reportDestinations.get(0));
+        assertEquals(WEB_DESTINATION, reportDestinations.get(1));
     }
 
     @Test

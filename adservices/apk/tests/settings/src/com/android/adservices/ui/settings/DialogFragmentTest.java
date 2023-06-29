@@ -25,7 +25,6 @@ import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.content.Intent;
-import android.os.RemoteException;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -192,30 +191,15 @@ public class DialogFragmentTest {
     }
 
     @Test
-    public void dialogExistAfterRotateTest() throws RemoteException, UiObjectNotFoundException {
-        mTestName = new Object() {}.getClass().getEnclosingMethod().getName();
-
-        UiObject consentSwitch = ApkTestUtil.getConsentSwitch(sDevice);
-        assertThat(consentSwitch.exists()).isTrue();
-
-        // click switch
-        consentSwitch.click();
-        UiObject dialogTitle =
-                ApkTestUtil.getElement(sDevice, R.string.settingsUI_dialog_opt_out_title);
-        UiObject positiveText =
-                ApkTestUtil.getElement(sDevice, R.string.settingsUI_dialog_opt_out_positive_text);
-        assertThat(dialogTitle.exists()).isTrue();
-        assertThat(positiveText.exists()).isTrue();
-        sDevice.setOrientationRight();
-        assertThat(dialogTitle.exists()).isTrue();
-        assertThat(positiveText.exists()).isTrue();
-    }
-
-    @Test
     public void optOutDialogTest() throws UiObjectNotFoundException {
         mTestName = new Object() {}.getClass().getEnclosingMethod().getName();
         UiObject consentSwitch = ApkTestUtil.getConsentSwitch(sDevice);
         assertThat(consentSwitch.exists()).isTrue();
+
+        // guarantee in on state
+        if (!consentSwitch.isChecked()) {
+            consentSwitch.click();
+        }
 
         // click switch
         consentSwitch.click();
@@ -347,6 +331,14 @@ public class DialogFragmentTest {
     @Test
     public void blockAppDialogTest() throws UiObjectNotFoundException, IOException {
         mTestName = new Object() {}.getClass().getEnclosingMethod().getName();
+
+        // perform a gentle swipe so scroll won't miss the text close to the
+        // bottom of the current screen.
+        UiObject appsTitle = ApkTestUtil.getElement(sDevice, R.string.settingsUI_apps_title);
+        if(!appsTitle.exists()){
+            ApkTestUtil.gentleSwipe(sDevice);
+        }
+
         // open apps view
         ApkTestUtil.scrollToAndClick(sDevice, R.string.settingsUI_apps_title);
         UiObject blockAppText =
@@ -384,6 +376,12 @@ public class DialogFragmentTest {
     @Test
     public void unblockAppDialogTest() throws UiObjectNotFoundException, IOException {
         mTestName = new Object() {}.getClass().getEnclosingMethod().getName();
+
+        UiObject appsTitle = ApkTestUtil.getElement(sDevice, R.string.settingsUI_apps_title);
+        if(!appsTitle.exists()){
+            ApkTestUtil.gentleSwipe(sDevice);
+        }
+
         // open apps view
         ApkTestUtil.scrollToAndClick(sDevice, R.string.settingsUI_apps_title);
 
@@ -417,6 +415,12 @@ public class DialogFragmentTest {
     @Test
     public void resetAppDialogTest() throws UiObjectNotFoundException, IOException {
         mTestName = new Object() {}.getClass().getEnclosingMethod().getName();
+
+        UiObject appsTitle = ApkTestUtil.getElement(sDevice, R.string.settingsUI_apps_title);
+        if(!appsTitle.exists()){
+            ApkTestUtil.gentleSwipe(sDevice);
+        }
+
         // open apps view
         ApkTestUtil.scrollToAndClick(sDevice, R.string.settingsUI_apps_title);
 

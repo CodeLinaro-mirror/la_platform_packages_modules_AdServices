@@ -553,4 +553,124 @@ public class AppSearchConsentManagerTest {
         when(mAppSearchConsentWorker.wasGaUxNotificationDisplayed()).thenReturn(true);
         when(mSharedPrefs.edit()).thenReturn(mEditor);
     }
+
+    @Test
+    public void setAdIdEnabledTest_trueBit() {
+        mAppSearchConsentManager.setAdIdEnabled(true);
+        verify(mAppSearchConsentWorker).setAdIdEnabled(true);
+    }
+
+    @Test
+    public void setAdIdEnabledTest_falseBit() {
+        mAppSearchConsentManager.setAdIdEnabled(false);
+        verify(mAppSearchConsentWorker).setAdIdEnabled(false);
+    }
+
+    private void setAdIdEnabledTest(boolean isAdIdEnabled) {
+        mAppSearchConsentManager.setAdIdEnabled(isAdIdEnabled);
+        verify(mAppSearchConsentWorker).setAdIdEnabled(isAdIdEnabled);
+    }
+
+    @Test
+    public void isAdIdEnabledTest_defaultFalseBit() {
+        when(mAppSearchConsentWorker.isAdIdEnabled()).thenReturn(false);
+        assertThat(mAppSearchConsentManager.isAdIdEnabled()).isFalse();
+        verify(mAppSearchConsentWorker).isAdIdEnabled();
+    }
+
+    @Test
+    public void setU18AccountTest_trueBit() {
+        mAppSearchConsentManager.setU18Account(true);
+        verify(mAppSearchConsentWorker).setU18Account(true);
+    }
+
+    @Test
+    public void setU18AccountTest_falseBit() {
+        mAppSearchConsentManager.setU18Account(false);
+        verify(mAppSearchConsentWorker).setU18Account(false);
+    }
+
+    private void setU18AccountTest(boolean isU18Account) {
+        mAppSearchConsentManager.setU18Account(isU18Account);
+        verify(mAppSearchConsentWorker).setU18Account(isU18Account);
+    }
+
+    @Test
+    public void isU18AccountTest_defaultFalseBit() {
+        when(mAppSearchConsentWorker.isU18Account()).thenReturn(false);
+        assertThat(mAppSearchConsentManager.isU18Account()).isFalse();
+        verify(mAppSearchConsentWorker).isU18Account();
+    }
+
+    @Test
+    public void setEntryPointEnabledTest_trueBit() {
+        mAppSearchConsentManager.setEntryPointEnabled(true);
+        verify(mAppSearchConsentWorker).setEntryPointEnabled(true);
+    }
+
+    @Test
+    public void setEntryPointEnabledTest_falseBit() {
+        mAppSearchConsentManager.setEntryPointEnabled(false);
+        verify(mAppSearchConsentWorker).setEntryPointEnabled(false);
+    }
+
+    private void setEntryPointEnabledTest(boolean isEntryPointEnabled) {
+        mAppSearchConsentManager.setEntryPointEnabled(isEntryPointEnabled);
+        verify(mAppSearchConsentWorker).setEntryPointEnabled(isEntryPointEnabled);
+    }
+
+    @Test
+    public void isEntryPointEnabledTest_defaultFalseBit() {
+        when(mAppSearchConsentWorker.isEntryPointEnabled()).thenReturn(false);
+        assertThat(mAppSearchConsentManager.isEntryPointEnabled()).isFalse();
+        verify(mAppSearchConsentWorker).isEntryPointEnabled();
+    }
+
+    @Test
+    public void setAdultAccountTest_trueBit() {
+        mAppSearchConsentManager.setAdultAccount(true);
+        verify(mAppSearchConsentWorker).setAdultAccount(true);
+    }
+
+    @Test
+    public void setAdultAccountTest_falseBit() {
+        mAppSearchConsentManager.setAdultAccount(false);
+        verify(mAppSearchConsentWorker).setAdultAccount(false);
+    }
+
+    private void setAdultAccountTest(boolean isAdultAccount) {
+        mAppSearchConsentManager.setAdultAccount(isAdultAccount);
+        verify(mAppSearchConsentWorker).setAdultAccount(isAdultAccount);
+    }
+
+    @Test
+    public void isAdultAccountTest_defaultFalseBit() {
+        when(mAppSearchConsentWorker.isAdultAccount()).thenReturn(false);
+        assertThat(mAppSearchConsentManager.isAdultAccount()).isFalse();
+        verify(mAppSearchConsentWorker).isAdultAccount();
+    }
+
+    @Test
+    public void setU18NotificationDisplayedTest_trueBit() {
+        mAppSearchConsentManager.setU18NotificationDisplayed(true);
+        verify(mAppSearchConsentWorker).setU18NotificationDisplayed(true);
+    }
+
+    @Test
+    public void setU18NotificationDisplayedTest_falseBit() {
+        mAppSearchConsentManager.setU18NotificationDisplayed(false);
+        verify(mAppSearchConsentWorker).setU18NotificationDisplayed(false);
+    }
+
+    private void setU18NotificationDisplayedTest(boolean wasU18NotificationDisplayed) {
+        mAppSearchConsentManager.setU18NotificationDisplayed(wasU18NotificationDisplayed);
+        verify(mAppSearchConsentWorker).setU18NotificationDisplayed(wasU18NotificationDisplayed);
+    }
+
+    @Test
+    public void wasU18NotificationDisplayedTest_defaultFalseBit() {
+        when(mAppSearchConsentWorker.wasU18NotificationDisplayed()).thenReturn(false);
+        assertThat(mAppSearchConsentManager.wasU18NotificationDisplayed()).isFalse();
+        verify(mAppSearchConsentWorker).wasU18NotificationDisplayed();
+    }
 }

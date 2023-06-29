@@ -406,6 +406,9 @@ class MeasurementDao implements IMeasurementDao {
         values.put(
                 MeasurementTables.SourceContract.REGISTRATION_ORIGIN,
                 source.getRegistrationOrigin().toString());
+        values.put(
+                MeasurementTables.SourceContract.COARSE_EVENT_REPORT_DESTINATIONS,
+                source.getCoarseEventReportDestinations());
         long rowId =
                 mSQLTransaction
                         .getDatabase()
@@ -1460,9 +1463,8 @@ class MeasurementDao implements IMeasurementDao {
     }
 
     @Override
-    public void deleteExpiredRecords(long expiryWindowMs) throws DatastoreException {
+    public void deleteExpiredRecords(long earliestValidInsertion) throws DatastoreException {
         SQLiteDatabase db = mSQLTransaction.getDatabase();
-        long earliestValidInsertion = System.currentTimeMillis() - expiryWindowMs;
         String earliestValidInsertionStr = String.valueOf(earliestValidInsertion);
         // Deleting the sources and triggers will take care of deleting records from
         // event report, aggregate report and attribution tables as well. No explicit deletion is

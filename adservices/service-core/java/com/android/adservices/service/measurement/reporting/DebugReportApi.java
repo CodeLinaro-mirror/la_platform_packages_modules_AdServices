@@ -44,6 +44,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -78,7 +79,9 @@ public class DebugReportApi {
         String TRIGGER_AGGREGATE_STORAGE_LIMIT = "trigger-aggregate-storage-limit";
     }
 
-    private interface Body {
+    /** Defines different verbose debug report body parameters. */
+    @VisibleForTesting
+    public interface Body {
         String ATTRIBUTION_DESTINATION = "attribution_destination";
         String LIMIT = "limit";
         String RANDOMIZED_TRIGGER_RATE = "randomized_trigger_rate";
@@ -244,7 +247,7 @@ public class DebugReportApi {
      * doesn't have related source.
      */
     public void scheduleTriggerNoMatchingSourceDebugReport(
-            Trigger trigger, IMeasurementDao dao, String type) {
+            Trigger trigger, IMeasurementDao dao, String type) throws DatastoreException {
         if (isTriggerDebugFlagDisabled(type)) {
             return;
         }
@@ -257,8 +260,7 @@ public class DebugReportApi {
             return;
         }
         Pair<UnsignedLong, UnsignedLong> debugKeyPair =
-                new DebugKeyAccessor(mDatastoreManager)
-                        .getDebugKeysForVerboseTriggerDebugReport(null, trigger);
+                new DebugKeyAccessor(dao).getDebugKeysForVerboseTriggerDebugReport(null, trigger);
         scheduleReport(
                 type,
                 generateTriggerDebugReportBody(null, trigger, null, debugKeyPair, true),
@@ -273,7 +275,8 @@ public class DebugReportApi {
             Trigger trigger,
             @Nullable String limit,
             IMeasurementDao dao,
-            String type) {
+            String type)
+            throws DatastoreException {
         if (isTriggerDebugFlagDisabled(type)) {
             return;
         }
@@ -286,8 +289,7 @@ public class DebugReportApi {
             return;
         }
         Pair<UnsignedLong, UnsignedLong> debugKeyPair =
-                new DebugKeyAccessor(mDatastoreManager)
-                        .getDebugKeysForVerboseTriggerDebugReport(source, trigger);
+                new DebugKeyAccessor(dao).getDebugKeysForVerboseTriggerDebugReport(source, trigger);
         scheduleReport(
                 type,
                 generateTriggerDebugReportBody(source, trigger, limit, debugKeyPair, false),
@@ -305,7 +307,8 @@ public class DebugReportApi {
             Trigger trigger,
             UnsignedLong triggerData,
             IMeasurementDao dao,
-            String type) {
+            String type)
+            throws DatastoreException {
         if (isTriggerDebugFlagDisabled(type)) {
             return;
         }
@@ -318,8 +321,7 @@ public class DebugReportApi {
             return;
         }
         Pair<UnsignedLong, UnsignedLong> debugKeyPair =
-                new DebugKeyAccessor(mDatastoreManager)
-                        .getDebugKeysForVerboseTriggerDebugReport(source, trigger);
+                new DebugKeyAccessor(dao).getDebugKeysForVerboseTriggerDebugReport(source, trigger);
         scheduleReport(
                 type,
                 generateTriggerDebugReportBodyWithAllFields(
@@ -449,17 +451,16 @@ public class DebugReportApi {
     }
 
     private static Object generateSourceDestinations(Source source) throws JSONException {
-        if (source.getPublisherType() == EventSurfaceType.APP) {
-            return ReportUtil.serializeAttributionDestinations(source.getAppDestinations());
-        } else {
-            List<Uri> webAttributionDestinations = new ArrayList<>();
-            for (int i = 0; i < source.getWebDestinations().size(); i++) {
-                webAttributionDestinations.add(
-                        Web.topPrivateDomainAndScheme(source.getWebDestinations().get(i))
-                                .orElse(null));
+        List<Uri> destinations = new ArrayList<>();
+        Optional.ofNullable(source.getAppDestinations()).ifPresent(destinations::addAll);
+        List<Uri> webDestinations = source.getWebDestinations();
+        if (webDestinations != null) {
+            for (Uri webDestination : webDestinations) {
+                Optional<Uri> webUri = Web.topPrivateDomainAndScheme(webDestination);
+                webUri.ifPresent(destinations::add);
             }
-            return ReportUtil.serializeAttributionDestinations(webAttributionDestinations);
         }
+        return ReportUtil.serializeAttributionDestinations(destinations);
     }
 
     private static Uri generateSourceSite(Source source) {

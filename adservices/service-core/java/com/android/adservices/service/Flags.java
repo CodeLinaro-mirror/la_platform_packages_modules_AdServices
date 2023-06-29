@@ -34,6 +34,8 @@ import com.google.common.collect.ImmutableList;
 import java.io.PrintWriter;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -2202,6 +2204,24 @@ public interface Flags {
         return MEASUREMENT_EVENT_REPORTS_VTC_EARLY_REPORTING_WINDOWS;
     }
 
+    /** Disable conversions configurability by default. */
+    boolean DEFAULT_MEASUREMENT_ENABLE_VTC_CONFIGURABLE_MAX_EVENT_REPORTS = false;
+
+    /**
+     * Returns true, if event reports max conversions configurability is enabled, false otherwise.
+     */
+    default boolean getMeasurementEnableVtcConfigurableMaxEventReports() {
+        return DEFAULT_MEASUREMENT_ENABLE_VTC_CONFIGURABLE_MAX_EVENT_REPORTS;
+    }
+
+    /** Disable conversions configurability by default. */
+    int DEFAULT_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT = 2;
+
+    /** Returns the default max allowed number of event reports. */
+    default int getMeasurementVtcConfigurableMaxEventReportsCount() {
+        return DEFAULT_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT;
+    }
+
     /** Default U18 UX feature flag.. */
     boolean DEFAULT_U18_UX_ENABLED = false;
 
@@ -2224,5 +2244,31 @@ public interface Flags {
     /** Returns a list of error codes for which we don't want to do error logging. */
     default ImmutableList<Integer> getErrorCodeLoggingDenyList() {
         return ERROR_CODE_LOGGING_DENY_LIST;
+    }
+
+    /** Returns the map of UX flags. */
+    default Map<String, Boolean> getUxFlags() {
+        return new HashMap<>();
+    }
+
+    /** Enable feature to unify destinations for event reports by default. */
+    boolean DEFAULT_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS = true;
+
+    /**
+     * Returns true if event reporting destinations are enabled to be reported in a coarse manner,
+     * i.e. both app and web destinations are merged into a single array in the event report.
+     */
+    default boolean getMeasurementEnableCoarseEventReportDestinations() {
+        return DEFAULT_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS;
+    }
+
+    /** Default value of flag for logging consent migration metrics when OTA from S to T+. */
+    boolean DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED = true;
+
+    /***
+     * Returns true when logging consent migration metrics is enabled when OTA from S to T+.
+     */
+    default boolean getAdservicesConsentMigrationLoggingEnabled() {
+        return DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED;
     }
 }

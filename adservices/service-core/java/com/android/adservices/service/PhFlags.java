@@ -33,7 +33,9 @@ import com.google.common.collect.ImmutableList;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Flags Implementation that delegates to DeviceConfig. */
@@ -143,6 +145,18 @@ public final class PhFlags implements Flags {
 
     static final String KEY_MEASUREMENT_MAX_DISTINCT_DESTINATIONS_IN_ACTIVE_SOURCE =
             "measurement_max_distinct_destinations_in_active_source";
+
+    static final String KEY_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS =
+            "measurement_enable_coarse_event_report_destinations";
+
+    static final String KEY_MEASUREMENT_ENABLE_VTC_CONFIGURABLE_MAX_EVENT_REPORTS =
+            "measurement_enable_vtc_configurable_max_event_reports_count";
+
+    static final String KEY_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT =
+            "measurement_vtc_configurable_max_event_reports_count";
+
+    static final String ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED =
+            "adservices_consent_migration_logging_enabled";
 
     // FLEDGE Custom Audience keys
     static final String KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_COUNT = "fledge_custom_audience_max_count";
@@ -366,7 +380,7 @@ public final class PhFlags implements Flags {
             "fledge_report_interaction_request_permits_per_second";
 
     // Adservices enable status keys.
-    static final String KEY_ADSERVICES_ENABLED = "adservice_enabled";
+    public static final String KEY_ADSERVICES_ENABLED = "adservice_enabled";
 
     // AdServices error logging enabled
     static final String KEY_ADSERVICES_ERROR_LOGGING_ENABLED = "adservice_error_logging_enabled";
@@ -397,7 +411,8 @@ public final class PhFlags implements Flags {
             "consent_notification_minimal_delay_before_interval_ends";
 
     // Consent Notification debug mode keys.
-    static final String KEY_CONSENT_NOTIFICATION_DEBUG_MODE = "consent_notification_debug_mode";
+    public static final String KEY_CONSENT_NOTIFICATION_DEBUG_MODE =
+            "consent_notification_debug_mode";
 
     // Consent Manager debug mode keys.
     static final String KEY_CONSENT_MANAGER_DEBUG_MODE = "consent_manager_debug_mode";
@@ -438,7 +453,7 @@ public final class PhFlags implements Flags {
 
     static final String KEY_UI_DIALOG_FRAGMENT_ENABLED = "ui_dialog_fragment_enabled";
 
-    static final String KEY_GA_UX_FEATURE_ENABLED = "ga_ux_enabled";
+    public static final String KEY_GA_UX_FEATURE_ENABLED = "ga_ux_enabled";
 
     // Back-compat keys
     static final String KEY_COMPAT_LOGGING_KILL_SWITCH = "compat_logging_kill_switch";
@@ -2457,6 +2472,11 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean isEnrollmentBlocklisted(String enrollmentId) {
+        return getEnrollmentBlocklist().contains(enrollmentId);
+    }
+
+    @Override
     public void dump(@NonNull PrintWriter writer, @Nullable String[] args) {
         writer.println(
                 "\t" + KEY_ENABLE_AD_SERVICES_SYSTEM_API + " = " + getEnableAdServicesSystemApi());
@@ -2822,6 +2842,12 @@ public final class PhFlags implements Flags {
                         + KEY_MEASUREMENT_MAX_DISTINCT_DESTINATIONS_IN_ACTIVE_SOURCE
                         + " = "
                         + getMeasurementMaxDistinctDestinationsInActiveSource());
+
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS
+                        + " = "
+                        + getMeasurementEnableCoarseEventReportDestinations());
         writer.println("==== AdServices PH Flags Dump FLEDGE related flags: ====");
         writer.println(
                 "\t" + KEY_FLEDGE_SELECT_ADS_KILL_SWITCH + " = " + getFledgeSelectAdsKillSwitch());
@@ -3175,11 +3201,11 @@ public final class PhFlags implements Flags {
                         + KEY_MEASUREMENT_ROLLBACK_DELETION_APP_SEARCH_KILL_SWITCH
                         + " = "
                         + getMeasurementRollbackDeletionAppSearchKillSwitch());
-    }
-
-    @Override
-    public boolean isEnrollmentBlocklisted(String enrollmentId) {
-        return getEnrollmentBlocklist().contains(enrollmentId);
+        writer.println(
+                "\t"
+                        + ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED
+                        + " = "
+                        + getAdservicesConsentMigrationLoggingEnabled());
     }
 
     @VisibleForTesting
@@ -3333,7 +3359,7 @@ public final class PhFlags implements Flags {
                 /* defaultValue */ DEFAULT_NOTIFICATION_DISMISSED_ON_CLICK);
     }
 
-    static final String KEY_U18_UX_ENABLED = "u18_ux_enabled";
+    public static final String KEY_U18_UX_ENABLED = "u18_ux_enabled";
 
     @Override
     public boolean getU18UxEnabled() {
@@ -3351,5 +3377,54 @@ public final class PhFlags implements Flags {
                 NAMESPACE_ADSERVICES,
                 /* flagName */ KEY_ENABLE_AD_SERVICES_SYSTEM_API,
                 /* defaultValue */ DEFAULT_ENABLE_AD_SERVICES_SYSTEM_API);
+    }
+
+    @Override
+    public Map<String, Boolean> getUxFlags() {
+        Map<String, Boolean> uxMap = new HashMap<>();
+        uxMap.put(KEY_UI_DIALOGS_FEATURE_ENABLED, getUIDialogsFeatureEnabled());
+        uxMap.put(KEY_UI_DIALOG_FRAGMENT_ENABLED, getUiDialogFragmentEnabled());
+        uxMap.put(KEY_IS_EEA_DEVICE_FEATURE_ENABLED, isEeaDeviceFeatureEnabled());
+        uxMap.put(KEY_IS_EEA_DEVICE, isEeaDevice());
+        uxMap.put(KEY_RECORD_MANUAL_INTERACTION_ENABLED, getRecordManualInteractionEnabled());
+        uxMap.put(KEY_GA_UX_FEATURE_ENABLED, getGaUxFeatureEnabled());
+        uxMap.put(KEY_UI_OTA_STRINGS_FEATURE_ENABLED, getUiOtaStringsFeatureEnabled());
+        uxMap.put(KEY_UI_FEATURE_TYPE_LOGGING_ENABLED, isUiFeatureTypeLoggingEnabled());
+        uxMap.put(KEY_ADSERVICES_ENABLED, getAdServicesEnabled());
+        uxMap.put(KEY_CONSENT_NOTIFICATION_DEBUG_MODE, getConsentNotificationDebugMode());
+        return uxMap;
+    }
+
+    @Override
+    public boolean getMeasurementEnableCoarseEventReportDestinations() {
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS,
+                /* defaultValue */ DEFAULT_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS);
+    }
+
+    @Override
+    public boolean getMeasurementEnableVtcConfigurableMaxEventReports() {
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_ENABLE_VTC_CONFIGURABLE_MAX_EVENT_REPORTS,
+                /* defaultValue */
+                DEFAULT_MEASUREMENT_ENABLE_VTC_CONFIGURABLE_MAX_EVENT_REPORTS);
+    }
+
+    @Override
+    public int getMeasurementVtcConfigurableMaxEventReportsCount() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT,
+                /* defaultValue */ DEFAULT_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT);
+    }
+
+    @Override
+    public boolean getAdservicesConsentMigrationLoggingEnabled() {
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED,
+                /* defaultValue */ DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED);
     }
 }
