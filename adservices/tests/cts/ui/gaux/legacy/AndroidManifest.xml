@@ -24,7 +24,6 @@
     <!-- instrument into the system server for permission -->
     <instrumentation
         android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="android"
-        android:label="CTS tests of AdServices UI">
+        android:targetPackage="android">
     </instrumentation>
 </manifest>

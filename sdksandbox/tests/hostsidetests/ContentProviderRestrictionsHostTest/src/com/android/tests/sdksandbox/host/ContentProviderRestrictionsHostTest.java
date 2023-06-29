@@ -65,6 +65,9 @@ public class ContentProviderRestrictionsHostTest extends BaseHostJUnit4Test {
     @Test
     public void testGetContentProvider_DeviceConfigAllowlistApplied() throws Exception {
         runPhase("testGetContentProvider_DeviceConfigAllowlistApplied");
+        runPhase("testGetContentProvider_DeviceConfigNextAllowlistApplied");
+        runPhase("testGetContentProvider_DeviceConfigWildcardAllowlistApplied");
+        runPhase("testGetContentProvider_DeviceConfigAllowlistWithWildcardApplied");
     }
 
     @Test

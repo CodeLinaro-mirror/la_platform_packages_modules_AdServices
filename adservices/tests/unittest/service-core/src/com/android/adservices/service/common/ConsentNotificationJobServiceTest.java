@@ -456,8 +456,8 @@ public class ConsentNotificationJobServiceTest {
         doReturn(mPackageManager).when(mConsentNotificationJobService).getPackageManager();
         doReturn(Boolean.FALSE).when(consentManager).wasNotificationDisplayed();
         doReturn(Boolean.TRUE).when(consentManager).wasGaUxNotificationDisplayed();
-        doNothing().when(consentManager).recordNotificationDisplayed();
-        doNothing().when(consentManager).recordGaUxNotificationDisplayed();
+        doNothing().when(consentManager).recordNotificationDisplayed(true);
+        doNothing().when(consentManager).recordGaUxNotificationDisplayed(true);
         mConsentNotificationJobService.setConsentManager(consentManager);
         doReturn(consentManager).when(() -> ConsentManager.getInstance(any(Context.class)));
         Mockito.doReturn(true).when(mUxStatesManager).isEeaDevice();

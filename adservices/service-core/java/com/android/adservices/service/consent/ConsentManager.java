@@ -814,11 +814,16 @@ public class ConsentManager {
      * Saves information to the storage that notification was displayed for the first time to the
      * user.
      */
-    public void recordNotificationDisplayed() {
+    public void recordNotificationDisplayed(boolean wasNotificationDisplayed) {
         executeSettersByConsentSourceOfTruth(
-                () -> mDatastore.put(ConsentConstants.NOTIFICATION_DISPLAYED_ONCE, true),
-                () -> mAdServicesManager.recordNotificationDisplayed(),
-                () -> mAppSearchConsentManager.recordNotificationDisplayed(),
+                () ->
+                        mDatastore.put(
+                                ConsentConstants.NOTIFICATION_DISPLAYED_ONCE,
+                                wasNotificationDisplayed),
+                () -> mAdServicesManager.recordNotificationDisplayed(wasNotificationDisplayed),
+                () ->
+                        mAppSearchConsentManager.recordNotificationDisplayed(
+                                wasNotificationDisplayed),
                 /* errorLogger= */ null);
     }
 
@@ -844,11 +849,14 @@ public class ConsentManager {
      * Saves information to the storage that GA UX notification was displayed for the first time to
      * the user.
      */
-    public void recordGaUxNotificationDisplayed() {
+    public void recordGaUxNotificationDisplayed(boolean wasGaUxDisplayed) {
         executeSettersByConsentSourceOfTruth(
-                () -> mDatastore.put(ConsentConstants.GA_UX_NOTIFICATION_DISPLAYED_ONCE, true),
-                () -> mAdServicesManager.recordGaUxNotificationDisplayed(),
-                () -> mAppSearchConsentManager.recordGaUxNotificationDisplayed(),
+                () ->
+                        mDatastore.put(
+                                ConsentConstants.GA_UX_NOTIFICATION_DISPLAYED_ONCE,
+                                wasGaUxDisplayed),
+                () -> mAdServicesManager.recordGaUxNotificationDisplayed(wasGaUxDisplayed),
+                () -> mAppSearchConsentManager.recordGaUxNotificationDisplayed(wasGaUxDisplayed),
                 /* errorLogger= */ null);
     }
 
@@ -1329,7 +1337,7 @@ public class ConsentManager {
             // Set notification displayed only when value is TRUE. FALSE and null are regarded as
             // not displayed.
             if (Boolean.TRUE.equals(datastore.get(ConsentConstants.NOTIFICATION_DISPLAYED_ONCE))) {
-                adServicesManager.recordNotificationDisplayed();
+                adServicesManager.recordNotificationDisplayed(true);
             }
 
             Boolean manualInteractionRecorded =
