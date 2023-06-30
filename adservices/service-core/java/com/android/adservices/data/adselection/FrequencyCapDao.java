@@ -27,12 +27,15 @@ import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
 import androidx.room.Transaction;
 
+import com.android.adservices.data.enrollment.EnrollmentDao;
 import com.android.adservices.service.adselection.HistogramEvent;
 
 import com.google.common.base.Preconditions;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * DAO used to access ad counter histogram data used in frequency cap filtering during ad selection.
@@ -76,13 +79,15 @@ public abstract class FrequencyCapDao {
                     // matching except that it also matches NULL
                     + "AND custom_audience_owner IS :customAudienceOwner "
                     + "AND custom_audience_name IS :customAudienceName "
+                    + "AND source_app IS :sourceApp "
                     + "ORDER BY foreign_key_id ASC "
                     + "LIMIT 1")
     @Nullable
     protected abstract Long getHistogramIdentifierForeignKeyIfExists(
             @NonNull AdTechIdentifier buyer,
             @Nullable String customAudienceOwner,
-            @Nullable String customAudienceName);
+            @Nullable String customAudienceName,
+            @Nullable String sourceApp);
 
     /**
      * Attempts to persist a new {@link DBHistogramEventData} to the event data table.
@@ -157,7 +162,8 @@ public abstract class FrequencyCapDao {
                 getHistogramIdentifierForeignKeyIfExists(
                         identifier.getBuyer(),
                         identifier.getCustomAudienceOwner(),
-                        identifier.getCustomAudienceName());
+                        identifier.getCustomAudienceName(),
+                        identifier.getSourceApp());
 
         if (foreignKeyId == null) {
             try {
@@ -300,9 +306,130 @@ public abstract class FrequencyCapDao {
         return numDeletedEvents;
     }
 
+    /**
+     * Deletes all histogram event data persisted by the given {@code sourceApp}.
+     *
+     * <p>This method is not intended to be called on its own. Please use {@link
+     * #deleteHistogramDataBySourceApp} instead.
+     *
+     * @return the number of deleted events
+     */
+    @Query(
+            "DELETE FROM fcap_histogram_data "
+                    + "WHERE row_id IN "
+                    + "(SELECT data.row_id FROM fcap_histogram_data AS data "
+                    + "INNER JOIN fcap_histogram_ids AS ids "
+                    + "ON data.foreign_key_id = ids.foreign_key_id "
+                    + "WHERE ids.source_app = :sourceApp)")
+    protected abstract int deleteHistogramEventDataBySourceApp(@NonNull String sourceApp);
+
+    /**
+     * Deletes all histogram event data persisted by the given {@code sourceApp} in a single
+     * database transaction.
+     *
+     * <p>Also cleans up any histogram identifiers which are no longer associated with any event
+     * data.
+     *
+     * @return the number of deleted events
+     */
+    @Transaction
+    public int deleteHistogramDataBySourceApp(@NonNull String sourceApp) {
+        Objects.requireNonNull(sourceApp);
+
+        int numDeletedEvents = deleteHistogramEventDataBySourceApp(sourceApp);
+        deleteUnpairedHistogramIdentifiers();
+        return numDeletedEvents;
+    }
+
+    /**
+     * Deletes all histogram event data.
+     *
+     * <p>This method is not meant to be called on its own. Please use {@link
+     * #deleteAllHistogramData()} to delete all histogram data (including all identifiers).
+     *
+     * @return the number of deleted events
+     */
+    @Query("DELETE FROM fcap_histogram_data")
+    protected abstract int deleteAllHistogramEventData();
+
+    /**
+     * Deletes all histogram identifiers.
+     *
+     * <p>This method is not meant to be called on its own. Please use {@link
+     * #deleteAllHistogramData()} to delete all histogram data (including all identifiers).
+     *
+     * @return the number of deleted identifiers
+     */
+    @Query("DELETE FROM fcap_histogram_ids")
+    protected abstract int deleteAllHistogramIdentifiers();
+
+    /**
+     * Deletes all histogram data and identifiers in a single database transaction.
+     *
+     * @return the number of deleted events
+     */
+    @Transaction
+    public int deleteAllHistogramData() {
+        int numDeletedEvents = deleteAllHistogramEventData();
+        deleteAllHistogramIdentifiers();
+        return numDeletedEvents;
+    }
+
+    /** Returns the list of all unique buyer ad techs in the histogram ID table. */
+    @Query("SELECT DISTINCT buyer FROM fcap_histogram_ids")
+    @NonNull
+    public abstract List<AdTechIdentifier> getAllHistogramBuyers();
+
+    /**
+     * Deletes all histogram event data belonging to the given buyer ad techs.
+     *
+     * <p>This method is not meant to be called on its own. Please use {@link
+     * #deleteAllDisallowedBuyerHistogramData(EnrollmentDao)} to delete all histogram data
+     * (including all identifiers).
+     *
+     * @return the number of deleted histogram events
+     */
+    @Query(
+            "DELETE FROM fcap_histogram_data WHERE foreign_key_id in (SELECT DISTINCT"
+                    + " foreign_key_id FROM fcap_histogram_ids WHERE buyer in (:buyers))")
+    protected abstract int deleteHistogramEventDataByBuyers(List<AdTechIdentifier> buyers);
+
+    /**
+     * Deletes all histogram data belonging to disallowed buyer ad techs in a single transaction,
+     * where the buyer ad techs cannot be found in the enrollment database.
+     *
+     * @return the number of deleted histogram events
+     */
+    @Transaction
+    public int deleteAllDisallowedBuyerHistogramData(@NonNull EnrollmentDao enrollmentDao) {
+        Objects.requireNonNull(enrollmentDao);
+
+        List<AdTechIdentifier> buyersToRemove = getAllHistogramBuyers();
+        if (buyersToRemove.isEmpty()) {
+            return 0;
+        }
+
+        Set<AdTechIdentifier> allFledgeEnrolledAdTechs =
+                enrollmentDao.getAllFledgeEnrolledAdTechs();
+        buyersToRemove.removeAll(allFledgeEnrolledAdTechs);
+
+        int numDeletedEvents = 0;
+        if (!buyersToRemove.isEmpty()) {
+            numDeletedEvents = deleteHistogramEventDataByBuyers(buyersToRemove);
+            // TODO(b/275581841): Collect and send telemetry on frequency cap deletion
+            deleteUnpairedHistogramIdentifiers();
+        }
+
+        return numDeletedEvents;
+    }
+
     /** Returns the current total number of histogram events in the data table. */
     @Query("SELECT COUNT(DISTINCT row_id) FROM fcap_histogram_data")
     public abstract int getTotalNumHistogramEvents();
+
+    /** Returns the current total number of histogram identifiers in the identifier table. */
+    @Query("SELECT COUNT(DISTINCT foreign_key_id) FROM fcap_histogram_ids")
+    public abstract int getTotalNumHistogramIdentifiers();
 
     /**
      * Returns the current number of histogram events in the data table for the given {@code buyer}.
@@ -313,4 +440,15 @@ public abstract class FrequencyCapDao {
                     + "ON data.foreign_key_id = ids.foreign_key_id "
                     + "WHERE ids.buyer = :buyer ")
     public abstract int getNumHistogramEventsByBuyer(@NonNull AdTechIdentifier buyer);
+
+    /**
+     * Returns the current number of histogram events in the data table for the given {@code
+     * sourceApp}.
+     */
+    @Query(
+            "SELECT COUNT(DISTINCT data.row_id) FROM fcap_histogram_data AS data "
+                    + "INNER JOIN fcap_histogram_ids AS ids "
+                    + "ON data.foreign_key_id = ids.foreign_key_id "
+                    + "WHERE ids.source_app = :sourceApp ")
+    public abstract int getNumHistogramEventsBySourceApp(@NonNull String sourceApp);
 }

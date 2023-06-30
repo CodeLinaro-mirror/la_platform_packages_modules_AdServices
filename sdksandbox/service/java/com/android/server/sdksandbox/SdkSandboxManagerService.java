@@ -76,6 +76,7 @@ import android.os.RemoteException;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.provider.DeviceConfig;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.ArraySet;
@@ -101,6 +102,9 @@ import com.android.server.am.ActivityManagerLocal;
 import com.android.server.pm.PackageManagerLocal;
 import com.android.server.sdksandbox.proto.ContentProvider.AllowedContentProviders;
 import com.android.server.sdksandbox.proto.ContentProvider.ContentProviderAllowlists;
+import com.android.server.sdksandbox.proto.Services.AllowedService;
+import com.android.server.sdksandbox.proto.Services.AllowedServices;
+import com.android.server.sdksandbox.proto.Services.ServiceAllowlists;
 import com.android.server.wm.ActivityInterceptorCallback;
 import com.android.server.wm.ActivityInterceptorCallbackRegistry;
 
@@ -109,6 +113,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -213,33 +218,40 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
     private static final String PROPERTY_DISABLE_SDK_SANDBOX = "disable_sdk_sandbox";
     private static final String PROPERTY_CUSTOMIZED_SDK_CONTEXT_ENABLED =
             "sdksandbox_customized_sdk_context_enabled";
-    private static final String PROPERTY_CONTENTPROVIDER_ALLOWLIST =
-            "contentprovider_allowlist_per_targetSdkVersion";
+
+    private static final String PROPERTY_SERVICES_ALLOWLIST =
+            "services_allowlist_per_targetSdkVersion";
+
+    // Property for canary set for service restrictions
+    private static final String PROPERTY_NEXT_SERVICE_ALLOWLIST = "next_service_allowlist";
     private static final boolean DEFAULT_VALUE_DISABLE_SDK_SANDBOX = true;
     private static final boolean DEFAULT_VALUE_CUSTOMIZED_SDK_CONTEXT_ENABLED = false;
 
     /**
-     * Property to enforce broadcast receiver restrictions for SDK sandbox processes. If the value
-     * of this property is {@code true}, the restrictions will be enforced.
+     * Property to enforce restrictions for SDK sandbox processes. If the value of this property is
+     * {@code true}, the restrictions will be enforced.
      */
-    private static final String PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS =
-            "enforce_broadcast_receiver_restrictions";
+    private static final String PROPERTY_ENFORCE_RESTRICTIONS = "enforce_sdk_sandbox_restrictions";
 
-    private static final boolean DEFAULT_VALUE_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS = false;
+    private static final boolean DEFAULT_VALUE_ENFORCE_RESTRICTIONS = true;
 
-    /**
-     * Property to enforce content provider restrictions for SDK sandbox processes. If the value of
-     * this property is {@code true}, the restrictions will be enforced.
-     */
-    private static final String PROPERTY_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS =
-            "enforce_content_provider_restrictions";
+    private static final String PROPERTY_CONTENTPROVIDER_ALLOWLIST =
+            "contentprovider_allowlist_per_targetSdkVersion";
 
-    private static final boolean DEFAULT_VALUE_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS = false;
+    // Property indicating the ContentProvider canary allowlist.
+    private static final String PROPERTY_NEXT_CONTENTPROVIDER_ALLOWLIST =
+            "next_contentprovider_allowlist";
 
     private static final String WEBVIEW_DEVELOPER_MODE_CONTENT_PROVIDER =
             "DeveloperModeContentProvider";
 
     private static final String WEBVIEW_SAFE_MODE_CONTENT_PROVIDER = "SafeModeContentProvider";
+
+    /** We need to keep in sync with the property used in ProcessList */
+    private static final String PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS =
+            "apply_sdk_sandbox_next_restrictions";
+
+    private static final boolean DEFAULT_VALUE_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS = false;
 
     // On UDC, AdServicesManagerService.Lifecycle implements dumpable so it's dumped as part of
     // SystemServer.
@@ -1706,22 +1718,33 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                         DEFAULT_VALUE_DISABLE_SDK_SANDBOX);
 
         @GuardedBy("mLock")
-        private boolean mEnforceBroadcastReceiverRestrictions =
+        private boolean mEnforceRestrictions =
                 DeviceConfig.getBoolean(
                         DeviceConfig.NAMESPACE_ADSERVICES,
-                        PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS,
-                        DEFAULT_VALUE_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS);
+                        PROPERTY_ENFORCE_RESTRICTIONS,
+                        DEFAULT_VALUE_ENFORCE_RESTRICTIONS);
 
         @GuardedBy("mLock")
-        private boolean mEnforceContentProviderRestrictions =
+        private boolean mSdkSandboxApplyRestrictionsNext =
                 DeviceConfig.getBoolean(
                         DeviceConfig.NAMESPACE_ADSERVICES,
-                        PROPERTY_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS,
-                        DEFAULT_VALUE_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS);
+                        PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS,
+                        DEFAULT_VALUE_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS);
+
+        @GuardedBy("mLock")
+        private Map<Integer, AllowedServices> mServiceAllowlistPerTargetSdkVersion =
+                getServicesAllowlist();
+
+        @GuardedBy("mLock")
+        private AllowedServices mNextServiceAllowlist = getNextServiceDeviceConfigAllowlist();
 
         @GuardedBy("mLock")
         private Map<Integer, AllowedContentProviders> mContentProviderAllowlistPerTargetSdkVersion =
                 getContentProviderDeviceConfigAllowlist();
+
+        @GuardedBy("mLock")
+        private AllowedContentProviders mNextContentProviderAllowlist =
+                getNextContentProviderDeviceConfigAllowlist();
 
         SdkSandboxSettingsListener(Context context) {
             mContext = context;
@@ -1768,21 +1791,40 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                     DEFAULT_VALUE_CUSTOMIZED_SDK_CONTEXT_ENABLED);
         }
 
-        boolean isBroadcastReceiverRestrictionsEnforced() {
+        boolean areRestrictionsEnforced() {
             synchronized (mLock) {
-                return mEnforceBroadcastReceiverRestrictions;
+                return mEnforceRestrictions;
             }
         }
 
-        boolean areContentProviderRestrictionsEnforced() {
+        @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
+        boolean applySdkSandboxRestrictionsNext() {
             synchronized (mLock) {
-                return mEnforceContentProviderRestrictions;
+                return mSdkSandboxApplyRestrictionsNext;
+            }
+        }
+
+        AllowedServices getServiceAllowlistForTargetSdkVersion(int targetSdkVersion) {
+            synchronized (mLock) {
+                return mServiceAllowlistPerTargetSdkVersion.get(targetSdkVersion);
+            }
+        }
+
+        AllowedServices getNextServiceAllowlist() {
+            synchronized (mLock) {
+                return mNextServiceAllowlist;
             }
         }
 
         Map<Integer, AllowedContentProviders> getContentProviderAllowlistPerTargetSdkVersion() {
             synchronized (mLock) {
                 return mContentProviderAllowlistPerTargetSdkVersion;
+            }
+        }
+
+        AllowedContentProviders getNextContentProviderAllowlist() {
+            synchronized (mLock) {
+                return mNextContentProviderAllowlist;
             }
         }
 
@@ -1811,21 +1853,31 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                                 }
                             }
                             break;
-                        case PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS:
-                            mEnforceBroadcastReceiverRestrictions =
+                        case PROPERTY_ENFORCE_RESTRICTIONS:
+                            mEnforceRestrictions =
                                     properties.getBoolean(
-                                            PROPERTY_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS,
-                                            DEFAULT_VALUE_ENFORCE_BROADCAST_RECEIVER_RESTRICTIONS);
+                                            PROPERTY_ENFORCE_RESTRICTIONS,
+                                            DEFAULT_VALUE_ENFORCE_RESTRICTIONS);
                             break;
-                        case PROPERTY_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS:
-                            mEnforceContentProviderRestrictions =
+                        case PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS:
+                            mSdkSandboxApplyRestrictionsNext =
                                     properties.getBoolean(
-                                            PROPERTY_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS,
-                                            DEFAULT_VALUE_ENFORCE_CONTENT_PROVIDER_RESTRICTIONS);
+                                            PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS,
+                                            DEFAULT_VALUE_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS);
+                            break;
+                        case PROPERTY_SERVICES_ALLOWLIST:
+                            mServiceAllowlistPerTargetSdkVersion = getServicesAllowlist();
+                            break;
+                        case PROPERTY_NEXT_SERVICE_ALLOWLIST:
+                            mNextServiceAllowlist = getNextServiceDeviceConfigAllowlist();
                             break;
                         case PROPERTY_CONTENTPROVIDER_ALLOWLIST:
                             mContentProviderAllowlistPerTargetSdkVersion =
                                     getContentProviderDeviceConfigAllowlist();
+                            break;
+                        case PROPERTY_NEXT_CONTENTPROVIDER_ALLOWLIST:
+                            mNextContentProviderAllowlist =
+                                    getNextContentProviderDeviceConfigAllowlist();
                             break;
                         default:
                     }
@@ -1833,19 +1885,79 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             }
         }
 
-        private static Map<Integer, AllowedContentProviders>
-                getContentProviderDeviceConfigAllowlist() {
+        /**
+         * Helper function to decode a proto property
+         *
+         * @param property The property which needs to be decoded
+         * @return The decoded value of the property passed as the parameter
+         */
+        private static byte[] getDecodedPropertyValue(@NonNull String property) {
             final String base64 =
-                    DeviceConfig.getProperty(
-                            DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_CONTENTPROVIDER_ALLOWLIST);
+                    DeviceConfig.getProperty(DeviceConfig.NAMESPACE_ADSERVICES, property);
 
-            // Content providers are restricted by default. If the property is not set, or it is an
-            // empty string, there are no content providers to allowlist.
             if (TextUtils.isEmpty(base64)) {
+                Log.d(TAG, property + " property is empty");
+                return null;
+            }
+
+            try {
+                return Base64.decode(base64, Base64.NO_PADDING | Base64.NO_WRAP);
+            } catch (IllegalArgumentException e) {
+                Log.e(TAG, "Error while decoding " + property + " Error: " + e);
+            }
+            return null;
+        }
+
+        private static Map<Integer, AllowedServices> getServicesAllowlist() {
+            final byte[] decode = getDecodedPropertyValue(PROPERTY_SERVICES_ALLOWLIST);
+
+            if (Objects.isNull(decode)) {
                 return new ArrayMap<>();
             }
 
-            final byte[] decode = Base64.decode(base64, Base64.DEFAULT);
+            try {
+                final ServiceAllowlists allowedServicesProto = ServiceAllowlists.parseFrom(decode);
+
+                if (allowedServicesProto != null) {
+                    return allowedServicesProto.getAllowlistPerTargetSdkMap();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error while parsing " + PROPERTY_SERVICES_ALLOWLIST + ". Error: ", e);
+            }
+            return new ArrayMap<>();
+        }
+
+        private AllowedServices getNextServiceDeviceConfigAllowlist() {
+            final byte[] decode = getDecodedPropertyValue(PROPERTY_NEXT_SERVICE_ALLOWLIST);
+
+            if (Objects.isNull(decode)) {
+                return null;
+            }
+
+            try {
+                AllowedServices allowedServices = AllowedServices.parseFrom(decode);
+                if (allowedServices != null) {
+                    return allowedServices;
+                }
+            } catch (Exception e) {
+                Log.e(
+                        TAG,
+                        "Error while parsing " + PROPERTY_NEXT_SERVICE_ALLOWLIST + ". Error: ",
+                        e);
+            }
+            return null;
+        }
+
+        private static Map<Integer, AllowedContentProviders>
+                getContentProviderDeviceConfigAllowlist() {
+            final byte[] decode = getDecodedPropertyValue(PROPERTY_CONTENTPROVIDER_ALLOWLIST);
+
+            // Content providers are restricted by default. If the property is not set, or it is an
+            // empty string, there are no content providers to allowlist.
+            if (Objects.isNull(decode)) {
+                return new ArrayMap<>();
+            }
+
             ContentProviderAllowlists contentProviderAllowlistsProto = null;
             try {
                 contentProviderAllowlistsProto = ContentProviderAllowlists.parseFrom(decode);
@@ -1856,6 +1968,25 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                 return contentProviderAllowlistsProto.getAllowlistPerTargetSdkMap();
             }
             return new ArrayMap<>();
+        }
+
+        private static AllowedContentProviders getNextContentProviderDeviceConfigAllowlist() {
+            final byte[] decode = getDecodedPropertyValue(PROPERTY_NEXT_CONTENTPROVIDER_ALLOWLIST);
+
+            // Content providers are restricted by default. If the property is not set, or it is an
+            // empty string, there are no content providers to allowlist.
+            if (Objects.isNull(decode)) {
+                return null;
+            }
+
+            AllowedContentProviders allowedContentProvidersProto = null;
+            try {
+                allowedContentProvidersProto = AllowedContentProviders.parseFrom(decode);
+            } catch (Exception e) {
+                Log.e(TAG, "Could not parse content provider canary allowlist " + e);
+            }
+
+            return allowedContentProvidersProto;
         }
     }
 
@@ -2046,6 +2177,9 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
     }
 
     private void enforceAllowedToStartOrBindService(Intent intent) {
+        if (!mSdkSandboxSettingsListener.areRestrictionsEnforced()) {
+            return;
+        }
         ComponentName component = intent.getComponent();
         if (component == null) {
             failStartOrBindService(intent);
@@ -2056,6 +2190,11 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         }
         if (componentPackageName.equals(WebViewUpdateService.getCurrentWebViewPackageName())
                 || componentPackageName.equals(getAdServicesPackageName())) {
+            return;
+        }
+
+        if (requestAllowedPerAllowlist(
+                intent.getAction(), componentPackageName, component.getClassName())) {
             return;
         }
 
@@ -2362,19 +2501,134 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             contentProviderAuthoritiesAllowlist.add(curWebViewPackageName + '.' + webViewAuthority);
         }
 
+        // Required by WebView. Adding temporarily since all restrictions are enabled by default.
+        // TODO(b/274070295): Update the default allowlist value.
+        contentProviderAuthoritiesAllowlist.add(Settings.AUTHORITY);
         synchronized (mLock) {
-            Map<Integer, AllowedContentProviders> contentProviderAllowlistPerTargetSdkVersion =
-                    mSdkSandboxSettingsListener.getContentProviderAllowlistPerTargetSdkVersion();
-            // TODO: Filter out the allowlist based on targetSdkVersion.
-            contentProviderAllowlistPerTargetSdkVersion
-                    .values()
-                    .forEach(
-                            allowedContentProviders ->
-                                    contentProviderAuthoritiesAllowlist.addAll(
-                                            allowedContentProviders.getAuthoritiesList()));
+            if (mSdkSandboxSettingsListener.applySdkSandboxRestrictionsNext()) {
+                if (mSdkSandboxSettingsListener.getNextContentProviderAllowlist() != null) {
+                    contentProviderAuthoritiesAllowlist.addAll(
+                            mSdkSandboxSettingsListener
+                                    .getNextContentProviderAllowlist()
+                                    .getAuthoritiesList());
+                }
+                return contentProviderAuthoritiesAllowlist;
+            }
+
+            // TODO(b/271547387): Filter out the allowlist based on targetSdkVersion.
+            AllowedContentProviders contentProviderAllowlistForTargetSdkVersion =
+                    mSdkSandboxSettingsListener
+                            .getContentProviderAllowlistPerTargetSdkVersion()
+                            .get(Build.VERSION_CODES.UPSIDE_DOWN_CAKE);
+            if (contentProviderAllowlistForTargetSdkVersion != null) {
+                contentProviderAuthoritiesAllowlist.addAll(
+                        contentProviderAllowlistForTargetSdkVersion.getAuthoritiesList());
+            }
         }
 
         return contentProviderAuthoritiesAllowlist;
+    }
+
+    private boolean requestAllowedPerAllowlist(
+            String intentAction, String packageName, String className) {
+        // TODO(b/288873117): Use effective targetSdkVersion of the sandbox for the client app.
+        AllowedServices allowedServices =
+                mSdkSandboxSettingsListener.applySdkSandboxRestrictionsNext()
+                        ? mSdkSandboxSettingsListener.getNextServiceAllowlist()
+                        : mSdkSandboxSettingsListener.getServiceAllowlistForTargetSdkVersion(
+                                /*targetSdkVersion=*/ 34);
+
+        if (Objects.isNull(allowedServices)) {
+            return false;
+        }
+
+        for (int i = 0; i < allowedServices.getAllowedServicesCount(); i++) {
+            AllowedService allowedService = allowedServices.getAllowedServices(i);
+            if (doesInputMatchWildcardPattern(
+                            allowedService.getIntentAction(),
+                            intentAction,
+                            /*matchOnNullInput=*/ true)
+                    && doesInputMatchWildcardPattern(
+                            allowedService.getComponentClassName(),
+                            className,
+                            /*matchOnNullInput=*/ true)
+                    && doesInputMatchWildcardPattern(
+                            allowedService.getComponentPackageName(),
+                            packageName,
+                            /*matchOnNullInput=*/ true)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Checks if a given input string matches any of the given patterns. Each pattern can contain
+     * wildcards in the form of an asterisk. This wildcard should match 0 or more number of
+     * characters in the input string.
+     */
+    private static boolean doesInputMatchAnyWildcardPattern(
+            ArraySet<String> patterns, String input) {
+        for (int i = 0; i < patterns.size(); ++i) {
+            if (doesInputMatchWildcardPattern(
+                    patterns.valueAt(i), input, /*matchOnNullInput=*/ false)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Checks if a given input string matches the given pattern. The pattern can contain wildcards
+     * in the form of an asterisk. This wildcard should match 0 or more number of characters in the
+     * input string.
+     */
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
+    static boolean doesInputMatchWildcardPattern(
+            String pattern, String input, boolean matchOnNullInput) {
+        if (matchOnNullInput && (pattern != null && pattern.equals("*"))) {
+            return true;
+        }
+        if (pattern == null || input == null) {
+            return false;
+        }
+
+        /*
+         * We split the pattern by the wildcard. It is split with a non-negative limit, indicating
+         * that the pattern is applied as many times as possible e.g. if pattern = "*a*", the split
+         * would be ["","a",""].
+         */
+        // TODO(b/289197372): Optimize by splitting beforehand.
+        String[] patternSubstrings = pattern.split("\\*", -1);
+        int inputMatchStartIndex = 0;
+        for (int i = 0; i < patternSubstrings.length; ++i) {
+            if (i == 0) {
+                // Verify that the input string starts with the characters present before the first
+                // wildcard.
+                if (!input.startsWith(patternSubstrings[i])) {
+                    return false;
+                }
+                inputMatchStartIndex = patternSubstrings[i].length();
+            } else if (i == patternSubstrings.length - 1) {
+                // Verify that the input string (after the point where it's been matched so far)
+                // matches with the characters after the last wildcard.
+                if (!input.substring(inputMatchStartIndex).endsWith(patternSubstrings[i])) {
+                    return false;
+                }
+                inputMatchStartIndex = input.length();
+            } else {
+                // For patterns between the first and last wildcard, greedily check if the input
+                // (after the point where it's been matched so far) matches properly.
+                int substringIndex = input.indexOf(patternSubstrings[i], inputMatchStartIndex);
+                if (substringIndex == -1) {
+                    return false;
+                }
+                inputMatchStartIndex = substringIndex + patternSubstrings[i].length();
+            }
+        }
+
+        // Verify that the whole input has been matched.
+        return inputMatchStartIndex >= input.length();
     }
 
     private class LocalImpl implements SdkSandboxManagerLocal {
@@ -2437,6 +2691,9 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
 
         @Override
         public void enforceAllowedToStartActivity(@NonNull Intent intent) {
+            if (!mSdkSandboxSettingsListener.areRestrictionsEnforced()) {
+                return;
+            }
             if (intent.getAction() != null) {
                 if (!Intent.ACTION_VIEW.equals(intent.getAction())) {
                     throw new SecurityException(
@@ -2466,8 +2723,9 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             final long token = Binder.clearCallingIdentity();
 
             try {
-                return !mSdkSandboxSettingsListener.areContentProviderRestrictionsEnforced()
-                        || getContentProviderAllowlist().contains(providerInfo.authority);
+                return !mSdkSandboxSettingsListener.areRestrictionsEnforced()
+                        || doesInputMatchAnyWildcardPattern(
+                                getContentProviderAllowlist(), providerInfo.authority);
             } finally {
                 Binder.restoreCallingIdentity(token);
             }
@@ -2523,7 +2781,6 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         }
 
         @Override
-        // TODO(b/265647873): Add enforcement around onlyProtectedBroadcasts parameter
         public boolean canRegisterBroadcastReceiver(
                 @NonNull IntentFilter intentFilter, int flags, boolean onlyProtectedBroadcasts) {
             if (!Process.isSdkSandboxUid(Binder.getCallingUid())) {
@@ -2542,9 +2799,8 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
 
             try {
                 final boolean enforceRestrictions =
-                        mSdkSandboxSettingsListener.isBroadcastReceiverRestrictionsEnforced();
-                final boolean exported = (flags & Context.RECEIVER_NOT_EXPORTED) == 0;
-                return !enforceRestrictions || !exported;
+                        mSdkSandboxSettingsListener.areRestrictionsEnforced();
+                return !enforceRestrictions || onlyProtectedBroadcasts;
             } finally {
                 Binder.restoreCallingIdentity(token);
             }

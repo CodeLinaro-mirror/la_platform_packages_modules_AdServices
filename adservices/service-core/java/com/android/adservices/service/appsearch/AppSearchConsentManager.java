@@ -257,8 +257,8 @@ public class AppSearchConsentManager {
      * Saves information to the storage that notification was displayed for the first time to the
      * user.
      */
-    public void recordNotificationDisplayed() {
-        mAppSearchConsentWorker.recordNotificationDisplayed();
+    public void recordNotificationDisplayed(boolean wasNotificationDisplayed) {
+        mAppSearchConsentWorker.recordNotificationDisplayed(wasNotificationDisplayed);
     }
 
     /**
@@ -274,8 +274,8 @@ public class AppSearchConsentManager {
      * Saves information to the storage that GA UX notification was displayed for the first time to
      * the user.
      */
-    public void recordGaUxNotificationDisplayed() {
-        mAppSearchConsentWorker.recordGaUxNotificationDisplayed();
+    public void recordGaUxNotificationDisplayed(boolean wasNotificationDisplayed) {
+        mAppSearchConsentWorker.recordGaUxNotificationDisplayed(wasNotificationDisplayed);
     }
 
     /**
@@ -432,11 +432,11 @@ public class AppSearchConsentManager {
 
         if (wasNotificationDisplayed()) {
             datastore.put(ConsentConstants.NOTIFICATION_DISPLAYED_ONCE, true);
-            adServicesManager.recordNotificationDisplayed();
+            adServicesManager.recordNotificationDisplayed(true);
         }
         if (wasGaUxNotificationDisplayed()) {
             datastore.put(ConsentConstants.GA_UX_NOTIFICATION_DISPLAYED_ONCE, true);
-            adServicesManager.recordGaUxNotificationDisplayed();
+            adServicesManager.recordGaUxNotificationDisplayed(true);
         }
         if (!wasGaUxNotificationDisplayed() && !wasNotificationDisplayed()) {
             // This shouldn't happen since we checked that either of these notifications is

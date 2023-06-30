@@ -26,6 +26,7 @@ import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICE
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_EPOCH_COMPUTATION_GET_TOP_TOPICS_REPORTED;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_GET_TOPICS_REPORTED;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_MEASUREMENT_AD_ID_MATCH_FOR_DEBUG_KEYS;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_MEASUREMENT_DEBUG_KEYS;
 import static com.android.adservices.service.stats.AdServicesStatsLog.BACKGROUND_FETCH_PROCESS_REPORTED;
 import static com.android.adservices.service.stats.AdServicesStatsLog.RUN_AD_BIDDING_PER_CA_PROCESS_REPORTED;
@@ -309,6 +310,17 @@ public class StatsdAdServicesLogger implements AdServicesLogger, StatsdAdService
     }
 
     @Override
+    public void logMeasurementAdIdMatchForDebugKeysStats(MsmtAdIdMatchForDebugKeysStats stats) {
+        AdServicesStatsLog.write(
+                AD_SERVICES_MEASUREMENT_AD_ID_MATCH_FOR_DEBUG_KEYS,
+                stats.getAdTechEnrollmentId(),
+                stats.getAttributionType(),
+                stats.isMatched(),
+                stats.getNumUniqueAdIds(),
+                stats.getNumUniqueAdIdsLimit());
+    }
+
+    @Override
     public void logAdServicesError(AdServicesErrorStats stats) {
         AdServicesStatsLog.write(
                 AD_SERVICES_ERROR_REPORTED,
@@ -362,7 +374,7 @@ public class StatsdAdServicesLogger implements AdServicesLogger, StatsdAdService
 
     /** log method for consent migrations. */
     public void logConsentMigrationStats(ConsentMigrationStats stats) {
-        if (!mFlags.getAdservicesConsentMigrationLoggingKillSwitch()) {
+        if (mFlags.getAdservicesConsentMigrationLoggingEnabled()) {
             AdServicesStatsLog.write(
                     AD_SERVICES_CONSENT_MIGRATED,
                     stats.getMsmtConsent(),

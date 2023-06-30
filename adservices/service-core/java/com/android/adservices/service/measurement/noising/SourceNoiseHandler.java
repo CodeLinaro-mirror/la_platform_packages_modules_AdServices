@@ -122,14 +122,10 @@ public class SourceNoiseHandler {
                             .map(
                                     reportConfig ->
                                             new Source.FakeReport(
-                                                    new UnsignedLong(
-                                                            Long.valueOf(
-                                                                    flexEventReportSpec
-                                                                            .getTriggerDataValue(
-                                                                                    reportConfig[
-                                                                                            0]))),
+                                                    flexEventReportSpec.getTriggerDataValue(
+                                                            reportConfig[0]),
                                                     mEventReportWindowCalcDelegate
-                                                            .getReportingTimeForNoisingFlexEventAPI(
+                                                            .getReportingTimeForNoisingFlexEventApi(
                                                                     reportConfig[1],
                                                                     reportConfig[0],
                                                                     flexEventReportSpec),

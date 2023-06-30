@@ -22,12 +22,13 @@ import static com.android.adservices.service.measurement.PrivacyParams.INSTALL_A
 import static com.android.adservices.service.measurement.PrivacyParams.NAVIGATION_EARLY_REPORTING_WINDOW_MILLISECONDS;
 import static com.android.adservices.service.measurement.PrivacyParams.NAVIGATION_NOISE_PROBABILITY;
 import static com.android.adservices.service.measurement.SourceFixture.ValidSourceParams;
-import static com.android.adservices.service.measurement.SourceFixture.getValidSourceBuilder;
+import static com.android.adservices.service.measurement.SourceFixture.getMinimalValidSourceBuilder;
 import static com.android.adservices.service.measurement.TriggerFixture.getValidTriggerBuilder;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -47,7 +48,9 @@ import com.android.modules.utils.testing.TestableDeviceConfig;
 
 import com.google.common.collect.ImmutableList;
 
+import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -68,6 +71,8 @@ public final class EventReportTest {
     private static final long ONE_HOUR_IN_MILLIS = TimeUnit.HOURS.toMillis(1);
     private static final double DOUBLE_MAX_DELTA = 0.0000001D;
     private static final long TRIGGER_PRIORITY = 345678L;
+
+    private static final long VALUE = 1234567L;
     private static final UnsignedLong TRIGGER_DEDUP_KEY = new UnsignedLong(2345678L);
     private static final UnsignedLong TRIGGER_DATA = new UnsignedLong(4L);
     private static final UnsignedLong SOURCE_DEBUG_KEY = new UnsignedLong(237865L);
@@ -86,6 +91,9 @@ public final class EventReportTest {
                     + "\",\n"
                     + "  \"priority\": \""
                     + TRIGGER_PRIORITY
+                    + "\",\n"
+                    + "  \"value\": \""
+                    + VALUE
                     + "\",\n"
                     + "  \"deduplication_key\": \""
                     + TRIGGER_DEDUP_KEY
@@ -157,6 +165,7 @@ public final class EventReportTest {
         assertEquals(1000L, eventReport.getTriggerTime());
         assertEquals(new UnsignedLong(8L), eventReport.getTriggerData());
         assertEquals(2L, eventReport.getTriggerPriority());
+        assertEquals(100L, eventReport.getTriggerValue());
         assertEquals(new UnsignedLong(3L), eventReport.getTriggerDedupKey());
         assertEquals(2000L, eventReport.getReportTime());
         assertEquals(EventReport.Status.PENDING, eventReport.getStatus());
@@ -180,6 +189,7 @@ public final class EventReportTest {
         assertEquals(1000L, eventReport.getTriggerTime());
         assertEquals(new UnsignedLong(8L), eventReport.getTriggerData());
         assertEquals(2L, eventReport.getTriggerPriority());
+        assertEquals(100L, eventReport.getTriggerValue());
         assertEquals(new UnsignedLong(3L), eventReport.getTriggerDedupKey());
         assertEquals(2000L, eventReport.getReportTime());
         assertEquals(EventReport.Status.PENDING, eventReport.getStatus());
@@ -202,6 +212,7 @@ public final class EventReportTest {
         assertEquals(0L, eventReport.getTriggerTime());
         assertNull(eventReport.getTriggerData());
         assertEquals(0L, eventReport.getTriggerPriority());
+        assertEquals(0L, eventReport.getTriggerValue());
         assertNull(eventReport.getTriggerDedupKey());
         assertEquals(0L, eventReport.getReportTime());
         assertEquals(EventReport.Status.PENDING, eventReport.getStatus());
@@ -224,7 +235,7 @@ public final class EventReportTest {
         Trigger trigger = createTriggerForTest(
                 baseTime + TimeUnit.SECONDS.toMillis(10), APP_DESTINATION, EventSurfaceType.APP);
 
-        List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(false);
         EventReport report =
                 new EventReport.Builder()
                         .populateFromSourceAndTrigger(
@@ -234,10 +245,12 @@ public final class EventReportTest {
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
                                 mSourceNoiseHandler,
-                                source.getAttributionDestinations(trigger.getDestinationType()))
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                false)
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
+        assertEquals(0L, report.getTriggerValue());
         assertEquals(TRIGGER_DEDUP_KEY, report.getTriggerDedupKey());
         // Truncated data 4 % 2 = 0
         assertEquals(new UnsignedLong(0L), report.getTriggerData());
@@ -277,7 +290,7 @@ public final class EventReportTest {
                         APP_DESTINATION,
                         EventSurfaceType.APP);
 
-        List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(false);
         EventReport report =
                 new EventReport.Builder()
                         .populateFromSourceAndTrigger(
@@ -287,7 +300,8 @@ public final class EventReportTest {
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
                                 mSourceNoiseHandler,
-                                source.getAttributionDestinations(trigger.getDestinationType()))
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                false)
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -318,7 +332,7 @@ public final class EventReportTest {
         Trigger trigger = createTriggerForTest(
                 baseTime + TimeUnit.SECONDS.toMillis(10), APP_DESTINATION, EventSurfaceType.APP);
 
-        List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(false);
         EventTrigger eventTrigger = spy(eventTriggers.get(0));
         when(eventTrigger.getTriggerData()).thenReturn(new UnsignedLong(-50003L));
         EventReport report =
@@ -330,7 +344,8 @@ public final class EventReportTest {
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
                                 mSourceNoiseHandler,
-                                source.getAttributionDestinations(trigger.getDestinationType()))
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                false)
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -364,7 +379,7 @@ public final class EventReportTest {
         Trigger trigger = createTriggerForTest(
                 baseTime + TimeUnit.SECONDS.toMillis(10), WEB_DESTINATION, EventSurfaceType.WEB);
 
-        List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(false);
         EventReport report =
                 new EventReport.Builder()
                         .populateFromSourceAndTrigger(
@@ -374,7 +389,8 @@ public final class EventReportTest {
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
                                 mSourceNoiseHandler,
-                                source.getAttributionDestinations(trigger.getDestinationType()))
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                false)
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -402,7 +418,7 @@ public final class EventReportTest {
         Trigger trigger = createTriggerForTest(
                 baseTime + TimeUnit.SECONDS.toMillis(10), APP_DESTINATION, EventSurfaceType.APP);
 
-        List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(false);
         EventReport report =
                 new EventReport.Builder()
                         .populateFromSourceAndTrigger(
@@ -412,7 +428,8 @@ public final class EventReportTest {
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
                                 mSourceNoiseHandler,
-                                source.getAttributionDestinations(trigger.getDestinationType()))
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                false)
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -441,7 +458,7 @@ public final class EventReportTest {
         Trigger trigger = createTriggerForTest(
                 baseTime + TimeUnit.SECONDS.toMillis(10), WEB_DESTINATION, EventSurfaceType.WEB);
 
-        List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(false);
         EventReport report =
                 new EventReport.Builder()
                         .populateFromSourceAndTrigger(
@@ -451,7 +468,8 @@ public final class EventReportTest {
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
                                 mSourceNoiseHandler,
-                                source.getAttributionDestinations(trigger.getDestinationType()))
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                false)
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -478,7 +496,7 @@ public final class EventReportTest {
         Trigger trigger = createTriggerForTest(
                 baseTime + TimeUnit.SECONDS.toMillis(10), APP_DESTINATION, EventSurfaceType.APP);
 
-        List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(false);
         EventReport report =
                 new EventReport.Builder()
                         .populateFromSourceAndTrigger(
@@ -488,7 +506,8 @@ public final class EventReportTest {
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
                                 mSourceNoiseHandler,
-                                source.getAttributionDestinations(trigger.getDestinationType()))
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                false)
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -519,7 +538,7 @@ public final class EventReportTest {
         Trigger trigger = createTriggerForTest(
                 baseTime + TimeUnit.SECONDS.toMillis(10), WEB_DESTINATION, EventSurfaceType.WEB);
 
-        List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(false);
         EventReport report =
                 new EventReport.Builder()
                         .populateFromSourceAndTrigger(
@@ -529,7 +548,8 @@ public final class EventReportTest {
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
                                 mSourceNoiseHandler,
-                                source.getAttributionDestinations(trigger.getDestinationType()))
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                false)
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -560,7 +580,7 @@ public final class EventReportTest {
         Trigger trigger = createTriggerForTest(
                 baseTime + TimeUnit.SECONDS.toMillis(10), APP_DESTINATION, EventSurfaceType.APP);
 
-        List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(false);
         EventReport report =
                 new EventReport.Builder()
                         .populateFromSourceAndTrigger(
@@ -570,7 +590,8 @@ public final class EventReportTest {
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
                                 mSourceNoiseHandler,
-                                source.getAttributionDestinations(trigger.getDestinationType()))
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                false)
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -606,7 +627,7 @@ public final class EventReportTest {
         Trigger trigger = createTriggerForTest(
                 baseTime + TimeUnit.SECONDS.toMillis(10), WEB_DESTINATION, EventSurfaceType.WEB);
 
-        List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(false);
         EventReport report =
                 new EventReport.Builder()
                         .populateFromSourceAndTrigger(
@@ -616,7 +637,8 @@ public final class EventReportTest {
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
                                 mSourceNoiseHandler,
-                                source.getAttributionDestinations(trigger.getDestinationType()))
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                false)
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -645,7 +667,7 @@ public final class EventReportTest {
     public void populate_eventSourceWebAndAppDest_coarseDestination() throws JSONException {
         long baseTime = System.currentTimeMillis();
         Source source =
-                getValidSourceBuilder()
+                getMinimalValidSourceBuilder()
                         .setId(SOURCE_ID)
                         .setEventId(new UnsignedLong(10L))
                         .setSourceType(Source.SourceType.EVENT)
@@ -663,7 +685,7 @@ public final class EventReportTest {
                         WEB_DESTINATION,
                         EventSurfaceType.WEB);
 
-        List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(false);
         EventReport report =
                 new EventReport.Builder()
                         .populateFromSourceAndTrigger(
@@ -676,7 +698,8 @@ public final class EventReportTest {
                                 new ImmutableList.Builder<Uri>()
                                         .add(APP_DESTINATION)
                                         .add(WEB_DESTINATION)
-                                        .build())
+                                        .build(),
+                                false)
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -741,7 +764,7 @@ public final class EventReportTest {
             throws JSONException {
         long baseTime = System.currentTimeMillis();
         Source source =
-                getValidSourceBuilder()
+                getMinimalValidSourceBuilder()
                         .setId(SOURCE_ID)
                         .setEventId(new UnsignedLong(10L))
                         .setSourceType(Source.SourceType.EVENT)
@@ -766,7 +789,7 @@ public final class EventReportTest {
                         .setRegistrationOrigin(triggerRegistrationUrl)
                         .build();
 
-        List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(false);
         EventReport report =
                 new EventReport.Builder()
                         .populateFromSourceAndTrigger(
@@ -776,7 +799,8 @@ public final class EventReportTest {
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
                                 mSourceNoiseHandler,
-                                source.getAttributionDestinations(trigger.getDestinationType()))
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                false)
                         .build();
 
         assertEquals(triggerRegistrationUrl, report.getRegistrationOrigin());
@@ -785,13 +809,353 @@ public final class EventReportTest {
         assertEquals(TRIGGER_ID, report.getTriggerId());
     }
 
+    @Test
+    public void populateFromSourceAndTrigger_flexApiNoPrevTrigger_returnsNewPriority()
+            throws JSONException {
+        // Setup
+        Source source =
+                getMinimalValidSourceBuilder()
+                        .setFlexEventReportSpec(
+                                new ReportSpec(
+                                        SourceFixture
+                                                .getTriggerSpecValueSumEncodedJSONValidBaseline(),
+                                        "3"))
+                        .build();
+        String eventTriggers1 =
+                "[\n"
+                        + "{\n"
+                        + "  \"trigger_data\": \"1\",\n"
+                        + "  \"priority\": \"123\",\n"
+                        + "  \"filters\": [{\n"
+                        + "    \"source_type\": [\"navigation\"],\n"
+                        + "    \"key_1\": [\"value_1\"] \n"
+                        + "   }]\n"
+                        + "},\n"
+                        + "{\n"
+                        + "  \"trigger_data\": \"2\",\n"
+                        + "  \"priority\": \"124\",\n"
+                        + "  \"deduplication_key\": \"101\",\n"
+                        + "  \"filters\": [{\n"
+                        + "     \"source_type\": [\"event\"]\n"
+                        + "   }]\n"
+                        + "}\n"
+                        + "]\n";
+        Trigger trigger = getValidTriggerBuilder().setEventTriggers(eventTriggers1).build();
+
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(false);
+        EventReport report1 =
+                new EventReport.Builder()
+                        .populateFromSourceAndTrigger(
+                                source,
+                                trigger,
+                                eventTriggers.get(0),
+                                sDebugKeyPair,
+                                mEventReportWindowCalcDelegate,
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                false)
+                        .build();
+        EventReport report2 =
+                new EventReport.Builder()
+                        .populateFromSourceAndTrigger(
+                                source,
+                                trigger,
+                                eventTriggers.get(1),
+                                sDebugKeyPair,
+                                mEventReportWindowCalcDelegate,
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                false)
+                        .build();
+
+        assertEquals(123, report1.getTriggerPriority());
+        assertEquals(124, report2.getTriggerPriority());
+    }
+
+    @Test
+    public void populateFromSourceAndTrigger_flexApiWithPrevTrigger_returnsPrevHigherPriority()
+            throws JSONException {
+        // Setup
+        doReturn(true).when(mFlags).getMeasurementFlexibleEventReportingApiEnabled();
+        long baseTime = System.currentTimeMillis();
+        JSONArray existingAttributes = new JSONArray();
+        JSONObject triggerRecord1 = new JSONObject();
+        triggerRecord1.put("trigger_id", "100");
+        triggerRecord1.put("value", 2L);
+        triggerRecord1.put("priority", 126L);
+        triggerRecord1.put("trigger_time", baseTime);
+        triggerRecord1.put("trigger_data", new UnsignedLong(1L).getValue());
+        triggerRecord1.put("dedup_key", new UnsignedLong(34567L).getValue());
+
+        JSONObject triggerRecord2 = new JSONObject();
+        triggerRecord2.put("trigger_id", "200");
+        triggerRecord2.put("value", 3L);
+        triggerRecord2.put("priority", 4L);
+        triggerRecord2.put("trigger_time", baseTime + 100);
+        triggerRecord2.put("trigger_data", new UnsignedLong(2L).getValue());
+        triggerRecord2.put("dedup_key", new UnsignedLong(45678L).getValue());
+        existingAttributes.put(triggerRecord1);
+        existingAttributes.put(triggerRecord2);
+
+        ReportSpec reportSpec =
+                new ReportSpec(
+                        SourceFixture.getTriggerSpecValueSumEncodedJSONValidBaseline(),
+                        "3",
+                        existingAttributes.toString(),
+                        "{\"flip_probability\" :0.0024}");
+        Source source =
+                getMinimalValidSourceBuilder()
+                        .setTriggerSpecs(reportSpec.encodeTriggerSpecsToJSON())
+                        .setMaxBucketIncrements(Integer.toString(reportSpec.getMaxReports()))
+                        .setEventAttributionStatus(
+                                reportSpec.encodeTriggerStatusToJSON().toString())
+                        .setPrivacyParameters(reportSpec.encodePrivacyParametersToJSONString())
+                        .setEventTime(baseTime)
+                        .build();
+        String eventTriggers1 =
+                "[\n"
+                        + "{\n"
+                        + "  \"trigger_data\": \"1\",\n"
+                        + "  \"priority\": \"123\",\n"
+                        + "  \"filters\": [{\n"
+                        + "    \"source_type\": [\"navigation\"],\n"
+                        + "    \"key_1\": [\"value_1\"] \n"
+                        + "   }]\n"
+                        + "},\n"
+                        + "{\n"
+                        + "  \"trigger_data\": \"2\",\n"
+                        + "  \"priority\": \"124\",\n"
+                        + "  \"deduplication_key\": \"101\",\n"
+                        + "  \"filters\": [{\n"
+                        + "     \"source_type\": [\"event\"]\n"
+                        + "   }]\n"
+                        + "}\n"
+                        + "]\n";
+        Trigger trigger = getValidTriggerBuilder().setEventTriggers(eventTriggers1).build();
+
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(true);
+        EventReport report1 =
+                new EventReport.Builder()
+                        .populateFromSourceAndTrigger(
+                                source,
+                                trigger,
+                                eventTriggers.get(0),
+                                sDebugKeyPair,
+                                mEventReportWindowCalcDelegate,
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                true)
+                        .build();
+        EventReport report2 =
+                new EventReport.Builder()
+                        .populateFromSourceAndTrigger(
+                                source,
+                                trigger,
+                                eventTriggers.get(1),
+                                sDebugKeyPair,
+                                mEventReportWindowCalcDelegate,
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                true)
+                        .build();
+
+        assertEquals(3, source.getFlexEventReportSpec().getMaxReports());
+        assertEquals(2, source.getFlexEventReportSpec().getAttributedTriggers().size());
+        assertEquals(
+                2,
+                source.getFlexEventReportSpec().findCurrentAttributedValue(new UnsignedLong((1L))));
+        assertEquals(
+                126,
+                source.getFlexEventReportSpec()
+                        .getHighestPriorityOfAttributedAndIncomingTriggers(
+                                new UnsignedLong(1L), 100L));
+        assertEquals(126, report1.getTriggerPriority());
+        assertEquals(124, report2.getTriggerPriority());
+    }
+
+    @Test
+    public void populateFromSourceAndTrigger_flexApiValueBased_reportTimeWindow1()
+            throws JSONException {
+        // Setup
+        doReturn(true).when(mFlags).getMeasurementFlexibleEventReportingApiEnabled();
+        ReportSpec reportSpec = SourceFixture.getValidReportSpecValueSum();
+        long baseTime = System.currentTimeMillis();
+        Source source =
+                getMinimalValidSourceBuilder()
+                        .setTriggerSpecs(reportSpec.encodeTriggerSpecsToJSON())
+                        .setMaxBucketIncrements(Integer.toString(reportSpec.getMaxReports()))
+                        .setEventAttributionStatus(
+                                reportSpec.encodeTriggerStatusToJSON().toString())
+                        .setPrivacyParameters(reportSpec.encodePrivacyParametersToJSONString())
+                        .setEventTime(baseTime)
+                        .build();
+        String eventTriggers1 =
+                "[\n"
+                        + "{\n"
+                        + "  \"trigger_data\": \"1\",\n"
+                        + "  \"priority\": \"123\",\n"
+                        + "  \"filters\": [{\n"
+                        + "    \"source_type\": [\"navigation\"],\n"
+                        + "    \"key_1\": [\"value_1\"] \n"
+                        + "   }]\n"
+                        + "},\n"
+                        + "{\n"
+                        + "  \"trigger_data\": \"2\",\n"
+                        + "  \"priority\": \"124\",\n"
+                        + "  \"deduplication_key\": \"101\",\n"
+                        + "  \"filters\": [{\n"
+                        + "     \"source_type\": [\"event\"]\n"
+                        + "   }]\n"
+                        + "}\n"
+                        + "]\n";
+        Trigger trigger =
+                getValidTriggerBuilder()
+                        .setEventTriggers(eventTriggers1)
+                        .setTriggerTime(baseTime + 8000)
+                        .build();
+
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(true);
+        EventReport report1 =
+                new EventReport.Builder()
+                        .populateFromSourceAndTrigger(
+                                source,
+                                trigger,
+                                eventTriggers.get(0),
+                                sDebugKeyPair,
+                                mEventReportWindowCalcDelegate,
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                true)
+                        .build();
+
+        assertEquals(
+                TimeUnit.DAYS.toMillis(2) + ONE_HOUR_IN_MILLIS, report1.getReportTime() - baseTime);
+    }
+
+    @Test
+    public void populateFromSourceAndTrigger_flexApiValueBased_reportTimeWindow2()
+            throws JSONException {
+        // Setup
+        doReturn(true).when(mFlags).getMeasurementFlexibleEventReportingApiEnabled();
+        ReportSpec reportSpec = SourceFixture.getValidReportSpecValueSum();
+        long baseTime = System.currentTimeMillis();
+        Source source =
+                getMinimalValidSourceBuilder()
+                        .setTriggerSpecs(reportSpec.encodeTriggerSpecsToJSON())
+                        .setMaxBucketIncrements(Integer.toString(reportSpec.getMaxReports()))
+                        .setEventAttributionStatus(
+                                reportSpec.encodeTriggerStatusToJSON().toString())
+                        .setPrivacyParameters(reportSpec.encodePrivacyParametersToJSONString())
+                        .setEventTime(baseTime)
+                        .build();
+        String eventTriggers1 =
+                "[\n"
+                        + "{\n"
+                        + "  \"trigger_data\": \"1\",\n"
+                        + "  \"priority\": \"123\",\n"
+                        + "  \"filters\": [{\n"
+                        + "    \"source_type\": [\"navigation\"],\n"
+                        + "    \"key_1\": [\"value_1\"] \n"
+                        + "   }]\n"
+                        + "},\n"
+                        + "{\n"
+                        + "  \"trigger_data\": \"2\",\n"
+                        + "  \"priority\": \"124\",\n"
+                        + "  \"deduplication_key\": \"101\",\n"
+                        + "  \"filters\": [{\n"
+                        + "     \"source_type\": [\"event\"]\n"
+                        + "   }]\n"
+                        + "}\n"
+                        + "]\n";
+        Trigger trigger =
+                getValidTriggerBuilder()
+                        .setEventTriggers(eventTriggers1)
+                        .setTriggerTime(baseTime + 18000000)
+                        .build();
+
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(true);
+        EventReport report1 =
+                new EventReport.Builder()
+                        .populateFromSourceAndTrigger(
+                                source,
+                                trigger,
+                                eventTriggers.get(0),
+                                sDebugKeyPair,
+                                mEventReportWindowCalcDelegate,
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()),
+                                true)
+                        .build();
+
+        assertEquals(
+                TimeUnit.DAYS.toMillis(2) + ONE_HOUR_IN_MILLIS, report1.getReportTime() - baseTime);
+    }
+
+    @Test
+    public void populateFromSourceAndTrigger_flexApiInvalidMaxBucket_throws() throws JSONException {
+        // Setup
+        doReturn(true).when(mFlags).getMeasurementFlexibleEventReportingApiEnabled();
+        ReportSpec reportSpec = SourceFixture.getValidReportSpecValueSum();
+        long baseTime = System.currentTimeMillis();
+        Source source =
+                getMinimalValidSourceBuilder()
+                        .setTriggerSpecs(reportSpec.encodeTriggerSpecsToJSON())
+                        .setMaxBucketIncrements("a")
+                        .setEventAttributionStatus(
+                                reportSpec.encodeTriggerStatusToJSON().toString())
+                        .setPrivacyParameters(reportSpec.encodePrivacyParametersToJSONString())
+                        .setEventTime(baseTime)
+                        .build();
+        String eventTriggers1 =
+                "[\n"
+                        + "{\n"
+                        + "  \"trigger_data\": \"1\",\n"
+                        + "  \"priority\": \"123\",\n"
+                        + "  \"filters\": [{\n"
+                        + "    \"source_type\": [\"navigation\"],\n"
+                        + "    \"key_1\": [\"value_1\"] \n"
+                        + "   }]\n"
+                        + "},\n"
+                        + "{\n"
+                        + "  \"trigger_data\": \"2\",\n"
+                        + "  \"priority\": \"124\",\n"
+                        + "  \"deduplication_key\": \"101\",\n"
+                        + "  \"filters\": [{\n"
+                        + "     \"source_type\": [\"event\"]\n"
+                        + "   }]\n"
+                        + "}\n"
+                        + "]\n";
+        Trigger trigger =
+                getValidTriggerBuilder()
+                        .setEventTriggers(eventTriggers1)
+                        .setTriggerTime(baseTime + 18000)
+                        .build();
+
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers(true);
+        assertThrows(
+                NumberFormatException.class,
+                () ->
+                        new EventReport.Builder()
+                                .populateFromSourceAndTrigger(
+                                        source,
+                                        trigger,
+                                        eventTriggers.get(0),
+                                        sDebugKeyPair,
+                                        mEventReportWindowCalcDelegate,
+                                        mSourceNoiseHandler,
+                                        source.getAttributionDestinations(
+                                                trigger.getDestinationType()),
+                                        true)
+                                .build());
+    }
+
     private Source createSourceForTest(
             long eventTime,
             Source.SourceType sourceType,
             boolean isInstallAttributable,
             Uri appDestination,
             Uri webDestination) {
-        return getValidSourceBuilder()
+        return getMinimalValidSourceBuilder()
                 .setId(SOURCE_ID)
                 .setEventId(new UnsignedLong(10L))
                 .setSourceType(sourceType)
@@ -825,6 +1189,7 @@ public final class EventReportTest {
                 .setTriggerTime(1000L)
                 .setTriggerData(new UnsignedLong(8L))
                 .setTriggerPriority(2L)
+                .setTriggerValue(100L)
                 .setTriggerDedupKey(new UnsignedLong(3L))
                 .setReportTime(2000L)
                 .setStatus(EventReport.Status.PENDING)
@@ -847,6 +1212,7 @@ public final class EventReportTest {
                 .setTriggerTime(1000L)
                 .setTriggerData(new UnsignedLong(8L))
                 .setTriggerPriority(2L)
+                .setTriggerValue(100L)
                 .setTriggerDedupKey(new UnsignedLong(3L))
                 .setReportTime(2000L)
                 .setStatus(EventReport.Status.PENDING)
@@ -868,6 +1234,7 @@ public final class EventReportTest {
                 .setTriggerTime(1000L)
                 .setTriggerData(new UnsignedLong(8L))
                 .setTriggerPriority(2L)
+                .setTriggerValue(100L)
                 .setTriggerDedupKey(new UnsignedLong(3L))
                 .setReportTime(2000L)
                 .setStatus(EventReport.Status.PENDING)
@@ -904,7 +1271,7 @@ public final class EventReportTest {
             boolean arDebugPermission,
             Uri registrant,
             String debugJoinKey) {
-        return getValidSourceBuilder()
+        return getMinimalValidSourceBuilder()
                 .setId(SOURCE_ID)
                 .setArDebugPermission(arDebugPermission)
                 .setAdIdPermission(adIdPermission)
@@ -922,7 +1289,7 @@ public final class EventReportTest {
             Uri registrant,
             String platformAdId,
             String debugAdId) {
-        return getValidSourceBuilder()
+        return getMinimalValidSourceBuilder()
                 .setId(SOURCE_ID)
                 .setArDebugPermission(arDebugPermission)
                 .setAdIdPermission(adIdPermission)

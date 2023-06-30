@@ -35,7 +35,9 @@ import static com.android.adservices.service.Flags.CLASSIFIER_FORCE_USE_BUNDLED_
 import static com.android.adservices.service.Flags.CLASSIFIER_NUMBER_OF_TOP_LABELS;
 import static com.android.adservices.service.Flags.CLASSIFIER_THRESHOLD;
 import static com.android.adservices.service.Flags.COMPAT_LOGGING_KILL_SWITCH;
-import static com.android.adservices.service.Flags.DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH;
+import static com.android.adservices.service.Flags.CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE;
+import static com.android.adservices.service.Flags.CONSENT_NOTIFICATION_RESET_TOKEN;
+import static com.android.adservices.service.Flags.DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED;
 import static com.android.adservices.service.Flags.DEFAULT_BLOCKED_TOPICS_SOURCE_OF_TRUTH;
 import static com.android.adservices.service.Flags.DEFAULT_CLASSIFIER_TYPE;
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_DEBUG_JOIN_KEY_ENROLLMENT_ALLOWLIST;
@@ -65,6 +67,8 @@ import static com.android.adservices.service.Flags.FLEDGE_AD_COUNTER_HISTOGRAM_A
 import static com.android.adservices.service.Flags.FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT;
 import static com.android.adservices.service.Flags.FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_PER_BUYER_EVENT_COUNT;
 import static com.android.adservices.service.Flags.FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT;
+import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_AD_RENDER_ID_ENABLED;
+import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_AD_RENDER_ID_MAX_LENGTH;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_BIDDING_LOGIC_JS_VERSION;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_BUYER_MS;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_CA_MS;
@@ -80,7 +84,19 @@ import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_OVERALL_T
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_PREBUILT_URI_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_SCORING_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_SELECTING_OUTCOME_TIMEOUT_MS;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_TIMEOUT_MS;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_AUCTION_KEY_FETCH_ENABLED;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_JOIN_KEY_FETCH_ENABLED;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_ENABLED;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_FLEX_MS;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_PERIOD_MS;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RESPONSE_SIZE_B;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_CONNECT_TIMEOUT_MS;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_READ_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_ENABLE_DEBUG_REPORTING;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_KILL_SWITCH;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION;
 import static com.android.adservices.service.Flags.FLEDGE_BACKGROUND_FETCH_ELIGIBLE_UPDATE_BASE_INTERVAL_S;
 import static com.android.adservices.service.Flags.FLEDGE_BACKGROUND_FETCH_ENABLED;
@@ -92,6 +108,7 @@ import static com.android.adservices.service.Flags.FLEDGE_BACKGROUND_FETCH_MAX_R
 import static com.android.adservices.service.Flags.FLEDGE_BACKGROUND_FETCH_NETWORK_CONNECT_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_BACKGROUND_FETCH_NETWORK_READ_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_BACKGROUND_FETCH_THREAD_POOL_SIZE;
+import static com.android.adservices.service.Flags.FLEDGE_CPC_BILLING_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_CUSTOM_AUDIENCE_DEFAULT_EXPIRE_IN_MS;
 import static com.android.adservices.service.Flags.FLEDGE_CUSTOM_AUDIENCE_MAX_ACTIVATION_DELAY_IN_MS;
 import static com.android.adservices.service.Flags.FLEDGE_CUSTOM_AUDIENCE_MAX_ADS_SIZE_B;
@@ -110,6 +127,9 @@ import static com.android.adservices.service.Flags.FLEDGE_EVENT_LEVEL_DEBUG_REPO
 import static com.android.adservices.service.Flags.FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH;
 import static com.android.adservices.service.Flags.FLEDGE_FETCH_CUSTOM_AUDIENCE_ENABLED;
+import static com.android.adservices.service.Flags.FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_CUSTOM_AUDIENCE_SIZE_B;
+import static com.android.adservices.service.Flags.FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_REQUEST_CUSTOM_HEADER_SIZE_B;
+import static com.android.adservices.service.Flags.FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_USER_BIDDING_SIGNALS_SIZE_B;
 import static com.android.adservices.service.Flags.FLEDGE_HTTP_CACHE_DEFAULT_MAX_AGE_SECONDS;
 import static com.android.adservices.service.Flags.FLEDGE_HTTP_CACHE_ENABLE;
 import static com.android.adservices.service.Flags.FLEDGE_HTTP_CACHE_ENABLE_JS_CACHING;
@@ -222,7 +242,7 @@ import static com.android.adservices.service.Flags.UI_DIALOG_FRAGMENT;
 import static com.android.adservices.service.Flags.UI_EEA_COUNTRIES;
 import static com.android.adservices.service.Flags.UI_FEATURE_TYPE_LOGGING_ENABLED;
 import static com.android.adservices.service.Flags.UI_OTA_STRINGS_MANIFEST_FILE_URL;
-import static com.android.adservices.service.PhFlags.ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH;
+import static com.android.adservices.service.PhFlags.ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED;
 import static com.android.adservices.service.PhFlags.DEFAULT_ENABLE_AD_SERVICES_SYSTEM_API;
 import static com.android.adservices.service.PhFlags.DEFAULT_EU_NOTIF_FLOW_CHANGE_ENABLED;
 import static com.android.adservices.service.PhFlags.DEFAULT_U18_UX_ENABLED;
@@ -246,6 +266,8 @@ import static com.android.adservices.service.PhFlags.KEY_CLASSIFIER_NUMBER_OF_TO
 import static com.android.adservices.service.PhFlags.KEY_CLASSIFIER_THRESHOLD;
 import static com.android.adservices.service.PhFlags.KEY_CLASSIFIER_TYPE;
 import static com.android.adservices.service.PhFlags.KEY_COMPAT_LOGGING_KILL_SWITCH;
+import static com.android.adservices.service.PhFlags.KEY_CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE;
+import static com.android.adservices.service.PhFlags.KEY_CONSENT_NOTIFICATION_RESET_TOKEN;
 import static com.android.adservices.service.PhFlags.KEY_CONSENT_SOURCE_OF_TRUTH;
 import static com.android.adservices.service.PhFlags.KEY_DISABLE_FLEDGE_ENROLLMENT_CHECK;
 import static com.android.adservices.service.PhFlags.KEY_DISABLE_MEASUREMENT_ENROLLMENT_CHECK;
@@ -266,6 +288,8 @@ import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_COUNTER_HISTO
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_PER_BUYER_EVENT_COUNT;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_AD_RENDER_ID_ENABLED;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_AD_RENDER_ID_MAX_LENGTH;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_BIDDING_LOGIC_JS_VERSION;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_BUYER_MS;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_CA_MS;
@@ -280,7 +304,17 @@ import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_OVE
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_PREBUILT_URI_ENABLED;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_SCORING_TIMEOUT_MS;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_SELECTING_OUTCOME_TIMEOUT_MS;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_TIMEOUT_MS;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_AUCTION_KEY_FETCH_ENABLED;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_JOIN_KEY_FETCH_ENABLED;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_ENABLED;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_FLEX_MS;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_PERIOD_MS;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RESPONSE_SIZE_B;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_ENABLE_DEBUG_REPORTING;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_KILL_SWITCH;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_BACKGROUND_FETCH_ELIGIBLE_UPDATE_BASE_INTERVAL_S;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_BACKGROUND_FETCH_ENABLED;
@@ -307,6 +341,9 @@ import static com.android.adservices.service.PhFlags.KEY_FLEDGE_CUSTOM_AUDIENCE_
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_CUSTOM_AUDIENCE_PER_APP_MAX_COUNT;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_CUSTOM_AUDIENCE_SERVICE_KILL_SWITCH;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_ENABLED;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_CUSTOM_AUDIENCE_SIZE_B;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_REQUEST_CUSTOM_HEADER_SIZE_B;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_USER_BIDDING_SIGNALS_SIZE_B;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_HTTP_CACHE_DEFAULT_MAX_AGE_SECONDS;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_HTTP_CACHE_ENABLE;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_HTTP_CACHE_ENABLE_JS_CACHING;
@@ -454,6 +491,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /** Unit tests for {@link com.android.adservices.service.PhFlags} */
@@ -1028,6 +1066,38 @@ public class PhFlagsTest {
 
         Flags phFlags = FlagsFactory.getFlags();
         assertThat(phFlags.getFledgeAdSelectionBiddingLogicJsVersion()).isEqualTo(phOverrideValue);
+    }
+
+    @Test
+    public void testGetFledgeEnrollmentIdEnabled() {
+        boolean defaultValue = FlagsFactory.getFlags().getFledgeAdSelectionAdRenderIdEnabled();
+        assertThat(defaultValue).isEqualTo(FLEDGE_AD_SELECTION_AD_RENDER_ID_ENABLED);
+
+        boolean overrideValue = !defaultValue;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AD_SELECTION_AD_RENDER_ID_ENABLED,
+                Boolean.toString(overrideValue),
+                false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeAdSelectionAdRenderIdEnabled()).isEqualTo(overrideValue);
+    }
+
+    @Test
+    public void testGetFledgeEnrollmentIdMaxLength() {
+        long defaultValue = FlagsFactory.getFlags().getFledgeAdSelectionAdRenderIdMaxLength();
+        assertThat(defaultValue).isEqualTo(FLEDGE_AD_SELECTION_AD_RENDER_ID_MAX_LENGTH);
+
+        long overrideValue = defaultValue + 100;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AD_SELECTION_AD_RENDER_ID_MAX_LENGTH,
+                Long.toString(overrideValue),
+                false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeAdSelectionAdRenderIdMaxLength()).isEqualTo(overrideValue);
     }
 
     @Test
@@ -1913,6 +1983,65 @@ public class PhFlagsTest {
     }
 
     @Test
+    public void testGetFetchCustomAudienceMaxUserBiddingSignalsSizeB() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getFledgeFetchCustomAudienceMaxUserBiddingSignalsSizeB())
+                .isEqualTo(FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_USER_BIDDING_SIGNALS_SIZE_B);
+
+        final int phOverridingValue = 123;
+
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_USER_BIDDING_SIGNALS_SIZE_B,
+                Integer.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeFetchCustomAudienceMaxUserBiddingSignalsSizeB())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testGetFetchCustomAudienceMaxRequestCustomHeaderSizeB() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(
+                        FlagsFactory.getFlags()
+                                .getFledgeFetchCustomAudienceMaxRequestCustomHeaderSizeB())
+                .isEqualTo(FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_REQUEST_CUSTOM_HEADER_SIZE_B);
+
+        final int phOverridingValue = 312;
+
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_REQUEST_CUSTOM_HEADER_SIZE_B,
+                Integer.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeFetchCustomAudienceMaxRequestCustomHeaderSizeB())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testGetFetchCustomAudienceMaxCustomAudienceSizeB() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getFledgeFetchCustomAudienceMaxCustomAudienceSizeB())
+                .isEqualTo(FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_CUSTOM_AUDIENCE_SIZE_B);
+
+        final int phOverridingValue = 213;
+
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_CUSTOM_AUDIENCE_SIZE_B,
+                Integer.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeFetchCustomAudienceMaxCustomAudienceSizeB())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
     public void testGetFledgeHttpCachingEnabled() {
         // Without any overriding, the value is the hard coded constant.
         assertThat(FlagsFactory.getFlags().getFledgeHttpCachingEnabled())
@@ -2260,6 +2389,20 @@ public class PhFlagsTest {
 
         Flags phFlags = FlagsFactory.getFlags();
         assertThat(phFlags.getFledgeRegisterAdBeaconEnabled()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testGetFledgeCpcBillingEnabled() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getFledgeCpcBillingEnabled())
+                .isEqualTo(FLEDGE_CPC_BILLING_ENABLED);
+
+        final boolean phOverridingValue = !FLEDGE_CPC_BILLING_ENABLED;
+
+        PhFlagsFixture.overrideFledgeCpcBillingEnabled(phOverridingValue);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeCpcBillingEnabled()).isEqualTo(phOverridingValue);
     }
 
     @Test
@@ -4365,6 +4508,27 @@ public class PhFlagsTest {
     }
 
     @Test
+    public void testGetFledgeAuctionServerKillSwitch() {
+        // Disable global_kill_switch so that this flag can be tested.
+        disableGlobalKillSwitch();
+
+        // without any overrides the Auction Server kill switch should be off
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerKillSwitch())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_KILL_SWITCH);
+
+        // Now overriding with the value from PH.
+        final boolean phOverridingValue = true;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_KILL_SWITCH,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeAuctionServerKillSwitch()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
     public void testGetFledgeGlobalKillSwitchOverridesOtherFledgeKillSwitches() {
         // Disable global_kill_switch so that this flag can be tested.
         disableGlobalKillSwitch();
@@ -4374,6 +4538,8 @@ public class PhFlagsTest {
                 .isEqualTo(FLEDGE_SELECT_ADS_KILL_SWITCH);
         assertThat(FlagsFactory.getFlags().getFledgeCustomAudienceServiceKillSwitch())
                 .isEqualTo(FLEDGE_CUSTOM_AUDIENCE_SERVICE_KILL_SWITCH);
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerKillSwitch())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_KILL_SWITCH);
 
         // Now overriding with the value from PH.
         final boolean phOverridingValue = true;
@@ -4386,6 +4552,7 @@ public class PhFlagsTest {
         Flags phFlags = FlagsFactory.getFlags();
         assertThat(phFlags.getFledgeSelectAdsKillSwitch()).isEqualTo(phOverridingValue);
         assertThat(phFlags.getFledgeCustomAudienceServiceKillSwitch()).isEqualTo(phOverridingValue);
+        assertThat(phFlags.getFledgeAuctionServerKillSwitch()).isEqualTo(phOverridingValue);
     }
 
     @Test
@@ -5071,6 +5238,23 @@ public class PhFlagsTest {
     }
 
     @Test
+    public void testFledgeAuctionServerEnableDebugReporting() {
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerEnableDebugReporting())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_ENABLE_DEBUG_REPORTING);
+
+        final boolean phOverridingValue = !FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_ENABLED;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_ENABLE_DEBUG_REPORTING,
+                String.valueOf(phOverridingValue),
+                false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeAuctionServerEnableDebugReporting())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
     public void testEnrollmentBlocklist_singleEnrollment() {
         Flags phFlags = FlagsFactory.getFlags();
 
@@ -5507,7 +5691,7 @@ public class PhFlagsTest {
     @Test
     public void testGetFlexibleEventReportingAPIEnabled() {
         // Without any overriding, the value is the hard coded constant.
-        assertThat(FlagsFactory.getFlags().getMeasurementFlexibleEventReportingAPIEnabled())
+        assertThat(FlagsFactory.getFlags().getMeasurementFlexibleEventReportingApiEnabled())
                 .isEqualTo(MEASUREMENT_FLEXIBLE_EVENT_REPORTING_API_ENABLED);
 
         final boolean phOverridingValue = false;
@@ -5518,7 +5702,7 @@ public class PhFlagsTest {
                 /* makeDefault */ true);
 
         Flags phFlags = FlagsFactory.getFlags();
-        assertThat(phFlags.getMeasurementFlexibleEventReportingAPIEnabled()).isFalse();
+        assertThat(phFlags.getMeasurementFlexibleEventReportingApiEnabled()).isFalse();
     }
 
     @Test
@@ -5701,38 +5885,254 @@ public class PhFlagsTest {
     }
 
     @Test
-    public void testGetAdServicesConsentMigrationEnabled() {
+    public void testGetAdServicesConsentMigrationDisabled() {
         // Without any overriding, the value is the hard coded constant.
-        assertThat(FlagsFactory.getFlags().getAdservicesConsentMigrationLoggingKillSwitch())
-                .isEqualTo(DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH);
+        assertThat(FlagsFactory.getFlags().getAdservicesConsentMigrationLoggingEnabled())
+                .isEqualTo(DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED);
 
         final boolean phOverridingValue = false;
 
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
-                ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH,
+                ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED,
                 Boolean.toString(phOverridingValue),
                 /* makeDefault */ false);
 
         Flags phFlags = FlagsFactory.getFlags();
-        assertThat(phFlags.getAdservicesConsentMigrationLoggingKillSwitch()).isFalse();
+        assertThat(phFlags.getAdservicesConsentMigrationLoggingEnabled()).isFalse();
     }
 
     @Test
-    public void testGetAdServicesConsentMigrationDisabled() {
+    public void testGetAdServicesConsentMigrationEnabled() {
         // Without any overriding, the value is the hard coded constant.
-        assertThat(FlagsFactory.getFlags().getAdservicesConsentMigrationLoggingKillSwitch())
-                .isEqualTo(DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH);
+        assertThat(FlagsFactory.getFlags().getAdservicesConsentMigrationLoggingEnabled())
+                .isEqualTo(DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED);
 
         final boolean phOverridingValue = true;
 
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
-                ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH,
+                ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED,
                 Boolean.toString(phOverridingValue),
                 /* makeDefault */ true);
 
         Flags phFlags = FlagsFactory.getFlags();
-        assertThat(phFlags.getAdservicesConsentMigrationLoggingKillSwitch()).isTrue();
+        assertThat(phFlags.getAdservicesConsentMigrationLoggingEnabled()).isTrue();
+    }
+
+    @Test
+    public void testEnableFledgeAuctionServerKeyFetch() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerBackgroundKeyFetchJobEnabled())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_ENABLED);
+
+        boolean phOverridingValue = !FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_ENABLED;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_ENABLED,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ true);
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeAuctionServerBackgroundKeyFetchJobEnabled())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testEnableFledgeAuctionServerAuctionKeyFetch() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerBackgroundAuctionKeyFetchEnabled())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_BACKGROUND_AUCTION_KEY_FETCH_ENABLED);
+
+        boolean phOverridingValue = !FLEDGE_AUCTION_SERVER_BACKGROUND_AUCTION_KEY_FETCH_ENABLED;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_AUCTION_KEY_FETCH_ENABLED,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ true);
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeAuctionServerBackgroundAuctionKeyFetchEnabled())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testEnableFledgeAuctionServerJoinKeyFetch() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerBackgroundAuctionKeyFetchEnabled())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_BACKGROUND_JOIN_KEY_FETCH_ENABLED);
+
+        boolean phOverridingValue = !FLEDGE_AUCTION_SERVER_BACKGROUND_JOIN_KEY_FETCH_ENABLED;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_JOIN_KEY_FETCH_ENABLED,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ true);
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeAuctionServerBackgroundJoinKeyFetchEnabled())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testFledgeAuctionServerKeyFetchNetworkConnectTimeoutMs() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getFledgeBackgroundFetchNetworkConnectTimeoutMs())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_CONNECT_TIMEOUT_MS);
+
+        long phOverridingValue = FLEDGE_BACKGROUND_FETCH_NETWORK_CONNECT_TIMEOUT_MS + 1000;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_BACKGROUND_FETCH_NETWORK_CONNECT_TIMEOUT_MS,
+                Long.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeBackgroundFetchNetworkConnectTimeoutMs())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testFledgeAuctionServerKeyFetchNetworkReadTimeoutMs() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getFledgeBackgroundFetchNetworkReadTimeoutMs())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_READ_TIMEOUT_MS);
+
+        long phOverridingValue = FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_READ_TIMEOUT_MS
+                + 1000;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_BACKGROUND_FETCH_NETWORK_READ_TIMEOUT_MS,
+                Long.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeBackgroundFetchNetworkReadTimeoutMs())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testFledgeAuctionServerKeyFetchMaxResponseSize() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags()
+                .getFledgeAuctionServerBackgroundKeyFetchMaxResponseSizeB())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RESPONSE_SIZE_B);
+
+        long phOverridingValue = FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RESPONSE_SIZE_B
+                + 1000;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RESPONSE_SIZE_B,
+                Long.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeAuctionServerBackgroundKeyFetchMaxResponseSizeB())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testFledgeAuctionServerKeyFetchMaxRuntimeMs() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags()
+                .getFledgeAuctionServerBackgroundKeyFetchJobMaxRuntimeMs())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS);
+
+        long phOverridingValue = FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS
+                + 1000;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS,
+                Long.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeAuctionServerBackgroundKeyFetchJobMaxRuntimeMs())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testFledgeAuctionServerKeyFetchJobPeriodMs() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerBackgroundKeyFetchJobPeriodMs())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_PERIOD_MS);
+
+        long phOverridingValue = 1000;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_PERIOD_MS,
+                Long.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeAuctionServerBackgroundKeyFetchJobPeriodMs())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testFledgeAuctionServerKeyFetchJobFlexMs() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerBackgroundKeyFetchJobFlexMs())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_FLEX_MS);
+
+        long phOverridingValue = 1000;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_FLEX_MS,
+                Long.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeAuctionServerBackgroundKeyFetchJobFlexMs())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testFledgeAuctionServerAuctionKeyFetchTimeoutMs() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerAuctionKeyFetchTimeoutMs())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_TIMEOUT_MS);
+
+        long phOverridingValue = FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_TIMEOUT_MS + 1000;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_TIMEOUT_MS,
+                Long.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getFledgeAuctionServerAuctionKeyFetchTimeoutMs())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testConsentNotificationActivityDebugMode() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getConsentNotificationActivityDebugMode())
+                .isEqualTo(CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE);
+
+        boolean phOverridingValue = !CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ !CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getConsentNotificationActivityDebugMode()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testConsentNotificationResetToken() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getConsentNotificationResetToken())
+                .isEqualTo(CONSENT_NOTIFICATION_RESET_TOKEN);
+
+        String phOverridingValue = UUID.randomUUID().toString();
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_CONSENT_NOTIFICATION_RESET_TOKEN,
+                phOverridingValue,
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getConsentNotificationResetToken()).isEqualTo(phOverridingValue);
     }
 }

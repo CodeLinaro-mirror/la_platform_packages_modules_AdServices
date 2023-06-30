@@ -398,7 +398,7 @@ public class ImpressionReporter {
             sellerFuture =
                     mAdServicesHttpsClient.getAndReadNothing(reportingUris.sellerReportingUri);
         } catch (IllegalArgumentException e) {
-            sLogger.v("Seller reporting URI validation failed!");
+            sLogger.d(e, "Seller reporting URI validation failed!");
             sellerFuture = Futures.immediateFuture(null);
         }
 
@@ -427,7 +427,7 @@ public class ImpressionReporter {
                         mAdServicesHttpsClient.getAndReadNothing(reportingUris.buyerReportingUri);
             } catch (IllegalArgumentException
                     | FledgeAuthorizationFilter.AdTechNotAllowedException e) {
-                sLogger.v("Buyer reporting URI validation failed!");
+                sLogger.d(e, "Buyer reporting URI validation failed!");
                 buyerFuture = Futures.immediateFuture(null);
             }
         } else {
@@ -547,14 +547,21 @@ public class ImpressionReporter {
             invokeSellerScript(String decisionLogicJs, ReportingContext ctx) {
         sLogger.v("Invoking seller script");
         try {
+            String sellerContextualSignals;
+
+            if (Objects.isNull(ctx.mDBAdSelectionEntry.getSellerContextualSignals())) {
+                sellerContextualSignals = "{}";
+            } else {
+                sellerContextualSignals = ctx.mDBAdSelectionEntry.getSellerContextualSignals();
+            }
+
             return FluentFuture.from(
                             mJsEngine.reportResult(
                                     decisionLogicJs,
                                     ctx.mAdSelectionConfig,
                                     ctx.mDBAdSelectionEntry.getWinningAdRenderUri(),
                                     ctx.mDBAdSelectionEntry.getWinningAdBid(),
-                                    AdSelectionSignals.fromString(
-                                            ctx.mDBAdSelectionEntry.getBuyerContextualSignals())))
+                                    AdSelectionSignals.fromString(sellerContextualSignals)))
                     .transform(
                             sellerResult -> Pair.create(sellerResult, ctx),
                             mLightweightExecutorService);
@@ -606,7 +613,6 @@ public class ImpressionReporter {
                             + ctx.mDBAdSelectionEntry.getBiddingLogicUri());
         }
     }
-
 
     /**
      * Validates the {@code adSelectionConfig} from the request.

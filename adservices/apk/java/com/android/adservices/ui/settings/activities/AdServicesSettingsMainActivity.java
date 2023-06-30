@@ -85,25 +85,27 @@ public class AdServicesSettingsMainActivity extends AdServicesBaseActivity {
     protected void onResume() {
         super.onResume();
         if (FlagsFactory.getFlags().getU18UxEnabled()) {
-            initWithUx(true);
+            initWithUx(this);
         }
     }
 
     @Override
     public void initBeta() {
-        initMainActivity();
+        initMainActivity(R.layout.main_activity);
     }
 
     @Override
     public void initGA() {
-        initMainActivity();
+        initMainActivity(R.layout.main_activity);
     }
 
     @Override
-    public void initU18() {}
+    public void initU18() {
+        initMainActivity(R.layout.main_u18_activity);
+    }
 
-    private void initMainActivity() {
-        setContentView(R.layout.main_activity);
+    private void initMainActivity(int layoutResID) {
+        setContentView(layoutResID);
         // no need to store since not using
         new MainActivityActionDelegate(this, new ViewModelProvider(this).get(MainViewModel.class));
     }

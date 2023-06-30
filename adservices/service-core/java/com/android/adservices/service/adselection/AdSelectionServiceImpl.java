@@ -76,6 +76,10 @@ import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.customaudience.CustomAudienceDatabase;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
+import com.android.adservices.service.adselection.encryption.AdSelectionEncryptionKeyManager;
+import com.android.adservices.service.adselection.encryption.ObliviousHttpEncryptor;
+import com.android.adservices.service.adselection.encryption.ObliviousHttpEncryptorImpl;
+import com.android.adservices.service.common.AdRenderIdValidator;
 import com.android.adservices.service.common.AdSelectionServiceFilter;
 import com.android.adservices.service.common.AppImportanceFilter;
 import com.android.adservices.service.common.BinderFlagReader;
@@ -111,6 +115,10 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 // TODO(b/269798827): Enable for R.
 @RequiresApi(Build.VERSION_CODES.S)
 public class AdSelectionServiceImpl extends AdSelectionService.Stub {
+    @VisibleForTesting
+    static final String AUCTION_SERVER_API_IS_NOT_AVAILABLE =
+            "Auction Server API is not available!";
+
     private static final LoggerFactory.Logger sLogger = LoggerFactory.getFledgeLogger();
     @NonNull private final AdSelectionEntryDao mAdSelectionEntryDao;
     @NonNull private final AppInstallDao mAppInstallDao;
@@ -132,6 +140,8 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
     @NonNull private final AdSelectionServiceFilter mAdSelectionServiceFilter;
     @NonNull private final AdFilteringFeatureFactory mAdFilteringFeatureFactory;
     @NonNull private final ConsentManager mConsentManager;
+    @NonNull private final AdRenderIdValidator mAdRenderIdValidator;
+    @NonNull private final ObliviousHttpEncryptor mObliviousHttpEncryptor;
 
     private static final String API_NOT_AUTHORIZED_MSG =
             "This API is not enabled for the given app because either dev options are disabled or"
@@ -158,7 +168,8 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
             @NonNull FledgeAuthorizationFilter fledgeAuthorizationFilter,
             @NonNull AdSelectionServiceFilter adSelectionServiceFilter,
             @NonNull AdFilteringFeatureFactory adFilteringFeatureFactory,
-            @NonNull ConsentManager consentManager) {
+            @NonNull ConsentManager consentManager,
+            @NonNull ObliviousHttpEncryptor obliviousHttpEncryptor) {
         Objects.requireNonNull(context, "Context must be provided.");
         Objects.requireNonNull(adSelectionEntryDao);
         Objects.requireNonNull(appInstallDao);
@@ -176,6 +187,7 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
         Objects.requireNonNull(flags);
         Objects.requireNonNull(adFilteringFeatureFactory);
         Objects.requireNonNull(consentManager);
+        Objects.requireNonNull(obliviousHttpEncryptor);
 
         mAdSelectionEntryDao = adSelectionEntryDao;
         mAppInstallDao = appInstallDao;
@@ -197,6 +209,9 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
         mAdSelectionServiceFilter = adSelectionServiceFilter;
         mAdFilteringFeatureFactory = adFilteringFeatureFactory;
         mConsentManager = consentManager;
+        // No support for renderId on device
+        mAdRenderIdValidator = AdRenderIdValidator.AD_RENDER_ID_VALIDATOR_NO_OP;
+        mObliviousHttpEncryptor = obliviousHttpEncryptor;
     }
 
     /** Creates a new instance of {@link AdSelectionServiceImpl}. */
@@ -245,22 +260,101 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
                         SharedStorageDatabase.getInstance(context).appInstallDao(),
                         SharedStorageDatabase.getInstance(context).frequencyCapDao(),
                         FlagsFactory.getFlags()),
-                ConsentManager.getInstance(context));
+                ConsentManager.getInstance(context),
+                new ObliviousHttpEncryptorImpl(
+                        new AdSelectionEncryptionKeyManager(
+                                AdSelectionServerDatabase.getInstance(context).encryptionKeyDao(),
+                                FlagsFactory.getFlags(),
+                                new AdServicesHttpsClient(
+                                        AdServicesExecutors.getBlockingExecutor(),
+                                        CacheProviderFactory.create(
+                                                context, FlagsFactory.getFlags())),
+                                AdServicesExecutors.getLightWeightExecutor()),
+                        AdSelectionServerDatabase.getInstance(context).encryptionContextDao()));
     }
 
     @Override
     public void getAdSelectionData(
-            GetAdSelectionDataInput getAdSelectionDataInput,
+            GetAdSelectionDataInput inputParams,
             CallerMetadata callerMetadata,
-            GetAdSelectionDataCallback getAdSelectionDataCallback)
-            throws RemoteException {}
+            GetAdSelectionDataCallback callback)
+            throws RemoteException {
+        int apiName = AdServicesStatsLog.AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN;
+
+        if (BinderFlagReader.readFlag(mFlags::getFledgeAuctionServerKillSwitch)) {
+            throw new IllegalStateException(AUCTION_SERVER_API_IS_NOT_AVAILABLE);
+        }
+
+        // Caller permissions must be checked in the binder thread, before anything else
+        mFledgeAuthorizationFilter.assertAppDeclaredPermission(mContext, apiName);
+
+        try {
+            Objects.requireNonNull(inputParams);
+            Objects.requireNonNull(callback);
+        } catch (NullPointerException e) {
+            sLogger.v("The getAdSelectionData() arguments should not be null!");
+            mAdServicesLogger.logFledgeApiCallStats(
+                    apiName, AdServicesStatusUtils.STATUS_INVALID_ARGUMENT, 0);
+            // Rethrow because we want to fail fast
+            throw e;
+        }
+
+        int callingUid = getCallingUid(apiName);
+        mLightweightExecutor.execute(
+                () -> {
+                    GetAdSelectionDataRunner runner =
+                            new GetAdSelectionDataRunner(
+                                    mObliviousHttpEncryptor,
+                                    mCustomAudienceDao,
+                                    mAdSelectionServiceFilter,
+                                    mBackgroundExecutor,
+                                    mLightweightExecutor,
+                                    mFlags,
+                                    callingUid);
+                    runner.run(inputParams, callback);
+                });
+    }
 
     @Override
     public void persistAdSelectionResult(
-            PersistAdSelectionResultInput persistAdSelectionResultInput,
+            PersistAdSelectionResultInput inputParams,
             CallerMetadata callerMetadata,
-            PersistAdSelectionResultCallback persistAdSelectionResultCallback)
-            throws RemoteException {}
+            PersistAdSelectionResultCallback callback)
+            throws RemoteException {
+        int apiName = AdServicesStatsLog.AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN;
+
+        if (BinderFlagReader.readFlag(mFlags::getFledgeAuctionServerKillSwitch)) {
+            throw new IllegalStateException(AUCTION_SERVER_API_IS_NOT_AVAILABLE);
+        }
+
+        // Caller permissions must be checked in the binder thread, before anything else
+        mFledgeAuthorizationFilter.assertAppDeclaredPermission(mContext, apiName);
+
+        try {
+            Objects.requireNonNull(inputParams);
+            Objects.requireNonNull(callback);
+        } catch (NullPointerException e) {
+            sLogger.v("The processAdSelectionResult() arguments should not be null!");
+            mAdServicesLogger.logFledgeApiCallStats(
+                    apiName, AdServicesStatusUtils.STATUS_INVALID_ARGUMENT, 0);
+            // Rethrow because we want to fail fast
+            throw e;
+        }
+
+        int callingUid = getCallingUid(apiName);
+        mLightweightExecutor.execute(
+                () -> {
+                    PersistAdSelectionResultRunner runner =
+                            new PersistAdSelectionResultRunner(
+                                    mObliviousHttpEncryptor,
+                                    mReportingUrisDao,
+                                    mAdSelectionServiceFilter,
+                                    mBackgroundExecutor,
+                                    mLightweightExecutor,
+                                    callingUid);
+                    runner.run(inputParams, callback);
+                });
+    }
 
     // TODO(b/233116758): Validate all the fields inside the adSelectionConfig.
     @Override
@@ -366,6 +460,7 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
                         adSelectionServiceFilter,
                         mAdFilteringFeatureFactory.getAdFilterer(),
                         mAdFilteringFeatureFactory.getFrequencyCapAdDataValidator(),
+                        mAdRenderIdValidator,
                         callerUid);
         runner.runAdSelection(inputParams, callback);
     }
@@ -381,7 +476,8 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
     public void selectAdsFromOutcomes(
             @NonNull AdSelectionFromOutcomesInput inputParams,
             @NonNull CallerMetadata callerMetadata,
-            @NonNull AdSelectionCallback callback) {
+            @NonNull AdSelectionCallback callback)
+            throws RemoteException {
         int apiName = AdServicesStatsLog.AD_SERVICES_API_CALLED__API_NAME__SELECT_ADS_FROM_OUTCOMES;
 
         // Caller permissions must be checked in the binder thread, before anything else

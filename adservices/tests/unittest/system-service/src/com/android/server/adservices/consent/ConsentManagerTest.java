@@ -272,7 +272,7 @@ public class ConsentManagerTest {
                 ConsentManager.createConsentManager(BASE_DIR, /* userIdentifier */ 0);
         // First, the notification displayed is false.
         assertThat(consentManager.wasNotificationDisplayed()).isFalse();
-        consentManager.recordNotificationDisplayed();
+        consentManager.recordNotificationDisplayed(true);
 
         assertThat(consentManager.wasNotificationDisplayed()).isTrue();
     }
@@ -283,7 +283,7 @@ public class ConsentManagerTest {
                 ConsentManager.createConsentManager(BASE_DIR, /* userIdentifier */ 0);
         // First, the notification displayed is false.
         assertThat(consentManager.wasGaUxNotificationDisplayed()).isFalse();
-        consentManager.recordGaUxNotificationDisplayed();
+        consentManager.recordGaUxNotificationDisplayed(true);
 
         assertThat(consentManager.wasGaUxNotificationDisplayed()).isTrue();
     }

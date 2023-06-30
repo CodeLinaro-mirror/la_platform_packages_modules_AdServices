@@ -77,6 +77,7 @@ import com.google.android.material.snackbar.Snackbar;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.Stack;
 import java.util.concurrent.Executor;
@@ -113,6 +114,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String SANDBOXED_SDK_BINDER = "com.android.sdksandboxclient.SANDBOXED_SDK";
     private static final String SANDBOXED_SDK_KEY =
             "com.android.sdksandboxclient.SANDBOXED_SDK_KEY";
+    private static final String DEATH_CALLBACKS_COUNT_KEY =
+            "com.android.sdksandboxclient.DEATH_CALLBACKS_COUNT_KEY";
     public static final int SNACKBAR_MAX_LINES = 4;
 
     private Bundle mSavedInstanceState = new Bundle();
@@ -150,10 +153,15 @@ public class MainActivity extends AppCompatActivity {
 
         setAppTitle();
 
+        mSdkSandboxManager = getApplicationContext().getSystemService(SdkSandboxManager.class);
         if (savedInstanceState != null) {
             mSavedInstanceState.putAll(savedInstanceState);
             mSdksLoaded = savedInstanceState.getBoolean(SDKS_LOADED_KEY);
             mSandboxedSdk = savedInstanceState.getParcelable(SANDBOXED_SDK_KEY);
+            int numDeathCallbacks = savedInstanceState.getInt(DEATH_CALLBACKS_COUNT_KEY);
+            for (int i = 0; i < numDeathCallbacks; i++) {
+                addDeathCallback(false);
+            }
         }
 
         mExecutor.execute(
@@ -167,7 +175,6 @@ public class MainActivity extends AppCompatActivity {
                 });
 
         setContentView(R.layout.activity_main);
-        mSdkSandboxManager = getApplicationContext().getSystemService(SdkSandboxManager.class);
 
         mRootLayout = findViewById(R.id.root_layout);
 
@@ -289,25 +296,14 @@ public class MainActivity extends AppCompatActivity {
         outState.putAll(mSavedInstanceState);
         outState.putBoolean(SDKS_LOADED_KEY, mSdksLoaded);
         outState.putParcelable(SANDBOXED_SDK_KEY, mSandboxedSdk);
+        outState.putInt(DEATH_CALLBACKS_COUNT_KEY, mDeathCallbacks.size());
     }
 
     private void registerAddDeathCallbackButton() {
         mDeathCallbackAddButton.setOnClickListener(
                 v -> {
                     synchronized (mDeathCallbacks) {
-                        final int queueSize = mDeathCallbacks.size();
-                        SdkSandboxProcessDeathCallback deathCallback =
-                                () ->
-                                        logAndDisplayMessage(
-                                                INFO,
-                                                "Death callback #"
-                                                        + (queueSize + 1)
-                                                        + " notified.");
-                        mSdkSandboxManager.addSdkSandboxProcessDeathCallback(
-                                Runnable::run, deathCallback);
-                        mDeathCallbacks.add(deathCallback);
-                        logAndDisplayMessage(
-                                INFO, "Death callback # " + (queueSize + 1) + " added.");
+                        addDeathCallback(true);
                     }
                 });
     }
@@ -531,26 +527,33 @@ public class MainActivity extends AppCompatActivity {
                                             return;
                                         }
 
-                                        String value = "";
+                                        String value;
                                         if (isGetFileDescriptorCalled) {
                                             value = onGetFileDescriptorPressed(inputValueString);
                                         } else {
                                             value = onSendFileDescriptorPressed(inputValueString);
                                         }
 
+                                        String methodName =
+                                                isGetFileDescriptorCalled
+                                                        ? "getFileDescriptor"
+                                                        : "sendFileDescriptor";
+
                                         if (inputValueString.equals(value)) {
                                             logAndDisplayMessage(
                                                     INFO,
-                                                    "FileDescriptor transfer successful, value sent"
-                                                            + " ="
+                                                    methodName
+                                                            + " transfer successful, value sent"
+                                                            + " = "
                                                             + inputValueString
                                                             + " , value received = "
                                                             + value);
                                         } else {
                                             logAndDisplayMessage(
                                                     WARN,
-                                                    "FileDescriptor transfer unsuccessful, Value"
-                                                            + " sent ="
+                                                    methodName
+                                                            + " transfer unsuccessful, Value"
+                                                            + " sent = "
                                                             + inputValueString
                                                             + " , Value received = "
                                                             + value);
@@ -566,7 +569,7 @@ public class MainActivity extends AppCompatActivity {
      * then reads the characters in the file and stores it in a String to return it.
      */
     private String onGetFileDescriptorPressed(String inputValueString) {
-        String value = "";
+        String value;
         try {
             IBinder binder = mSandboxedSdk.getInterface();
             ISdkApi sdkApi = ISdkApi.Stub.asInterface(binder);
@@ -574,9 +577,7 @@ public class MainActivity extends AppCompatActivity {
             FileInputStream fis = new FileInputStream(pFd.getFileDescriptor());
             // Reading fileInputStream and adding its
             // value to a string
-            while (fis.available() != 0) {
-                value += (char) fis.read();
-            }
+            value = new String(fis.readAllBytes(), StandardCharsets.UTF_16);
             fis.close();
             pFd.close();
             return value;
@@ -596,9 +597,7 @@ public class MainActivity extends AppCompatActivity {
             FileOutputStream fout =
                     getApplicationContext().openFileOutput(fileName, Context.MODE_PRIVATE);
             // Writing inputValue String to a file
-            for (int i = 0; i < inputValueString.length(); i++) {
-                fout.write((int) inputValueString.charAt(i));
-            }
+            fout.write(inputValueString.getBytes(StandardCharsets.UTF_16));
             fout.close();
             File file = new File(getApplicationContext().getFilesDir(), fileName);
             ParcelFileDescriptor pFd =
@@ -916,6 +915,19 @@ public class MainActivity extends AppCompatActivity {
                     mBottomBannerView.setZOrderOnTop(false);
                     snackbar.show();
                 });
+    }
+
+    private void addDeathCallback(boolean notifyAdded) {
+        final int queueSize = mDeathCallbacks.size();
+        SdkSandboxProcessDeathCallback deathCallback =
+                () ->
+                        logAndDisplayMessage(
+                                INFO, "Death callback #" + (queueSize + 1) + " notified.");
+        mSdkSandboxManager.addSdkSandboxProcessDeathCallback(Runnable::run, deathCallback);
+        mDeathCallbacks.add(deathCallback);
+        if (notifyAdded) {
+            logAndDisplayMessage(INFO, "Death callback # " + (queueSize + 1) + " added.");
+        }
     }
 
     private class RequestSurfacePackageReceiver
