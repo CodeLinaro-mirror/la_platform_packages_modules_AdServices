@@ -185,10 +185,19 @@ public class SdkSandboxManagerServiceUnitTest {
     private static final String PROPERTY_SERVICES_ALLOWLIST =
             "services_allowlist_per_targetSdkVersion";
 
+    private static final String INTENT_ACTION = "action.test";
+    private static final String COMPONENT_PACKAGE_NAME = "packageName.test";
+    private static final String COMPONENT_CLASS_NAME = "className.test";
+    private String mInitialServiceAllowlistValue;
+
     private static final String PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS =
             "apply_sdk_sandbox_next_restrictions";
 
     private String mInitialApplyNextSdkSandboxRestrictions = null;
+    private static final String PROPERTY_NEXT_SERVICE_ALLOWLIST = "next_service_allowlist";
+    private String mInitialValueNextServiceAllowlist;
+
+    private String mInitialEnforceRestrictions;
 
     @Before
     public void setup() {
@@ -273,12 +282,30 @@ public class SdkSandboxManagerServiceUnitTest {
 
         mClientAppUid = Process.myUid();
 
+        /** Save the initial value to reset the property to original configuration */
+        mInitialServiceAllowlistValue =
+                DeviceConfig.getProperty(
+                        DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_SERVICES_ALLOWLIST);
+        DeviceConfig.deleteProperty(DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_SERVICES_ALLOWLIST);
+
         mInitialApplyNextSdkSandboxRestrictions =
                 DeviceConfig.getProperty(
                         DeviceConfig.NAMESPACE_ADSERVICES,
                         PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS);
         DeviceConfig.deleteProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS);
+
+        mInitialEnforceRestrictions =
+                DeviceConfig.getProperty(
+                        DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_ENFORCE_RESTRICTIONS);
+        DeviceConfig.deleteProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_ENFORCE_RESTRICTIONS);
+
+        mInitialServiceAllowlistValue =
+                DeviceConfig.getProperty(
+                        DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_NEXT_SERVICE_ALLOWLIST);
+        DeviceConfig.deleteProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_NEXT_SERVICE_ALLOWLIST);
     }
 
     @After
@@ -288,16 +315,21 @@ public class SdkSandboxManagerServiceUnitTest {
         }
         mStaticMockSession.finishMocking();
 
-        if (Objects.isNull(mInitialApplyNextSdkSandboxRestrictions)) {
-            DeviceConfig.deleteProperty(
-                    DeviceConfig.NAMESPACE_ADSERVICES,
-                    PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS);
+        resetDeviceConfigProperty(PROPERTY_ENFORCE_RESTRICTIONS, mInitialEnforceRestrictions);
+        resetDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, mInitialServiceAllowlistValue);
+        resetDeviceConfigProperty(
+                PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS,
+                mInitialApplyNextSdkSandboxRestrictions);
+        resetDeviceConfigProperty(
+                PROPERTY_NEXT_SERVICE_ALLOWLIST, mInitialValueNextServiceAllowlist);
+    }
+
+    private void resetDeviceConfigProperty(String property, String value) {
+        if (Objects.isNull(value)) {
+            DeviceConfig.deleteProperty(DeviceConfig.NAMESPACE_ADSERVICES, property);
         } else {
             DeviceConfig.setProperty(
-                    DeviceConfig.NAMESPACE_ADSERVICES,
-                    PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS,
-                    mInitialApplyNextSdkSandboxRestrictions,
-                    /*makeDefault=*/ false);
+                    DeviceConfig.NAMESPACE_ADSERVICES, property, value, /*makeDefault=*/ false);
         }
     }
 
@@ -1088,7 +1120,7 @@ public class SdkSandboxManagerServiceUnitTest {
 
     /** Tests that only allowed activities may be started from the sdk sandbox. */
     @Test
-    public void testEnforceAllowedToStartActivity() {
+    public void testEnforceAllowedToStartActivity_defaultValue() {
         Intent allowedIntent = new Intent(Intent.ACTION_VIEW);
         sSdkSandboxManagerLocal.enforceAllowedToStartActivity(allowedIntent);
 
@@ -1096,6 +1128,15 @@ public class SdkSandboxManagerServiceUnitTest {
         assertThrows(
                 SecurityException.class,
                 () -> sSdkSandboxManagerLocal.enforceAllowedToStartActivity(disallowedIntent));
+    }
+
+    @Test
+    public void testEnforceAllowedToStartActivity_restrictionsNotEnforced() {
+        sSdkSandboxSettingsListener.onPropertiesChanged(
+                new DeviceConfig.Properties(
+                        DeviceConfig.NAMESPACE_ADSERVICES,
+                        Map.of(PROPERTY_ENFORCE_RESTRICTIONS, "false")));
+        sSdkSandboxManagerLocal.enforceAllowedToStartActivity(new Intent());
     }
 
     @Test
@@ -1377,20 +1418,31 @@ public class SdkSandboxManagerServiceUnitTest {
         assertThat(sdkSandboxInfo.sourceDir).startsWith("/data/app");
     }
 
-    /** Tests expected behavior when broadcast receiver restrictions are not available. */
+
+    /**
+     * Tests expected behavior when restrictions are enabled and only protected broadcasts included.
+     */
     @Test
-    public void testCanRegisterBroadcastReceiver_deviceConfigUnset() {
+    public void testCanRegisterBroadcastReceiver_deviceConfigUnsetProtectedBroadcasts() {
         ExtendedMockito.when(Process.isSdkSandboxUid(Mockito.anyInt())).thenReturn(true);
-        sSdkSandboxSettingsListener.onPropertiesChanged(
-                new DeviceConfig.Properties(
-                        DeviceConfig.NAMESPACE_ADSERVICES,
-                        Map.of(PROPERTY_ENFORCE_RESTRICTIONS, "")));
+        assertThat(
+                        sSdkSandboxManagerLocal.canRegisterBroadcastReceiver(
+                                new IntentFilter(Intent.ACTION_SCREEN_OFF),
+                                /*flags= */ 0,
+                                /*onlyProtectedBroadcasts= */ true))
+                .isTrue();
+    }
+
+    /** Tests expected behavior when restrictions are enabled and no protected broadcast. */
+    @Test
+    public void testCanRegisterBroadcastReceiver_deviceConfigUnsetUnprotectedBroadcasts() {
+        ExtendedMockito.when(Process.isSdkSandboxUid(Mockito.anyInt())).thenReturn(true);
         assertThat(
                         sSdkSandboxManagerLocal.canRegisterBroadcastReceiver(
                                 new IntentFilter(Intent.ACTION_SEND),
                                 /*flags= */ 0,
                                 /*onlyProtectedBroadcasts= */ false))
-                .isTrue();
+                .isFalse();
     }
 
     /** Tests expected behavior when broadcast receiver restrictions are not applied. */
@@ -1613,6 +1665,175 @@ public class SdkSandboxManagerServiceUnitTest {
         Intent intent = new Intent();
         intent.setComponent(new ComponentName(mService.getAdServicesPackageName(), "test"));
         sSdkSandboxManagerLocal.enforceAllowedToStartOrBindService(intent);
+    }
+
+    @Test
+    public void testServiceRestriction_noFieldsSet() {
+        /**
+         * Service allowlist allowlist_per_target_sdk { key: 34 value: { allowed_services: { } } }
+         */
+        final String encodedServiceAllowlist = "CgYIIhICCgA=";
+        setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
+
+        /** Allows all the services to start/ bind */
+        assertThrows(
+                SecurityException.class,
+                () ->
+                        testServiceRestriction(
+                                /*action=*/ null, /*packageName=*/ null, /*className=*/ null));
+    }
+
+    @Test
+    public void testServiceRestriction_oneFieldSet() {
+        /**
+         * Service allowlist allowlist_per_target_sdk { key: 34 value: { allowed_services: {
+         * intentAction : "*" componentPackageName : "packageName.test" componentClassName : "*" }
+         * allowed_services: { intentAction : "*" componentPackageName : "*" componentClassName :
+         * "className.test" } allowed_services: { intentAction : "action.test" componentPackageName
+         * : "*" componentClassName : "*" } } }
+         */
+        final String encodedServiceAllowlist =
+                "CksIIhJHChgKASoSEHBhY2thZ2VOYW1lLnRlc3QaASoKFgoBKh"
+                        + "IBKhoOY2xhc3NOYW1lLnRlc3QKEwoLYWN0aW9uLnRlc3QSASoaASo=";
+        setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
+
+        testServiceRestriction(
+                /*action=*/ INTENT_ACTION, /*packageName=*/ null, /*className=*/ null);
+
+        testServiceRestriction(
+                /*action=*/ null, /*packageName=*/ COMPONENT_PACKAGE_NAME, /*className=*/ null);
+
+        testServiceRestriction(
+                /*action=*/ null, /*packageName=*/ null, /*className=*/ COMPONENT_CLASS_NAME);
+
+        assertThrows(
+                SecurityException.class,
+                () ->
+                        testServiceRestriction(
+                                /*action=*/ null, /*packageName=*/ null, /*className=*/ null));
+    }
+
+    @Test
+    public void testServiceRestriction_twoFieldsSet() {
+        /**
+         * Service allowlist allowlist_per_target_sdk { key: 34 value: { allowed_services: {
+         * intentAction : "action.test" componentPackageName : "packageName.test" componentClassName
+         * : "*" } allowed_services: { intentAction : "action.test" componentPackageName : "*"
+         * componentClassName : "className.test" } allowed_services: { intentAction : "*"
+         * componentPackageName : "packageName.test" componentClassName : "className.test" } } }
+         */
+        final String encodedServiceAllowlist =
+                "CnEIIhJtCiIKC2FjdGlvbi50ZXN0EhBwYWNrYWdlTmFtZS50ZXN0GgEqCiAKC2FjdGlvbi50ZXN0EgEqG"
+                    + "g5jbGFzc05hbWUudGVzdAolCgEqEhBwYWNrYWdlTmFtZS50ZXN0Gg5jbGFzc05hbWUudGVzdA==";
+        setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
+
+        testServiceRestriction(
+                /*action=*/ INTENT_ACTION,
+                /*packageName=*/ COMPONENT_PACKAGE_NAME,
+                /*className=*/ null);
+
+        testServiceRestriction(
+                /*action=*/ INTENT_ACTION,
+                /*packageName=*/ null,
+                /*className=*/ COMPONENT_CLASS_NAME);
+
+        testServiceRestriction(
+                /*action=*/ null,
+                /*packageName=*/ COMPONENT_PACKAGE_NAME,
+                /*className=*/ COMPONENT_CLASS_NAME);
+
+        assertThrows(
+                SecurityException.class,
+                () ->
+                        testServiceRestriction(
+                                /*action=*/ null, /*packageName=*/ null, /*className=*/ null));
+
+        assertThrows(
+                SecurityException.class,
+                () ->
+                        testServiceRestriction(
+                                /*action=*/ INTENT_ACTION,
+                                /*packageName=*/ null,
+                                /*className=*/ null));
+    }
+
+    @Test
+    public void testServiceRestriction_allFieldsSet() {
+        /**
+         * Service allowlist allowlist_per_target_sdk { key: 34 value: { allowed_services: {
+         * intentAction : "action.test" componentPackageName : "packageName.test" componentClassName
+         * : "className.test" } } }
+         */
+        final String encodedServiceAllowlist =
+                "CjUIIhIxCi8KC2FjdGlvbi50ZXN0EhBwYWNrYWdlTmFtZS50ZXN0Gg5jbGFzc05hbWUudGVzdA==";
+        setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
+
+        testServiceRestriction(
+                /*action=*/ INTENT_ACTION,
+                /*packageName=*/ COMPONENT_PACKAGE_NAME,
+                /*className=*/ COMPONENT_CLASS_NAME);
+
+        assertThrows(
+                SecurityException.class,
+                () ->
+                        testServiceRestriction(
+                                /*action=*/ INTENT_ACTION,
+                                /*packageName=*/ null,
+                                /*className=*/ null));
+    }
+
+    @Test
+    public void testServiceRestriction_multipleEntriesAllowlist() {
+        /**
+         * Service allowlist allowlist_per_target_sdk { key: 34 value: { allowed_services: {
+         * intentAction : "action.test1" componentPackageName : "packageName.test1"
+         * componentClassName : "className.test1" } allowed_services: { intentAction :
+         * "action.test2" componentPackageName : "packageName.test2" componentClassName :
+         * "className.test2" } } }
+         */
+        final String encodedServiceAllowlist =
+                "CmwIIhJoCjIKDGFjdGlvbi50ZXN0MRIRcGFja2FnZU5hbWUudGVzdDEaD2NsYXNzTmFtZS50ZXN0MQoyC"
+                        + "gxhY3Rpb24udGVzdDISEXBhY2thZ2VOYW1lLnRlc3QyGg9jbGFzc05hbWUudGVzdDI=";
+        setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
+
+        testServiceRestriction(
+                /*action=*/ "action.test1",
+                /*packageName=*/ "packageName.test1",
+                /*className=*/ "className.test1");
+    }
+
+    @Test
+    public void testServiceRestrictions_DeviceConfigNextAllowlistApplied() throws Exception {
+        setDeviceConfigProperty(PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS, "true");
+        /**
+         * Service allowlist allowlist_per_target_sdk { key: 34 value: { allowed_services: {
+         * intentAction : "action.test" componentPackageName : "packageName.test" componentClassName
+         * : "className.test" } } }
+         */
+        final String encodedServiceAllowlist =
+                "CjUIIhIxCi8KC2FjdGlvbi50ZXN0EhBwYWNrYWdlTmFtZS50ZXN0Gg5jbGFzc05hbWUudGVzdA==";
+        setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
+
+        /**
+         * Service allowlist allowed_services: { intentAction : "action.next" componentPackageName :
+         * "packageName.next" componentClassName : "className.next" }
+         */
+        final String encodedNextServiceAllowlist =
+                "Ci8KC2FjdGlvbi5uZXh0EhBwYWNrYWdlTmFtZS5uZXh0Gg5jbGFzc05hbWUubmV4dA==";
+        setDeviceConfigProperty(PROPERTY_NEXT_SERVICE_ALLOWLIST, encodedNextServiceAllowlist);
+
+        testServiceRestriction(
+                /*action=*/ "action.next",
+                /*packageName=*/ "packageName.next",
+                /*className=*/ "className.next");
+
+        assertThrows(
+                SecurityException.class,
+                () ->
+                        testServiceRestriction(
+                                /*action=*/ "action.test",
+                                /*packageName=*/ "packageName.test",
+                                /*className=*/ "className.test"));
     }
 
     @Test
@@ -3101,10 +3322,12 @@ public class SdkSandboxManagerServiceUnitTest {
         DeviceConfig.deleteProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_ENFORCE_RESTRICTIONS);
         ExtendedMockito.when(Process.isSdkSandboxUid(Mockito.anyInt())).thenReturn(true);
+        // The default value of the flag enforcing restrictions is true and access should be
+        // restricted.
         assertThat(
                         sSdkSandboxManagerLocal.canAccessContentProviderFromSdkSandbox(
                                 new ProviderInfo()))
-                .isTrue();
+                .isFalse();
     }
 
     @Test
@@ -3660,60 +3883,68 @@ public class SdkSandboxManagerServiceUnitTest {
     @Test
     public void testWildcardPatternMatch() {
         String pattern1 = "abcd*";
-        verifyPatternMatch(pattern1, "abcd", true);
-        verifyPatternMatch(pattern1, "abcdef", true);
-        verifyPatternMatch(pattern1, "abcdabcd", true);
-        verifyPatternMatch(pattern1, "efgh", false);
-        verifyPatternMatch(pattern1, "efgabcd", false);
-        verifyPatternMatch(pattern1, "abc", false);
+        verifyPatternMatch(pattern1, "abcd", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern1, "abcdef", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern1, "abcdabcd", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern1, "efgh", /*matchOnNullInput=*/ false, false);
+        verifyPatternMatch(pattern1, "efgabcd", /*matchOnNullInput=*/ false, false);
+        verifyPatternMatch(pattern1, "abc", /*matchOnNullInput=*/ false, false);
 
         String pattern2 = "*";
-        verifyPatternMatch(pattern2, "", true);
-        verifyPatternMatch(pattern2, "abcd", true);
+        verifyPatternMatch(pattern2, "", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern2, "abcd", /*matchOnNullInput=*/ false, true);
 
         String pattern3 = "abcd*efgh*";
-        verifyPatternMatch(pattern3, "abcdefgh", true);
-        verifyPatternMatch(pattern3, "abcdrefghij", true);
-        verifyPatternMatch(pattern3, "abcd", false);
-        verifyPatternMatch(pattern3, "abcdteffgh", false);
+        verifyPatternMatch(pattern3, "abcdefgh", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern3, "abcdrefghij", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern3, "abcd", /*matchOnNullInput=*/ false, false);
+        verifyPatternMatch(pattern3, "abcdteffgh", /*matchOnNullInput=*/ false, false);
 
         String pattern4 = "*abcd";
-        verifyPatternMatch(pattern4, "abcdabcd", true);
-        verifyPatternMatch(pattern4, "abcdabcdabcd", true);
-        verifyPatternMatch(pattern4, "efgabcd", true);
-        verifyPatternMatch(pattern4, "abcd", true);
-        verifyPatternMatch(pattern4, "abcde", false);
+        verifyPatternMatch(pattern4, "abcdabcd", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern4, "abcdabcdabcd", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern4, "efgabcd", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern4, "abcd", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern4, "abcde", /*matchOnNullInput=*/ false, false);
 
         String pattern5 = "abcd*e";
-        verifyPatternMatch(pattern5, "abcde", true);
-        verifyPatternMatch(pattern5, "abcdee", true);
-        verifyPatternMatch(pattern5, "abcdef", false);
+        verifyPatternMatch(pattern5, "abcde", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern5, "abcdee", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern5, "abcdef", /*matchOnNullInput=*/ false, false);
 
         String pattern6 = "";
-        verifyPatternMatch(pattern6, "", true);
-        verifyPatternMatch(pattern6, "ab", false);
+        verifyPatternMatch(pattern6, "", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern6, "ab", /*matchOnNullInput=*/ false, false);
 
         String pattern7 = "*abcd*";
-        verifyPatternMatch(pattern7, "abcdabcdabcd", true);
+        verifyPatternMatch(pattern7, "abcdabcdabcd", /*matchOnNullInput=*/ false, true);
 
         String pattern8 = "a*a";
-        verifyPatternMatch(pattern8, "aa", true);
-        verifyPatternMatch(pattern8, "a", false);
+        verifyPatternMatch(pattern8, "aa", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern8, "a", /*matchOnNullInput=*/ false, false);
 
         String pattern9 = "abcd";
-        verifyPatternMatch(pattern9, "abcd", true);
-        verifyPatternMatch(pattern9, "a", false);
+        verifyPatternMatch(pattern9, "abcd", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch(pattern9, "a", /*matchOnNullInput=*/ false, false);
 
-        verifyPatternMatch("*aab", "aaaab", true);
-        verifyPatternMatch("a", "ab", false);
+        verifyPatternMatch("*aab", "aaaab", /*matchOnNullInput=*/ false, true);
+        verifyPatternMatch("a", "ab", /*matchOnNullInput=*/ false, false);
+
+        verifyPatternMatch("*", null, /*matchOnNullInput=*/ false, false);
+        verifyPatternMatch("*", null, /*matchOnNullInput=*/ true, true);
     }
 
-    private void verifyPatternMatch(String pattern, String input, boolean shouldMatch) {
+    private void verifyPatternMatch(
+            String pattern, String input, boolean matchOnNullInput, boolean shouldMatch) {
         if (shouldMatch) {
-            assertThat(SdkSandboxManagerService.doesInputMatchWildcardPattern(pattern, input))
+            assertThat(
+                            SdkSandboxManagerService.doesInputMatchWildcardPattern(
+                                    pattern, input, matchOnNullInput))
                     .isTrue();
         } else {
-            assertThat(SdkSandboxManagerService.doesInputMatchWildcardPattern(pattern, input))
+            assertThat(
+                            SdkSandboxManagerService.doesInputMatchWildcardPattern(
+                                    pattern, input, matchOnNullInput))
                     .isFalse();
         }
     }
@@ -3797,6 +4028,32 @@ public class SdkSandboxManagerServiceUnitTest {
         } else {
             assumeFalse("Device must be less than U", SdkLevel.isAtLeastU());
         }
+    }
+
+    private void testServiceRestriction(
+            @Nullable String action, @Nullable String packageName, @Nullable String className) {
+        if (Objects.isNull(packageName)) {
+            packageName = "nonexistent.package";
+        }
+        if (Objects.isNull(className)) {
+            className = "nonexistent.class";
+        }
+        final Intent intent = Objects.isNull(action) ? new Intent() : new Intent(action);
+        intent.setComponent(new ComponentName(packageName, className));
+
+        sSdkSandboxManagerLocal.enforceAllowedToStartOrBindService(intent);
+    }
+
+    private void setDeviceConfigProperty(String property, String value) {
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES, property, value, /*makeDefault=*/ false);
+        /**
+         * Explicitly calling the onPropertiesChanged method to ensure that the value is propagated
+         * and the updated value is read
+         */
+        sSdkSandboxSettingsListener.onPropertiesChanged(
+                new DeviceConfig.Properties(
+                        DeviceConfig.NAMESPACE_ADSERVICES, Map.of(property, value)));
     }
 
     /** Fake service provider that returns local instance of {@link SdkSandboxServiceProvider} */
