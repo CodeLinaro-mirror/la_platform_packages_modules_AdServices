@@ -21,9 +21,6 @@ import static com.android.adservices.service.Flags.ADID_REQUEST_PERMITS_PER_SECO
 import static com.android.adservices.service.Flags.ADSERVICES_APK_SHA_CERTIFICATE;
 import static com.android.adservices.service.Flags.ADSERVICES_ENABLED;
 import static com.android.adservices.service.Flags.ADSERVICES_ERROR_LOGGING_ENABLED;
-import static com.android.adservices.service.Flags.AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_AEAD_ID;
-import static com.android.adservices.service.Flags.AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KDF_ID;
-import static com.android.adservices.service.Flags.AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KEM_ID;
 import static com.android.adservices.service.Flags.APPSEARCH_ONLY;
 import static com.android.adservices.service.Flags.APPSETID_KILL_SWITCH;
 import static com.android.adservices.service.Flags.APPSETID_REQUEST_PERMITS_PER_SECOND;
@@ -67,8 +64,6 @@ import static com.android.adservices.service.Flags.FLEDGE_AD_COUNTER_HISTOGRAM_A
 import static com.android.adservices.service.Flags.FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT;
 import static com.android.adservices.service.Flags.FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_PER_BUYER_EVENT_COUNT;
 import static com.android.adservices.service.Flags.FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT;
-import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_AD_RENDER_ID_ENABLED;
-import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_AD_RENDER_ID_MAX_LENGTH;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_BIDDING_LOGIC_JS_VERSION;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_BUYER_MS;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_CA_MS;
@@ -84,7 +79,11 @@ import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_OVERALL_T
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_PREBUILT_URI_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_SCORING_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_SELECTING_OUTCOME_TIMEOUT_MS;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_AD_RENDER_ID_ENABLED;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_AD_RENDER_ID_MAX_LENGTH;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_TIMEOUT_MS;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_URI;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_AUCTION_KEY_SHARDING;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_AUCTION_KEY_FETCH_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_JOIN_KEY_FETCH_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_ENABLED;
@@ -96,6 +95,11 @@ import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGRO
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_READ_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_ENABLE_DEBUG_REPORTING;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_AEAD_ID;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_KDF_ID;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_KEM_ID;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_ENCRYPTION_KEY_MAX_AGE_SECONDS;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_JOIN_KEY_FETCH_URI;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_KILL_SWITCH;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION;
 import static com.android.adservices.service.Flags.FLEDGE_BACKGROUND_FETCH_ELIGIBLE_UPDATE_BASE_INTERVAL_S;
@@ -204,6 +208,7 @@ import static com.android.adservices.service.Flags.MEASUREMENT_MAX_REGISTRATION_
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_RETRIES_PER_REGISTRATION_REQUEST;
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_SOURCES_PER_PUBLISHER;
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_TRIGGERS_PER_DESTINATION;
+import static com.android.adservices.service.Flags.MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS;
 import static com.android.adservices.service.Flags.MEASUREMENT_NETWORK_CONNECT_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.MEASUREMENT_NETWORK_READ_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.MEASUREMENT_RECEIVER_DELETE_PACKAGES_KILL_SWITCH;
@@ -251,9 +256,6 @@ import static com.android.adservices.service.PhFlags.KEY_ADID_REQUEST_PERMITS_PE
 import static com.android.adservices.service.PhFlags.KEY_ADSERVICES_APK_SHA_CERTS;
 import static com.android.adservices.service.PhFlags.KEY_ADSERVICES_ENABLED;
 import static com.android.adservices.service.PhFlags.KEY_ADSERVICES_ERROR_LOGGING_ENABLED;
-import static com.android.adservices.service.PhFlags.KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_AEAD_ID;
-import static com.android.adservices.service.PhFlags.KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KDF_ID;
-import static com.android.adservices.service.PhFlags.KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KEM_ID;
 import static com.android.adservices.service.PhFlags.KEY_APPSETID_KILL_SWITCH;
 import static com.android.adservices.service.PhFlags.KEY_APPSETID_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.PhFlags.KEY_ASYNC_REGISTRATION_JOB_QUEUE_INTERVAL_MS;
@@ -288,8 +290,6 @@ import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_COUNTER_HISTO
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_PER_BUYER_EVENT_COUNT;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT;
-import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_AD_RENDER_ID_ENABLED;
-import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_AD_RENDER_ID_MAX_LENGTH;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_BIDDING_LOGIC_JS_VERSION;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_BUYER_MS;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_CA_MS;
@@ -304,7 +304,11 @@ import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_OVE
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_PREBUILT_URI_ENABLED;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_SCORING_TIMEOUT_MS;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AD_SELECTION_SELECTING_OUTCOME_TIMEOUT_MS;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_AD_RENDER_ID_ENABLED;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_AD_RENDER_ID_MAX_LENGTH;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_TIMEOUT_MS;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_URI;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_AUCTION_KEY_SHARDING;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_AUCTION_KEY_FETCH_ENABLED;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_JOIN_KEY_FETCH_ENABLED;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_ENABLED;
@@ -314,6 +318,11 @@ import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_B
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_ENABLE_DEBUG_REPORTING;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_AEAD_ID;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_KDF_ID;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_KEM_ID;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_ENCRYPTION_KEY_MAX_AGE_SECONDS;
+import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_JOIN_KEY_FETCH_URI;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_KILL_SWITCH;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION;
 import static com.android.adservices.service.PhFlags.KEY_FLEDGE_BACKGROUND_FETCH_ELIGIBLE_UPDATE_BASE_INTERVAL_S;
@@ -426,6 +435,7 @@ import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_MAX_REGISTR
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_MAX_RETRIES_PER_REGISTRATION_REQUEST;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_MAX_SOURCES_PER_PUBLISHER;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_MAX_TRIGGERS_PER_DESTINATION;
+import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_NETWORK_CONNECT_TIMEOUT_MS;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_NETWORK_READ_TIMEOUT_MS;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_RECEIVER_DELETE_PACKAGES_KILL_SWITCH;
@@ -1069,35 +1079,35 @@ public class PhFlagsTest {
     }
 
     @Test
-    public void testGetFledgeEnrollmentIdEnabled() {
-        boolean defaultValue = FlagsFactory.getFlags().getFledgeAdSelectionAdRenderIdEnabled();
-        assertThat(defaultValue).isEqualTo(FLEDGE_AD_SELECTION_AD_RENDER_ID_ENABLED);
+    public void testGetFledgeAuctionServerAdRenderIdEnabled() {
+        boolean defaultValue = FlagsFactory.getFlags().getFledgeAuctionServerAdRenderIdEnabled();
+        assertThat(defaultValue).isEqualTo(FLEDGE_AUCTION_SERVER_AD_RENDER_ID_ENABLED);
 
         boolean overrideValue = !defaultValue;
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
-                KEY_FLEDGE_AD_SELECTION_AD_RENDER_ID_ENABLED,
+                KEY_FLEDGE_AUCTION_SERVER_AD_RENDER_ID_ENABLED,
                 Boolean.toString(overrideValue),
                 false);
 
         Flags phFlags = FlagsFactory.getFlags();
-        assertThat(phFlags.getFledgeAdSelectionAdRenderIdEnabled()).isEqualTo(overrideValue);
+        assertThat(phFlags.getFledgeAuctionServerAdRenderIdEnabled()).isEqualTo(overrideValue);
     }
 
     @Test
-    public void testGetFledgeEnrollmentIdMaxLength() {
-        long defaultValue = FlagsFactory.getFlags().getFledgeAdSelectionAdRenderIdMaxLength();
-        assertThat(defaultValue).isEqualTo(FLEDGE_AD_SELECTION_AD_RENDER_ID_MAX_LENGTH);
+    public void testGetFledgAuctionServerAdRenderIdMaxLength() {
+        long defaultValue = FlagsFactory.getFlags().getFledgeAuctionServerAdRenderIdMaxLength();
+        assertThat(defaultValue).isEqualTo(FLEDGE_AUCTION_SERVER_AD_RENDER_ID_MAX_LENGTH);
 
         long overrideValue = defaultValue + 100;
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
-                KEY_FLEDGE_AD_SELECTION_AD_RENDER_ID_MAX_LENGTH,
+                KEY_FLEDGE_AUCTION_SERVER_AD_RENDER_ID_MAX_LENGTH,
                 Long.toString(overrideValue),
                 false);
 
         Flags phFlags = FlagsFactory.getFlags();
-        assertThat(phFlags.getFledgeAdSelectionAdRenderIdMaxLength()).isEqualTo(overrideValue);
+        assertThat(phFlags.getFledgeAuctionServerAdRenderIdMaxLength()).isEqualTo(overrideValue);
     }
 
     @Test
@@ -4281,6 +4291,24 @@ public class PhFlagsTest {
     }
 
     @Test
+    public void testGetMeasurementMinEventReportDelayMillis() {
+        assertThat(FlagsFactory.getFlags().getMeasurementMinEventReportDelayMillis())
+                .isEqualTo(MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS);
+
+        // Now overriding with the value from PH.
+        final long phOverrideValue = 2300L;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS,
+                Long.toString(phOverrideValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getMeasurementMinEventReportDelayMillis())
+                .isEqualTo(phOverrideValue);
+    }
+
+    @Test
     public void testGetAdIdKillSwitch() {
         // Without any overriding, the value is the hard coded constant.
         assertThat(FlagsFactory.getFlags().getAdIdKillSwitch()).isEqualTo(ADID_KILL_SWITCH);
@@ -5840,47 +5868,111 @@ public class PhFlagsTest {
     }
 
     @Test
-    public void testFledgeAdSelectionDataAuctionEncryptionKemId() {
-        assertThat(FlagsFactory.getFlags().getAdSelectionDataAuctionEncryptionAlgorithmKemId())
-                .isEqualTo(AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KEM_ID);
+    public void testFledgeAuctionServerAuctionKeyFetchUri() {
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerAuctionKeyFetchUri())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_URI);
+
+        String phOverridingValue = "http://test/uri";
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_URI,
+                phOverridingValue,
+                /* makeDefault */ false);
+
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerAuctionKeyFetchUri())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testFledgeAuctionServerJoinKeyFetchUri() {
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerJoinKeyFetchUri())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_JOIN_KEY_FETCH_URI);
+
+        String phOverridingValue = "http://test/uri";
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_JOIN_KEY_FETCH_URI,
+                phOverridingValue,
+                /* makeDefault */ false);
+
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerJoinKeyFetchUri())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testFledgeAuctionServerAuctionKeySharding() {
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerAuctionKeySharding())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_AUCTION_KEY_SHARDING);
+
+        int phOverridingValue = FLEDGE_AUCTION_SERVER_AUCTION_KEY_SHARDING + 1;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_AUCTION_KEY_SHARDING,
+                String.valueOf(phOverridingValue),
+                /* makeDefault */ false);
+
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerAuctionKeySharding())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testFledgeAuctionServerEncryptionKeyAgeMaxSeconds() {
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerEncryptionKeyMaxAgeSeconds())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_ENCRYPTION_KEY_MAX_AGE_SECONDS);
+
+        long phOverridingValue = FLEDGE_AUCTION_SERVER_ENCRYPTION_KEY_MAX_AGE_SECONDS + 1000;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_ENCRYPTION_KEY_MAX_AGE_SECONDS,
+                String.valueOf(phOverridingValue),
+                /* makeDefault */ false);
+
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerEncryptionKeyMaxAgeSeconds())
+                .isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testFledgeAuctionServerEncryptionKemId() {
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerEncryptionAlgorithmKemId())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_KEM_ID);
 
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
-                KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KEM_ID,
+                KEY_FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_KEM_ID,
                 "1",
                 /* makeDefault */ false);
 
-        assertThat(FlagsFactory.getFlags().getAdSelectionDataAuctionEncryptionAlgorithmKemId())
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerEncryptionAlgorithmKemId())
                 .isEqualTo(1);
     }
 
     @Test
-    public void testFledgeAdSelectionDataAuctionEncryptionKdfId() {
-        assertThat(FlagsFactory.getFlags().getAdSelectionDataAuctionEncryptionAlgorithmKdfId())
-                .isEqualTo(AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KDF_ID);
+    public void testFledgeAuctionServerEncryptionKdfId() {
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerEncryptionAlgorithmKdfId())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_KDF_ID);
 
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
-                KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KDF_ID,
+                KEY_FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_KDF_ID,
                 "1",
                 /* makeDefault */ false);
 
-        assertThat(FlagsFactory.getFlags().getAdSelectionDataAuctionEncryptionAlgorithmKdfId())
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerEncryptionAlgorithmKdfId())
                 .isEqualTo(1);
     }
 
     @Test
-    public void testFledgeAdSelectionDataAuctionEncryptionAeadId() {
-        assertThat(FlagsFactory.getFlags().getAdSelectionDataAuctionEncryptionAlgorithmAeadId())
-                .isEqualTo(AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_AEAD_ID);
+    public void testFledgeAuctionServerEncryptionAeadId() {
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerEncryptionAlgorithmAeadId())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_AEAD_ID);
 
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
-                KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_AEAD_ID,
+                KEY_FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_AEAD_ID,
                 "1",
                 /* makeDefault */ false);
 
-        assertThat(FlagsFactory.getFlags().getAdSelectionDataAuctionEncryptionAlgorithmAeadId())
+        assertThat(FlagsFactory.getFlags().getFledgeAuctionServerEncryptionAlgorithmAeadId())
                 .isEqualTo(1);
     }
 

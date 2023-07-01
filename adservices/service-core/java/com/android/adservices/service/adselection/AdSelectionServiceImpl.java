@@ -270,7 +270,8 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
                                         CacheProviderFactory.create(
                                                 context, FlagsFactory.getFlags())),
                                 AdServicesExecutors.getLightWeightExecutor()),
-                        AdSelectionServerDatabase.getInstance(context).encryptionContextDao()));
+                        AdSelectionServerDatabase.getInstance(context).encryptionContextDao(),
+                        AdServicesExecutors.getLightWeightExecutor()));
     }
 
     @Override
@@ -433,6 +434,7 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
                         mAdFilteringFeatureFactory.getAdFilterer(),
                         mAdFilteringFeatureFactory.getAdCounterKeyCopier(),
                         mAdFilteringFeatureFactory.getFrequencyCapAdDataValidator(),
+                        new DebugReporting(mFlags, mAdServicesHttpsClient),
                         callerUid);
         runner.runAdSelection(inputParams, callback);
     }
