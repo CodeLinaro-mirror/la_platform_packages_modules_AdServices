@@ -36,11 +36,11 @@ public interface AdRenderIdValidator extends Validator<String> {
      *     flags}.
      */
     static AdRenderIdValidator createInstance(Flags flags) {
-        boolean adRenderIdEnabled = flags.getFledgeAdSelectionAdRenderIdEnabled();
+        boolean adRenderIdEnabled = flags.getFledgeAuctionServerAdRenderIdEnabled();
         if (!adRenderIdEnabled) {
             return AD_RENDER_ID_VALIDATOR_NO_OP;
         } else {
-            final long maxLength = flags.getFledgeAdSelectionAdRenderIdMaxLength();
+            final long maxLength = flags.getFledgeAuctionServerAdRenderIdMaxLength();
             return createEnabledInstance(maxLength);
         }
     }
@@ -49,7 +49,6 @@ public interface AdRenderIdValidator extends Validator<String> {
      * @return an instance of {@code AdRenderIdValidator} that will enforce the given {@code
      *     maxLength}
      */
-    @VisibleForTesting
     @NonNull
     static AdRenderIdValidator createEnabledInstance(long maxLength) {
         return (object, violations) -> {
