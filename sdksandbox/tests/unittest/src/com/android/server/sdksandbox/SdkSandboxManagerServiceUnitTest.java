@@ -186,8 +186,9 @@ public class SdkSandboxManagerServiceUnitTest {
             "services_allowlist_per_targetSdkVersion";
 
     private static final String INTENT_ACTION = "action.test";
-    private static final String COMPONENT_PACKAGE_NAME = "packageName.test";
+    private static final String PACKAGE_NAME = "packageName.test";
     private static final String COMPONENT_CLASS_NAME = "className.test";
+    private static final String COMPONENT_PACKAGE_NAME = "componentPackageName.test";
     private String mInitialServiceAllowlistValue;
 
     private static final String PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS =
@@ -1670,7 +1671,14 @@ public class SdkSandboxManagerServiceUnitTest {
     @Test
     public void testServiceRestriction_noFieldsSet() {
         /**
-         * Service allowlist allowlist_per_target_sdk { key: 34 value: { allowed_services: { } } }
+         * Service allowlist
+         * allowlist_per_target_sdk {
+         *   key: 34
+         *   value: {
+         *     allowed_services: {
+         *     }
+         *   }
+         * }
          */
         final String encodedServiceAllowlist = "CgYIIhICCgA=";
         setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
@@ -1680,73 +1688,140 @@ public class SdkSandboxManagerServiceUnitTest {
                 SecurityException.class,
                 () ->
                         testServiceRestriction(
-                                /*action=*/ null, /*packageName=*/ null, /*className=*/ null));
+                                /*action=*/ null,
+                                /*packageName=*/ null,
+                                /*componentClassName=*/ null,
+                                /*componentPackageName=*/ null));
     }
 
     @Test
     public void testServiceRestriction_oneFieldSet() {
         /**
-         * Service allowlist allowlist_per_target_sdk { key: 34 value: { allowed_services: {
-         * intentAction : "*" componentPackageName : "packageName.test" componentClassName : "*" }
-         * allowed_services: { intentAction : "*" componentPackageName : "*" componentClassName :
-         * "className.test" } allowed_services: { intentAction : "action.test" componentPackageName
-         * : "*" componentClassName : "*" } } }
+         * Service allowlist
+         * allowlist_per_target_sdk {
+         *   key: 34
+         *   value: {
+         *     allowed_services: {
+         *       action : "*"
+         *       packageName : "packageName.test"
+         *       componentClassName : "*"
+         *       componentPackageName : "*"
+         *     }
+         *     allowed_services: {
+         *       action : "*"
+         *       packageName : "*"
+         *       componentClassName : "className.test"
+         *       componentPackageName : "*"
+         *     }
+         *     allowed_services: {
+         *       action : "action.test"
+         *       packageName : "*"
+         *       componentClassName : "*"
+         *       componentPackageName : "*"
+         *     }
+         *     allowed_services: {
+         *       action : "*"
+         *       packageName : "*"
+         *       componentClassName : "*"
+         *       componentPackageName : "componentPackageName.test"
+         *     }
+         *   }
+         * }
          */
         final String encodedServiceAllowlist =
-                "CksIIhJHChgKASoSEHBhY2thZ2VOYW1lLnRlc3QaASoKFgoBKh"
-                        + "IBKhoOY2xhc3NOYW1lLnRlc3QKEwoLYWN0aW9uLnRlc3QSASoaASo=";
+                "CnoIIhJ2ChsKASoSEHBhY2thZ2VOYW1lLnRlc3QaASoiASoKGQoBKhIBKhoOY2xhc3NOYW1lLnRlc3QiA"
+                    + "SoKFgoLYWN0aW9uLnRlc3QSASoaASoiASoKJAoBKhIBKhoBKiIZY29tcG9uZW50UGFja2FnZU5h"
+                    + "bWUudGVzdA==";
         setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
 
         testServiceRestriction(
-                /*action=*/ INTENT_ACTION, /*packageName=*/ null, /*className=*/ null);
+                /*action=*/ INTENT_ACTION,
+                /*packageName=*/ null,
+                /*componentClassName=*/ null,
+                /*componentPackageName=*/ null);
 
         testServiceRestriction(
-                /*action=*/ null, /*packageName=*/ COMPONENT_PACKAGE_NAME, /*className=*/ null);
+                /*action=*/ null,
+                /*packageName=*/ PACKAGE_NAME,
+                /*componentClassName=*/ null,
+                /*componentPackageName=*/ null);
 
         testServiceRestriction(
-                /*action=*/ null, /*packageName=*/ null, /*className=*/ COMPONENT_CLASS_NAME);
+                /*action=*/ null,
+                /*packageName=*/ null,
+                /*componentClassName=*/ COMPONENT_CLASS_NAME,
+                /*componentPackageName=*/ null);
 
         assertThrows(
                 SecurityException.class,
                 () ->
                         testServiceRestriction(
-                                /*action=*/ null, /*packageName=*/ null, /*className=*/ null));
+                                /*action=*/ null,
+                                /*packageName=*/ null,
+                                /*componentClassName=*/ null,
+                                /*componentPackageName=*/ null));
     }
 
     @Test
     public void testServiceRestriction_twoFieldsSet() {
         /**
-         * Service allowlist allowlist_per_target_sdk { key: 34 value: { allowed_services: {
-         * intentAction : "action.test" componentPackageName : "packageName.test" componentClassName
-         * : "*" } allowed_services: { intentAction : "action.test" componentPackageName : "*"
-         * componentClassName : "className.test" } allowed_services: { intentAction : "*"
-         * componentPackageName : "packageName.test" componentClassName : "className.test" } } }
+         * Service allowlist
+         * allowlist_per_target_sdk {
+         *   key: 34
+         *   value: {
+         *     allowed_services: {
+         *       action : "action.test"
+         *       packageName : "packageName.test"
+         *       componentClassName : "*"
+         *       componentPackageName : "*"
+         *     }
+         *     allowed_services: {
+         *       action : "action.test"
+         *       packageName : "*"
+         *       componentClassName : "className.test"
+         *       componentPackageName : "*"
+         *     }
+         *     allowed_services: {
+         *       action : "*"
+         *       packageName : "packageName.test"
+         *       componentClassName : "className.test"
+         *       componentPackageName : "*"
+         *     }
+         *   }
+         * }
          */
         final String encodedServiceAllowlist =
-                "CnEIIhJtCiIKC2FjdGlvbi50ZXN0EhBwYWNrYWdlTmFtZS50ZXN0GgEqCiAKC2FjdGlvbi50ZXN0EgEqG"
-                    + "g5jbGFzc05hbWUudGVzdAolCgEqEhBwYWNrYWdlTmFtZS50ZXN0Gg5jbGFzc05hbWUudGVzdA==";
+                "CnoIIhJ2CiUKC2FjdGlvbi50ZXN0EhBwYWNrYWdlTmFtZS50ZXN0GgEqIgEqCiMKC2FjdGlvbi50ZXN0Eg"
+                    + "EqGg5jbGFzc05hbWUudGVzdCIBKgooCgEqEhBwYWNrYWdlTmFtZS50ZXN0Gg5jbGFzc05hbWUud"
+                    + "GVzdCIBKg==";
         setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
 
         testServiceRestriction(
                 /*action=*/ INTENT_ACTION,
-                /*packageName=*/ COMPONENT_PACKAGE_NAME,
-                /*className=*/ null);
+                /*packageName=*/ PACKAGE_NAME,
+                /*componentClassName=*/ null,
+                /*componentPackageName=*/ null);
 
         testServiceRestriction(
                 /*action=*/ INTENT_ACTION,
                 /*packageName=*/ null,
-                /*className=*/ COMPONENT_CLASS_NAME);
+                /*componentClassName=*/ COMPONENT_CLASS_NAME,
+                /*componentPackageName=*/ null);
 
         testServiceRestriction(
                 /*action=*/ null,
-                /*packageName=*/ COMPONENT_PACKAGE_NAME,
-                /*className=*/ COMPONENT_CLASS_NAME);
+                /*packageName=*/ PACKAGE_NAME,
+                /*componentClassName=*/ COMPONENT_CLASS_NAME,
+                /*componentPackageName=*/ null);
 
         assertThrows(
                 SecurityException.class,
                 () ->
                         testServiceRestriction(
-                                /*action=*/ null, /*packageName=*/ null, /*className=*/ null));
+                                /*action=*/ null,
+                                /*packageName=*/ null,
+                                /*componentClassName=*/ null,
+                                /*componentPackageName=*/ null));
 
         assertThrows(
                 SecurityException.class,
@@ -1754,24 +1829,75 @@ public class SdkSandboxManagerServiceUnitTest {
                         testServiceRestriction(
                                 /*action=*/ INTENT_ACTION,
                                 /*packageName=*/ null,
-                                /*className=*/ null));
+                                /*componentClassName=*/ null,
+                                /*componentPackageName=*/ null));
     }
 
     @Test
-    public void testServiceRestriction_allFieldsSet() {
+    public void testServiceRestriction_threeFieldsSet() {
         /**
-         * Service allowlist allowlist_per_target_sdk { key: 34 value: { allowed_services: {
-         * intentAction : "action.test" componentPackageName : "packageName.test" componentClassName
-         * : "className.test" } } }
+         * Service allowlist
+         * allowlist_per_target_sdk {
+         *   key: 34
+         *   value: {
+         *     allowed_services: {
+         *       action : "action.test"
+         *       packageName : "packageName.test"
+         *       componentClassName : "className.test"
+         *       componentPackageName : "*"
+         *     }
+         *     allowed_services: {
+         *       action : "action.test"
+         *       packageName : "packageName.test"
+         *       componentClassName : "*"
+         *       componentPackageName : "componentPackageName.test"
+         *     }
+         *     allowed_services: {
+         *       action : "action.test"
+         *       packageName : "*"
+         *       componentClassName : "className.test"
+         *       componentPackageName : "componentPackageName.test"
+         *     }
+         *     allowed_services: {
+         *       action : "*"
+         *       packageName : "packageName.test"
+         *       componentClassName : "className.test"
+         *       componentPackageName : "componentPackageName.test"
+         *     }
+         *   }
+         * }
          */
         final String encodedServiceAllowlist =
-                "CjUIIhIxCi8KC2FjdGlvbi50ZXN0EhBwYWNrYWdlTmFtZS50ZXN0Gg5jbGFzc05hbWUudGVzdA==";
+                "CvcBCCIS8gEKMgoLYWN0aW9uLnRlc3QSEHBhY2thZ2VOYW1lLnRlc3QaDmNsYXNzTmFtZS50ZXN0IgEqCj"
+                    + "0KC2FjdGlvbi50ZXN0EhBwYWNrYWdlTmFtZS50ZXN0GgEqIhljb21wb25lbnRQYWNrYWdlTmFtZ"
+                    + "S50ZXN0CjsKC2FjdGlvbi50ZXN0EgEqGg5jbGFzc05hbWUudGVzdCIZY29tcG9uZW50UGFja2Fn"
+                    + "ZU5hbWUudGVzdApACgEqEhBwYWNrYWdlTmFtZS50ZXN0Gg5jbGFzc05hbWUudGVzdCIZY29tcG9"
+                    + "uZW50UGFja2FnZU5hbWUudGVzdA==";
         setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
 
         testServiceRestriction(
                 /*action=*/ INTENT_ACTION,
-                /*packageName=*/ COMPONENT_PACKAGE_NAME,
-                /*className=*/ COMPONENT_CLASS_NAME);
+                /*packageName=*/ PACKAGE_NAME,
+                /*componentClassName=*/ COMPONENT_CLASS_NAME,
+                /*componentPackageName=*/ null);
+
+        testServiceRestriction(
+                /*action=*/ INTENT_ACTION,
+                /*packageName=*/ PACKAGE_NAME,
+                /*componentClassName=*/ null,
+                /*componentPackageName=*/ COMPONENT_PACKAGE_NAME);
+
+        testServiceRestriction(
+                /*action=*/ INTENT_ACTION,
+                /*packageName=*/ null,
+                /*componentClassName=*/ COMPONENT_CLASS_NAME,
+                /*componentPackageName=*/ COMPONENT_PACKAGE_NAME);
+
+        testServiceRestriction(
+                /*action=*/ null,
+                /*packageName=*/ PACKAGE_NAME,
+                /*componentClassName=*/ COMPONENT_CLASS_NAME,
+                /*componentPackageName=*/ COMPONENT_PACKAGE_NAME);
 
         assertThrows(
                 SecurityException.class,
@@ -1779,53 +1905,84 @@ public class SdkSandboxManagerServiceUnitTest {
                         testServiceRestriction(
                                 /*action=*/ INTENT_ACTION,
                                 /*packageName=*/ null,
-                                /*className=*/ null));
+                                /*componentClassName=*/ null,
+                                /*componentPackageName=*/ null));
     }
 
     @Test
     public void testServiceRestriction_multipleEntriesAllowlist() {
         /**
-         * Service allowlist allowlist_per_target_sdk { key: 34 value: { allowed_services: {
-         * intentAction : "action.test1" componentPackageName : "packageName.test1"
-         * componentClassName : "className.test1" } allowed_services: { intentAction :
-         * "action.test2" componentPackageName : "packageName.test2" componentClassName :
-         * "className.test2" } } }
+         * Service allowlist
+         * allowlist_per_target_sdk {
+         *   key: 34
+         *   value: {
+         *     allowed_services: {
+         *       action : "action.test1"
+         *       packageName : "packageName.test1"
+         *       componentClassName : "className.test1"
+         *       componentPackageName : "componentPackageName.test1"
+         *     }
+         *     allowed_services: {
+         *       action : "action.test2"
+         *       packageName : "packageName.test2"
+         *       componentClassName : "className.test2"
+         *       componentPackageName : "componentPackageName.test2"
+         *     }
+         *   }
+         * }
          */
         final String encodedServiceAllowlist =
-                "CmwIIhJoCjIKDGFjdGlvbi50ZXN0MRIRcGFja2FnZU5hbWUudGVzdDEaD2NsYXNzTmFtZS50ZXN0MQoyC"
-                        + "gxhY3Rpb24udGVzdDISEXBhY2thZ2VOYW1lLnRlc3QyGg9jbGFzc05hbWUudGVzdDI=";
+                "CqUBCCISoAEKTgoMYWN0aW9uLnRlc3QxEhFwYWNrYWdlTmFtZS50ZXN0MRoPY2xhc3NOYW1lLnRlc3QxI"
+                    + "hpjb21wb25lbnRQYWNrYWdlTmFtZS50ZXN0MQpOCgxhY3Rpb24udGVzdDISEXBhY2thZ2VOYW1l"
+                    + "LnRlc3QyGg9jbGFzc05hbWUudGVzdDIiGmNvbXBvbmVudFBhY2thZ2VOYW1lLnRlc3Qy";
         setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
 
         testServiceRestriction(
                 /*action=*/ "action.test1",
                 /*packageName=*/ "packageName.test1",
-                /*className=*/ "className.test1");
+                /*componentClassName=*/ "className.test1",
+                /*componentPackageName=*/ "componentPackageName.test1");
     }
 
     @Test
     public void testServiceRestrictions_DeviceConfigNextAllowlistApplied() throws Exception {
         setDeviceConfigProperty(PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS, "true");
         /**
-         * Service allowlist allowlist_per_target_sdk { key: 34 value: { allowed_services: {
-         * intentAction : "action.test" componentPackageName : "packageName.test" componentClassName
-         * : "className.test" } } }
+         * Service allowlist
+         * allowlist_per_target_sdk {
+         *   key: 34
+         *   value: {
+         *     allowed_services: {
+         *       action : "action.test"
+         *       packageName : "packageName.test"
+         *       componentClassName : "className.test"
+         *       componentPackageName : "*"
+         *     }
+         *   }
+         * }
          */
         final String encodedServiceAllowlist =
-                "CjUIIhIxCi8KC2FjdGlvbi50ZXN0EhBwYWNrYWdlTmFtZS50ZXN0Gg5jbGFzc05hbWUudGVzdA==";
+                "CjgIIhI0CjIKC2FjdGlvbi50ZXN0EhBwYWNrYWdlTmFtZS50ZXN0Gg5jbGFzc05hbWUudGVzdCIBKg==";
         setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
 
         /**
-         * Service allowlist allowed_services: { intentAction : "action.next" componentPackageName :
-         * "packageName.next" componentClassName : "className.next" }
+         * Service allowlist
+         * allowed_services {
+         *   action : "action.next"
+         *   packageName : "packageName.next"
+         *   componentClassName : "className.next"
+         *   componentPackageName : "*"
+         * }
          */
         final String encodedNextServiceAllowlist =
-                "Ci8KC2FjdGlvbi5uZXh0EhBwYWNrYWdlTmFtZS5uZXh0Gg5jbGFzc05hbWUubmV4dA==";
+                "CjIKC2FjdGlvbi5uZXh0EhBwYWNrYWdlTmFtZS5uZXh0Gg5jbGFzc05hbWUubmV4dCIBKg==";
         setDeviceConfigProperty(PROPERTY_NEXT_SERVICE_ALLOWLIST, encodedNextServiceAllowlist);
 
         testServiceRestriction(
                 /*action=*/ "action.next",
                 /*packageName=*/ "packageName.next",
-                /*className=*/ "className.next");
+                /*componentClassName=*/ "className.next",
+                /*componentPackageName=*/ null);
 
         assertThrows(
                 SecurityException.class,
@@ -1833,7 +1990,91 @@ public class SdkSandboxManagerServiceUnitTest {
                         testServiceRestriction(
                                 /*action=*/ "action.test",
                                 /*packageName=*/ "packageName.test",
-                                /*className=*/ "className.test"));
+                                /*componentClassName=*/ "className.test",
+                                /*componentPackageName=*/ null));
+    }
+
+    @Test
+    public void testServiceRestrictions_ComponentNotSet() {
+        /**
+         * Service allowlist
+         * allowlist_per_target_sdk {
+         *   key: 34
+         *   value: {
+         *     allowed_services: {
+         *       action : "action.test"
+         *       packageName : "*"
+         *       componentClassName : "*"
+         *       componentPackageName: "*"
+         *     }
+         *   }
+         * }
+         */
+        final String encodedServiceAllowlist = "ChwIIhIYChYKC2FjdGlvbi50ZXN0EgEqGgEqIgEq";
+        setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
+
+        final Intent intent = new Intent(INTENT_ACTION);
+        sSdkSandboxManagerLocal.enforceAllowedToStartOrBindService(intent);
+    }
+    @Test
+    public void testServiceRestrictions_AllFieldsSetToWildcard() {
+        /**
+         * Service allowlist
+         * allowlist_per_target_sdk {
+         *   key: 34
+         *   value: {
+         *     allowed_services: {
+         *       action : "*"
+         *       packageName : "*"
+         *       componentPackageName : "*"
+         *       componentClassName : "*"
+         *     }
+         *   }
+         * }
+         */
+        final String encodedServiceAllowlist = "ChIIIhIOCgwKASoSASoaASoiASo=";
+        setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
+
+        testServiceRestriction(
+                /*action=*/ INTENT_ACTION,
+                /*packageName=*/ COMPONENT_PACKAGE_NAME,
+                /*componentClassName=*/ COMPONENT_CLASS_NAME,
+                /*componentPackageName=*/ COMPONENT_PACKAGE_NAME);
+
+        testServiceRestriction(
+                /*action=*/ null,
+                /*packageName=*/ null,
+                /*componentClassName=*/ null,
+                /*componentPackageName=*/ null);
+
+        testServiceRestriction(
+                /*action=*/ INTENT_ACTION,
+                /*packageName=*/ null,
+                /*componentClassName=*/ null,
+                /*componentPackageName=*/ null);
+    }
+
+    @Test
+    public void testServiceRestrictions_AllFieldsSet() {
+        /**Service allowlist
+         * allowlist_per_target_sdk {
+         *   key: 34
+         *   value: {
+         *     allowed_services: {
+         *       action : "action.test"
+         *       packageName : "packageName.test"
+         *       componentClassName : "className.test"
+         *       componentPackageName : "componentPackageName.test"
+         *       }
+         *     }
+         * }
+         */
+        final String encodedServiceAllowlist =
+                "ClAIIhJMCkoKC2FjdGlvbi50ZXN0EhBwYWNrYWdlTmFtZS50ZXN0Gg5jbGFzc05hbWUudGVzdCIZY29tc"
+                        + "G9uZW50UGFja2FnZU5hbWUudGVzdA==";
+        setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
+        testServiceRestriction(
+                INTENT_ACTION, PACKAGE_NAME, COMPONENT_CLASS_NAME, COMPONENT_PACKAGE_NAME);
     }
 
     @Test
@@ -3241,8 +3482,8 @@ public class SdkSandboxManagerServiceUnitTest {
 
         verifyAllowlistEntryContents(
                 allowedServices.getAllowedServices(0),
-                /*intentAction=*/ "android.test.33",
-                /*componentPackageName=*/ "packageName.test.33",
+                /*action=*/ "android.test.33",
+                /*packageName=*/ "packageName.test.33",
                 /*componentClassName=*/ "className.test.33");
 
         allowedServices =
@@ -3252,8 +3493,8 @@ public class SdkSandboxManagerServiceUnitTest {
 
         verifyAllowlistEntryContents(
                 allowedServices.getAllowedServices(0),
-                /*intentAction=*/ "android.test.34",
-                /*componentPackageName=*/ "packageName.test.34",
+                /*action=*/ "android.test.34",
+                /*packageName=*/ "packageName.test.34",
                 /*componentClassName=*/ "className.test.34");
 
         DeviceConfig.setProperty(
@@ -3265,11 +3506,11 @@ public class SdkSandboxManagerServiceUnitTest {
 
     private void verifyAllowlistEntryContents(
             AllowedService allowedService,
-            String intentAction,
-            String componentPackageName,
+            String action,
+            String packageName,
             String componentClassName) {
-        assertThat(allowedService.getIntentAction()).isEqualTo(intentAction);
-        assertThat(allowedService.getComponentPackageName()).isEqualTo(componentPackageName);
+        assertThat(allowedService.getAction()).isEqualTo(action);
+        assertThat(allowedService.getPackageName()).isEqualTo(packageName);
         assertThat(allowedService.getComponentClassName()).isEqualTo(componentClassName);
     }
 
@@ -4031,15 +4272,19 @@ public class SdkSandboxManagerServiceUnitTest {
     }
 
     private void testServiceRestriction(
-            @Nullable String action, @Nullable String packageName, @Nullable String className) {
-        if (Objects.isNull(packageName)) {
-            packageName = "nonexistent.package";
-        }
-        if (Objects.isNull(className)) {
-            className = "nonexistent.class";
-        }
+            @Nullable String action,
+            @Nullable String packageName,
+            @Nullable String componentClassName,
+            @Nullable String componentPackageName) {
         final Intent intent = Objects.isNull(action) ? new Intent() : new Intent(action);
-        intent.setComponent(new ComponentName(packageName, className));
+        intent.setPackage(packageName);
+        if (Objects.isNull(componentPackageName)) {
+            componentPackageName = "nonexistent.package";
+        }
+        if (Objects.isNull(componentClassName)) {
+            componentClassName = "nonexistent.class";
+        }
+        intent.setComponent(new ComponentName(componentPackageName, componentClassName));
 
         sSdkSandboxManagerLocal.enforceAllowedToStartOrBindService(intent);
     }

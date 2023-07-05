@@ -2181,20 +2181,24 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             return;
         }
         ComponentName component = intent.getComponent();
-        if (component == null) {
-            failStartOrBindService(intent);
-        }
-        String componentPackageName = component.getPackageName();
-        if (componentPackageName == null) {
-            failStartOrBindService(intent);
-        }
-        if (componentPackageName.equals(WebViewUpdateService.getCurrentWebViewPackageName())
-                || componentPackageName.equals(getAdServicesPackageName())) {
-            return;
+
+        if (component != null) {
+            String componentPackageName = component.getPackageName();
+            if ((componentPackageName != null)
+                    && (componentPackageName.equals(
+                                    WebViewUpdateService.getCurrentWebViewPackageName())
+                            || componentPackageName.equals(getAdServicesPackageName()))) {
+                return;
+            }
         }
 
         if (requestAllowedPerAllowlist(
-                intent.getAction(), componentPackageName, component.getClassName())) {
+                intent.getAction(),
+                intent.getPackage(),
+                /*componentClassName=*/ (component == null) ? null : component.getClassName(),
+                /*componentPackageName=*/ (component == null)
+                        ? null
+                        : component.getPackageName())) {
             return;
         }
 
@@ -2530,7 +2534,10 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
     }
 
     private boolean requestAllowedPerAllowlist(
-            String intentAction, String packageName, String className) {
+            String action,
+            String packageName,
+            String componentClassName,
+            String componentPackageName) {
         // TODO(b/288873117): Use effective targetSdkVersion of the sandbox for the client app.
         AllowedServices allowedServices =
                 mSdkSandboxSettingsListener.applySdkSandboxRestrictionsNext()
@@ -2545,16 +2552,18 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         for (int i = 0; i < allowedServices.getAllowedServicesCount(); i++) {
             AllowedService allowedService = allowedServices.getAllowedServices(i);
             if (doesInputMatchWildcardPattern(
-                            allowedService.getIntentAction(),
-                            intentAction,
+                            allowedService.getAction(), action, /*matchOnNullInput=*/ true)
+                    && doesInputMatchWildcardPattern(
+                            allowedService.getPackageName(),
+                            packageName,
                             /*matchOnNullInput=*/ true)
                     && doesInputMatchWildcardPattern(
                             allowedService.getComponentClassName(),
-                            className,
+                            componentClassName,
                             /*matchOnNullInput=*/ true)
                     && doesInputMatchWildcardPattern(
                             allowedService.getComponentPackageName(),
-                            packageName,
+                            componentPackageName,
                             /*matchOnNullInput=*/ true)) {
                 return true;
             }
