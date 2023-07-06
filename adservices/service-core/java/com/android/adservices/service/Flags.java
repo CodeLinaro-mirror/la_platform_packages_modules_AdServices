@@ -18,7 +18,6 @@ package com.android.adservices.service;
 
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE;
 
-import android.adservices.adselection.ReportInteractionInput;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 
@@ -640,20 +639,37 @@ public interface Flags {
         return FLEDGE_HTTP_CACHE_DEFAULT_MAX_AGE_SECONDS;
     }
 
-    int FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_EVENT_COUNT = 1000;
-    int FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_EVENT_COUNT = 950;
+    int FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT = 10_000;
+    int FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT = 9_500;
+    int FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_PER_BUYER_EVENT_COUNT = 1_000;
+    int FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_PER_BUYER_EVENT_COUNT = 900;
 
-    /** Returns the maximum allowed number of events in the frequency cap histogram table. */
-    default int getFledgeAdCounterHistogramAbsoluteMaxEventCount() {
-        return FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_EVENT_COUNT;
+    /** Returns the maximum allowed number of events in the entire frequency cap histogram table. */
+    default int getFledgeAdCounterHistogramAbsoluteMaxTotalEventCount() {
+        return FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT;
     }
 
     /**
-     * Returns the number of events that the frequency cap histogram table should be trimmed to, if
-     * there are too many entries.
+     * Returns the number of events that the entire frequency cap histogram table should be trimmed
+     * to, if there are too many entries.
      */
-    default int getFledgeAdCounterHistogramLowerMaxEventCount() {
-        return FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_EVENT_COUNT;
+    default int getFledgeAdCounterHistogramLowerMaxTotalEventCount() {
+        return FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT;
+    }
+
+    /**
+     * Returns the maximum allowed number of events per buyer in the frequency cap histogram table.
+     */
+    default int getFledgeAdCounterHistogramAbsoluteMaxPerBuyerEventCount() {
+        return FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_PER_BUYER_EVENT_COUNT;
+    }
+
+    /**
+     * Returns the number of events for a single buyer that the frequency cap histogram table should
+     * be trimmed to, if there are too many entries for that buyer.
+     */
+    default int getFledgeAdCounterHistogramLowerMaxPerBuyerEventCount() {
+        return FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_PER_BUYER_EVENT_COUNT;
     }
 
     int FLEDGE_AD_SELECTION_MAX_CONCURRENT_BIDDING_COUNT = 6;
@@ -682,9 +698,6 @@ public interface Flags {
     long FLEDGE_REPORT_IMPRESSION_MAX_REGISTERED_AD_BEACONS_PER_AD_TECH_COUNT = 10; // Num entries
     long FLEDGE_REPORT_IMPRESSION_REGISTERED_AD_BEACONS_MAX_INTERACTION_KEY_SIZE_B =
             20 * 2; // Num characters * 2 bytes per char in UTF-8
-
-    // ReportInteraction Constants
-    long FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B = 64 * 1024; // 64 KB
 
     /** Returns the timeout constant in milliseconds that limits the bidding per CA */
     default long getAdSelectionBiddingTimeoutPerCaMs() {
@@ -769,11 +782,6 @@ public interface Flags {
         return FLEDGE_REPORT_IMPRESSION_REGISTERED_AD_BEACONS_MAX_INTERACTION_KEY_SIZE_B;
     }
 
-    /** Returns the maximum size in bytes of {@link ReportInteractionInput#getInteractionData()} */
-    default long getFledgeReportInteractionMaxInteractionDataSizeB() {
-        return FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B;
-    }
-
     // 24 hours in seconds
     long FLEDGE_AD_SELECTION_EXPIRATION_WINDOW_S = 60 * 60 * 24;
 
@@ -800,10 +808,10 @@ public interface Flags {
         return FLEDGE_AD_SELECTION_CONTEXTUAL_ADS_ENABLED;
     }
 
-    // Enable FLEDGE fetchCustomAudience API.
+    // Enable FLEDGE fetchAndJoinCustomAudience API.
     boolean FLEDGE_FETCH_CUSTOM_AUDIENCE_ENABLED = false;
 
-    /** Returns {@code true} if FLEDGE fetchCustomAudience API is enabled. */
+    /** Returns {@code true} if FLEDGE fetchAndJoinCustomAudience API is enabled. */
     default boolean getFledgeFetchCustomAudienceEnabled() {
         return FLEDGE_FETCH_CUSTOM_AUDIENCE_ENABLED;
     }
@@ -822,11 +830,105 @@ public interface Flags {
         return FLEDGE_AD_SELECTION_PREBUILT_URI_ENABLED;
     }
 
+    boolean FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_ENABLED = false;
+
+    /**
+     * @return whether to call remote URLs for debug reporting.
+     */
+    default boolean getFledgeEventLevelDebugReportingEnabled() {
+        return FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_ENABLED;
+    }
+
+    int FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_BATCH_DELAY_SECONDS = 60 * 15;
+
+    /**
+     * @return minimum number of seconds between debug report batch.
+     */
+    default int getFledgeEventLevelDebugReportingBatchDelaySeconds() {
+        return FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_BATCH_DELAY_SECONDS;
+    }
+
+    int FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH = 1000;
+
+    /**
+     * @return maximum number of items in a debug report batch.
+     */
+    default int getFledgeEventLevelDebugReportingMaxItemsPerBatch() {
+        return FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH;
+    }
+
+    String AD_SELECTION_DATA_AUCTION_KEY_FETCH_URI =
+            "https://d38za9ovyr65qt.cloudfront.net/v1alpha/publicKeys";
+
+    /**
+     * @return Uri to fetch auction encryption key for fledge ad selection.
+     */
+    default String getAdSelectionDataAuctionKeyFetchUri() {
+        return AD_SELECTION_DATA_AUCTION_KEY_FETCH_URI;
+    }
+
+    String AD_SELECTION_DATA_JOIN_KEY_FETCH_URI =
+            "https://chromekanonymity-pa.googleapis.com/v1/proxy/keys";
+
+    /**
+     * @return Uri to fetch join encryption key for fledge ad selection.
+     */
+    default String getAdSelectionDataJoinKeyFetchUri() {
+        return AD_SELECTION_DATA_JOIN_KEY_FETCH_URI;
+    }
+
+    int AD_SELECTION_DATA_AUCTION_KEY_SHARDING = 5;
+
+    /**
+     * @return Shard count for using auction key for fledge ad selection.
+     */
+    default int getAdSelectionDataAuctionKeySharding() {
+        return AD_SELECTION_DATA_AUCTION_KEY_SHARDING;
+    }
+
+    long AD_SELECTION_DATA_ENCRYPTION_KEY_MAX_AGE_SECONDS = TimeUnit.DAYS.toSeconds(14);
+
+    default long getAdSelectionDataEncryptionKeyMaxAgeSeconds() {
+        return AD_SELECTION_DATA_ENCRYPTION_KEY_MAX_AGE_SECONDS;
+    }
+
+    int AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KDF_ID = 0x0001;
+
+    default int getAdSelectionDataAuctionEncryptionAlgorithmKdfId() {
+        return AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KDF_ID;
+    }
+
+    int AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KEM_ID = 0x0020;
+
+    default int getAdSelectionDataAuctionEncryptionAlgorithmKemId() {
+        return AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KEM_ID;
+    }
+
+    int AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_AEAD_ID = 0x0002;
+
+    default int getAdSelectionDataAuctionEncryptionAlgorithmAeadId() {
+        return AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_AEAD_ID;
+    }
+
     boolean FLEDGE_AD_SELECTION_OFF_DEVICE_REQUEST_COMPRESSION_ENABLED = true;
 
     /** Returns whether to compress requests sent off device for ad selection. */
     default boolean getAdSelectionOffDeviceRequestCompressionEnabled() {
         return FLEDGE_AD_SELECTION_OFF_DEVICE_REQUEST_COMPRESSION_ENABLED;
+    }
+
+    int FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION = 0;
+
+    /** Returns the compression algorithm version */
+    default int getFledgeAuctionServerCompressionAlgorithmVersion() {
+        return FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION;
+    }
+
+    int FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION = 0;
+
+    /** Returns the payload formatter version */
+    default int getFledgeAuctionServerPayloadFormatVersion() {
+        return FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION;
     }
 
     boolean ADSERVICES_ENABLED = false;
@@ -1587,13 +1689,25 @@ public interface Flags {
      * PP API Rate Limit for measurement register source. This is the max allowed QPS for one API
      * client to one PP API. Negative Value means skipping the rate limiting checking.
      */
-    float MEASUREMENT_REGISTER_SOURCE_REQUEST_PERMITS_PER_SECOND = 5;
+    float MEASUREMENT_REGISTER_SOURCE_REQUEST_PERMITS_PER_SECOND = 25;
 
     /**
      * PP API Rate Limit for measurement register web source. This is the max allowed QPS for one
      * API client to one PP API. Negative Value means skipping the rate limiting checking.
      */
-    float MEASUREMENT_REGISTER_WEB_SOURCE_REQUEST_PERMITS_PER_SECOND = 5;
+    float MEASUREMENT_REGISTER_WEB_SOURCE_REQUEST_PERMITS_PER_SECOND = 25;
+
+    /**
+     * PP API Rate Limit for measurement register trigger. This is the max allowed QPS for one API
+     * client to one PP API. Negative Value means skipping the rate limiting checking.
+     */
+    float MEASUREMENT_REGISTER_TRIGGER_REQUEST_PERMITS_PER_SECOND = 25;
+
+    /**
+     * PP API Rate Limit for measurement register web trigger. This is the max allowed QPS for one
+     * API client to one PP API. Negative Value means skipping the rate limiting checking.
+     */
+    float MEASUREMENT_REGISTER_WEB_TRIGGER_REQUEST_PERMITS_PER_SECOND = 25;
 
     /**
      * PP API Rate Limit for Topics API based on App Package name. This is the max allowed QPS for
@@ -1646,6 +1760,16 @@ public interface Flags {
     /** Returns the Measurement Register Web Source Request Permits Per Second. */
     default float getMeasurementRegisterWebSourceRequestPermitsPerSecond() {
         return MEASUREMENT_REGISTER_WEB_SOURCE_REQUEST_PERMITS_PER_SECOND;
+    }
+
+    /** Returns the Measurement Register Trigger Request Permits Per Second. */
+    default float getMeasurementRegisterTriggerRequestPermitsPerSecond() {
+        return MEASUREMENT_REGISTER_TRIGGER_REQUEST_PERMITS_PER_SECOND;
+    }
+
+    /** Returns the Measurement Register Web Trigger Request Permits Per Second. */
+    default float getMeasurementRegisterWebTriggerRequestPermitsPerSecond() {
+        return MEASUREMENT_REGISTER_WEB_TRIGGER_REQUEST_PERMITS_PER_SECOND;
     }
 
     /** Returns the Fledge Report Interaction API Request Permits Per Second. */
@@ -2019,6 +2143,14 @@ public interface Flags {
         return GA_UX_FEATURE_ENABLED;
     }
 
+    /** add speed bump dialogs when turning on or off the toggle of Topics, apps, measurement */
+    boolean TOGGLE_SPEED_BUMP_ENABLED = false;
+
+    /** Returns if the toggle speed bump dialog feature is enabled. */
+    default boolean getToggleSpeedBumpEnabled() {
+        return TOGGLE_SPEED_BUMP_ENABLED;
+    }
+
     long ASYNC_REGISTRATION_JOB_QUEUE_INTERVAL_MS = (int) TimeUnit.HOURS.toMillis(1);
 
     /** Returns the interval in which to run Registration Job Queue Service. */
@@ -2145,7 +2277,7 @@ public interface Flags {
     boolean MEASUREMENT_FLEXIBLE_EVENT_REPORTING_API_ENABLED = false;
 
     /** Returns whether to enable flexible event reporting API */
-    default boolean getMeasurementFlexibleEventReportingAPIEnabled() {
+    default boolean getMeasurementFlexibleEventReportingApiEnabled() {
         return MEASUREMENT_FLEXIBLE_EVENT_REPORTING_API_ENABLED;
     }
 
@@ -2218,7 +2350,34 @@ public interface Flags {
      * seconds.
      */
     default String getMeasurementEventReportsCtcEarlyReportingWindows() {
-        return MEASUREMENT_EVENT_REPORTS_VTC_EARLY_REPORTING_WINDOWS;
+        return MEASUREMENT_EVENT_REPORTS_CTC_EARLY_REPORTING_WINDOWS;
+    }
+
+    /** Disable aggregate report delay by default. */
+    boolean MEASUREMENT_ENABLE_CONFIGURABLE_AGGREGATE_REPORT_DELAY = false;
+
+    /** Returns true if aggregate report delay configurability is enabled, false otherwise. */
+    default boolean getMeasurementEnableConfigurableAggregateReportDelay() {
+        return MEASUREMENT_ENABLE_CONFIGURABLE_AGGREGATE_REPORT_DELAY;
+    }
+
+    /**
+     * Default aggregate report delay. Derived from {@link
+     * PrivacyParams#AGGREGATE_REPORT_MIN_DELAY} and {@link
+     * PrivacyParams#AGGREGATE_REPORT_DELAY_SPAN}.
+     */
+    String MEASUREMENT_AGGREGATE_REPORT_DELAY_CONFIG =
+            String.join(
+                    ",",
+                    Long.toString(TimeUnit.MINUTES.toMillis(10L)),
+                    Long.toString(TimeUnit.MINUTES.toMillis(50L)));
+
+    /**
+     * Returns configured comma separated aggregate report min delay and aggregate report delay
+     * span.
+     */
+    default String getMeasurementAggregateReportDelayConfig() {
+        return MEASUREMENT_AGGREGATE_REPORT_DELAY_CONFIG;
     }
 
     /** Disable conversions configurability by default. */
@@ -2279,13 +2438,13 @@ public interface Flags {
         return DEFAULT_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS;
     }
 
-    /** Default value of flag for logging consent migration metrics when OTA from S to T+. */
-    boolean DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED = true;
+    /** Enable pushing of consent migration logs when OTA from S to T+ by default. */
+    boolean DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH = false;
 
     /***
-     * Returns true when logging consent migration metrics is enabled when OTA from S to T+.
+     * Returns true if we want to log consent migration metrics when OTA from S to T+.
      */
-    default boolean getAdservicesConsentMigrationLoggingEnabled() {
-        return DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED;
+    default boolean getAdservicesConsentMigrationLoggingKillSwitch() {
+        return DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH;
     }
 }

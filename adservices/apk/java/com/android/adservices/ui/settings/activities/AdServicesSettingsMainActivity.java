@@ -60,6 +60,8 @@ public class AdServicesSettingsMainActivity extends AdServicesBaseActivity {
         // create the ResourcesLoader.
         if (FlagsFactory.getFlags().getUiOtaStringsFeatureEnabled()) {
             OTAResourcesManager.applyOTAResources(getApplicationContext(), true);
+            // apply to activity context as well since activity context has been created already.
+            OTAResourcesManager.applyOTAResources(this, false);
         }
         UiStatsLogger.logSettingsPageDisplayed(getApplication());
         super.onCreate(savedInstanceState);
@@ -83,7 +85,7 @@ public class AdServicesSettingsMainActivity extends AdServicesBaseActivity {
     protected void onResume() {
         super.onResume();
         if (FlagsFactory.getFlags().getU18UxEnabled()) {
-            initWithMode(true);
+            initWithUx(true);
         }
     }
 
@@ -102,7 +104,7 @@ public class AdServicesSettingsMainActivity extends AdServicesBaseActivity {
 
     private void initMainActivity() {
         setContentView(R.layout.main_activity);
-        // no need to store since no
+        // no need to store since not using
         new MainActivityActionDelegate(this, new ViewModelProvider(this).get(MainViewModel.class));
     }
 }

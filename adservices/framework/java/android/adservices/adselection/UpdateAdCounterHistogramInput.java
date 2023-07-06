@@ -19,6 +19,7 @@ package android.adservices.adselection;
 import static android.adservices.adselection.AdSelectionOutcome.UNSET_AD_SELECTION_ID;
 import static android.adservices.adselection.AdSelectionOutcome.UNSET_AD_SELECTION_ID_MESSAGE;
 import static android.adservices.adselection.UpdateAdCounterHistogramRequest.DISALLOW_AD_EVENT_TYPE_WIN_MESSAGE;
+import static android.adservices.adselection.UpdateAdCounterHistogramRequest.INVALID_AD_EVENT_TYPE_MESSAGE;
 import static android.adservices.adselection.UpdateAdCounterHistogramRequest.UNSET_CALLER_ADTECH_MESSAGE;
 import static android.adservices.common.FrequencyCapFilters.AD_EVENT_TYPE_WIN;
 
@@ -36,7 +37,8 @@ import java.util.Objects;
  * Input object wrapping the required arguments needed to update an ad counter histogram.
  *
  * <p>The ad counter histograms, which are historical logs of events which are associated with an ad
- * counter key and an ad event type, are used to inform frequency cap filtering in FLEDGE.
+ * counter key and an ad event type, are used to inform frequency cap filtering when using the
+ * Protected Audience APIs.
  *
  * @hide
  */
@@ -86,11 +88,11 @@ public final class UpdateAdCounterHistogramInput implements Parcelable {
     /**
      * Gets the ad selection ID with which the rendered ad's events are associated.
      *
-     * <p>The ad must have been selected from FLEDGE ad selection in the last 24 hours, and the ad
-     * selection call must have been initiated from the same app as the current calling app. Event
-     * histograms for all ad counter keys associated with the ad specified by the ad selection ID
-     * will be updated for the ad event type from {@link #getAdEventType()}, to be used in FLEDGE
-     * frequency cap filtering.
+     * <p>The ad must have been selected from Protected Audience ad selection in the last 24 hours,
+     * and the ad selection call must have been initiated from the same app as the current calling
+     * app. Event histograms for all ad counter keys associated with the ad specified by the ad
+     * selection ID will be updated for the ad event type from {@link #getAdEventType()}, to be used
+     * in Protected Audience frequency cap filtering.
      */
     public long getAdSelectionId() {
         return mAdSelectionId;
@@ -125,8 +127,8 @@ public final class UpdateAdCounterHistogramInput implements Parcelable {
     /**
      * Gets the caller app's package name.
      *
-     * <p>The package name must match the caller package name for the FLEDGE ad selection
-     * represented by the ID returned by {@link #getAdSelectionId()}.
+     * <p>The package name must match the caller package name for the Protected Audience ad
+     * selection represented by the ID returned by {@link #getAdSelectionId()}.
      */
     @NonNull
     public String getCallerPackageName() {
@@ -199,6 +201,10 @@ public final class UpdateAdCounterHistogramInput implements Parcelable {
                     adSelectionId != UNSET_AD_SELECTION_ID, UNSET_AD_SELECTION_ID_MESSAGE);
             Preconditions.checkArgument(
                     adEventType != AD_EVENT_TYPE_WIN, DISALLOW_AD_EVENT_TYPE_WIN_MESSAGE);
+            Preconditions.checkArgument(
+                    adEventType >= FrequencyCapFilters.AD_EVENT_TYPE_MIN
+                            && adEventType <= FrequencyCapFilters.AD_EVENT_TYPE_MAX,
+                    INVALID_AD_EVENT_TYPE_MESSAGE);
             Objects.requireNonNull(callerAdTech, UNSET_CALLER_ADTECH_MESSAGE);
             Objects.requireNonNull(callerPackageName, UNSET_CALLER_PACKAGE_NAME_MESSAGE);
 
@@ -209,7 +215,7 @@ public final class UpdateAdCounterHistogramInput implements Parcelable {
         }
 
         /**
-         * Gets the ad selection ID with which the rendered ad's events are associated.
+         * Sets the ad selection ID with which the rendered ad's events are associated.
          *
          * <p>See {@link #getAdSelectionId()} for more information.
          */
@@ -231,6 +237,10 @@ public final class UpdateAdCounterHistogramInput implements Parcelable {
         public Builder setAdEventType(@FrequencyCapFilters.AdEventType int adEventType) {
             Preconditions.checkArgument(
                     adEventType != AD_EVENT_TYPE_WIN, DISALLOW_AD_EVENT_TYPE_WIN_MESSAGE);
+            Preconditions.checkArgument(
+                    adEventType >= FrequencyCapFilters.AD_EVENT_TYPE_MIN
+                            && adEventType <= FrequencyCapFilters.AD_EVENT_TYPE_MAX,
+                    INVALID_AD_EVENT_TYPE_MESSAGE);
             mAdEventType = adEventType;
             return this;
         }

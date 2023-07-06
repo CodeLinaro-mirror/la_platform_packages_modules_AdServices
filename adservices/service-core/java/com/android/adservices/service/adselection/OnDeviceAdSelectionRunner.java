@@ -37,6 +37,7 @@ import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.customaudience.DBCustomAudience;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.common.AdSelectionServiceFilter;
+import com.android.adservices.service.common.FrequencyCapAdDataValidator;
 import com.android.adservices.service.common.httpclient.AdServicesHttpsClient;
 import com.android.adservices.service.devapi.CustomAudienceDevOverridesHelper;
 import com.android.adservices.service.devapi.DevContext;
@@ -72,6 +73,7 @@ public class OnDeviceAdSelectionRunner extends AdSelectionRunner {
     @NonNull protected final PerBuyerBiddingRunner mPerBuyerBiddingRunner;
     @NonNull protected final AdFilterer mAdFilterer;
     @NonNull protected final AdCounterKeyCopier mAdCounterKeyCopier;
+    @NonNull private final DebugReportingScriptStrategy mDebugReportingScriptStrategy;
 
     public OnDeviceAdSelectionRunner(
             @NonNull final Context context,
@@ -88,6 +90,7 @@ public class OnDeviceAdSelectionRunner extends AdSelectionRunner {
             @NonNull final AdSelectionServiceFilter adSelectionServiceFilter,
             @NonNull final AdFilterer adFilterer,
             @NonNull final AdCounterKeyCopier adCounterKeyCopier,
+            @NonNull final FrequencyCapAdDataValidator frequencyCapAdDataValidator,
             final int callerUid) {
         super(
                 context,
@@ -101,12 +104,14 @@ public class OnDeviceAdSelectionRunner extends AdSelectionRunner {
                 adSelectionExecutionLogger,
                 adSelectionServiceFilter,
                 adFilterer,
+                frequencyCapAdDataValidator,
                 callerUid);
 
         Objects.requireNonNull(adServicesHttpsClient);
         Objects.requireNonNull(adFilterer);
         Objects.requireNonNull(adCounterKeyCopier);
 
+        mDebugReportingScriptStrategy = new DebugReportingEnabledScriptStrategy();
         mAdServicesHttpsClient = adServicesHttpsClient;
         mAdFilterer = adFilterer;
         mAdCounterKeyCopier = adCounterKeyCopier;
@@ -116,7 +121,8 @@ public class OnDeviceAdSelectionRunner extends AdSelectionRunner {
                                 context,
                                 () -> flags.getEnforceIsolateMaxHeapSize(),
                                 () -> flags.getIsolateMaxHeapSizeBytes(),
-                                mAdCounterKeyCopier),
+                                mAdCounterKeyCopier,
+                                mDebugReportingScriptStrategy),
                         mLightweightExecutorService,
                         mBackgroundExecutorService,
                         mScheduledExecutor,
@@ -166,7 +172,8 @@ public class OnDeviceAdSelectionRunner extends AdSelectionRunner {
             @NonNull final AdSelectionExecutionLogger adSelectionExecutionLogger,
             @NonNull final PerBuyerBiddingRunner perBuyerBiddingRunner,
             @NonNull final AdFilterer adFilterer,
-            @NonNull final AdCounterKeyCopier adCounterKeyCopier) {
+            @NonNull final AdCounterKeyCopier adCounterKeyCopier,
+            @NonNull final FrequencyCapAdDataValidator frequencyCapAdDataValidator) {
         super(
                 context,
                 customAudienceDao,
@@ -181,6 +188,7 @@ public class OnDeviceAdSelectionRunner extends AdSelectionRunner {
                 callerUid,
                 adSelectionServiceFilter,
                 adFilterer,
+                frequencyCapAdDataValidator,
                 adSelectionExecutionLogger);
 
         Objects.requireNonNull(adsScoreGenerator);
@@ -193,6 +201,7 @@ public class OnDeviceAdSelectionRunner extends AdSelectionRunner {
         mPerBuyerBiddingRunner = perBuyerBiddingRunner;
         mAdFilterer = adFilterer;
         mAdCounterKeyCopier = adCounterKeyCopier;
+        mDebugReportingScriptStrategy = new DebugReportingScriptDisabledStrategy();
     }
 
     /**
@@ -351,7 +360,7 @@ public class OnDeviceAdSelectionRunner extends AdSelectionRunner {
                 .setWinningAdRenderUri(
                         scoringWinner.getAdWithScore().getAdWithBid().getAdData().getRenderUri())
                 .setBiddingLogicUri(scoringWinner.getBiddingLogicUri())
-                .setContextualSignals("{}");
+                .setBuyerContextualSignals("{}");
         // TODO(b/230569187): get the contextualSignal securely = "invoking app name"
 
         final DBAdSelection.Builder copiedDBAdSelectionBuilder =

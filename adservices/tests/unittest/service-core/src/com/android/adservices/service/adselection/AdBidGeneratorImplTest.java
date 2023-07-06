@@ -124,6 +124,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.stream.Collectors;
 
 public class AdBidGeneratorImplTest {
     public static final List<Double> BIDS = new ArrayList<>(ImmutableList.of(-10.0, 0.0, 1.0, 5.4));
@@ -151,6 +152,28 @@ public class AdBidGeneratorImplTest {
                     .setAds(Collections.emptyList())
                     .build();
     private static final String JSON_EXCEPTION_MESSAGE = "Badly formatted JSON";
+    private static final List<GenerateBidResult> GENERATE_BIDS_RESPONSE =
+            AD_WITH_BIDS.stream()
+                    .map(
+                            adWithBid ->
+                                    GenerateBidResult.builder()
+                                            .setAdWithBid(adWithBid)
+                                            .setCustomAudienceName("test_ca")
+                                            .setCustomAudienceBuyer(CommonFixture.VALID_BUYER_1)
+                                            .setOwnerAppPackage(CommonFixture.TEST_PACKAGE_NAME)
+                                            .build())
+                    .collect(Collectors.toList());
+    private static final List<GenerateBidResult> GENERATE_NON_POSITIVE_BIDS_RESPONSE =
+            AD_WITH_NON_POSITIVE_BIDS.stream()
+                    .map(
+                            adWithBid ->
+                                    GenerateBidResult.builder()
+                                            .setAdWithBid(adWithBid)
+                                            .setCustomAudienceName("test_ca")
+                                            .setCustomAudienceBuyer(CommonFixture.VALID_BUYER_1)
+                                            .setOwnerAppPackage(CommonFixture.TEST_PACKAGE_NAME)
+                                            .build())
+                    .collect(Collectors.toList());
     @Rule public final MockitoRule rule = MockitoJUnit.rule();
     private static final String FETCH_JAVA_SCRIPT_PATH = "/fetchJavascript/";
     private static final Map<String, Object> TRUSTED_BIDDING_SIGNALS_MAP =
@@ -378,7 +401,8 @@ public class AdBidGeneratorImplTest {
                         unUsedInvocation -> {
                             mRunAdBiddingPerCAExecutionLogger.startGenerateBids();
                             mRunAdBiddingPerCAExecutionLogger.endGenerateBids();
-                            return FluentFuture.from(Futures.immediateFuture(AD_WITH_BIDS));
+                            return FluentFuture.from(
+                                    Futures.immediateFuture(GENERATE_BIDS_RESPONSE));
                         });
         when(mRunAdBiddingPerCAClockMock.elapsedRealtime())
                 .thenReturn(
@@ -471,7 +495,8 @@ public class AdBidGeneratorImplTest {
                         unUsedInvocation -> {
                             mRunAdBiddingPerCAExecutionLogger.startGenerateBids();
                             mRunAdBiddingPerCAExecutionLogger.endGenerateBids();
-                            return FluentFuture.from(Futures.immediateFuture(AD_WITH_BIDS));
+                            return FluentFuture.from(
+                                    Futures.immediateFuture(GENERATE_BIDS_RESPONSE));
                         });
         when(mRunAdBiddingPerCAClockMock.elapsedRealtime())
                 .thenReturn(
@@ -587,7 +612,8 @@ public class AdBidGeneratorImplTest {
                         unUsedInvocation -> {
                             mRunAdBiddingPerCAExecutionLogger.startGenerateBids();
                             mRunAdBiddingPerCAExecutionLogger.endGenerateBids();
-                            return FluentFuture.from(Futures.immediateFuture(AD_WITH_BIDS));
+                            return FluentFuture.from(
+                                    Futures.immediateFuture(GENERATE_BIDS_RESPONSE));
                         });
         when(mRunAdBiddingPerCAClockMock.elapsedRealtime())
                 .thenReturn(
@@ -679,7 +705,8 @@ public class AdBidGeneratorImplTest {
                         unUsedInvocation -> {
                             mRunAdBiddingPerCAExecutionLogger.startGenerateBids();
                             mRunAdBiddingPerCAExecutionLogger.endGenerateBids();
-                            return FluentFuture.from(Futures.immediateFuture(AD_WITH_BIDS));
+                            return FluentFuture.from(
+                                    Futures.immediateFuture(GENERATE_BIDS_RESPONSE));
                         });
         when(mRunAdBiddingPerCAClockMock.elapsedRealtime())
                 .thenReturn(
@@ -791,7 +818,8 @@ public class AdBidGeneratorImplTest {
                         unUsedInvocation -> {
                             mRunAdBiddingPerCAExecutionLogger.startGenerateBids();
                             mRunAdBiddingPerCAExecutionLogger.endGenerateBids();
-                            return FluentFuture.from(Futures.immediateFuture(AD_WITH_BIDS));
+                            return FluentFuture.from(
+                                    Futures.immediateFuture(GENERATE_BIDS_RESPONSE));
                         });
         when(mRunAdBiddingPerCAClockMock.elapsedRealtime())
                 .thenReturn(
@@ -886,7 +914,8 @@ public class AdBidGeneratorImplTest {
                         unUsedInvocation -> {
                             mRunAdBiddingPerCAExecutionLogger.startGenerateBids();
                             mRunAdBiddingPerCAExecutionLogger.endGenerateBids();
-                            return FluentFuture.from(Futures.immediateFuture(AD_WITH_BIDS));
+                            return FluentFuture.from(
+                                    Futures.immediateFuture(GENERATE_BIDS_RESPONSE));
                         });
         when(mRunAdBiddingPerCAClockMock.elapsedRealtime())
                 .thenReturn(
@@ -984,7 +1013,8 @@ public class AdBidGeneratorImplTest {
                         unUsedInvocation -> {
                             mRunAdBiddingPerCAExecutionLogger.startGenerateBids();
                             mRunAdBiddingPerCAExecutionLogger.endGenerateBids();
-                            return FluentFuture.from(Futures.immediateFuture(AD_WITH_BIDS));
+                            return FluentFuture.from(
+                                    Futures.immediateFuture(GENERATE_BIDS_RESPONSE));
                         });
         when(mRunAdBiddingPerCAClockMock.elapsedRealtime())
                 .thenReturn(
@@ -1165,7 +1195,8 @@ public class AdBidGeneratorImplTest {
                         unUsedInvocation -> {
                             mRunAdBiddingPerCAExecutionLogger.startGenerateBids();
                             mRunAdBiddingPerCAExecutionLogger.endGenerateBids();
-                            return FluentFuture.from(Futures.immediateFuture(AD_WITH_BIDS));
+                            return FluentFuture.from(
+                                    Futures.immediateFuture(GENERATE_BIDS_RESPONSE));
                         });
         when(mRunAdBiddingPerCAClockMock.elapsedRealtime())
                 .thenReturn(
@@ -1289,7 +1320,8 @@ public class AdBidGeneratorImplTest {
                         unUsedInvocation -> {
                             mRunAdBiddingPerCAExecutionLogger.startGenerateBids();
                             mRunAdBiddingPerCAExecutionLogger.endGenerateBids();
-                            return FluentFuture.from(Futures.immediateFuture(AD_WITH_BIDS));
+                            return FluentFuture.from(
+                                    Futures.immediateFuture(GENERATE_BIDS_RESPONSE));
                         });
         when(mRunAdBiddingPerCAClockMock.elapsedRealtime())
                 .thenReturn(
@@ -1403,7 +1435,7 @@ public class AdBidGeneratorImplTest {
                             mRunAdBiddingPerCAExecutionLogger.startGenerateBids();
                             mRunAdBiddingPerCAExecutionLogger.endGenerateBids();
                             return FluentFuture.from(
-                                    Futures.immediateFuture(AD_WITH_NON_POSITIVE_BIDS));
+                                    Futures.immediateFuture(GENERATE_NON_POSITIVE_BIDS_RESPONSE));
                         });
         // When the call to runAdBiddingPerCA, and the computation of future is complete,
         FluentFuture<AdBiddingOutcome> result =
@@ -1490,7 +1522,7 @@ public class AdBidGeneratorImplTest {
                             mRunAdBiddingPerCAExecutionLogger.startGenerateBids();
                             mRunAdBiddingPerCAExecutionLogger.endGenerateBids();
                             return FluentFuture.from(
-                                    Futures.immediateFuture(AD_WITH_NON_POSITIVE_BIDS));
+                                    Futures.immediateFuture(GENERATE_NON_POSITIVE_BIDS_RESPONSE));
                         });
         // When the call to runAdBiddingPerCA, and the computation of future is complete,
         FluentFuture<AdBiddingOutcome> result =
@@ -1837,7 +1869,8 @@ public class AdBidGeneratorImplTest {
                         unusedInvocation -> {
                             mRunAdBiddingPerCAExecutionLogger.startGenerateBids();
                             mRunAdBiddingPerCAExecutionLogger.endGenerateBids();
-                            return FluentFuture.from(Futures.immediateFuture(AD_WITH_BIDS));
+                            return FluentFuture.from(
+                                    Futures.immediateFuture(GENERATE_BIDS_RESPONSE));
                         });
         // When the call to runAdBiddingPerCA, and the computation of future is complete,
         FluentFuture<AdBiddingOutcome> result =
@@ -2280,11 +2313,11 @@ public class AdBidGeneratorImplTest {
                 .isEqualTo(STATUS_SUCCESS);
     }
 
-    private ListenableFuture<List<AdWithBid>> generateBidsWithDelay(@NonNull Flags flags) {
+    private ListenableFuture<List<GenerateBidResult>> generateBidsWithDelay(@NonNull Flags flags) {
         return mBlockingExecutorService.submit(
                 () -> {
                     Thread.sleep(2 * flags.getAdSelectionBiddingTimeoutPerCaMs());
-                    return AD_WITH_BIDS;
+                    return GENERATE_BIDS_RESPONSE;
                 });
     }
 

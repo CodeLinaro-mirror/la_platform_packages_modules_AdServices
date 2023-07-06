@@ -38,10 +38,14 @@ android_app {
     max_sdk_version: "32",
     certificate: ":com.android.adservices.api.certificate",
     privileged: true,
+    privapp_allowlist: ":privapp_allowlist_android.ext_sminus.services.xml",
     srcs: [
         "java/**/*.java",
     ],
-    libs: ["android.ext.adservices"],
+    libs: [
+        "android.ext.adservices",
+        "framework-annotations-lib",
+    ],
     optional_uses_libs: ["android.ext.adservices"],
     manifest: "AdExtServicesManifest.xml",
     package_name: "com.android.ext.adservices.api",
@@ -89,6 +93,7 @@ android_app {
     libs: [
         // Need it to access hidden stuff in framework-adservices.
         "framework-adservices.impl",
+        "framework-annotations-lib",
     ],
     static_libs: [
         "adservices-service-core",

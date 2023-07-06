@@ -31,6 +31,12 @@ import java.util.Set;
 
 /** Represents data specific to an ad that is necessary for ad selection and rendering. */
 public final class AdData implements Parcelable {
+    /** @hide */
+    public static final String NUM_AD_COUNTER_KEYS_EXCEEDED_FORMAT =
+            "AdData should have no more than %d ad counter keys";
+    /** @hide */
+    public static final int MAX_NUM_AD_COUNTER_KEYS = 10;
+
     @NonNull private final Uri mRenderUri;
     @NonNull private final String mMetadata;
     @NonNull private final Set<Integer> mAdCounterKeys;
@@ -119,15 +125,14 @@ public final class AdData implements Parcelable {
     /**
      * Gets the set of keys used in counting events.
      *
+     * <p>No more than 10 ad counter keys may be associated with an ad.
+     *
      * <p>The keys and counts per key are used in frequency cap filtering during ad selection to
      * disqualify associated ads from being submitted to bidding.
      *
      * <p>Note that these keys can be overwritten along with the ads and other bidding data for a
      * custom audience during the custom audience's daily update.
-     *
-     * @hide
      */
-    // TODO(b/221876775): Unhide for frequency cap API review
     @NonNull
     public Set<Integer> getAdCounterKeys() {
         return mAdCounterKeys;
@@ -138,10 +143,7 @@ public final class AdData implements Parcelable {
      *
      * <p>The filters, if met or exceeded, exclude the associated ad from participating in ad
      * selection. They are optional and if {@code null} specify that no filters apply to this ad.
-     *
-     * @hide
      */
-    // TODO(b/221876775): Unhide for app install/frequency cap API review
     @Nullable
     public AdFilters getAdFilters() {
         return mAdFilters;
@@ -172,20 +174,11 @@ public final class AdData implements Parcelable {
                 + mRenderUri
                 + ", mMetadata='"
                 + mMetadata
-                + '\''
-                + generateAdCounterKeyString()
-                + generateAdFilterString()
+                + "', mAdCounterKeys="
+                + mAdCounterKeys
+                + ", mAdFilters="
+                + mAdFilters
                 + '}';
-    }
-
-    private String generateAdCounterKeyString() {
-        // TODO(b/221876775) Add ad counter keys String when unhidden
-        return "";
-    }
-
-    private String generateAdFilterString() {
-        // TODO(b/266837113) Add ad filters String when unhidden
-        return "";
     }
 
     /** Builder for {@link AdData} objects. */
@@ -233,16 +226,19 @@ public final class AdData implements Parcelable {
         /**
          * Sets the set of keys used in counting events.
          *
-         * <p>See {@link #getAdCounterKeys()} for more information.
+         * <p>No more than 10 ad counter keys may be associated with an ad.
          *
-         * @hide
+         * <p>See {@link #getAdCounterKeys()} for more information.
          */
-        // TODO(b/221876775): Unhide for frequency cap API review
         @NonNull
         public AdData.Builder setAdCounterKeys(@NonNull Set<Integer> adCounterKeys) {
             Objects.requireNonNull(adCounterKeys);
             Preconditions.checkArgument(
                     !adCounterKeys.contains(null), "Ad counter keys must not contain null value");
+            Preconditions.checkArgument(
+                    adCounterKeys.size() <= MAX_NUM_AD_COUNTER_KEYS,
+                    NUM_AD_COUNTER_KEYS_EXCEEDED_FORMAT,
+                    MAX_NUM_AD_COUNTER_KEYS);
             mAdCounterKeys = adCounterKeys;
             return this;
         }
@@ -251,10 +247,7 @@ public final class AdData implements Parcelable {
          * Sets all {@link AdFilters} associated with the ad.
          *
          * <p>See {@link #getAdFilters()} for more information.
-         *
-         * @hide
          */
-        // TODO(b/221876775): Unhide for app install/frequency cap API review
         @NonNull
         public AdData.Builder setAdFilters(@Nullable AdFilters adFilters) {
             mAdFilters = adFilters;

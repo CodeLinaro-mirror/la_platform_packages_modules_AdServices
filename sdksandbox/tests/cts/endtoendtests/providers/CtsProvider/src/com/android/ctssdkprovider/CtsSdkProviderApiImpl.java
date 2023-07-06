@@ -16,15 +16,23 @@
 
 package com.android.ctssdkprovider;
 
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.Application;
 import android.app.sdksandbox.sdkprovider.SdkSandboxActivityHandler;
 import android.app.sdksandbox.sdkprovider.SdkSandboxController;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
+import android.os.Binder;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Process;
 import android.os.RemoteException;
@@ -36,7 +44,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 
 public class CtsSdkProviderApiImpl extends ICtsSdkProviderApi.Stub {
-    private Context mContext;
+    private final Context mContext;
     private static final String CLIENT_PACKAGE_NAME = "com.android.tests.sdksandbox.endtoend";
     private static final String SDK_NAME = "com.android.ctssdkprovider";
     private static final String CURRENT_USER_ID =
@@ -46,6 +54,7 @@ public class CtsSdkProviderApiImpl extends ICtsSdkProviderApi.Stub {
     private static final int INTEGER_RESOURCE = 1234;
     private static final String STRING_ASSET = "This is a test asset";
     private static final String ASSET_FILE = "test-asset.txt";
+    private static final String UNREGISTER_BEFORE_STARTING_KEY = "UNREGISTER_BEFORE_STARTING_KEY";
 
     CtsSdkProviderApiImpl(Context context) {
         mContext = context;
@@ -153,21 +162,48 @@ public class CtsSdkProviderApiImpl extends ICtsSdkProviderApi.Stub {
     }
 
     @Override
-    public void startActivity(com.android.ctssdkprovider.IActivityStarter iActivityStarter)
+    public void startSandboxActivityDirectlyByAction() {
+        Intent intent = new Intent();
+        intent.setAction("android.app.sdksandbox.action.START_SANDBOXED_ACTIVITY");
+        intent.setPackage(mContext.getPackageManager().getSdkSandboxPackageName());
+        intent.setFlags(FLAG_ACTIVITY_NEW_TASK);
+
+        Bundle params = new Bundle();
+        params.putBinder("android.app.sdksandbox.extra.SANDBOXED_ACTIVITY_HANDLER", new Binder());
+        intent.putExtras(params);
+
+        mContext.startActivity(intent);
+    }
+
+    @Override
+    public void startSandboxActivityDirectlyByComponent() {
+        Intent intent = new Intent();
+        intent.setComponent(
+                new ComponentName(
+                        mContext.getPackageManager().getSdkSandboxPackageName(),
+                        "com.android.sdksandbox.SandboxedActivity"));
+        intent.setFlags(FLAG_ACTIVITY_NEW_TASK);
+
+        Bundle params = new Bundle();
+        params.putBinder("android.app.sdksandbox.extra.SANDBOXED_ACTIVITY_HANDLER", new Binder());
+        intent.putExtras(params);
+
+        mContext.startActivity(intent);
+    }
+
+    @Override
+    public void startActivity(IActivityStarter iActivityStarter, Bundle extras)
             throws RemoteException {
         SdkSandboxController controller = mContext.getSystemService(SdkSandboxController.class);
-        IBinder token =
-                controller.registerSdkSandboxActivityHandler(
-                        new SdkSandboxActivityHandler() {
-                            @Override
-                            public void onActivityCreated(@NonNull Activity activity) {
-                                try {
-                                    iActivityStarter.activityStartedSuccessfully();
-                                } catch (RemoteException e) {
-                                    throw new IllegalStateException("Exception");
-                                }
-                            }
-                        });
+        SdkSandboxActivityHandler activityHandler =
+                activity -> registerLifecycleEvents(iActivityStarter, activity);
+        assert controller != null;
+        IBinder token = controller.registerSdkSandboxActivityHandler(activityHandler);
+
+        if (extras.getBoolean(UNREGISTER_BEFORE_STARTING_KEY)) {
+            controller.unregisterSdkSandboxActivityHandler(activityHandler);
+        }
+
         iActivityStarter.startActivity(token);
     }
 
@@ -182,21 +218,50 @@ public class CtsSdkProviderApiImpl extends ICtsSdkProviderApi.Stub {
     }
 
     @Override
-    public void startActivityAfterUnregisterHandler(
-            com.android.ctssdkprovider.IActivityStarter iActivityStarter) throws RemoteException {
+    public String getClientPackageName() {
         SdkSandboxController controller = mContext.getSystemService(SdkSandboxController.class);
-        SdkSandboxActivityHandler activityHandler =
-                activity -> {
-                    try {
-                        iActivityStarter.activityStartedSuccessfully();
-                    } catch (RemoteException e) {
-                        throw new IllegalStateException(
-                                "Exception occurred while updating the client");
+        return controller.getClientPackageName();
+    }
+
+    private void registerLifecycleEvents(
+            IActivityStarter iActivityStarter, Activity sandboxActivity) {
+        sandboxActivity.registerActivityLifecycleCallbacks(
+                new Application.ActivityLifecycleCallbacks() {
+                    @Override
+                    public void onActivityCreated(
+                            @NonNull Activity activity, @Nullable Bundle savedInstanceState) {}
+
+                    @Override
+                    public void onActivityStarted(@NonNull Activity activity) {}
+
+                    @Override
+                    public void onActivityResumed(@NonNull Activity activity) {
+                        try {
+                            iActivityStarter.onActivityResumed();
+                        } catch (RemoteException e) {
+                            throw new IllegalStateException("Failed to call ActivityStarter.");
+                        }
                     }
-                };
-        IBinder token = controller.registerSdkSandboxActivityHandler(activityHandler);
-        controller.unregisterSdkSandboxActivityHandler(activityHandler);
-        iActivityStarter.startActivity(token);
+
+                    @Override
+                    public void onActivityPaused(@NonNull Activity activity) {
+                        try {
+                            iActivityStarter.onActivityPaused();
+                        } catch (RemoteException e) {
+                            throw new IllegalStateException("Failed to call ActivityStarter.");
+                        }
+                    }
+
+                    @Override
+                    public void onActivityStopped(@NonNull Activity activity) {}
+
+                    @Override
+                    public void onActivitySaveInstanceState(
+                            @NonNull Activity activity, @NonNull Bundle outState) {}
+
+                    @Override
+                    public void onActivityDestroyed(@NonNull Activity activity) {}
+                });
     }
 
     /* Sends an error if the expected resource/asset does not match the read value. */

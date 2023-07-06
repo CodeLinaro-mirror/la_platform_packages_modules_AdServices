@@ -99,8 +99,12 @@ import com.android.adservices.MockWebServerRuleFactory;
 import com.android.adservices.concurrency.AdServicesExecutors;
 import com.android.adservices.data.adselection.AdSelectionDatabase;
 import com.android.adservices.data.adselection.AdSelectionEntryDao;
+import com.android.adservices.data.adselection.AdSelectionServerDatabase;
 import com.android.adservices.data.adselection.AppInstallDao;
+import com.android.adservices.data.adselection.EncryptionContextDao;
+import com.android.adservices.data.adselection.EncryptionKeyDao;
 import com.android.adservices.data.adselection.FrequencyCapDao;
+import com.android.adservices.data.adselection.ReportingUrisDao;
 import com.android.adservices.data.adselection.SharedStorageDatabase;
 import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.customaudience.CustomAudienceDatabase;
@@ -165,6 +169,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+
 public class FledgeE2ETest {
     public static final String CUSTOM_AUDIENCE_SEQ_1 = "/ca1";
     public static final String CUSTOM_AUDIENCE_SEQ_2 = "/ca2";
@@ -175,7 +180,7 @@ public class FledgeE2ETest {
     public static final FrequencyCapFilters CLICK_ONCE_PER_DAY_KEY1 =
             new FrequencyCapFilters.Builder()
                     .setKeyedFrequencyCapsForClickEvents(
-                            Collections.singleton(
+                            ImmutableList.of(
                                     new KeyedFrequencyCap.Builder(
                                                     KeyedFrequencyCapFixture.KEY1,
                                                     1,
@@ -253,6 +258,9 @@ public class FledgeE2ETest {
     private AdSelectionEntryDao mAdSelectionEntryDao;
     private AppInstallDao mAppInstallDao;
     private FrequencyCapDao mFrequencyCapDao;
+    private EncryptionKeyDao mEncryptionKeyDao;
+    private EncryptionContextDao mEncryptionContextDao;
+    private ReportingUrisDao mReportingUrisDao;
     private ExecutorService mLightweightExecutorService;
     private ExecutorService mBackgroundExecutorService;
     private ScheduledThreadPoolExecutor mScheduledExecutor;
@@ -311,6 +319,11 @@ public class FledgeE2ETest {
                 Room.inMemoryDatabaseBuilder(CONTEXT, SharedStorageDatabase.class).build();
         mAppInstallDao = sharedDb.appInstallDao();
         mFrequencyCapDao = sharedDb.frequencyCapDao();
+        AdSelectionServerDatabase serverDb =
+                Room.inMemoryDatabaseBuilder(CONTEXT, AdSelectionServerDatabase.class).build();
+        mEncryptionContextDao = serverDb.encryptionContextDao();
+        mEncryptionKeyDao = serverDb.encryptionKeyDao();
+        mReportingUrisDao = serverDb.reportingUrisDao();
         mAdFilteringFeatureFactory =
                 new AdFilteringFeatureFactory(mAppInstallDao, mFrequencyCapDao, DEFAULT_FLAGS);
 
@@ -701,6 +714,9 @@ public class FledgeE2ETest {
                         mAppInstallDao,
                         mCustomAudienceDao,
                         mFrequencyCapDao,
+                        mEncryptionContextDao,
+                        mEncryptionKeyDao,
+                        mReportingUrisDao,
                         mAdServicesHttpsClient,
                         mDevContextFilter,
                         mLightweightExecutorService,
@@ -855,6 +871,9 @@ public class FledgeE2ETest {
                         mAppInstallDao,
                         mCustomAudienceDao,
                         mFrequencyCapDao,
+                        mEncryptionContextDao,
+                        mEncryptionKeyDao,
+                        mReportingUrisDao,
                         mAdServicesHttpsClient,
                         mDevContextFilter,
                         mLightweightExecutorService,
@@ -1031,12 +1050,12 @@ public class FledgeE2ETest {
                         + "}\n"
                         + "function reportWin(ad_selection_signals, per_buyer_signals,"
                         + " signals_for_buyer ,contextual_signals, custom_audience_signals) {\n"
-                        + "    registerAdBeacon('click', '"
+                        + "const beacons = {'click': '"
                         + mMockWebServerRule.uriForPath(CLICK_BUYER_PATH)
-                        + "');\n"
-                        + "    registerAdBeacon('hover', '"
+                        + "', 'hover': '"
                         + mMockWebServerRule.uriForPath(HOVER_BUYER_PATH)
-                        + "');\n"
+                        + "'};\n"
+                        + "registerAdBeacon(beacons);"
                         + " return {'status': 0, 'results': {'reporting_uri': '"
                         + mMockWebServerRule.uriForPath(BUYER_REPORTING_PATH)
                         + "' } };\n"
@@ -1731,12 +1750,12 @@ public class FledgeE2ETest {
                         + "}\n"
                         + "function reportWin(ad_selection_signals, per_buyer_signals,"
                         + " signals_for_buyer ,contextual_signals, custom_audience_signals) {\n"
-                        + "    registerAdBeacon('click', '"
+                        + "const beacons = {'click': '"
                         + mMockWebServerRule.uriForPath(CLICK_BUYER_PATH)
-                        + "');\n"
-                        + "    registerAdBeacon('hover', '"
+                        + "', 'hover': '"
                         + mMockWebServerRule.uriForPath(HOVER_BUYER_PATH)
-                        + "');\n"
+                        + "'};\n"
+                        + "registerAdBeacon(beacons);"
                         + " return {'status': 0, 'results': {'reporting_uri': '"
                         + mMockWebServerRule.uriForPath(BUYER_REPORTING_PATH)
                         + "' } };\n"
@@ -1809,12 +1828,12 @@ public class FledgeE2ETest {
                         + "}\n"
                         + "function reportWin(ad_selection_signals, per_buyer_signals,"
                         + " signals_for_buyer ,contextual_signals, custom_audience_signals) {\n"
-                        + "    registerAdBeacon('click', '"
+                        + "const beacons = {'click': '"
                         + mMockWebServerRule.uriForPath(CLICK_BUYER_PATH)
-                        + "');\n"
-                        + "    registerAdBeacon('hover', '"
+                        + "', 'hover': '"
                         + mMockWebServerRule.uriForPath(HOVER_BUYER_PATH)
-                        + "');\n"
+                        + "'};\n"
+                        + "registerAdBeacon(beacons);"
                         + " return {'status': 0, 'results': {'reporting_uri': '"
                         + mMockWebServerRule.uriForPath(BUYER_REPORTING_PATH)
                         + "' } };\n"
@@ -2290,12 +2309,12 @@ public class FledgeE2ETest {
                 + "}\n"
                 + "function reportWin(ad_selection_signals, per_buyer_signals,"
                 + " signals_for_buyer ,contextual_signals, custom_audience_signals) {\n"
-                + "    registerAdBeacon('click', '"
+                + "const beacons = {'click': '"
                 + mMockWebServerRule.uriForPath(CLICK_BUYER_PATH)
-                + "');\n"
-                + "    registerAdBeacon('hover', '"
+                + "', 'hover': '"
                 + mMockWebServerRule.uriForPath(HOVER_BUYER_PATH)
-                + "');\n"
+                + "'};\n"
+                + "registerAdBeacon(beacons);"
                 + " return {'status': 0, 'results': {'reporting_uri': '"
                 + mMockWebServerRule.uriForPath(BUYER_REPORTING_PATH)
                 + "' } };\n"
@@ -2337,12 +2356,12 @@ public class FledgeE2ETest {
                 + "}\n"
                 + "function reportWin(ad_selection_signals, per_buyer_signals,"
                 + " signals_for_buyer ,contextual_signals, custom_audience_signals) {\n"
-                + "    registerAdBeacon('click', '"
+                + "const beacons = {'click': '"
                 + mMockWebServerRule.uriForPath(CLICK_BUYER_PATH)
-                + "');\n"
-                + "    registerAdBeacon('hover', '"
+                + "', 'hover': '"
                 + mMockWebServerRule.uriForPath(HOVER_BUYER_PATH)
-                + "');\n"
+                + "'};\n"
+                + "registerAdBeacon(beacons);"
                 + " return {'status': 0, 'results': {'reporting_uri': '"
                 + mMockWebServerRule.uriForPath(BUYER_REPORTING_PATH)
                 + "' } };\n"
@@ -2357,12 +2376,12 @@ public class FledgeE2ETest {
                 + "}\n"
                 + "function reportResult(ad_selection_config, render_uri, bid,"
                 + " contextual_signals) {\n"
-                + "    registerAdBeacon('click', '"
+                + "const beacons = {'click': '"
                 + mMockWebServerRule.uriForPath(CLICK_SELLER_PATH)
-                + "');\n"
-                + "    registerAdBeacon('hover', '"
+                + "', 'hover': '"
                 + mMockWebServerRule.uriForPath(HOVER_SELLER_PATH)
-                + "');\n"
+                + "'};\n"
+                + "registerAdBeacon(beacons);"
                 + " return {'status': 0, 'results': {'signals_for_buyer':"
                 + " '{\"signals_for_buyer\":1}', 'reporting_uri': '"
                 + mMockWebServerRule.uriForPath(SELLER_REPORTING_PATH)
@@ -2574,13 +2593,15 @@ public class FledgeE2ETest {
                         CONTEXT,
                         new CustomAudienceImpl(
                                 mCustomAudienceDao,
-                                new CustomAudienceQuantityChecker(
-                                        mCustomAudienceDao, DEFAULT_FLAGS),
+                                new CustomAudienceQuantityChecker(mCustomAudienceDao, flags),
                                 new CustomAudienceValidator(
                                         CommonFixture.FIXED_CLOCK_TRUNCATED_TO_MILLI,
-                                        DEFAULT_FLAGS),
+                                        flags,
+                                        flags.getFledgeAdSelectionFilteringEnabled()
+                                                ? new FrequencyCapAdDataValidatorImpl()
+                                                : new FrequencyCapAdDataValidatorNoOpImpl()),
                                 CommonFixture.FIXED_CLOCK_TRUNCATED_TO_MILLI,
-                                DEFAULT_FLAGS),
+                                flags),
                         mFledgeAuthorizationFilterMock,
                         mConsentManagerMock,
                         mDevContextFilter,
@@ -2610,6 +2631,9 @@ public class FledgeE2ETest {
                         mAppInstallDao,
                         mCustomAudienceDao,
                         mFrequencyCapDao,
+                        mEncryptionContextDao,
+                        mEncryptionKeyDao,
+                        mReportingUrisDao,
                         mAdServicesHttpsClient,
                         mDevContextFilter,
                         mLightweightExecutorService,
