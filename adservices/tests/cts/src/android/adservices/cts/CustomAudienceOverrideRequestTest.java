@@ -33,7 +33,19 @@ public class CustomAudienceOverrideRequestTest {
             AdSelectionSignals.fromString("{\"trusted_bidding_data\":1}");
 
     @Test
-    public void testBuildAddCustomAudienceOverrideRequestSuccess() {
+    public void testCreateAddCustomAudienceOverrideRequestSuccess() {
+        AddCustomAudienceOverrideRequest request =
+                new AddCustomAudienceOverrideRequest(
+                        BUYER, NAME, BIDDING_LOGIC_JS, TRUSTED_BIDDING_DATA);
+
+        assertEquals(request.getBuyer(), BUYER);
+        assertEquals(request.getName(), NAME);
+        assertEquals(request.getBiddingLogicJs(), BIDDING_LOGIC_JS);
+        assertEquals(request.getTrustedBiddingSignals(), TRUSTED_BIDDING_DATA);
+    }
+
+    @Test
+    public void testBuildAddCustomAudienceOverrideRequest_biddingLogicVersionNotSet_Success() {
         AddCustomAudienceOverrideRequest request =
                 new AddCustomAudienceOverrideRequest.Builder()
                         .setBuyer(BUYER)
@@ -46,6 +58,15 @@ public class CustomAudienceOverrideRequestTest {
         assertEquals(request.getName(), NAME);
         assertEquals(request.getBiddingLogicJs(), BIDDING_LOGIC_JS);
         assertEquals(request.getTrustedBiddingSignals(), TRUSTED_BIDDING_DATA);
+    }
+
+    @Test
+    public void testCreateRemoveCustomAudienceOverrideRequestSuccess() {
+        RemoveCustomAudienceOverrideRequest request =
+                new RemoveCustomAudienceOverrideRequest(BUYER, NAME);
+
+        assertEquals(request.getBuyer(), BUYER);
+        assertEquals(request.getName(), NAME);
     }
 
     @Test

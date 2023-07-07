@@ -18,10 +18,14 @@ package com.android.adservices.service.adselection;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.net.Uri;
 
 import com.android.adservices.service.common.httpclient.AdServicesHttpClientRequest;
+
+
+import com.google.common.collect.ImmutableMap;
 
 import org.junit.Test;
 
@@ -31,15 +35,15 @@ import java.util.Map;
 public class JsVersionHelperTest {
 
     private static final Uri URI = Uri.parse("https://example.com");
-    private static final int VERSION = 3;
+    private static final Long VERSION = 3L;
 
     @Test
     public void testGetRequestWithVersionAttribute() {
         AdServicesHttpClientRequest request =
                 JsVersionHelper.getRequestWithVersionHeader(
                         URI,
-                        JsVersionHelper.JS_PAYLOAD_TYPE_BUYER_BIDDING_LOGIC_JS,
-                        VERSION,
+                        ImmutableMap.of(
+                                JsVersionHelper.JS_PAYLOAD_TYPE_BUYER_BIDDING_LOGIC_JS, VERSION),
                         false);
 
         assertEquals(request.getUri(), URI);
@@ -50,6 +54,12 @@ public class JsVersionHelperTest {
                                 JsVersionHelper.getVersionHeaderName(
                                         JsVersionHelper.JS_PAYLOAD_TYPE_BUYER_BIDDING_LOGIC_JS)),
                 Long.toString(VERSION));
+        assertEquals(request.getResponseHeaderKeys().size(), 1);
+        assertTrue(
+                request.getResponseHeaderKeys()
+                        .contains(
+                                JsVersionHelper.getVersionHeaderName(
+                                        JsVersionHelper.JS_PAYLOAD_TYPE_BUYER_BIDDING_LOGIC_JS)));
         assertFalse(request.getUseCache());
     }
 

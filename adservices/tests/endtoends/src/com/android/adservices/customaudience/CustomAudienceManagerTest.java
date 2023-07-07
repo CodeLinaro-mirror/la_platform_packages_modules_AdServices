@@ -31,9 +31,14 @@ import androidx.test.filters.FlakyTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.adservices.LoggerFactory;
+import com.android.adservices.common.AdservicesTestHelper;
+import com.android.adservices.common.CompatAdServicesTestUtils;
 import com.android.adservices.service.PhFlagsFixture;
 import com.android.compatibility.common.util.ShellUtils;
+import com.android.modules.utils.build.SdkLevel;
 
+import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -55,8 +60,19 @@ public class CustomAudienceManagerTest {
 
     private static final int DELAY_TO_AVOID_THROTTLE_MS = 1001;
 
+    private String mPreviousAppAllowList;
+
     @Before
     public void setUp() throws TimeoutException {
+        // Skip the test if it runs on unsupported platforms
+        Assume.assumeTrue(AdservicesTestHelper.isDeviceSupported());
+
+        if (!SdkLevel.isAtLeastT()) {
+            mPreviousAppAllowList =
+                    CompatAdServicesTestUtils.getAndOverridePpapiAppAllowList(
+                            CONTEXT.getPackageName());
+            CompatAdServicesTestUtils.setFlags();
+        }
         InstrumentationRegistry.getInstrumentation()
                 .getUiAutomation()
                 .adoptShellPermissionIdentity(Manifest.permission.WRITE_DEVICE_CONFIG);
@@ -64,6 +80,20 @@ public class CustomAudienceManagerTest {
         PhFlagsFixture.overrideSdkRequestPermitsPerSecond(Integer.MAX_VALUE);
         // This test is running in background
         PhFlagsFixture.overrideForegroundStatusForFledgeCustomAudience(false);
+        PhFlagsFixture.overrideEnableEnrollmentSeed(true);
+    }
+
+    @After
+    public void tearDown() {
+        if (!AdservicesTestHelper.isDeviceSupported()) {
+            return;
+        }
+
+        if (!SdkLevel.isAtLeastT()) {
+            CompatAdServicesTestUtils.setPpapiAppAllowList(mPreviousAppAllowList);
+            CompatAdServicesTestUtils.resetFlagsToDefault();
+        }
+        PhFlagsFixture.overrideEnableEnrollmentSeed(false);
     }
 
     private void measureJoinCustomAudience(String label) throws Exception {

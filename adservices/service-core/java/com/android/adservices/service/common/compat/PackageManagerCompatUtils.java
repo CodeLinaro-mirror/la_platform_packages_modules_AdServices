@@ -35,12 +35,16 @@ import java.util.Objects;
 
 /** Utility class for compatibility of PackageManager APIs with Android S and earlier. */
 public final class PackageManagerCompatUtils {
+
     private PackageManagerCompatUtils() {
         // Prevent instantiation
     }
 
+    // This list is the same as the list declared in the AdExtServicesManifest, where the
+    // activities are disabled so that there are no dups on T+ devices.
+    // TODO(b/263904312): Remove after max_sdk_version is implemented.
     // TODO(b/272737642) scan activities instead of hardcode
-    private static final ImmutableList<String> CONSENT_ACTIVITIES_CLASSES =
+    public static final ImmutableList<String> CONSENT_ACTIVITIES_CLASSES =
             ImmutableList.copyOf(
                     Arrays.asList(
                             "com.android.adservices.ui.settings.activities."
@@ -51,6 +55,21 @@ public final class PackageManagerCompatUtils {
                             "com.android.adservices.ui.settings.activities.BlockedAppsActivity",
                             "com.android.adservices.ui.settings.activities.MeasurementActivity",
                             "com.android.adservices.ui.notifications.ConsentNotificationActivity"));
+
+    // This list is the same as the list declared in the AdExtServicesManifest, where the
+    // services with intent filters need to be disabled so that there are no dups on T+ devices.
+    // TODO(b/263904312): Remove after max_sdk_version is implemented.
+    // TODO(b/272737642) scan services instead of hardcode
+    public static final ImmutableList<String> SERVICE_CLASSES =
+            ImmutableList.copyOf(
+                    Arrays.asList(
+                            "com.android.adservices.adselection.AdSelectionService",
+                            "com.android.adservices.customaudience.CustomAudienceService",
+                            "com.android.adservices.topics.TopicsService",
+                            "com.android.adservices.adid.AdIdService",
+                            "com.android.adservices.appsetid.AppSetIdService",
+                            "com.android.adservices.measurement.MeasurementService",
+                            "com.android.adservices.common.AdServicesCommonService"));
 
     /**
      * Invokes the appropriate overload of {@code getInstalledPackages} on {@link PackageManager}

@@ -43,7 +43,6 @@ android_test {
         "compatibility-device-util-axt",
         "mockito-target-extended-minus-junit4",
         "truth-prebuilt",
-        "ub-uiautomator",
         "adservices-assets",
         "adservices-service-core-schema",
         "androidx.room_room-runtime",
@@ -98,7 +97,6 @@ android_test {
         "compatibility-device-util-axt",
         "mockito-target-extended-minus-junit4",
         "truth-prebuilt",
-        "ub-uiautomator",
         "adservices-assets",
         "adservices-test-fixtures",
     ],
@@ -193,7 +191,6 @@ android_test {
         "opencensus-java-contrib-grpc-metrics",
         "tflite_support_classifiers_java",
         "truth-prebuilt",
-        "ub-uiautomator",
     ],
     libs: [
         "android.ext.adservices",
@@ -243,7 +240,6 @@ android_test {
         "compatibility-device-util-axt",
         "mockito-target-extended-minus-junit4",
         "truth-prebuilt",
-        "ub-uiautomator",
     ],
     libs: [
         "android.ext.adservices",
@@ -257,7 +253,6 @@ android_test {
         "mts-extservices"
     ],
     test_config: "AndroidTest.JsScriptEngine.ExtServices.xml",
-    test_mainline_modules: ["com.google.android.extservices.apex"],
     instrumentation_for: "AdExtServicesApk",
 }
 
@@ -298,4 +293,14 @@ android_test {
     test_config: "AndroidTestMDD.ExtServices.xml",
     test_mainline_modules: ["com.google.android.extservices.apex"],
     instrumentation_for: "AdExtServicesApk",
+}
+
+java_library {
+    name: "adservices-measurement-web-util-lib",
+    sdk_version: "module_current",
+    srcs: [
+      "src/com/android/adservices/service/measurement/WebUtil.java"
+    ],
+    visibility: ["//packages/modules/AdServices/adservices/tests/unittest/fixtures"]
+
 }
