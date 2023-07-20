@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,17 @@
  * limitations under the License.
  */
 
-package com.android.sdksandbox;
+package android.adservices.test.scenario.adservices.longevity;
 
-parcelable SandboxLatencyInfo;
+import android.platform.test.longevity.ProfileSuite;
+
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite.SuiteClasses;
+
+@RunWith(ProfileSuite.class)
+@SuiteClasses({
+    android.adservices.test.scenario.adservices.topics.GetTopicsApiCall.class,
+    android.adservices.test.scenario.adservices.topics.TopicsEpochComputationPrecomputedClassifier
+            .class
+})
+public class TopicsScenarioProfileSuite {}
