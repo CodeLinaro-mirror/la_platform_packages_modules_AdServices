@@ -21,6 +21,7 @@ import static com.android.adservices.service.Flags.ADID_REQUEST_PERMITS_PER_SECO
 import static com.android.adservices.service.Flags.ADSERVICES_APK_SHA_CERTIFICATE;
 import static com.android.adservices.service.Flags.ADSERVICES_ENABLED;
 import static com.android.adservices.service.Flags.ADSERVICES_ERROR_LOGGING_ENABLED;
+import static com.android.adservices.service.Flags.ADSERVICES_RELEASE_STAGE_FOR_COBALT;
 import static com.android.adservices.service.Flags.APPSEARCH_ONLY;
 import static com.android.adservices.service.Flags.APPSETID_KILL_SWITCH;
 import static com.android.adservices.service.Flags.APPSETID_REQUEST_PERMITS_PER_SECOND;
@@ -185,6 +186,7 @@ import static com.android.adservices.service.Flags.MEASUREMENT_ATTRIBUTION_FALLB
 import static com.android.adservices.service.Flags.MEASUREMENT_DATA_EXPIRY_WINDOW_MS;
 import static com.android.adservices.service.Flags.MEASUREMENT_DB_SIZE_LIMIT;
 import static com.android.adservices.service.Flags.MEASUREMENT_DEFAULT_AGGREGATION_COORDINATOR_ORIGIN;
+import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_ARA_DEDUPLICATION_ALIGNMENT_V1;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_ARA_PARSING_ALIGNMENT_V1;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_CONFIGURABLE_AGGREGATE_REPORT_DELAY;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_CONFIGURABLE_EVENT_REPORTING_WINDOWS;
@@ -281,6 +283,7 @@ import static com.android.adservices.service.PhFlags.KEY_ADID_REQUEST_PERMITS_PE
 import static com.android.adservices.service.PhFlags.KEY_ADSERVICES_APK_SHA_CERTS;
 import static com.android.adservices.service.PhFlags.KEY_ADSERVICES_ENABLED;
 import static com.android.adservices.service.PhFlags.KEY_ADSERVICES_ERROR_LOGGING_ENABLED;
+import static com.android.adservices.service.PhFlags.KEY_ADSERVICES_RELEASE_STAGE_FOR_COBALT;
 import static com.android.adservices.service.PhFlags.KEY_APPSETID_KILL_SWITCH;
 import static com.android.adservices.service.PhFlags.KEY_APPSETID_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.PhFlags.KEY_ASYNC_REGISTRATION_JOB_QUEUE_INTERVAL_MS;
@@ -432,6 +435,7 @@ import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_DEBUG_JOIN_
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_DEBUG_KEY_AD_ID_MATCHING_ENROLLMENT_BLOCKLIST;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_DEBUG_KEY_AD_ID_MATCHING_LIMIT;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_DEFAULT_AGGREGATION_COORDINATOR_ORIGIN;
+import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_ENABLE_ARA_DEDUPLICATION_ALIGNMENT_V1;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_ENABLE_ARA_PARSING_ALIGNMENT_V1;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS;
 import static com.android.adservices.service.PhFlags.KEY_MEASUREMENT_ENABLE_CONFIGURABLE_AGGREGATE_REPORT_DELAY;
@@ -909,6 +913,23 @@ public class PhFlagsTest {
 
         Flags phFlags = FlagsFactory.getFlags();
         assertThat(phFlags.getCobaltAdservicesApiKeyHex()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testAdservicesReleaseStageForCobalt() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getAdservicesReleaseStageForCobalt())
+                .isEqualTo(ADSERVICES_RELEASE_STAGE_FOR_COBALT);
+
+        String phOverridingValue = ADSERVICES_RELEASE_STAGE_FOR_COBALT + "OPEN_BETA";
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_ADSERVICES_RELEASE_STAGE_FOR_COBALT,
+                phOverridingValue,
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getAdservicesReleaseStageForCobalt()).isEqualTo(phOverridingValue);
     }
 
     @Test
@@ -6146,6 +6167,24 @@ public class PhFlagsTest {
     }
 
     @Test
+    public void testGetMeasurementEnableAraDeduplicationAlignmentV1() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(FlagsFactory.getFlags().getMeasurementEnableAraDeduplicationAlignmentV1())
+                .isEqualTo(MEASUREMENT_ENABLE_ARA_DEDUPLICATION_ALIGNMENT_V1);
+
+        final boolean phOverridingValue = false;
+
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_MEASUREMENT_ENABLE_ARA_DEDUPLICATION_ALIGNMENT_V1,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        Flags phFlags = FlagsFactory.getFlags();
+        assertThat(phFlags.getMeasurementEnableAraDeduplicationAlignmentV1()).isFalse();
+    }
+
+    @Test
     public void testGetMeasurementEnableSharedSourceDebugKey() {
         // Without any overriding, the value is the hard coded constant.
         assertThat(FlagsFactory.getFlags().getMeasurementEnableSharedSourceDebugKey())
@@ -6255,9 +6294,9 @@ public class PhFlagsTest {
     }
 
     @Test
-    public void testGetMeasurementFlexAPIMaxInformationGainEvent() {
+    public void testGetMeasurementFlexApiMaxInformationGainEvent() {
         // Without any overriding, the value is the hard coded constant.
-        assertThat(FlagsFactory.getFlags().getMeasurementFlexAPIMaxInformationGainEvent())
+        assertThat(FlagsFactory.getFlags().getMeasurementFlexApiMaxInformationGainEvent())
                 .isEqualTo(MEASUREMENT_FLEX_API_MAX_INFO_GAIN_EVENT);
 
         float phOverridingValue = MEASUREMENT_FLEX_API_MAX_INFO_GAIN_EVENT + 6.4f;
@@ -6269,15 +6308,15 @@ public class PhFlagsTest {
 
         Flags phFlags = FlagsFactory.getFlags();
         assertEquals(
-                phFlags.getMeasurementFlexAPIMaxInformationGainEvent(),
+                phFlags.getMeasurementFlexApiMaxInformationGainEvent(),
                 phOverridingValue,
                 0.000000001f);
     }
 
     @Test
-    public void testGetMeasurementFlexAPIMaxInformationGainNavigation() {
+    public void testGetMeasurementFlexApiMaxInformationGainNavigation() {
         // Without any overriding, the value is the hard coded constant.
-        assertThat(FlagsFactory.getFlags().getMeasurementFlexAPIMaxInformationGainNavigation())
+        assertThat(FlagsFactory.getFlags().getMeasurementFlexApiMaxInformationGainNavigation())
                 .isEqualTo(MEASUREMENT_FLEX_API_MAX_INFO_GAIN_NAVIGATION);
 
         float phOverridingValue = MEASUREMENT_FLEX_API_MAX_INFO_GAIN_NAVIGATION + 6.4f;
@@ -6289,15 +6328,15 @@ public class PhFlagsTest {
 
         Flags phFlags = FlagsFactory.getFlags();
         assertEquals(
-                phFlags.getMeasurementFlexAPIMaxInformationGainNavigation(),
+                phFlags.getMeasurementFlexApiMaxInformationGainNavigation(),
                 phOverridingValue,
                 0.000000001f);
     }
 
     @Test
-    public void testGetMeasurementFlexAPIMaxEventReports() {
+    public void testGetMeasurementFlexApiMaxEventReports() {
         // Without any overriding, the value is the hard coded constant.
-        assertThat(FlagsFactory.getFlags().getMeasurementFlexAPIMaxEventReports())
+        assertThat(FlagsFactory.getFlags().getMeasurementFlexApiMaxEventReports())
                 .isEqualTo(MEASUREMENT_FLEX_API_MAX_EVENT_REPORTS);
 
         int phOverridingValue = MEASUREMENT_FLEX_API_MAX_EVENT_REPORTS + 7;
@@ -6309,13 +6348,13 @@ public class PhFlagsTest {
                 /* makeDefault */ false);
 
         Flags phFlags = FlagsFactory.getFlags();
-        assertThat(phFlags.getMeasurementFlexAPIMaxEventReports()).isEqualTo(phOverridingValue);
+        assertThat(phFlags.getMeasurementFlexApiMaxEventReports()).isEqualTo(phOverridingValue);
     }
 
     @Test
-    public void testGetMeasurementFlexAPIMaxEventReportWindows() {
+    public void testGetMeasurementFlexApiMaxEventReportWindows() {
         // Without any overriding, the value is the hard coded constant.
-        assertThat(FlagsFactory.getFlags().getMeasurementFlexAPIMaxEventReportWindows())
+        assertThat(FlagsFactory.getFlags().getMeasurementFlexApiMaxEventReportWindows())
                 .isEqualTo(MEASUREMENT_FLEX_API_MAX_EVENT_REPORT_WINDOWS);
 
         int phOverridingValue = MEASUREMENT_FLEX_API_MAX_EVENT_REPORT_WINDOWS + 8;
@@ -6327,14 +6366,14 @@ public class PhFlagsTest {
                 /* makeDefault */ false);
 
         Flags phFlags = FlagsFactory.getFlags();
-        assertThat(phFlags.getMeasurementFlexAPIMaxEventReportWindows())
+        assertThat(phFlags.getMeasurementFlexApiMaxEventReportWindows())
                 .isEqualTo(phOverridingValue);
     }
 
     @Test
-    public void testGetMeasurementFlexAPIMaxTriggerDataCardinality() {
+    public void testGetMeasurementFlexApiMaxTriggerDataCardinality() {
         // Without any overriding, the value is the hard coded constant.
-        assertThat(FlagsFactory.getFlags().getMeasurementFlexAPIMaxTriggerDataCardinality())
+        assertThat(FlagsFactory.getFlags().getMeasurementFlexApiMaxTriggerDataCardinality())
                 .isEqualTo(MEASUREMENT_FLEX_API_MAX_TRIGGER_DATA_CARDINALITY);
 
         int phOverridingValue = MEASUREMENT_FLEX_API_MAX_TRIGGER_DATA_CARDINALITY + 11;
@@ -6346,7 +6385,7 @@ public class PhFlagsTest {
                 /* makeDefault */ false);
 
         Flags phFlags = FlagsFactory.getFlags();
-        assertThat(phFlags.getMeasurementFlexAPIMaxTriggerDataCardinality())
+        assertThat(phFlags.getMeasurementFlexApiMaxTriggerDataCardinality())
                 .isEqualTo(phOverridingValue);
     }
 
