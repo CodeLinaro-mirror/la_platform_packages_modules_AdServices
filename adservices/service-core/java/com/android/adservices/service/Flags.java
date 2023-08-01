@@ -20,9 +20,12 @@ import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREG
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
+import android.content.Context;
 
 import androidx.annotation.Nullable;
 
+import com.android.adservices.cobalt.CobaltApiKeys;
+import com.android.adservices.cobalt.CobaltReleaseStages;
 import com.android.adservices.data.adselection.DBRegisteredAdInteraction;
 import com.android.adservices.service.adselection.AdOutcomeSelectorImpl;
 import com.android.adservices.service.common.cache.FledgeHttpCache;
@@ -2736,6 +2739,10 @@ public interface Flags {
     boolean DEFAULT_ENABLE_AD_SERVICES_SYSTEM_API = false;
 
     /** enableAdServices system API feature flag.. */
+    default boolean getEnableAdServicesSystemApi(Context context) {
+        return DEFAULT_ENABLE_AD_SERVICES_SYSTEM_API;
+    }
+
     default boolean getEnableAdServicesSystemApi() {
         return DEFAULT_ENABLE_AD_SERVICES_SYSTEM_API;
     }
@@ -2799,7 +2806,7 @@ public interface Flags {
     }
 
     /** Default value of Cobalt Adservices Api key. */
-    String COBALT_ADSERVICES_API_KEY_HEX = "cobalt-default-api-key";
+    String COBALT_ADSERVICES_API_KEY_HEX = CobaltApiKeys.DEFAULT_API_KEY;
 
     default String getCobaltAdservicesApiKeyHex() {
         return COBALT_ADSERVICES_API_KEY_HEX;
@@ -2809,7 +2816,7 @@ public interface Flags {
      * Default value of Adservices release stage for Cobalt. The value should correspond to {@link
      * com.google.cobalt.ReleaseStage} enum.
      */
-    String ADSERVICES_RELEASE_STAGE_FOR_COBALT = "GA";
+    String ADSERVICES_RELEASE_STAGE_FOR_COBALT = CobaltReleaseStages.DEFAULT_RELEASE_STAGE;
 
     /** Returns the value of Adservices release stage for Cobalt. */
     default String getAdservicesReleaseStageForCobalt() {
