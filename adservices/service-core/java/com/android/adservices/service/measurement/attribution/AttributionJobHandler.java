@@ -16,8 +16,8 @@
 
 package com.android.adservices.service.measurement.attribution;
 
-import static com.android.adservices.service.measurement.PrivacyParams.AGGREGATE_MAX_REPORT_DELAY;
-import static com.android.adservices.service.measurement.PrivacyParams.AGGREGATE_MIN_REPORT_DELAY;
+import static com.android.adservices.service.measurement.PrivacyParams.AGGREGATE_REPORT_DELAY_SPAN;
+import static com.android.adservices.service.measurement.PrivacyParams.AGGREGATE_REPORT_MIN_DELAY;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_MEASUREMENT_ATTRIBUTION;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_MEASUREMENT_DELAYED_SOURCE_REGISTRATION;
 
@@ -38,6 +38,7 @@ import com.android.adservices.service.measurement.EventSurfaceType;
 import com.android.adservices.service.measurement.EventTrigger;
 import com.android.adservices.service.measurement.FilterMap;
 import com.android.adservices.service.measurement.PrivacyParams;
+import com.android.adservices.service.measurement.ReportSpec;
 import com.android.adservices.service.measurement.Source;
 import com.android.adservices.service.measurement.SystemHealthParams;
 import com.android.adservices.service.measurement.Trigger;
@@ -85,6 +86,7 @@ import java.util.stream.Collectors;
 class AttributionJobHandler {
 
     private static final String API_VERSION = "0.1";
+    private static final String AGGREGATE_REPORT_DELAY_DELIMITER = ",";
     private final DatastoreManager mDatastoreManager;
     private final DebugReportApi mDebugReportApi;
     private final EventReportWindowCalcDelegate mEventReportWindowCalcDelegate;
@@ -335,12 +337,7 @@ class AttributionJobHandler {
             }
 
             source.setAggregateContributions(newAggregateContributions.getAsInt());
-            long randomTime =
-                    (long)
-                            ((Math.random()
-                                            * (AGGREGATE_MAX_REPORT_DELAY
-                                                    - AGGREGATE_MIN_REPORT_DELAY))
-                                    + AGGREGATE_MIN_REPORT_DELAY);
+            long randomTime = getAggregateReportDelay();
             Pair<UnsignedLong, UnsignedLong> debugKeyPair =
                     new DebugKeyAccessor(measurementDao).getDebugKeys(source, trigger);
             UnsignedLong sourceDebugKey = debugKeyPair.first;
@@ -385,7 +382,10 @@ class AttributionJobHandler {
             // TODO (b/230618328): read from DB and upload unencrypted aggregate report.
             return TriggeringStatus.ATTRIBUTED;
         } catch (JSONException e) {
-            LogUtil.e(e, "JSONException when parse aggregate fields in AttributionJobHandler.");
+            LogUtil.e(
+                    e,
+                    "AttributionJobHandler::maybeGenerateAggregateReport JSONException when parse"
+                            + " aggregate fields.");
             return TriggeringStatus.DROPPED;
         }
     }
@@ -479,8 +479,8 @@ class AttributionJobHandler {
         } catch (JSONException e) {
             LogUtil.e(
                     e,
-                    "JSONException when parse aggregate dedup key fields in "
-                            + "AttributionJobHandler.");
+                    "AttributionJobHandler::maybeGetAggregateDeduplicationKey JSONException when "
+                            + "parse aggregate dedup key fields in AttributionJobHandler.");
             return Optional.empty();
         }
     }
@@ -504,7 +504,6 @@ class AttributionJobHandler {
                             source.getParentId(), triggerEnrollmentId);
                 }
             }
-
             measurementDao.updateSourceStatus(ignoredOriginalSourceIds, Source.Status.IGNORED);
         }
     }
@@ -525,7 +524,8 @@ class AttributionJobHandler {
             return TriggeringStatus.DROPPED;
         }
 
-        if (trigger.getTriggerTime() > source.getEventReportWindow()) {
+        if (trigger.getTriggerTime() > source.getEventReportWindow()
+                && (source.getTriggerSpecs() == null || source.getTriggerSpecs().isEmpty())) {
             mDebugReportApi.scheduleTriggerDebugReport(
                     source, trigger, null, measurementDao, Type.TRIGGER_EVENT_REPORT_WINDOW_PASSED);
             return TriggeringStatus.DROPPED;
@@ -588,18 +588,79 @@ class AttributionJobHandler {
                                 debugKeyPair,
                                 mEventReportWindowCalcDelegate,
                                 mSourceNoiseHandler,
-                                getEventReportDestinations(source, trigger.getDestinationType()))
+                                getEventReportDestinations(source, trigger.getDestinationType()),
+                                mFlags.getMeasurementFlexibleEventReportingApiEnabled())
                         .build();
+        if (!mFlags.getMeasurementFlexibleEventReportingApiEnabled()
+                || source.getTriggerSpecs() == null
+                || source.getTriggerSpecs().isEmpty()) {
+            if (!provisionEventReportQuota(source, trigger, newEventReport, measurementDao)) {
+                return TriggeringStatus.DROPPED;
+            }
+            finalizeEventReportCreation(source, eventTrigger, newEventReport, measurementDao);
+        } else {
+            if (!provisionEventReportFlexEventApiQuota(
+                    source, newEventReport, measurementDao, eventTrigger)) {
+                return TriggeringStatus.DROPPED;
+            }
+        }
+        return TriggeringStatus.ATTRIBUTED;
+    }
 
-        // Call provisionEventReportQuota since it has side-effects affecting source and
-        // event-report records.
-        if (!provisionEventReportQuota(
-                source, trigger, newEventReport, measurementDao)) {
-            return TriggeringStatus.DROPPED;
+    private boolean provisionEventReportFlexEventApiQuota(
+            Source source,
+            EventReport newEventReport,
+            IMeasurementDao measurementDao,
+            EventTrigger eventTrigger)
+            throws DatastoreException {
+        try {
+            source.buildFlexibleEventReportApi();
+        } catch (JSONException e) {
+            LogUtil.e("Source::buildFlexibleEventReportApi caught JSON exception");
+            return false;
+        }
+        ReportSpec reportSpec = source.getFlexEventReportSpec();
+        if (!reportSpec.containsTriggerData(newEventReport.getTriggerData())) {
+            return false;
         }
 
-        finalizeEventReportCreation(source, eventTrigger, newEventReport, measurementDao);
-        return TriggeringStatus.ATTRIBUTED;
+        // for flexible event API.
+        int bucketIncrements = reportSpec.countBucketIncrements(newEventReport);
+        if (bucketIncrements == 0) {
+            // the new proposed report doesn't cause bucket increments so no new report
+            // generated
+            reportSpec.insertAttributedTrigger(newEventReport);
+        } else {
+            List<EventReport> sourceEventReports = measurementDao.getSourceEventReports(source);
+            if (sourceEventReports.size() + bucketIncrements <= reportSpec.getMaxReports()) {
+                // there are enough quota to generate all report for this trigger. No competing
+                // condition
+                reportSpec.insertAttributedTrigger(newEventReport);
+                for (int i = 0; i < bucketIncrements; i++) {
+                    // 1 bucket increment lead to 1 report so multiple report with same content
+                    // may be inserted.
+                    finalizeEventReportCreation(
+                            source, eventTrigger, newEventReport, measurementDao);
+                }
+            } else {
+                // competing condition: more event report candidate than allowed quota
+                Pair<List<EventReport>, Integer> tmp =
+                        reportSpec.processIncomingReport(
+                                bucketIncrements, newEventReport, sourceEventReports);
+                List<EventReport> toBeDeletedReports = tmp.first;
+                int numOfNewReportGenerated = tmp.second;
+                for (EventReport report : toBeDeletedReports) {
+                    measurementDao.deleteEventReport(report);
+                }
+                for (int i = 0; i < numOfNewReportGenerated; i++) {
+                    finalizeEventReportCreation(
+                            source, eventTrigger, newEventReport, measurementDao);
+                }
+            }
+        }
+        measurementDao.updateSourceAttributedTriggers(
+                source.getId(), source.getFlexEventReportSpec());
+        return true;
     }
 
     private List<Uri> getEventReportDestinations(@NonNull Source source, int destinationType) {
@@ -780,7 +841,7 @@ class AttributionJobHandler {
             return isFilterMatch;
         } catch (JSONException e) {
             // If JSON is malformed, we shall consider as not matched.
-            LogUtil.e(e, "doTopLevelFiltersMatch: JSON parse failed.");
+            LogUtil.e(e, "AttributionJobHandler::doTopLevelFiltersMatch: JSON parse failed.");
             return false;
         }
     }
@@ -790,7 +851,9 @@ class AttributionJobHandler {
             throws DatastoreException {
         try {
             FilterMap sourceFiltersData = source.getFilterData();
-            List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+            List<EventTrigger> eventTriggers =
+                    trigger.parseEventTriggers(
+                            mFlags.getMeasurementFlexibleEventReportingApiEnabled());
             Optional<EventTrigger> matchingEventTrigger =
                     eventTriggers.stream()
                             .filter(
@@ -812,7 +875,9 @@ class AttributionJobHandler {
             return matchingEventTrigger;
         } catch (JSONException e) {
             // If JSON is malformed, we shall consider as not matched.
-            LogUtil.e(e, "Malformed JSON string.");
+            LogUtil.e(
+                    e,
+                    "AttributionJobHandler::findFirstMatchingEventTrigger: Malformed JSON string.");
             return Optional.empty();
         }
     }
@@ -875,7 +940,10 @@ class AttributionJobHandler {
                     return OptionalInt.empty();
                 }
             } catch (ArithmeticException e) {
-                LogUtil.e(e, "Error adding aggregate contribution values.");
+                LogUtil.e(
+                        e,
+                        "AttributionJobHandler::validateAndGetUpdatedAggregateContributions Error"
+                                + " adding aggregate contribution values.");
                 return OptionalInt.empty();
             }
         }
@@ -1009,5 +1077,37 @@ class AttributionJobHandler {
                                 .setRegistrationDelay(
                                         delayedSourceRegistrationStatus.getRegistrationDelay())
                                 .build());
+    }
+
+    private long getAggregateReportDelay() {
+        long reportDelayFromDefaults = (long) (Math.random() * AGGREGATE_REPORT_DELAY_SPAN
+                    + AGGREGATE_REPORT_MIN_DELAY);
+
+        if (!mFlags.getMeasurementEnableConfigurableAggregateReportDelay()) {
+            return reportDelayFromDefaults;
+        }
+
+        String aggregateReportDelayString = mFlags.getMeasurementAggregateReportDelayConfig();
+
+        if (aggregateReportDelayString == null) {
+            LogUtil.d("Invalid configurable aggregate report delay: null");
+            return reportDelayFromDefaults;
+        }
+
+        String[] split = aggregateReportDelayString.split(AGGREGATE_REPORT_DELAY_DELIMITER);
+
+        if (split.length != 2) {
+            LogUtil.d("Invalid configurable aggregate report delay: length is not two");
+            return reportDelayFromDefaults;
+        }
+
+        try {
+            final long minDelay = Long.parseLong(split[0].trim());
+            final long delaySpan =  Long.parseLong(split[1].trim());
+            return (long) (Math.random() * delaySpan + minDelay);
+        } catch (NumberFormatException e) {
+            LogUtil.e(e, "Configurable aggregate report delay parsing failed.");
+            return reportDelayFromDefaults;
+        }
     }
 }

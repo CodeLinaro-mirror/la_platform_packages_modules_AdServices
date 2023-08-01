@@ -155,9 +155,6 @@ public final class PhFlags implements Flags {
     static final String KEY_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT =
             "measurement_vtc_configurable_max_event_reports_count";
 
-    static final String ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED =
-            "adservices_consent_migration_logging_enabled";
-
     // FLEDGE Custom Audience keys
     static final String KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_COUNT = "fledge_custom_audience_max_count";
     static final String KEY_FLEDGE_CUSTOM_AUDIENCE_PER_APP_MAX_COUNT =
@@ -236,8 +233,6 @@ public final class PhFlags implements Flags {
     static final String
             KEY_FLEDGE_REPORT_IMPRESSION_REGISTERED_AD_BEACONS_MAX_INTERACTION_KEY_SIZE_B =
                     "fledge_report_impression_registered_ad_beacons_max_interaction_key_size_b";
-    static final String KEY_FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B =
-            "fledge_report_interaction_max_interaction_data_size_b";
     static final String KEY_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_BUYER_MS =
             "fledge_ad_selection_bidding_timeout_per_buyer_ms";
     static final String KEY_FLEDGE_HTTP_CACHE_ENABLE = "fledge_http_cache_enable";
@@ -248,10 +243,14 @@ public final class PhFlags implements Flags {
     static final String KEY_FLEDGE_HTTP_CACHE_MAX_ENTRIES = "fledge_http_cache_max_entries";
 
     // FLEDGE Ad Counter Histogram keys
-    static final String KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_EVENT_COUNT =
-            "fledge_ad_counter_histogram_absolute_max_event_count";
-    static final String KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_EVENT_COUNT =
-            "fledge_ad_counter_histogram_lower_max_event_count";
+    static final String KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT =
+            "fledge_ad_counter_histogram_absolute_max_total_event_count";
+    static final String KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT =
+            "fledge_ad_counter_histogram_lower_max_total_event_count";
+    static final String KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_PER_BUYER_EVENT_COUNT =
+            "fledge_ad_counter_histogram_absolute_max_per_buyer_event_count";
+    static final String KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_PER_BUYER_EVENT_COUNT =
+            "fledge_ad_counter_histogram_lower_max_per_buyer_event_count";
 
     // FLEDGE Off device ad selection keys
     static final String KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_OVERALL_TIMEOUT_MS =
@@ -263,10 +262,34 @@ public final class PhFlags implements Flags {
             "fledge_ad_selection_off_device_enabled";
     static final String KEY_FLEDGE_AD_SELECTION_PREBUILT_URI_ENABLED =
             "fledge_ad_selection_ad_selection_prebuilt_uri_enabled";
+    static final String KEY_AD_SELECTION_DATA_AUCTION_KEY_FETCH_URI =
+            "ad_selection_data_auction_key_fetch_uri";
+    static final String KEY_AD_SELECTION_DATA_AUCTION_KEY_SHARDING =
+            "ad_selection_data_auction_key_sharding";
+    static final String KEY_AD_SELECTION_DATA_JOIN_KEY_FETCH_URI =
+            "ad_selection_data_join_key_fetch_uri";
+    static final String KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KEM_ID =
+            "ad_selection_data_auction_encryption_algorithm_kem_id";
+    static final String KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KDF_ID =
+            "ad_selection_data_auction_encryption_algorithm_kdf_id";
+    static final String KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_AEAD_ID =
+            "ad_selection_data_auction_encryption_algorithm_aead_id";
+
     // Whether to compress the request object when calling trusted servers for off device ad
     // selection.
     static final String KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_REQUEST_COMPRESSION_ENABLED =
             "fledge_ad_selection_off_device_request_compression_enabled";
+    // Event-level debug reporting for Protected Audience.
+    static final String KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_ENABLED =
+            "fledge_event_level_debug_reporting_enabled";
+    static final String KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_BATCH_DELAY_SECONDS =
+            "fledge_event_level_debug_reporting_batch_delay_seconds";
+    static final String KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH =
+            "fledge_event_level_debug_reporting_max_items_per_batch";
+    static final String KEY_FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION =
+            "fledge_auction_server_compression_algorithm_version";
+    static final String KEY_FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION =
+            "fledge_auction_server_payload_format_version";
 
     // Fledge invoking app status keys
     static final String KEY_ENFORCE_FOREGROUND_STATUS_FLEDGE_RUN_AD_SELECTION =
@@ -376,6 +399,10 @@ public final class PhFlags implements Flags {
             "measurement_register_source_request_permits_per_second";
     static final String KEY_MEASUREMENT_REGISTER_WEB_SOURCE_REQUEST_PERMITS_PER_SECOND =
             "measurement_register_web_source_request_permits_per_second";
+    static final String KEY_MEASUREMENT_REGISTER_TRIGGER_REQUEST_PERMITS_PER_SECOND =
+            "measurement_register_trigger_request_permits_per_second";
+    static final String KEY_MEASUREMENT_REGISTER_WEB_TRIGGER_REQUEST_PERMITS_PER_SECOND =
+            "measurement_register_web_trigger_request_permits_per_second";
     static final String KEY_TOPICS_API_APP_REQUEST_PERMITS_PER_SECOND =
             "topics_api_app_request_permits_per_second";
     static final String KEY_TOPICS_API_SDK_REQUEST_PERMITS_PER_SECOND =
@@ -457,10 +484,15 @@ public final class PhFlags implements Flags {
 
     static final String KEY_UI_DIALOG_FRAGMENT_ENABLED = "ui_dialog_fragment_enabled";
 
+    static final String KEY_UI_TOGGLE_SPEED_BUMP_ENABLED = "ui_toggle_speed_bump_enabled";
+
     public static final String KEY_GA_UX_FEATURE_ENABLED = "ga_ux_enabled";
 
     // Back-compat keys
     static final String KEY_COMPAT_LOGGING_KILL_SWITCH = "compat_logging_kill_switch";
+
+    static final String ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH =
+            "adservices_consent_migration_logging_kill_switch";
 
     static final String KEY_ENABLE_BACK_COMPAT = "enable_back_compat";
 
@@ -516,6 +548,12 @@ public final class PhFlags implements Flags {
 
     static final String KEY_MEASUREMENT_EVENT_REPORTS_CTC_EARLY_REPORTING_WINDOWS =
             "measurement_event_reports_ctc_early_reporting_windows";
+
+    static final String KEY_MEASUREMENT_ENABLE_CONFIGURABLE_AGGREGATE_REPORT_DELAY =
+            "measurement_enable_configurable_aggregate_report_delay";
+
+    static final String KEY_MEASUREMENT_AGGREGATE_REPORT_DELAY_CONFIG =
+            "measurement_aggregate_report_delay_config";
 
     // AdServices Namespace String from DeviceConfig class not available in S Minus
     static final String NAMESPACE_ADSERVICES = "adservices";
@@ -1313,16 +1351,6 @@ public final class PhFlags implements Flags {
     }
 
     @Override
-    public long getFledgeReportInteractionMaxInteractionDataSizeB() {
-        return DeviceConfig.getLong(
-                NAMESPACE_ADSERVICES,
-                /* flagName */
-                KEY_FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B,
-                /* defaultValue */
-                FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B);
-    }
-
-    @Override
     public boolean getFledgeHttpCachingEnabled() {
         return DeviceConfig.getBoolean(
                 NAMESPACE_ADSERVICES,
@@ -1355,19 +1383,35 @@ public final class PhFlags implements Flags {
     }
 
     @Override
-    public int getFledgeAdCounterHistogramAbsoluteMaxEventCount() {
+    public int getFledgeAdCounterHistogramAbsoluteMaxTotalEventCount() {
         return DeviceConfig.getInt(
                 NAMESPACE_ADSERVICES,
-                /* flagName */ KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_EVENT_COUNT,
-                /* defaultValue */ FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_EVENT_COUNT);
+                /* flagName */ KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT,
+                /* defaultValue */ FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT);
     }
 
     @Override
-    public int getFledgeAdCounterHistogramLowerMaxEventCount() {
+    public int getFledgeAdCounterHistogramLowerMaxTotalEventCount() {
         return DeviceConfig.getInt(
                 NAMESPACE_ADSERVICES,
-                /* flagName */ KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_EVENT_COUNT,
-                /* defaultValue */ FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_EVENT_COUNT);
+                /* flagName */ KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT,
+                /* defaultValue */ FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT);
+    }
+
+    @Override
+    public int getFledgeAdCounterHistogramAbsoluteMaxPerBuyerEventCount() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_PER_BUYER_EVENT_COUNT,
+                /* defaultValue */ FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_PER_BUYER_EVENT_COUNT);
+    }
+
+    @Override
+    public int getFledgeAdCounterHistogramLowerMaxPerBuyerEventCount() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_PER_BUYER_EVENT_COUNT,
+                /* defaultValue */ FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_PER_BUYER_EVENT_COUNT);
     }
 
     // MDD related flags.
@@ -1931,6 +1975,20 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public float getMeasurementRegisterTriggerRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                KEY_MEASUREMENT_REGISTER_TRIGGER_REQUEST_PERMITS_PER_SECOND,
+                MEASUREMENT_REGISTER_TRIGGER_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
+    public float getMeasurementRegisterWebTriggerRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                KEY_MEASUREMENT_REGISTER_WEB_TRIGGER_REQUEST_PERMITS_PER_SECOND,
+                MEASUREMENT_REGISTER_WEB_TRIGGER_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
     public float getTopicsApiAppRequestPermitsPerSecond() {
         return getPermitsPerSecond(
                 KEY_TOPICS_API_APP_REQUEST_PERMITS_PER_SECOND,
@@ -2059,11 +2117,74 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public String getAdSelectionDataAuctionKeyFetchUri() {
+        return DeviceConfig.getString(
+                NAMESPACE_ADSERVICES,
+                KEY_AD_SELECTION_DATA_AUCTION_KEY_FETCH_URI,
+                AD_SELECTION_DATA_AUCTION_KEY_FETCH_URI);
+    }
+
+    @Override
+    public String getAdSelectionDataJoinKeyFetchUri() {
+        return DeviceConfig.getString(
+                NAMESPACE_ADSERVICES,
+                KEY_AD_SELECTION_DATA_JOIN_KEY_FETCH_URI,
+                AD_SELECTION_DATA_JOIN_KEY_FETCH_URI);
+    }
+
+    @Override
+    public int getAdSelectionDataAuctionKeySharding() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                KEY_AD_SELECTION_DATA_AUCTION_KEY_SHARDING,
+                AD_SELECTION_DATA_AUCTION_KEY_SHARDING);
+    }
+
+    public int getAdSelectionDataAuctionEncryptionAlgorithmKemId() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KEM_ID,
+                AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KEM_ID);
+    }
+
+    @Override
+    public int getAdSelectionDataAuctionEncryptionAlgorithmKdfId() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KDF_ID,
+                AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KDF_ID);
+    }
+
+    @Override
+    public int getAdSelectionDataAuctionEncryptionAlgorithmAeadId() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_AEAD_ID,
+                AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_AEAD_ID);
+    }
+
+    @Override
     public boolean getAdSelectionOffDeviceRequestCompressionEnabled() {
         return DeviceConfig.getBoolean(
                 NAMESPACE_ADSERVICES,
                 KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_REQUEST_COMPRESSION_ENABLED,
                 FLEDGE_AD_SELECTION_OFF_DEVICE_REQUEST_COMPRESSION_ENABLED);
+    }
+
+    @Override
+    public int getFledgeAuctionServerCompressionAlgorithmVersion() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION,
+                FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION);
+    }
+
+    @Override
+    public int getFledgeAuctionServerPayloadFormatVersion() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION,
+                FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION);
     }
 
     @Override
@@ -2132,6 +2253,32 @@ public final class PhFlags implements Flags {
                         NAMESPACE_ADSERVICES,
                         /* flagName */ KEY_ENFORCE_FOREGROUND_STATUS_APPSETID,
                         /* defaultValue */ ENFORCE_FOREGROUND_STATUS_APPSETID));
+    }
+
+    @Override
+    public boolean getFledgeEventLevelDebugReportingEnabled() {
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_ENABLED,
+                /* defaultValue */ FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_ENABLED);
+    }
+
+    @Override
+    public int getFledgeEventLevelDebugReportingBatchDelaySeconds() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_BATCH_DELAY_SECONDS,
+                /* defaultValue */
+                FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_BATCH_DELAY_SECONDS);
+    }
+
+    @Override
+    public int getFledgeEventLevelDebugReportingMaxItemsPerBatch() {
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH,
+                /* defaultValue */
+                FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH);
     }
 
     @Override
@@ -2415,6 +2562,17 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getToggleSpeedBumpEnabled() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return SystemProperties.getBoolean(
+                getSystemPropertyName(KEY_UI_TOGGLE_SPEED_BUMP_ENABLED),
+                /* defaultValue */ DeviceConfig.getBoolean(
+                        NAMESPACE_ADSERVICES,
+                        /* flagName */ KEY_UI_TOGGLE_SPEED_BUMP_ENABLED,
+                        /* defaultValue */ TOGGLE_SPEED_BUMP_ENABLED));
+    }
+
+    @Override
     public long getAdSelectionExpirationWindowS() {
         return DeviceConfig.getLong(
                 NAMESPACE_ADSERVICES,
@@ -2423,7 +2581,7 @@ public final class PhFlags implements Flags {
     }
 
     @Override
-    public boolean getMeasurementFlexibleEventReportingAPIEnabled() {
+    public boolean getMeasurementFlexibleEventReportingApiEnabled() {
         // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
         return DeviceConfig.getBoolean(
                 NAMESPACE_ADSERVICES,
@@ -2495,6 +2653,24 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getMeasurementEnableConfigurableAggregateReportDelay() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_ENABLE_CONFIGURABLE_AGGREGATE_REPORT_DELAY,
+                /* defaultValue */ MEASUREMENT_ENABLE_CONFIGURABLE_AGGREGATE_REPORT_DELAY);
+    }
+
+    @Override
+    public String getMeasurementAggregateReportDelayConfig() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getString(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_AGGREGATE_REPORT_DELAY_CONFIG,
+                /* defaultValue */ MEASUREMENT_AGGREGATE_REPORT_DELAY_CONFIG);
+    }
+
+    @Override
     public boolean isEnrollmentBlocklisted(String enrollmentId) {
         return getEnrollmentBlocklist().contains(enrollmentId);
     }
@@ -2539,7 +2715,26 @@ public final class PhFlags implements Flags {
                         + KEY_SDK_REQUEST_PERMITS_PER_SECOND
                         + " = "
                         + getSdkRequestPermitsPerSecond());
-
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_REGISTER_SOURCE_REQUEST_PERMITS_PER_SECOND
+                        + " = "
+                        + getMeasurementRegisterSourceRequestPermitsPerSecond());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_REGISTER_WEB_SOURCE_REQUEST_PERMITS_PER_SECOND
+                        + " = "
+                        + getMeasurementRegisterWebSourceRequestPermitsPerSecond());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_REGISTER_TRIGGER_REQUEST_PERMITS_PER_SECOND
+                        + " = "
+                        + getMeasurementRegisterTriggerRequestPermitsPerSecond());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_REGISTER_WEB_TRIGGER_REQUEST_PERMITS_PER_SECOND
+                        + " = "
+                        + getMeasurementRegisterWebTriggerRequestPermitsPerSecond());
         writer.println(
                 "\t"
                         + KEY_MDD_BACKGROUND_TASK_KILL_SWITCH
@@ -2759,7 +2954,7 @@ public final class PhFlags implements Flags {
                 "\t"
                         + KEY_MEASUREMENT_FLEXIBLE_EVENT_REPORTING_API_ENABLED
                         + " = "
-                        + getMeasurementFlexibleEventReportingAPIEnabled());
+                        + getMeasurementFlexibleEventReportingApiEnabled());
         writer.println(
                 "\t"
                         + KEY_WEB_CONTEXT_CLIENT_ALLOW_LIST
@@ -2850,6 +3045,16 @@ public final class PhFlags implements Flags {
                         + KEY_MEASUREMENT_EVENT_REPORTS_CTC_EARLY_REPORTING_WINDOWS
                         + " = "
                         + getMeasurementEventReportsCtcEarlyReportingWindows());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_ENABLE_CONFIGURABLE_AGGREGATE_REPORT_DELAY
+                        + " = "
+                        + getMeasurementEnableConfigurableAggregateReportDelay());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_AGGREGATE_REPORT_DELAY_CONFIG
+                        + " = "
+                        + getMeasurementAggregateReportDelayConfig());
         writer.println(
                 "\t"
                         + KEY_MEASUREMENT_MAX_ATTRIBUTION_PER_RATE_LIMIT_WINDOW
@@ -2964,14 +3169,24 @@ public final class PhFlags implements Flags {
                         + getFledgeHttpCacheMaxAgeSeconds());
         writer.println(
                 "\t"
-                        + KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_EVENT_COUNT
+                        + KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT
                         + " = "
-                        + getFledgeAdCounterHistogramAbsoluteMaxEventCount());
+                        + getFledgeAdCounterHistogramAbsoluteMaxTotalEventCount());
         writer.println(
                 "\t"
-                        + KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_EVENT_COUNT
+                        + KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_TOTAL_EVENT_COUNT
                         + " = "
-                        + getFledgeAdCounterHistogramLowerMaxEventCount());
+                        + getFledgeAdCounterHistogramLowerMaxTotalEventCount());
+        writer.println(
+                "\t"
+                        + KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_PER_BUYER_EVENT_COUNT
+                        + " = "
+                        + getFledgeAdCounterHistogramAbsoluteMaxPerBuyerEventCount());
+        writer.println(
+                "\t"
+                        + KEY_FLEDGE_AD_COUNTER_HISTOGRAM_LOWER_MAX_PER_BUYER_EVENT_COUNT
+                        + " = "
+                        + getFledgeAdCounterHistogramLowerMaxPerBuyerEventCount());
         writer.println(
                 "\t"
                         + KEY_FLEDGE_BACKGROUND_FETCH_ENABLED
@@ -3044,6 +3259,36 @@ public final class PhFlags implements Flags {
                         + getAdSelectionSelectingOutcomeTimeoutMs());
         writer.println(
                 "\t"
+                        + KEY_AD_SELECTION_DATA_AUCTION_KEY_FETCH_URI
+                        + " = "
+                        + getAdSelectionDataAuctionKeyFetchUri());
+        writer.println(
+                "\t"
+                        + KEY_AD_SELECTION_DATA_JOIN_KEY_FETCH_URI
+                        + " = "
+                        + getAdSelectionDataJoinKeyFetchUri());
+        writer.println(
+                "\t"
+                        + KEY_AD_SELECTION_DATA_AUCTION_KEY_SHARDING
+                        + " = "
+                        + getAdSelectionDataAuctionKeySharding());
+        writer.println(
+                "\t"
+                        + KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KEM_ID
+                        + " = "
+                        + getAdSelectionDataAuctionEncryptionAlgorithmKemId());
+        writer.println(
+                "\t"
+                        + KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KDF_ID
+                        + " = "
+                        + getAdSelectionDataAuctionEncryptionAlgorithmKdfId());
+        writer.println(
+                "\t"
+                        + KEY_AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_AEAD_ID
+                        + " = "
+                        + getAdSelectionDataAuctionEncryptionAlgorithmAeadId());
+        writer.println(
+                "\t"
                         + KEY_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS
                         + " = "
                         + getAdSelectionOverallTimeoutMs());
@@ -3099,11 +3344,6 @@ public final class PhFlags implements Flags {
                         + getFledgeReportImpressionRegisteredAdBeaconsMaxInteractionKeySizeB());
         writer.println(
                 "\t"
-                        + KEY_FLEDGE_REPORT_INTERACTION_MAX_INTERACTION_DATA_SIZE_B
-                        + " = "
-                        + getFledgeReportInteractionMaxInteractionDataSizeB());
-        writer.println(
-                "\t"
                         + KEY_ENFORCE_FOREGROUND_STATUS_FLEDGE_OVERRIDE
                         + " = "
                         + getEnforceForegroundStatusForFledgeOverrides());
@@ -3142,6 +3382,16 @@ public final class PhFlags implements Flags {
                         + KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_REQUEST_COMPRESSION_ENABLED
                         + " = "
                         + getAdSelectionOffDeviceRequestCompressionEnabled());
+        writer.println(
+                "\t"
+                        + KEY_FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION
+                        + " = "
+                        + getFledgeAuctionServerCompressionAlgorithmVersion());
+        writer.println(
+                "\t"
+                        + KEY_FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION
+                        + " = "
+                        + getFledgeAuctionServerPayloadFormatVersion());
 
         writer.println(
                 "\t" + KEY_ENFORCE_ISOLATE_MAX_HEAP_SIZE + " = " + getEnforceIsolateMaxHeapSize());
@@ -3153,6 +3403,23 @@ public final class PhFlags implements Flags {
                         + KEY_FLEDGE_AD_SELECTION_EXPIRATION_WINDOW_S
                         + " = "
                         + getAdSelectionExpirationWindowS());
+
+        writer.println(
+                "\t"
+                        + KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_ENABLED
+                        + " = "
+                        + getFledgeEventLevelDebugReportingEnabled());
+
+        writer.println(
+                "\t"
+                        + KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_BATCH_DELAY_SECONDS
+                        + " = "
+                        + getFledgeEventLevelDebugReportingBatchDelaySeconds());
+        writer.println(
+                "\t"
+                        + KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH
+                        + " = "
+                        + getFledgeEventLevelDebugReportingMaxItemsPerBatch());
         writer.println("==== AdServices PH Flags Throttling Related Flags ====");
         writer.println(
                 "\t"
@@ -3231,14 +3498,14 @@ public final class PhFlags implements Flags {
                 "\t" + KEY_ENABLE_APPSEARCH_CONSENT_DATA + " = " + getEnableAppsearchConsentData());
         writer.println(
                 "\t"
+                        + ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH
+                        + " = "
+                        + getAdservicesConsentMigrationLoggingKillSwitch());
+        writer.println(
+                "\t"
                         + KEY_MEASUREMENT_ROLLBACK_DELETION_APP_SEARCH_KILL_SWITCH
                         + " = "
                         + getMeasurementRollbackDeletionAppSearchKillSwitch());
-        writer.println(
-                "\t"
-                        + ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED
-                        + " = "
-                        + getAdservicesConsentMigrationLoggingEnabled());
     }
 
     @VisibleForTesting
@@ -3454,10 +3721,10 @@ public final class PhFlags implements Flags {
     }
 
     @Override
-    public boolean getAdservicesConsentMigrationLoggingEnabled() {
+    public boolean getAdservicesConsentMigrationLoggingKillSwitch() {
         return DeviceConfig.getBoolean(
                 NAMESPACE_ADSERVICES,
-                /* flagName */ ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED,
-                /* defaultValue */ DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED);
+                /* flagName */ ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH,
+                /* defaultValue */ DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH);
     }
 }

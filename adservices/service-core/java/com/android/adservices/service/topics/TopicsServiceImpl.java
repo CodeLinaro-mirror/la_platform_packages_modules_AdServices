@@ -121,7 +121,6 @@ public class TopicsServiceImpl extends ITopicsService.Stub {
         if (isThrottled(topicsParam, callback)) return;
 
         final long startServiceTime = mClock.elapsedRealtime();
-        // TODO(b/236380919): Verify that the passed App PackageName belongs to the caller uid
         final String packageName = topicsParam.getAppPackageName();
         final String sdkName = topicsParam.getSdkName();
         final String sdkPackageName = topicsParam.getSdkPackageName();
@@ -150,13 +149,12 @@ public class TopicsServiceImpl extends ITopicsService.Stub {
                             return;
                         }
 
-                        // Record usage before returning the results.
+                        callback.onResult(mTopicsWorker.getTopics(packageName, sdkName));
+
                         if (topicsParam.shouldRecordObservation()) {
                             mTopicsWorker.recordUsage(
                                     topicsParam.getAppPackageName(), topicsParam.getSdkName());
                         }
-
-                        callback.onResult(mTopicsWorker.getTopics(packageName, sdkName));
                     } catch (RemoteException e) {
                         sLogger.e(e, "Unable to send result to the callback");
                         ErrorLogUtil.e(

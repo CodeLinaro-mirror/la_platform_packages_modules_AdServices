@@ -42,7 +42,6 @@ import static org.mockito.Mockito.when;
 
 import com.android.adservices.errorlogging.AdServicesErrorStats;
 import com.android.adservices.service.Flags;
-import com.android.adservices.service.consent.DeviceRegionProvider;
 import com.android.adservices.service.measurement.WipeoutStatus;
 import com.android.adservices.service.measurement.attribution.AttributionStatus;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
@@ -104,7 +103,6 @@ public class StatsdAdServicesLoggerTest {
                         .mockStatic(SdkLevel.class)
                         .mockStatic(AdServicesStatsLog.class)
                         .initMocks(this)
-                        .spyStatic(DeviceRegionProvider.class)
                         .startMocking();
 
         mLogger = new StatsdAdServicesLogger(mFlags);
@@ -564,7 +562,7 @@ public class StatsdAdServicesLoggerTest {
 
     @Test
     public void logConsentMigrationStats_success() {
-        when(mFlags.getAdservicesConsentMigrationLoggingEnabled()).thenReturn(true);
+        when(mFlags.getAdservicesConsentMigrationLoggingKillSwitch()).thenReturn(false);
         ExtendedMockito.doNothing()
                 .when(
                         () ->
@@ -614,7 +612,7 @@ public class StatsdAdServicesLoggerTest {
 
     @Test
     public void logConsentMigrationStats_disabled() {
-        when(mFlags.getAdservicesConsentMigrationLoggingEnabled()).thenReturn(false);
+        when(mFlags.getAdservicesConsentMigrationLoggingKillSwitch()).thenReturn(true);
 
         ConsentMigrationStats consentMigrationStats =
                 ConsentMigrationStats.builder()

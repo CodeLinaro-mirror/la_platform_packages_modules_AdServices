@@ -123,6 +123,121 @@ public class AdSelectionManager {
     }
 
     /**
+     * Collects device data for ad selection.
+     *
+     * @hide
+     */
+    @RequiresPermission(ACCESS_ADSERVICES_CUSTOM_AUDIENCE)
+    public void getAdSelectionData(
+            @NonNull GetAdSelectionDataRequest getAdSelectionDataRequest,
+            @NonNull @CallbackExecutor Executor executor,
+            @NonNull OutcomeReceiver<GetAdSelectionDataOutcome, Exception> receiver) {
+        Objects.requireNonNull(getAdSelectionDataRequest);
+        Objects.requireNonNull(executor);
+        Objects.requireNonNull(receiver);
+
+        try {
+            final AdSelectionService service = getService();
+            service.getAdSelectionData(
+                    new GetAdSelectionDataInput.Builder()
+                            .setAdSelectionDataRequest(getAdSelectionDataRequest)
+                            .setCallerPackageName(getCallerPackageName())
+                            .build(),
+                    new CallerMetadata.Builder()
+                            .setBinderElapsedTimestamp(SystemClock.elapsedRealtime())
+                            .build(),
+                    new GetAdSelectionDataCallback.Stub() {
+                        @Override
+                        public void onSuccess(GetAdSelectionDataResponse resultParcel) {
+                            executor.execute(
+                                    () ->
+                                            receiver.onResult(
+                                                    new GetAdSelectionDataOutcome.Builder()
+                                                            .setAdSelectionId(
+                                                                    resultParcel.getAdSelectionId())
+                                                            .setAdSelectionData(
+                                                                    resultParcel
+                                                                            .getAdSelectionData())
+                                                            .build()));
+                        }
+
+                        @Override
+                        public void onFailure(FledgeErrorResponse failureParcel) {
+                            executor.execute(
+                                    () -> {
+                                        receiver.onError(
+                                                AdServicesStatusUtils.asException(failureParcel));
+                                    });
+                        }
+                    });
+        } catch (NullPointerException e) {
+            sLogger.e(e, "Unable to find the AdSelection service.");
+            receiver.onError(
+                    new IllegalStateException("Unable to find the AdSelection service.", e));
+        } catch (RemoteException e) {
+            sLogger.e(e, "Failure of AdSelection service.");
+            receiver.onError(new IllegalStateException("Failure of AdSelection service.", e));
+        }
+    }
+
+    /**
+     * Persists the ad selection results from the server-side.
+     *
+     * @hide
+     */
+    @RequiresPermission(ACCESS_ADSERVICES_CUSTOM_AUDIENCE)
+    public void persistAdSelectionResult(
+            @NonNull PersistAdSelectionResultRequest persistAdSelectionResultRequest,
+            @NonNull @CallbackExecutor Executor executor,
+            @NonNull OutcomeReceiver<AdSelectionOutcome, Exception> receiver) {
+        Objects.requireNonNull(persistAdSelectionResultRequest);
+        Objects.requireNonNull(executor);
+        Objects.requireNonNull(receiver);
+
+        try {
+            final AdSelectionService service = getService();
+            service.persistAdSelectionResult(
+                    new PersistAdSelectionResultInput.Builder()
+                            .setPersistAdSelectionResultRequest(persistAdSelectionResultRequest)
+                            .setCallerPackageName(getCallerPackageName())
+                            .build(),
+                    new CallerMetadata.Builder()
+                            .setBinderElapsedTimestamp(SystemClock.elapsedRealtime())
+                            .build(),
+                    new PersistAdSelectionResultCallback.Stub() {
+                        @Override
+                        public void onSuccess(PersistAdSelectionResultResponse resultParcel) {
+                            executor.execute(
+                                    () ->
+                                            receiver.onResult(
+                                                    new AdSelectionOutcome.Builder()
+                                                            .setAdSelectionId(
+                                                                    resultParcel.getAdSelectionId())
+                                                            .setRenderUri(
+                                                                    resultParcel.getAdRenderUri())
+                                                            .build()));
+                        }
+
+                        @Override
+                        public void onFailure(FledgeErrorResponse failureParcel) {
+                            executor.execute(
+                                    () -> {
+                                        receiver.onError(
+                                                AdServicesStatusUtils.asException(failureParcel));
+                                    });
+                        }
+                    });
+        } catch (NullPointerException e) {
+            sLogger.e(e, "Unable to find the AdSelection service.");
+            receiver.onError(
+                    new IllegalStateException("Unable to find the AdSelection service.", e));
+        } catch (RemoteException e) {
+            sLogger.e(e, "Failure of AdSelection service.");
+            receiver.onError(new IllegalStateException("Failure of AdSelection service.", e));
+        }
+    }
+
+    /**
      * Runs the ad selection process on device to select a remarketing ad for the caller
      * application.
      *
@@ -351,12 +466,28 @@ public class AdSelectionManager {
      *
      * <p>The function definition of {@code registerBeacon} is:
      *
-     * <p>{@code function registerAdBeacon(event_key, reporting_url) }
+     * <p>{@code function registerAdBeacon(beacons)}, where {@code beacons} is a dict of string to
+     * string pairs
      *
-     * <p>For each ad event a buyer/seller is interested in reports for, they would invoke {@code
-     * registerAdBeacon}, where {@code event_key} is an identifier for that specific event. This
-     * {@code event_key} should match {@link ReportEventRequest#getEventKey()} when the SDK invokes
-     * {@link #reportEvent}.
+     * <p>For each ad event a buyer/seller is interested in reports for, they would add an {@code
+     * event_key}: {@code event_reporting_uri} pair to the {@code beacons} dict, where {@code
+     * event_key} is an identifier for that specific event. This {@code event_key} should match
+     * {@link ReportEventRequest#getKey()} when the SDK invokes {@link #reportEvent}. In addition,
+     * each {@code event_reporting_uri} should parse properly into a {@link android.net.Uri}. This
+     * will be the {@link android.net.Uri} reported to when the SDK invokes {@link #reportEvent}.
+     *
+     * <p>When the buyer/seller has added all the pairings they want to receive events for, they can
+     * invoke {@code registerAdBeacon(beacons)}, where {@code beacons} is the name of the dict they
+     * added the pairs to.
+     *
+     * <p>{@code registerAdBeacon} will throw a {@code TypeError} in these situations:
+     *
+     * <ol>
+     *   <li>{@code registerAdBeacon}is called more than once. If this error is caught in
+     *       reportWin/reportResult, the original set of pairings will be registered
+     *   <li>{@code registerAdBeacon} doesn't have exactly 1 dict argument.
+     *   <li>The contents of the 1 dict argument are not all {@code String: String} pairings.
+     * </ol>
      *
      * <p>The output is passed by the {@code receiver}, which either returns an empty {@link Object}
      * for a successful run, or an {@link Exception} includes the type of the exception thrown and
@@ -420,15 +551,17 @@ public class AdSelectionManager {
 
     /**
      * Notifies the service that there is a new ad event to report for the ad selected by the
-     * ad-selection run identified by {@code adSelectionId}. There is no guarantee about when the ad
-     * event will be reported. The event reporting could be delayed and reports could be batched.
+     * ad-selection run identified by {@code adSelectionId}. An ad event is any occurrence that
+     * happens to an ad associated with the given {@code adSelectionId}. There is no guarantee about
+     * when the ad event will be reported. The event reporting could be delayed and reports could be
+     * batched.
      *
-     * <p>Using {@link ReportEventRequest#getEventKey()}, the service will fetch the {@code
-     * reportingUri} that was registered in {@code registerAdBeacon}. See documentation of {@link
+     * <p>Using {@link ReportEventRequest#getKey()}, the service will fetch the {@code reportingUri}
+     * that was registered in {@code registerAdBeacon}. See documentation of {@link
      * #reportImpression} for more details regarding {@code registerAdBeacon}. Then, the service
-     * will attach {@link ReportEventRequest#getEventData()} to the request body of a POST request
-     * and send the request. The body of the POST request will have the {@code content-type} of
-     * {@code text/plain}, and the data will be transmitted in {@code charset=UTF-8}.
+     * will attach {@link ReportEventRequest#getData()} to the request body of a POST request and
+     * send the request. The body of the POST request will have the {@code content-type} of {@code
+     * text/plain}, and the data will be transmitted in {@code charset=UTF-8}.
      *
      * <p>The output is passed by the receiver, which either returns an empty {@link Object} for a
      * successful run, or an {@link Exception} includes the type of the exception thrown and the
@@ -447,10 +580,7 @@ public class AdSelectionManager {
      * or permission is not requested.
      *
      * <p>Events will be reported at most once as a best-effort attempt.
-     *
-     * @hide
      */
-    // TODO(b/261812140): Unhide for report interaction API review
     @RequiresPermission(ACCESS_ADSERVICES_CUSTOM_AUDIENCE)
     public void reportEvent(
             @NonNull ReportEventRequest request,
@@ -459,14 +589,13 @@ public class AdSelectionManager {
         Objects.requireNonNull(request);
         Objects.requireNonNull(executor);
         Objects.requireNonNull(receiver);
-
         try {
             final AdSelectionService service = getService();
             service.reportInteraction(
                     new ReportInteractionInput.Builder()
                             .setAdSelectionId(request.getAdSelectionId())
-                            .setInteractionKey(request.getEventKey())
-                            .setInteractionData(request.getEventData())
+                            .setInteractionKey(request.getKey())
+                            .setInteractionData(request.getData())
                             .setReportingDestinations(request.getReportingDestinations())
                             .setCallerPackageName(getCallerPackageName())
                             .build(),
@@ -591,10 +720,7 @@ public class AdSelectionManager {
      * <p>In all other failure cases, the {@code outcomeReceiver} will return an empty {@link
      * Object}. Note that to protect user privacy, internal errors will not be sent back via an
      * exception.
-     *
-     * @hide
      */
-    // TODO(b/221876775): Unhide for frequency cap API review
     @RequiresPermission(ACCESS_ADSERVICES_CUSTOM_AUDIENCE)
     public void updateAdCounterHistogram(
             @NonNull UpdateAdCounterHistogramRequest updateAdCounterHistogramRequest,

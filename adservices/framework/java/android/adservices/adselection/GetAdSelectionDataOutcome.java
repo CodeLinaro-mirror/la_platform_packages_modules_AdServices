@@ -27,6 +27,7 @@ import androidx.annotation.NonNull;
 
 import com.android.internal.util.Preconditions;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -34,10 +35,11 @@ import java.util.Objects;
  *
  * @hide
  */
-public class GetAdSelectionDataOutcome implements Parcelable {
+public final class GetAdSelectionDataOutcome implements Parcelable {
     private final long mAdSelectionId;
-    @Nullable private final String mAdSelectionData;
+    @Nullable private final byte[] mAdSelectionData;
 
+    @NonNull
     public static final Creator<GetAdSelectionDataOutcome> CREATOR =
             new Creator<>() {
                 @Override
@@ -53,9 +55,7 @@ public class GetAdSelectionDataOutcome implements Parcelable {
                 }
             };
 
-    private GetAdSelectionDataOutcome(long adSelectionId, @NonNull String adSelectionData) {
-        Objects.requireNonNull(adSelectionData);
-
+    private GetAdSelectionDataOutcome(long adSelectionId, @Nullable byte[] adSelectionData) {
         this.mAdSelectionId = adSelectionId;
         this.mAdSelectionData = adSelectionData;
     }
@@ -64,7 +64,7 @@ public class GetAdSelectionDataOutcome implements Parcelable {
         Objects.requireNonNull(in);
 
         this.mAdSelectionId = in.readLong();
-        this.mAdSelectionData = in.readString();
+        this.mAdSelectionData = in.createByteArray();
     }
 
     @Override
@@ -73,22 +73,27 @@ public class GetAdSelectionDataOutcome implements Parcelable {
     }
 
     /** Returns the adSelectionId that identifies the AdSelection. */
+    @Nullable
     public long getAdSelectionId() {
         return mAdSelectionId;
     }
 
     /** Returns the adSelectionData that is collected from device. */
-    public String getAdSelectionData() {
-        return mAdSelectionData;
+    @Nullable
+    public byte[] getAdSelectionData() {
+        if (Objects.isNull(mAdSelectionData)) {
+            return null;
+        } else {
+            return Arrays.copyOf(mAdSelectionData, mAdSelectionData.length);
+        }
     }
 
     @Override
-    public void writeToParcel(Parcel dest, int flags) {
+    public void writeToParcel(@NonNull Parcel dest, int flags) {
         Objects.requireNonNull(dest);
-        Objects.requireNonNull(mAdSelectionData);
 
         dest.writeLong(mAdSelectionId);
-        dest.writeString(mAdSelectionData);
+        dest.writeByteArray(mAdSelectionData);
     }
 
     @Override
@@ -97,12 +102,12 @@ public class GetAdSelectionDataOutcome implements Parcelable {
         if (!(o instanceof GetAdSelectionDataOutcome)) return false;
         GetAdSelectionDataOutcome that = (GetAdSelectionDataOutcome) o;
         return mAdSelectionId == that.mAdSelectionId
-                && Objects.equals(mAdSelectionData, that.mAdSelectionData);
+                && Arrays.equals(mAdSelectionData, that.mAdSelectionData);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mAdSelectionId, mAdSelectionData);
+        return Objects.hash(mAdSelectionId, Arrays.hashCode(mAdSelectionData));
     }
 
     /**
@@ -112,7 +117,7 @@ public class GetAdSelectionDataOutcome implements Parcelable {
      */
     public static final class Builder {
         private long mAdSelectionId;
-        @Nullable private String mAdSelectionData;
+        @Nullable private byte[] mAdSelectionData;
 
         public Builder() {}
 
@@ -125,10 +130,13 @@ public class GetAdSelectionDataOutcome implements Parcelable {
 
         /** Sets the adSelectionData. */
         @NonNull
-        public GetAdSelectionDataOutcome.Builder setAdSelectionData(String adSelectionData) {
-            Objects.requireNonNull(adSelectionData);
-
-            this.mAdSelectionData = adSelectionData;
+        public GetAdSelectionDataOutcome.Builder setAdSelectionData(
+                @Nullable byte[] adSelectionData) {
+            if (!Objects.isNull(adSelectionData)) {
+                this.mAdSelectionData = Arrays.copyOf(adSelectionData, adSelectionData.length);
+            } else {
+                this.mAdSelectionData = null;
+            }
             return this;
         }
 
@@ -140,7 +148,6 @@ public class GetAdSelectionDataOutcome implements Parcelable {
          */
         @NonNull
         public GetAdSelectionDataOutcome build() {
-            Objects.requireNonNull(mAdSelectionData);
             Preconditions.checkArgument(
                     mAdSelectionId != UNSET_AD_SELECTION_ID, UNSET_AD_SELECTION_ID_MESSAGE);
 

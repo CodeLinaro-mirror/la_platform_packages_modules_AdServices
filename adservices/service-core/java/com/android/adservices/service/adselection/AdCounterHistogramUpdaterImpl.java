@@ -38,24 +38,35 @@ public class AdCounterHistogramUpdaterImpl implements AdCounterHistogramUpdater 
     private static final LoggerFactory.Logger sLogger = LoggerFactory.getFledgeLogger();
     private final AdSelectionEntryDao mAdSelectionEntryDao;
     private final FrequencyCapDao mFrequencyCapDao;
-    private final int mAbsoluteMaxHistogramEventCount;
-    private final int mLowerMaxHistogramEventCount;
+    private final int mAbsoluteMaxTotalHistogramEventCount;
+    private final int mLowerMaxTotalHistogramEventCount;
+    private final int mAbsoluteMaxPerBuyerHistogramEventCount;
+    private final int mLowerMaxPerBuyerHistogramEventCount;
 
     public AdCounterHistogramUpdaterImpl(
             @NonNull AdSelectionEntryDao adSelectionEntryDao,
             @NonNull FrequencyCapDao frequencyCapDao,
-            int absoluteMaxHistogramEventCount,
-            int lowerMaxHistogramEventCount) {
+            int absoluteMaxTotalHistogramEventCount,
+            int lowerMaxTotalHistogramEventCount,
+            int absoluteMaxPerBuyerHistogramEventCount,
+            int lowerMaxPerBuyerHistogramEventCount) {
         Objects.requireNonNull(adSelectionEntryDao);
         Objects.requireNonNull(frequencyCapDao);
-        Preconditions.checkArgument(absoluteMaxHistogramEventCount > 0);
-        Preconditions.checkArgument(lowerMaxHistogramEventCount > 0);
-        Preconditions.checkArgument(absoluteMaxHistogramEventCount > lowerMaxHistogramEventCount);
+        Preconditions.checkArgument(absoluteMaxTotalHistogramEventCount > 0);
+        Preconditions.checkArgument(lowerMaxTotalHistogramEventCount > 0);
+        Preconditions.checkArgument(absoluteMaxPerBuyerHistogramEventCount > 0);
+        Preconditions.checkArgument(lowerMaxPerBuyerHistogramEventCount > 0);
+        Preconditions.checkArgument(
+                absoluteMaxTotalHistogramEventCount > lowerMaxTotalHistogramEventCount);
+        Preconditions.checkArgument(
+                absoluteMaxPerBuyerHistogramEventCount > lowerMaxPerBuyerHistogramEventCount);
 
         mAdSelectionEntryDao = adSelectionEntryDao;
         mFrequencyCapDao = frequencyCapDao;
-        mAbsoluteMaxHistogramEventCount = absoluteMaxHistogramEventCount;
-        mLowerMaxHistogramEventCount = lowerMaxHistogramEventCount;
+        mAbsoluteMaxTotalHistogramEventCount = absoluteMaxTotalHistogramEventCount;
+        mLowerMaxTotalHistogramEventCount = lowerMaxTotalHistogramEventCount;
+        mAbsoluteMaxPerBuyerHistogramEventCount = absoluteMaxPerBuyerHistogramEventCount;
+        mLowerMaxPerBuyerHistogramEventCount = lowerMaxPerBuyerHistogramEventCount;
     }
 
     @Override
@@ -97,7 +108,8 @@ public class AdCounterHistogramUpdaterImpl implements AdCounterHistogramUpdater 
                 HistogramEvent.builder()
                         .setAdEventType(adEventType)
                         .setBuyer(histogramInfo.getBuyer())
-                        .setTimestamp(eventTimestamp);
+                        .setTimestamp(eventTimestamp)
+                        .setSourceApp(callerPackageName);
 
         sLogger.v("Inserting %d histogram events", adCounterKeys.size());
         for (Integer key : adCounterKeys) {
@@ -105,8 +117,10 @@ public class AdCounterHistogramUpdaterImpl implements AdCounterHistogramUpdater 
             //  and handle eviction only once
             mFrequencyCapDao.insertHistogramEvent(
                     eventBuilder.setAdCounterKey(key).build(),
-                    mAbsoluteMaxHistogramEventCount,
-                    mLowerMaxHistogramEventCount);
+                    mAbsoluteMaxTotalHistogramEventCount,
+                    mLowerMaxTotalHistogramEventCount,
+                    mAbsoluteMaxPerBuyerHistogramEventCount,
+                    mLowerMaxPerBuyerHistogramEventCount);
         }
     }
 }

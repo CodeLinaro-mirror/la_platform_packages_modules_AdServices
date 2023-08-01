@@ -39,8 +39,8 @@ import android.adservices.adselection.AdSelectionService;
 import android.adservices.adselection.BuyersDecisionLogic;
 import android.adservices.adselection.GetAdSelectionDataCallback;
 import android.adservices.adselection.GetAdSelectionDataInput;
-import android.adservices.adselection.ProcessAdSelectionResultCallback;
-import android.adservices.adselection.ProcessAdSelectionResultInput;
+import android.adservices.adselection.PersistAdSelectionResultCallback;
+import android.adservices.adselection.PersistAdSelectionResultInput;
 import android.adservices.adselection.RemoveAdCounterHistogramOverrideInput;
 import android.adservices.adselection.ReportImpressionCallback;
 import android.adservices.adselection.ReportImpressionInput;
@@ -65,8 +65,12 @@ import com.android.adservices.LoggerFactory;
 import com.android.adservices.concurrency.AdServicesExecutors;
 import com.android.adservices.data.adselection.AdSelectionDatabase;
 import com.android.adservices.data.adselection.AdSelectionEntryDao;
+import com.android.adservices.data.adselection.AdSelectionServerDatabase;
 import com.android.adservices.data.adselection.AppInstallDao;
+import com.android.adservices.data.adselection.EncryptionContextDao;
+import com.android.adservices.data.adselection.EncryptionKeyDao;
 import com.android.adservices.data.adselection.FrequencyCapDao;
+import com.android.adservices.data.adselection.ReportingUrisDao;
 import com.android.adservices.data.adselection.SharedStorageDatabase;
 import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.customaudience.CustomAudienceDatabase;
@@ -112,6 +116,9 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
     @NonNull private final AppInstallDao mAppInstallDao;
     @NonNull private final CustomAudienceDao mCustomAudienceDao;
     @NonNull private final FrequencyCapDao mFrequencyCapDao;
+    @NonNull private final EncryptionContextDao mEncryptionContextDao;
+    @NonNull private final EncryptionKeyDao mEncryptionKeyDao;
+    @NonNull private final ReportingUrisDao mReportingUrisDao;
     @NonNull private final AdServicesHttpsClient mAdServicesHttpsClient;
     @NonNull private final ExecutorService mLightweightExecutor;
     @NonNull private final ExecutorService mBackgroundExecutor;
@@ -136,6 +143,9 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
             @NonNull AppInstallDao appInstallDao,
             @NonNull CustomAudienceDao customAudienceDao,
             @NonNull FrequencyCapDao frequencyCapDao,
+            @NonNull EncryptionContextDao encryptionContextDao,
+            @NonNull EncryptionKeyDao encryptionKeyDao,
+            @NonNull ReportingUrisDao reportingUrisDao,
             @NonNull AdServicesHttpsClient adServicesHttpsClient,
             @NonNull DevContextFilter devContextFilter,
             @NonNull ExecutorService lightweightExecutorService,
@@ -154,6 +164,9 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
         Objects.requireNonNull(appInstallDao);
         Objects.requireNonNull(customAudienceDao);
         Objects.requireNonNull(frequencyCapDao);
+        Objects.requireNonNull(encryptionContextDao);
+        Objects.requireNonNull(encryptionKeyDao);
+        Objects.requireNonNull(reportingUrisDao);
         Objects.requireNonNull(adServicesHttpsClient);
         Objects.requireNonNull(devContextFilter);
         Objects.requireNonNull(lightweightExecutorService);
@@ -168,6 +181,9 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
         mAppInstallDao = appInstallDao;
         mCustomAudienceDao = customAudienceDao;
         mFrequencyCapDao = frequencyCapDao;
+        mEncryptionContextDao = encryptionContextDao;
+        mEncryptionKeyDao = encryptionKeyDao;
+        mReportingUrisDao = reportingUrisDao;
         mAdServicesHttpsClient = adServicesHttpsClient;
         mDevContextFilter = devContextFilter;
         mLightweightExecutor = lightweightExecutorService;
@@ -195,6 +211,9 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
                 SharedStorageDatabase.getInstance(context).appInstallDao(),
                 CustomAudienceDatabase.getInstance(context).customAudienceDao(),
                 SharedStorageDatabase.getInstance(context).frequencyCapDao(),
+                AdSelectionServerDatabase.getInstance(context).encryptionContextDao(),
+                AdSelectionServerDatabase.getInstance(context).encryptionKeyDao(),
+                AdSelectionServerDatabase.getInstance(context).reportingUrisDao(),
                 new AdServicesHttpsClient(
                         AdServicesExecutors.getBlockingExecutor(),
                         CacheProviderFactory.create(context, FlagsFactory.getFlags())),
@@ -237,10 +256,10 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
             throws RemoteException {}
 
     @Override
-    public void processAdSelectionResult(
-            ProcessAdSelectionResultInput processAdSelectionResultInput,
+    public void persistAdSelectionResult(
+            PersistAdSelectionResultInput persistAdSelectionResultInput,
             CallerMetadata callerMetadata,
-            ProcessAdSelectionResultCallback processAdSelectionResultCallback)
+            PersistAdSelectionResultCallback persistAdSelectionResultCallback)
             throws RemoteException {}
 
     // TODO(b/233116758): Validate all the fields inside the adSelectionConfig.
@@ -319,6 +338,7 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
                         adSelectionServiceFilter,
                         mAdFilteringFeatureFactory.getAdFilterer(),
                         mAdFilteringFeatureFactory.getAdCounterKeyCopier(),
+                        mAdFilteringFeatureFactory.getFrequencyCapAdDataValidator(),
                         callerUid);
         runner.runAdSelection(inputParams, callback);
     }
@@ -345,6 +365,7 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
                         adSelectionExecutionLogger,
                         adSelectionServiceFilter,
                         mAdFilteringFeatureFactory.getAdFilterer(),
+                        mAdFilteringFeatureFactory.getFrequencyCapAdDataValidator(),
                         callerUid);
         runner.runAdSelection(inputParams, callback);
     }
@@ -439,6 +460,7 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
                         mFlags,
                         mAdSelectionServiceFilter,
                         mFledgeAuthorizationFilter,
+                        mAdFilteringFeatureFactory.getFrequencyCapAdDataValidator(),
                         callingUid);
         reporter.reportImpression(requestParams, callback);
     }
@@ -527,17 +549,29 @@ public class AdSelectionServiceImpl extends AdSelectionService.Stub {
             throw exception;
         }
 
-        int callingUid = getCallingUid(apiName);
+        final int callingUid = getCallingUid(apiName);
+        final int adCounterHistogramAbsoluteMaxTotalEventCount =
+                BinderFlagReader.readFlag(
+                        mFlags::getFledgeAdCounterHistogramAbsoluteMaxTotalEventCount);
+        final int adCounterHistogramLowerMaxTotalEventCount =
+                BinderFlagReader.readFlag(
+                        mFlags::getFledgeAdCounterHistogramLowerMaxTotalEventCount);
+        final int adCounterHistogramAbsoluteMaxPerBuyerEventCount =
+                BinderFlagReader.readFlag(
+                        mFlags::getFledgeAdCounterHistogramAbsoluteMaxPerBuyerEventCount);
+        final int adCounterHistogramLowerMaxPerBuyerEventCount =
+                BinderFlagReader.readFlag(
+                        mFlags::getFledgeAdCounterHistogramLowerMaxPerBuyerEventCount);
 
-        UpdateAdCounterHistogramWorker worker =
+        final UpdateAdCounterHistogramWorker worker =
                 new UpdateAdCounterHistogramWorker(
                         new AdCounterHistogramUpdaterImpl(
                                 mAdSelectionEntryDao,
                                 mFrequencyCapDao,
-                                BinderFlagReader.readFlag(
-                                        mFlags::getFledgeAdCounterHistogramAbsoluteMaxEventCount),
-                                BinderFlagReader.readFlag(
-                                        mFlags::getFledgeAdCounterHistogramLowerMaxEventCount)),
+                                adCounterHistogramAbsoluteMaxTotalEventCount,
+                                adCounterHistogramLowerMaxTotalEventCount,
+                                adCounterHistogramAbsoluteMaxPerBuyerEventCount,
+                                adCounterHistogramLowerMaxPerBuyerEventCount),
                         mBackgroundExecutor,
                         // TODO(b/235841960): Use the same injected clock as AdSelectionRunner
                         //  after aligning on Clock usage

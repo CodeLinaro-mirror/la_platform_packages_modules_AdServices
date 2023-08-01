@@ -362,7 +362,7 @@ public class StatsdAdServicesLogger implements AdServicesLogger, StatsdAdService
 
     /** log method for consent migrations. */
     public void logConsentMigrationStats(ConsentMigrationStats stats) {
-        if (mFlags.getAdservicesConsentMigrationLoggingEnabled()) {
+        if (!mFlags.getAdservicesConsentMigrationLoggingKillSwitch()) {
             AdServicesStatsLog.write(
                     AD_SERVICES_CONSENT_MIGRATED,
                     stats.getMsmtConsent(),
