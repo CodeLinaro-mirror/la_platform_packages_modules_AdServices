@@ -19,7 +19,6 @@ package com.android.adservices.service;
 import static java.lang.Float.parseFloat;
 
 import android.annotation.NonNull;
-import android.content.Context;
 import android.os.SystemProperties;
 import android.provider.DeviceConfig;
 import android.text.TextUtils;
@@ -27,7 +26,6 @@ import android.text.TextUtils;
 import androidx.annotation.Nullable;
 
 import com.android.adservices.LogUtil;
-import com.android.adservices.service.consent.ConsentManager;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.modules.utils.build.SdkLevel;
 
@@ -653,6 +651,18 @@ public final class PhFlags implements Flags {
 
     static final String KEY_MEASUREMENT_MAX_EVENT_REPORTS_PER_DESTINATION =
             "measurement_max_event_reports_per_destination";
+
+    static final String KEY_MEASUREMENT_ENABLE_MAX_AGGREGATE_REPORTS_PER_SOURCE =
+            "measurement_enable_max_aggregate_reports_per_source";
+
+    static final String KEY_MEASUREMENT_MAX_AGGREGATE_REPORTS_PER_SOURCE =
+            "measurement_max_aggregate_reports_per_source";
+
+    static final String KEY_MEASUREMENT_MAX_AGGREGATE_KEYS_PER_SOURCE_REGISTRATION =
+            "measurement_max_aggregate_keys_per_source_registration";
+
+    static final String KEY_MEASUREMENT_MAX_AGGREGATE_KEYS_PER_TRIGGER_REGISTRATION =
+            "measurement_max_aggregate_keys_per_trigger_registration";
 
     static final String KEY_MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS =
             "measurement_min_event_report_delay_millis";
@@ -3118,6 +3128,41 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getMeasurementEnableMaxAggregateReportsPerSource() {
+        return DeviceConfig.getBoolean(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_ENABLE_MAX_AGGREGATE_REPORTS_PER_SOURCE,
+                /* defaultValue */ MEASUREMENT_ENABLE_MAX_AGGREGATE_REPORTS_PER_SOURCE);
+    }
+
+    @Override
+    public int getMeasurementMaxAggregateReportsPerSource() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_MAX_AGGREGATE_REPORTS_PER_SOURCE,
+                /* defaultValue */ MEASUREMENT_MAX_AGGREGATE_REPORTS_PER_SOURCE);
+    }
+
+    @Override
+    public int getMeasurementMaxAggregateKeysPerSourceRegistration() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_MAX_AGGREGATE_KEYS_PER_SOURCE_REGISTRATION,
+                /* defaultValue */ MEASUREMENT_MAX_AGGREGATE_KEYS_PER_SOURCE_REGISTRATION);
+    }
+
+    @Override
+    public int getMeasurementMaxAggregateKeysPerTriggerRegistration() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getInt(
+                NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_MAX_AGGREGATE_KEYS_PER_TRIGGER_REGISTRATION,
+                /* defaultValue */ MEASUREMENT_MAX_AGGREGATE_KEYS_PER_TRIGGER_REGISTRATION);
+    }
+
+    @Override
     public long getMeasurementMinEventReportDelayMillis() {
         // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
         return DeviceConfig.getLong(
@@ -4224,6 +4269,26 @@ public final class PhFlags implements Flags {
                         + KEY_MEASUREMENT_ROLLBACK_DELETION_APP_SEARCH_KILL_SWITCH
                         + " = "
                         + getMeasurementRollbackDeletionAppSearchKillSwitch());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_ENABLE_MAX_AGGREGATE_REPORTS_PER_SOURCE
+                        + " = "
+                        + getMeasurementEnableMaxAggregateReportsPerSource());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_MAX_AGGREGATE_REPORTS_PER_SOURCE
+                        + " = "
+                        + getMeasurementMaxAggregateReportsPerSource());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_MAX_AGGREGATE_KEYS_PER_SOURCE_REGISTRATION
+                        + " = "
+                        + getMeasurementMaxAggregateKeysPerSourceRegistration());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_MAX_AGGREGATE_KEYS_PER_TRIGGER_REGISTRATION
+                        + " = "
+                        + getMeasurementMaxAggregateKeysPerTriggerRegistration());
     }
 
     @VisibleForTesting
@@ -4390,17 +4455,6 @@ public final class PhFlags implements Flags {
     }
 
     static final String KEY_ENABLE_AD_SERVICES_SYSTEM_API = "enable_ad_services_system_api";
-
-    @Override
-    public boolean getEnableAdServicesSystemApi(Context context) {
-        // The getUx check is necessary to handle the edge cases where the flag is used before the
-        // enableAdServices API is called.
-        return ConsentManager.getInstance(context).getUx() != null
-                && DeviceConfig.getBoolean(
-                        NAMESPACE_ADSERVICES,
-                        /* flagName */ KEY_ENABLE_AD_SERVICES_SYSTEM_API,
-                        /* defaultValue */ DEFAULT_ENABLE_AD_SERVICES_SYSTEM_API);
-    }
 
     @Override
     public boolean getEnableAdServicesSystemApi() {

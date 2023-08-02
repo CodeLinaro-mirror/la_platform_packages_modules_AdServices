@@ -20,7 +20,6 @@ import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREG
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
-import android.content.Context;
 
 import androidx.annotation.Nullable;
 
@@ -2618,6 +2617,41 @@ public interface Flags {
         return MEASUREMENT_MAX_EVENT_REPORTS_PER_DESTINATION;
     }
 
+    /** Disable maximum number of aggregatable reports per source by default. */
+    boolean MEASUREMENT_ENABLE_MAX_AGGREGATE_REPORTS_PER_SOURCE = false;
+
+    /**
+     * Returns true if maximum number of aggregatable reports per source is enabled, false
+     * otherwise.
+     */
+    default boolean getMeasurementEnableMaxAggregateReportsPerSource() {
+        return MEASUREMENT_ENABLE_MAX_AGGREGATE_REPORTS_PER_SOURCE;
+    }
+
+    /** Maximum Aggregate Reports per source. */
+    int MEASUREMENT_MAX_AGGREGATE_REPORTS_PER_SOURCE = 20;
+
+    /** Returns maximum Aggregate Reports per source. */
+    default int getMeasurementMaxAggregateReportsPerSource() {
+        return MEASUREMENT_MAX_AGGREGATE_REPORTS_PER_SOURCE;
+    }
+
+    /** Maximum number of aggregation keys allowed during source registration. */
+    int MEASUREMENT_MAX_AGGREGATE_KEYS_PER_SOURCE_REGISTRATION = 50;
+
+    /** Returns maximum number of aggregation keys allowed during source registration. */
+    default int getMeasurementMaxAggregateKeysPerSourceRegistration() {
+        return MEASUREMENT_MAX_AGGREGATE_KEYS_PER_SOURCE_REGISTRATION;
+    }
+
+    /** Maximum number of aggregation keys allowed during trigger registration. */
+    int MEASUREMENT_MAX_AGGREGATE_KEYS_PER_TRIGGER_REGISTRATION = 50;
+
+    /** Returns maximum number of aggregation keys allowed during trigger registration. */
+    default int getMeasurementMaxAggregateKeysPerTriggerRegistration() {
+        return MEASUREMENT_MAX_AGGREGATE_KEYS_PER_TRIGGER_REGISTRATION;
+    }
+
     /** Default minimum event report delay in milliseconds */
     long MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS = 3_600_000L;
 
@@ -2739,10 +2773,6 @@ public interface Flags {
     boolean DEFAULT_ENABLE_AD_SERVICES_SYSTEM_API = false;
 
     /** enableAdServices system API feature flag.. */
-    default boolean getEnableAdServicesSystemApi(Context context) {
-        return DEFAULT_ENABLE_AD_SERVICES_SYSTEM_API;
-    }
-
     default boolean getEnableAdServicesSystemApi() {
         return DEFAULT_ENABLE_AD_SERVICES_SYSTEM_API;
     }
