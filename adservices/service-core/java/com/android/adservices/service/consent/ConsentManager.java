@@ -44,6 +44,7 @@ import androidx.annotation.RequiresApi;
 import com.android.adservices.LogUtil;
 import com.android.adservices.concurrency.AdServicesExecutors;
 import com.android.adservices.data.adselection.AppInstallDao;
+import com.android.adservices.data.adselection.FrequencyCapDao;
 import com.android.adservices.data.adselection.SharedStorageDatabase;
 import com.android.adservices.data.common.BooleanFileDatastore;
 import com.android.adservices.data.consent.AppConsentDao;
@@ -124,6 +125,7 @@ public class ConsentManager {
     private final MeasurementImpl mMeasurementImpl;
     private final CustomAudienceDao mCustomAudienceDao;
     private final AppInstallDao mAppInstallDao;
+    private final FrequencyCapDao mFrequencyCapDao;
     private final AdServicesManager mAdServicesManager;
     private final int mConsentSourceOfTruth;
     private final AppSearchConsentManager mAppSearchConsentManager;
@@ -133,8 +135,6 @@ public class ConsentManager {
     private static final Object LOCK = new Object();
     private final ReadWriteLock mReadWriteLock = new ReentrantReadWriteLock();
 
-
-
     ConsentManager(
             @NonNull TopicsWorker topicsWorker,
             @NonNull AppConsentDao appConsentDao,
@@ -142,6 +142,7 @@ public class ConsentManager {
             @NonNull MeasurementImpl measurementImpl,
             @NonNull CustomAudienceDao customAudienceDao,
             @NonNull AppInstallDao appInstallDao,
+            @NonNull FrequencyCapDao frequencyCapDao,
             @NonNull AdServicesManager adServicesManager,
             @NonNull BooleanFileDatastore booleanFileDatastore,
             @NonNull AppSearchConsentManager appSearchConsentManager,
@@ -154,6 +155,7 @@ public class ConsentManager {
         Objects.requireNonNull(measurementImpl);
         Objects.requireNonNull(customAudienceDao);
         Objects.requireNonNull(appInstallDao);
+        Objects.requireNonNull(frequencyCapDao);
         Objects.requireNonNull(booleanFileDatastore);
         Objects.requireNonNull(userProfileIdManager);
 
@@ -174,6 +176,7 @@ public class ConsentManager {
         mMeasurementImpl = measurementImpl;
         mCustomAudienceDao = customAudienceDao;
         mAppInstallDao = appInstallDao;
+        mFrequencyCapDao = frequencyCapDao;
         mUxStatesDao = uxStatesDao;
 
         mAppSearchConsentManager = appSearchConsentManager;
@@ -240,6 +243,7 @@ public class ConsentManager {
                                     MeasurementImpl.getInstance(context),
                                     CustomAudienceDatabase.getInstance(context).customAudienceDao(),
                                     SharedStorageDatabase.getInstance(context).appInstallDao(),
+                                    SharedStorageDatabase.getInstance(context).frequencyCapDao(),
                                     adServicesManager,
                                     datastore,
                                     appSearchConsentManager,
@@ -572,6 +576,8 @@ public class ConsentManager {
                 () -> mCustomAudienceDao.deleteCustomAudienceDataByOwner(app.getPackageName()));
         if (mFlags.getFledgeAdSelectionFilteringEnabled()) {
             asyncExecute(() -> mAppInstallDao.deleteByPackageName(app.getPackageName()));
+            asyncExecute(
+                    () -> mFrequencyCapDao.deleteHistogramDataBySourceApp(app.getPackageName()));
         }
     }
 
@@ -610,6 +616,7 @@ public class ConsentManager {
         asyncExecute(mCustomAudienceDao::deleteAllCustomAudienceData);
         if (mFlags.getFledgeAdSelectionFilteringEnabled()) {
             asyncExecute(mAppInstallDao::deleteAllAppInstallData);
+            asyncExecute(mFrequencyCapDao::deleteAllHistogramData);
         }
     }
 
@@ -630,6 +637,7 @@ public class ConsentManager {
         asyncExecute(mCustomAudienceDao::deleteAllCustomAudienceData);
         if (mFlags.getFledgeAdSelectionFilteringEnabled()) {
             asyncExecute(mAppInstallDao::deleteAllAppInstallData);
+            asyncExecute(mFrequencyCapDao::deleteAllHistogramData);
         }
     }
 
@@ -806,11 +814,16 @@ public class ConsentManager {
      * Saves information to the storage that notification was displayed for the first time to the
      * user.
      */
-    public void recordNotificationDisplayed() {
+    public void recordNotificationDisplayed(boolean wasNotificationDisplayed) {
         executeSettersByConsentSourceOfTruth(
-                () -> mDatastore.put(ConsentConstants.NOTIFICATION_DISPLAYED_ONCE, true),
-                () -> mAdServicesManager.recordNotificationDisplayed(),
-                () -> mAppSearchConsentManager.recordNotificationDisplayed(),
+                () ->
+                        mDatastore.put(
+                                ConsentConstants.NOTIFICATION_DISPLAYED_ONCE,
+                                wasNotificationDisplayed),
+                () -> mAdServicesManager.recordNotificationDisplayed(wasNotificationDisplayed),
+                () ->
+                        mAppSearchConsentManager.recordNotificationDisplayed(
+                                wasNotificationDisplayed),
                 /* errorLogger= */ null);
     }
 
@@ -836,11 +849,14 @@ public class ConsentManager {
      * Saves information to the storage that GA UX notification was displayed for the first time to
      * the user.
      */
-    public void recordGaUxNotificationDisplayed() {
+    public void recordGaUxNotificationDisplayed(boolean wasGaUxDisplayed) {
         executeSettersByConsentSourceOfTruth(
-                () -> mDatastore.put(ConsentConstants.GA_UX_NOTIFICATION_DISPLAYED_ONCE, true),
-                () -> mAdServicesManager.recordGaUxNotificationDisplayed(),
-                () -> mAppSearchConsentManager.recordGaUxNotificationDisplayed(),
+                () ->
+                        mDatastore.put(
+                                ConsentConstants.GA_UX_NOTIFICATION_DISPLAYED_ONCE,
+                                wasGaUxDisplayed),
+                () -> mAdServicesManager.recordGaUxNotificationDisplayed(wasGaUxDisplayed),
+                () -> mAppSearchConsentManager.recordGaUxNotificationDisplayed(wasGaUxDisplayed),
                 /* errorLogger= */ null);
     }
 
@@ -1312,7 +1328,7 @@ public class ConsentManager {
             }
             LogUtil.d("Started migrating Consent from PPAPI to System Service");
 
-            boolean consentKey = datastore.get(ConsentConstants.CONSENT_KEY);
+            Boolean consentKey = Boolean.TRUE.equals(datastore.get(ConsentConstants.CONSENT_KEY));
 
             // Migrate Consent and Notification Displayed to System Service.
             // Set consent enabled only when value is TRUE. FALSE and null are regarded as disabled.
@@ -1321,7 +1337,7 @@ public class ConsentManager {
             // Set notification displayed only when value is TRUE. FALSE and null are regarded as
             // not displayed.
             if (Boolean.TRUE.equals(datastore.get(ConsentConstants.NOTIFICATION_DISPLAYED_ONCE))) {
-                adServicesManager.recordNotificationDisplayed();
+                adServicesManager.recordNotificationDisplayed(true);
             }
 
             Boolean manualInteractionRecorded =

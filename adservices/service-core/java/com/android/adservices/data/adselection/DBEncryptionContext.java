@@ -21,9 +21,6 @@ import androidx.room.Entity;
 import androidx.room.TypeConverters;
 
 import com.android.adservices.data.common.FledgeRoomConverters;
-import com.android.adservices.ohttp.EncapsulatedSharedSecret;
-import com.android.adservices.ohttp.HpkeContextNativeRef;
-import com.android.adservices.ohttp.ObliviousHttpKeyConfig;
 
 import com.google.auto.value.AutoValue;
 
@@ -49,18 +46,18 @@ public abstract class DBEncryptionContext {
 
     /** The key config associated with this encryption context. */
     @AutoValue.CopyAnnotations
-    @ColumnInfo(name = "key_config")
-    public abstract ObliviousHttpKeyConfig getKeyConfig();
+    @ColumnInfo(name = "key_config", typeAffinity = ColumnInfo.BLOB)
+    public abstract byte[] getKeyConfig();
 
     /** The encapsulated shared secret generated for this context. */
     @AutoValue.CopyAnnotations
-    @ColumnInfo(name = "shared_secret")
-    public abstract EncapsulatedSharedSecret getSharedSecret();
+    @ColumnInfo(name = "shared_secret", typeAffinity = ColumnInfo.BLOB)
+    public abstract byte[] getSharedSecret();
 
-    /** The HpkeContextNativeRef generated for this context. */
+    /** The seed bytes that will be used to regenerate HPKE context. */
     @AutoValue.CopyAnnotations
-    @ColumnInfo(name = "context_ref")
-    public abstract HpkeContextNativeRef getHpkeContextNativeRef();
+    @ColumnInfo(name = "seed", typeAffinity = ColumnInfo.BLOB)
+    public abstract byte[] getSeed();
 
     /**
      * Returns an AutoValue builder for a {@link
@@ -74,15 +71,15 @@ public abstract class DBEncryptionContext {
     public static DBEncryptionContext create(
             long contextId,
             @EncryptionKeyConstants.EncryptionKeyType int encryptionKeyType,
-            ObliviousHttpKeyConfig keyConfig,
-            EncapsulatedSharedSecret sharedSecret,
-            HpkeContextNativeRef hpkeContextNativeRef) {
+            byte[] keyConfig,
+            byte[] sharedSecret,
+            byte[] seed) {
         return builder()
                 .setContextId(contextId)
                 .setEncryptionKeyType(encryptionKeyType)
                 .setKeyConfig(keyConfig)
                 .setSharedSecret(sharedSecret)
-                .setHpkeContextNativeRef(hpkeContextNativeRef)
+                .setSeed(seed)
                 .build();
     }
 
@@ -98,13 +95,13 @@ public abstract class DBEncryptionContext {
                 @EncryptionKeyConstants.EncryptionKeyType int encryptionKeyType);
 
         /** Key Config associated with this encryption context. */
-        public abstract Builder setKeyConfig(ObliviousHttpKeyConfig keyConfig);
+        public abstract Builder setKeyConfig(byte[] keyConfig);
 
         /** Encapsulated shared secret for this encryption context. */
-        public abstract Builder setSharedSecret(EncapsulatedSharedSecret sharedSecret);
+        public abstract Builder setSharedSecret(byte[] sharedSecret);
 
-        /** Hpke context native ref for this encryption context. */
-        public abstract Builder setHpkeContextNativeRef(HpkeContextNativeRef nativeRef);
+        /** The seed required to regenerate HPKE context. */
+        public abstract Builder setSeed(byte[] seed);
 
         /** Builds the DBEncryptionContext. */
         public abstract DBEncryptionContext build();

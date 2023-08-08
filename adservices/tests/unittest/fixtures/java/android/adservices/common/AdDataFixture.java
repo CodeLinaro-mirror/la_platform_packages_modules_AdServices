@@ -36,6 +36,8 @@ public class AdDataFixture {
     public static final String VALID_METADATA = "{\"example\": \"metadata\", \"valid\": true}";
     public static final String INVALID_METADATA = "not.{real!metadata} = 1";
 
+    public static final String VALID_RENDER_ID = "render-id";
+
     public static ImmutableSet<Integer> getAdCounterKeys() {
         return ImmutableSet.<Integer>builder()
                 .add(
@@ -76,6 +78,16 @@ public class AdDataFixture {
                 getValidFilterAdDataByBuyer(buyer, 2),
                 getValidAdDataByBuyer(buyer, 3),
                 getValidAdDataByBuyer(buyer, 4));
+    }
+
+    public static List<AdData> getValidFilterAdsWithAdRenderIdByBuyer(AdTechIdentifier buyer) {
+        return ImmutableList.of(
+                getValidFilterAdDataWithAdRenderIdByBuyer(buyer, 1),
+                getValidFilterAdDataWithAdRenderIdByBuyer(buyer, 2),
+                getValidFilterAdDataByBuyer(buyer, 3),
+                getValidFilterAdDataByBuyer(buyer, 4),
+                getValidAdDataByBuyer(buyer, 5),
+                getValidAdDataByBuyer(buyer, 6));
     }
 
     public static List<AdData> getInvalidAdsByBuyer(AdTechIdentifier buyer) {
@@ -131,6 +143,14 @@ public class AdDataFixture {
     // TODO(b/266837113) Merge with getValidAdDataByBuyer once filters are unhidden
     public static AdData getValidFilterAdDataByBuyer(AdTechIdentifier buyer, int sequenceNumber) {
         return getValidFilterAdDataBuilderByBuyer(buyer, sequenceNumber).build();
+    }
+
+    // TODO(b/266837113) Merge with getValidAdDataByBuyer once filters are unhidden
+    public static AdData getValidFilterAdDataWithAdRenderIdByBuyer(
+            AdTechIdentifier buyer, int sequenceNumber) {
+        return getValidFilterAdDataBuilderByBuyer(buyer, sequenceNumber)
+                .setAdRenderId(String.valueOf(sequenceNumber))
+                .build();
     }
 
     public static AdData getValidAdDataByBuyer(AdTechIdentifier buyer, int sequenceNumber) {

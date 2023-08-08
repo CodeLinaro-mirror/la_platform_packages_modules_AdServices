@@ -432,6 +432,7 @@ public interface Flags {
     int FLEDGE_CUSTOM_AUDIENCE_MAX_NUM_ADS = 100;
     // Keeping TTL as long as expiry, could be reduced later as we get more fresh CAs with adoption
     long FLEDGE_CUSTOM_AUDIENCE_ACTIVE_TIME_WINDOW_MS = 60 * 24 * 60L * 60L * 1000; // 60 days
+    long FLEDGE_ENCRYPTION_KEY_MAX_AGE_SECONDS = TimeUnit.DAYS.toSeconds(14);
 
     /** Returns the maximum number of custom audience can stay in the storage. */
     default long getFledgeCustomAudienceMaxCount() {
@@ -525,6 +526,34 @@ public interface Flags {
      */
     default long getFledgeCustomAudienceActiveTimeWindowInMs() {
         return FLEDGE_CUSTOM_AUDIENCE_ACTIVE_TIME_WINDOW_MS;
+    }
+
+    int FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_USER_BIDDING_SIGNALS_SIZE_B = 8 * 1024; // 8 KiB
+    int FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_REQUEST_CUSTOM_HEADER_SIZE_B = 8 * 1024; // 8 KiB
+    int FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_CUSTOM_AUDIENCE_SIZE_B = 8 * 1024; // 8 KiB
+
+    /**
+     * Returns the maximum size in bytes allowed for user bidding signals in each
+     * fetchAndJoinCustomAudience request.
+     */
+    default int getFledgeFetchCustomAudienceMaxUserBiddingSignalsSizeB() {
+        return FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_USER_BIDDING_SIGNALS_SIZE_B;
+    }
+
+    /**
+     * Returns the maximum size in bytes allowed for the request custom header derived from each
+     * fetchAndJoinCustomAudience request.
+     */
+    default int getFledgeFetchCustomAudienceMaxRequestCustomHeaderSizeB() {
+        return FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_REQUEST_CUSTOM_HEADER_SIZE_B;
+    }
+
+    /**
+     * Returns the maximum size in bytes for the fused custom audience allowed to be persisted by
+     * the fetchAndJoinCustomAudience API.
+     */
+    default int getFledgeFetchCustomAudienceMaxCustomAudienceSizeB() {
+        return FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_CUSTOM_AUDIENCE_SIZE_B;
     }
 
     boolean FLEDGE_BACKGROUND_FETCH_ENABLED = true;
@@ -857,59 +886,6 @@ public interface Flags {
         return FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH;
     }
 
-    String AD_SELECTION_DATA_AUCTION_KEY_FETCH_URI =
-            "https://d38za9ovyr65qt.cloudfront.net/v1alpha/publicKeys";
-
-    /**
-     * @return Uri to fetch auction encryption key for fledge ad selection.
-     */
-    default String getAdSelectionDataAuctionKeyFetchUri() {
-        return AD_SELECTION_DATA_AUCTION_KEY_FETCH_URI;
-    }
-
-    String AD_SELECTION_DATA_JOIN_KEY_FETCH_URI =
-            "https://chromekanonymity-pa.googleapis.com/v1/proxy/keys";
-
-    /**
-     * @return Uri to fetch join encryption key for fledge ad selection.
-     */
-    default String getAdSelectionDataJoinKeyFetchUri() {
-        return AD_SELECTION_DATA_JOIN_KEY_FETCH_URI;
-    }
-
-    int AD_SELECTION_DATA_AUCTION_KEY_SHARDING = 5;
-
-    /**
-     * @return Shard count for using auction key for fledge ad selection.
-     */
-    default int getAdSelectionDataAuctionKeySharding() {
-        return AD_SELECTION_DATA_AUCTION_KEY_SHARDING;
-    }
-
-    long AD_SELECTION_DATA_ENCRYPTION_KEY_MAX_AGE_SECONDS = TimeUnit.DAYS.toSeconds(14);
-
-    default long getAdSelectionDataEncryptionKeyMaxAgeSeconds() {
-        return AD_SELECTION_DATA_ENCRYPTION_KEY_MAX_AGE_SECONDS;
-    }
-
-    int AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KDF_ID = 0x0001;
-
-    default int getAdSelectionDataAuctionEncryptionAlgorithmKdfId() {
-        return AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KDF_ID;
-    }
-
-    int AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KEM_ID = 0x0020;
-
-    default int getAdSelectionDataAuctionEncryptionAlgorithmKemId() {
-        return AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_KEM_ID;
-    }
-
-    int AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_AEAD_ID = 0x0002;
-
-    default int getAdSelectionDataAuctionEncryptionAlgorithmAeadId() {
-        return AD_SELECTION_DATA_AUCTION_ENCRYPTION_ALGORITHM_AEAD_ID;
-    }
-
     boolean FLEDGE_AD_SELECTION_OFF_DEVICE_REQUEST_COMPRESSION_ENABLED = true;
 
     /** Returns whether to compress requests sent off device for ad selection. */
@@ -917,11 +893,65 @@ public interface Flags {
         return FLEDGE_AD_SELECTION_OFF_DEVICE_REQUEST_COMPRESSION_ENABLED;
     }
 
-    int FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION = 0;
+    /** The server uses the following version numbers: 1. Brotli : 1 2. Gzip : 2 */
+    int FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION = 2;
 
     /** Returns the compression algorithm version */
     default int getFledgeAuctionServerCompressionAlgorithmVersion() {
         return FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION;
+    }
+
+    String FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_URI =
+            "https://d38za9ovyr65qt.cloudfront.net/v1alpha/publicKeys";
+
+    /**
+     * @return Uri to fetch auction encryption key for fledge ad selection.
+     */
+    default String getFledgeAuctionServerAuctionKeyFetchUri() {
+        return FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_URI;
+    }
+
+    String FLEDGE_AUCTION_SERVER_JOIN_KEY_FETCH_URI =
+            "https://chromekanonymity-pa.googleapis.com/v1/proxy/keys";
+
+    /**
+     * @return Uri to fetch join encryption key for fledge ad selection.
+     */
+    default String getFledgeAuctionServerJoinKeyFetchUri() {
+        return FLEDGE_AUCTION_SERVER_JOIN_KEY_FETCH_URI;
+    }
+
+    int FLEDGE_AUCTION_SERVER_AUCTION_KEY_SHARDING = 5;
+
+    /**
+     * @return Shard count for using auction key for fledge ad selection.
+     */
+    default int getFledgeAuctionServerAuctionKeySharding() {
+        return FLEDGE_AUCTION_SERVER_AUCTION_KEY_SHARDING;
+    }
+
+    long FLEDGE_AUCTION_SERVER_ENCRYPTION_KEY_MAX_AGE_SECONDS = TimeUnit.DAYS.toSeconds(14);
+
+    default long getFledgeAuctionServerEncryptionKeyMaxAgeSeconds() {
+        return FLEDGE_AUCTION_SERVER_ENCRYPTION_KEY_MAX_AGE_SECONDS;
+    }
+
+    int FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_KDF_ID = 0x0001;
+
+    default int getFledgeAuctionServerEncryptionAlgorithmKdfId() {
+        return FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_KDF_ID;
+    }
+
+    int FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_KEM_ID = 0x0020;
+
+    default int getFledgeAuctionServerEncryptionAlgorithmKemId() {
+        return FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_KEM_ID;
+    }
+
+    int FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_AEAD_ID = 0x0002;
+
+    default int getFledgeAuctionServerEncryptionAlgorithmAeadId() {
+        return FLEDGE_AUCTION_SERVER_ENCRYPTION_ALGORITHM_AEAD_ID;
     }
 
     int FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION = 0;
@@ -929,6 +959,115 @@ public interface Flags {
     /** Returns the payload formatter version */
     default int getFledgeAuctionServerPayloadFormatVersion() {
         return FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION;
+    }
+
+    long FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_TIMEOUT_MS = 3000;
+
+    default long getFledgeAuctionServerAuctionKeyFetchTimeoutMs() {
+        return FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_TIMEOUT_MS;
+    }
+
+    boolean FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_ENABLED = false;
+
+    /** Returns whether to run periodic job to fetch encryption keys. */
+    default boolean getFledgeAuctionServerBackgroundKeyFetchJobEnabled() {
+        return FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_ENABLED;
+    }
+
+    int FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_CONNECT_TIMEOUT_MS =
+            5 * 1000; // 5 seconds
+
+    /**
+     * Returns the maximum time in milliseconds allowed for a network call to open its initial
+     * connection during the FLEDGE encryption key fetch.
+     */
+    default int getFledgeAuctionServerBackgroundKeyFetchNetworkConnectTimeoutMs() {
+        return FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_CONNECT_TIMEOUT_MS;
+    }
+
+    int FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_READ_TIMEOUT_MS =
+            30 * 1000; // 30 seconds
+
+    /**
+     * Returns the maximum time in milliseconds allowed for a network call to read a response from a
+     * target server during the FLEDGE encryption key fetch.
+     */
+    default int getFledgeAuctionServerBackgroundKeyFetchNetworkReadTimeoutMs() {
+        return FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_READ_TIMEOUT_MS;
+    }
+
+    int FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RESPONSE_SIZE_B = 2 * 1024; // 2 KiB
+
+    /**
+     * Returns the maximum size in bytes of a single key fetch response during the FLEDGE encryption
+     * key fetch.
+     */
+    default int getFledgeAuctionServerBackgroundKeyFetchMaxResponseSizeB() {
+        return FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RESPONSE_SIZE_B;
+    }
+
+    boolean FLEDGE_AUCTION_SERVER_BACKGROUND_AUCTION_KEY_FETCH_ENABLED = false;
+
+    /** Returns whether to run periodic job to fetch AUCTION keys. */
+    default boolean getFledgeAuctionServerBackgroundAuctionKeyFetchEnabled() {
+        return getFledgeAuctionServerBackgroundKeyFetchJobEnabled()
+                && FLEDGE_AUCTION_SERVER_BACKGROUND_AUCTION_KEY_FETCH_ENABLED;
+    }
+
+    boolean FLEDGE_AUCTION_SERVER_BACKGROUND_JOIN_KEY_FETCH_ENABLED = false;
+
+    /** Returns whether to run periodic job to fetch JOIN keys. */
+    default boolean getFledgeAuctionServerBackgroundJoinKeyFetchEnabled() {
+        return getFledgeAuctionServerBackgroundKeyFetchJobEnabled()
+                && FLEDGE_AUCTION_SERVER_BACKGROUND_JOIN_KEY_FETCH_ENABLED;
+    }
+
+    long FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS = TimeUnit.MINUTES.toMillis(5);
+
+    /**
+     * Returns the maximum amount of time (in milliseconds) each Ad selection Background key Fetch
+     * job is allowed to run.
+     */
+    default long getFledgeAuctionServerBackgroundKeyFetchJobMaxRuntimeMs() {
+        return FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS;
+    }
+
+    long FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_PERIOD_MS = TimeUnit.HOURS.toMillis(24);
+
+    /**
+     * Returns the best effort max time (in milliseconds) between each Background Key Fetch job run.
+     */
+    default long getFledgeAuctionServerBackgroundKeyFetchJobPeriodMs() {
+        return FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_PERIOD_MS;
+    }
+
+    long FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_FLEX_MS = TimeUnit.HOURS.toMillis(2);
+
+    /**
+     * Returns the amount of flex (in milliseconds) around the end of each period to run each
+     * Background Key Fetch job.
+     */
+    default long getFledgeAuctionServerBackgroundKeyFetchJobFlexMs() {
+        return FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_FLEX_MS;
+    }
+
+    boolean FLEDGE_AUCTION_SERVER_ENABLE_DEBUG_REPORTING = true;
+
+    default boolean getFledgeAuctionServerEnableDebugReporting() {
+        return FLEDGE_AUCTION_SERVER_ENABLE_DEBUG_REPORTING;
+    }
+
+    boolean FLEDGE_AUCTION_SERVER_AD_RENDER_ID_ENABLED = false;
+    long FLEDGE_AUCTION_SERVER_AD_RENDER_ID_MAX_LENGTH = 12L;
+
+    /** Returns whether ad render id is enabled. */
+    default boolean getFledgeAuctionServerAdRenderIdEnabled() {
+        return FLEDGE_AUCTION_SERVER_AD_RENDER_ID_ENABLED;
+    }
+
+    /** Returns the max length of Ad Render Id. */
+    default long getFledgeAuctionServerAdRenderIdMaxLength() {
+        return FLEDGE_AUCTION_SERVER_AD_RENDER_ID_MAX_LENGTH;
     }
 
     boolean ADSERVICES_ENABLED = false;
@@ -1023,6 +1162,14 @@ public interface Flags {
 
     default boolean getConsentNotificationDebugMode() {
         return CONSENT_NOTIFICATION_DEBUG_MODE;
+    }
+
+    /** The consent notification activity debug mode is off by default. */
+    boolean CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE = false;
+
+    /** Returns the consent notification activity debug mode. */
+    default boolean getConsentNotificationActivityDebugMode() {
+        return CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE;
     }
 
     boolean CONSENT_MANAGER_DEBUG_MODE = false;
@@ -1553,6 +1700,19 @@ public interface Flags {
     }
 
     /**
+     * Fledge Auction Server API Kill switch. The default value is true which means that Auction
+     * server APIs is disabled by default.
+     */
+    boolean FLEDGE_AUCTION_SERVER_KILL_SWITCH = true;
+
+    /**
+     * @return value of Fledge Auction server API kill switch.
+     */
+    default boolean getFledgeAuctionServerKillSwitch() {
+        return getGlobalKillSwitch() || FLEDGE_AUCTION_SERVER_KILL_SWITCH;
+    }
+
+    /**
      * Fledge Join Custom Audience API kill switch. The default value is false which means that Join
      * Custom Audience API is enabled by default. This flag should be should as emergency andon
      * cord.
@@ -1677,7 +1837,7 @@ public interface Flags {
      * PP API Rate Limit for ad id. This is the max allowed QPS for one API client to one PP API.
      * Negative Value means skipping the rate limiting checking.
      */
-    float ADID_REQUEST_PERMITS_PER_SECOND = 5;
+    float ADID_REQUEST_PERMITS_PER_SECOND = 25;
 
     /**
      * PP API Rate Limit for app set id. This is the max allowed QPS for one API client to one PP
@@ -2012,6 +2172,7 @@ public interface Flags {
 
     /** UI Dialog Fragment feature enabled. */
     boolean UI_DIALOG_FRAGMENT = false;
+
     /** Returns if the UI Dialog Fragment is enabled. */
     default boolean getUiDialogFragmentEnabled() {
         return UI_DIALOG_FRAGMENT;
@@ -2143,6 +2304,14 @@ public interface Flags {
         return GA_UX_FEATURE_ENABLED;
     }
 
+    /** Set the debug UX, which should crrespond to the {@link PrivacySandboxUxCollection} enum. */
+    String DEBUG_UX = "UNSUPPORTED_UX";
+
+    /** Returns the debug UX. */
+    default String getDebugUx() {
+        return DEBUG_UX;
+    }
+
     /** add speed bump dialogs when turning on or off the toggle of Topics, apps, measurement */
     boolean TOGGLE_SPEED_BUMP_ENABLED = false;
 
@@ -2232,10 +2401,16 @@ public interface Flags {
 
     // New Feature Flags
     boolean FLEDGE_REGISTER_AD_BEACON_ENABLED = false;
+    boolean FLEDGE_CPC_BILLING_ENABLED = false;
 
     /** Returns whether the {@code registerAdBeacon} feature is enabled. */
     default boolean getFledgeRegisterAdBeaconEnabled() {
         return FLEDGE_REGISTER_AD_BEACON_ENABLED;
+    }
+
+    /** Returns whether the CPC billing feature is enabled. */
+    default boolean getFledgeCpcBillingEnabled() {
+        return FLEDGE_CPC_BILLING_ENABLED;
     }
 
     /**
@@ -2311,6 +2486,14 @@ public interface Flags {
     /** Returns maximum Event Reports per destination */
     default int getMeasurementMaxEventReportsPerDestination() {
         return MEASUREMENT_MAX_EVENT_REPORTS_PER_DESTINATION;
+    }
+
+    /** Default minimum event report delay in milliseconds */
+    long MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS = 3_600_000L;
+
+    /** Returns minimum event report delay in milliseconds */
+    default long getMeasurementMinEventReportDelayMillis() {
+        return MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS;
     }
 
     /** Disable early reporting windows configurability by default. */
@@ -2438,13 +2621,21 @@ public interface Flags {
         return DEFAULT_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS;
     }
 
-    /** Enable pushing of consent migration logs when OTA from S to T+ by default. */
-    boolean DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH = false;
+    /** Default value of flag for logging consent migration metrics when OTA from S to T+. */
+    boolean DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED = true;
 
     /***
-     * Returns true if we want to log consent migration metrics when OTA from S to T+.
+     * Returns true when logging consent migration metrics is enabled when OTA from S to T+.
      */
-    default boolean getAdservicesConsentMigrationLoggingKillSwitch() {
-        return DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_KILL_SWITCH;
+    default boolean getAdservicesConsentMigrationLoggingEnabled() {
+        return DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED;
+    }
+
+    /** The default token for resetting consent notificatio.. */
+    String CONSENT_NOTIFICATION_RESET_TOKEN = "";
+
+    /** Returns the consent notification reset token. */
+    default String getConsentNotificationResetToken() {
+        return CONSENT_NOTIFICATION_RESET_TOKEN;
     }
 }

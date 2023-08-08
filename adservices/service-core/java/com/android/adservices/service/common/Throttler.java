@@ -60,6 +60,11 @@ public class Throttler {
         // Key to throttle Select Ads API
         FLEDGE_API_SELECT_ADS,
 
+        // Key to throttle Get Ad Selection Data API
+        FLEDGE_API_GET_AD_SELECTION_DATA,
+        // Key to throttle Persist Ad Selection Result API
+        FLEDGE_API_PERSIST_AD_SELECTION_RESULT,
+
         // Key to throttle Set App Install Advertisers API
         FLEDGE_API_SET_APP_INSTALL_ADVERTISERS,
 
@@ -182,6 +187,7 @@ public class Throttler {
         mRateLimitPerApiMap.put(ApiKey.FLEDGE_API_REPORT_IMPRESSIONS, defaultPermitsPerSecond);
         mRateLimitPerApiMap.put(ApiKey.FLEDGE_API_REPORT_INTERACTION, defaultPermitsPerSecond);
         mRateLimitPerApiMap.put(ApiKey.FLEDGE_API_SELECT_ADS, defaultPermitsPerSecond);
+        mRateLimitPerApiMap.put(ApiKey.FLEDGE_API_GET_AD_SELECTION_DATA, defaultPermitsPerSecond);
         mRateLimitPerApiMap.put(
                 ApiKey.FLEDGE_API_UPDATE_AD_COUNTER_HISTOGRAM, defaultPermitsPerSecond);
 

@@ -73,9 +73,6 @@ class AppSearchConsentWorker {
     // Timeout for AppSearch write query in milliseconds.
     private static final int TIMEOUT_MS = 2000;
 
-    // This is used to convert the current package name belonging to AdExtServices to the
-    // corresponding package name for AdServices.
-    private static final String EXTSERVICES_PACKAGE_NAME_SUBSTRING = "ext.";
     private static final String CONSENT_DATABASE_NAME = "adservices_consent";
     private static final String APP_CONSENT_DATABASE_NAME = "adservices_app_consent";
     private static final String NOTIFICATION_DATABASE_NAME = "adservices_notification";
@@ -347,7 +344,7 @@ class AppSearchConsentWorker {
      * Record having shown the beta UX notification to this user on this device. We cannot reset
      * this, i.e., once a notification is shown, it is forever recorded as shown.
      */
-    void recordNotificationDisplayed() {
+    void recordNotificationDisplayed(boolean wasNotificationDisplayed) {
         READ_WRITE_LOCK.writeLock().lock();
         try {
             AppSearchNotificationDao dao =
@@ -355,7 +352,7 @@ class AppSearchConsentWorker {
                             AppSearchNotificationDao.getRowId(mUid),
                             mUid,
                             AppSearchNotificationDao.NAMESPACE,
-                            /* wasNotificationDisplayed= */ true,
+                            /* wasNotificationDisplayed= */ wasNotificationDisplayed,
                             /* wasGaUxNotificationDisplayed= */ wasGaUxNotificationDisplayed());
             dao.writeData(mNotificationSearchSession, mPackageIdentifiers, mExecutor)
                     .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
@@ -369,7 +366,7 @@ class AppSearchConsentWorker {
     }
 
     /** Record having shown the GA UX notification to this user on this device. */
-    void recordGaUxNotificationDisplayed() {
+    void recordGaUxNotificationDisplayed(boolean wasNotificationDisplayed) {
         READ_WRITE_LOCK.writeLock().lock();
         try {
             AppSearchNotificationDao dao =
@@ -378,7 +375,7 @@ class AppSearchConsentWorker {
                             mUid,
                             AppSearchNotificationDao.NAMESPACE,
                             /* wasNotificationDisplayed= */ wasNotificationDisplayed(),
-                            /* wasGaUxNotificationDisplayed= */ true);
+                            /* wasGaUxNotificationDisplayed= */ wasNotificationDisplayed);
             dao.writeData(mNotificationSearchSession, mPackageIdentifiers, mExecutor)
                     .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
             LogUtil.d("Wrote notification data to AppSearch: " + dao);
@@ -594,7 +591,9 @@ class AppSearchConsentWorker {
             if (packageName == null || packageName.isEmpty()) {
                 throw new RuntimeException(ConsentConstants.ERROR_MESSAGE_APPSEARCH_FAILURE);
             }
-            return packageName.replace(EXTSERVICES_PACKAGE_NAME_SUBSTRING, "");
+            return packageName.replace(
+                    AdServicesCommon.ADEXTSERVICES_PACKAGE_NAME_SUFFIX,
+                    AdServicesCommon.ADSERVICES_APK_PACKAGE_NAME_SUFFIX);
         }
         // If we don't know the AdServices package name, we can't do a write.
         throw new RuntimeException(ConsentConstants.ERROR_MESSAGE_APPSEARCH_FAILURE);

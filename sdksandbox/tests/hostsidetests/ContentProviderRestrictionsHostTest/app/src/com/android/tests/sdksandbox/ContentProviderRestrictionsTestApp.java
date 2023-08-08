@@ -47,13 +47,22 @@ import org.junit.runners.JUnit4;
 public class ContentProviderRestrictionsTestApp {
     private SdkSandboxManager mSdkSandboxManager;
 
-    // Keep the value consistent with SdkSandboxmanagerService.ENFORCE_CONTENT_PROVIDER_RESTRICTIONS
-    private static final String ENFORCE_CONTENT_PROVIDER_RESTRICTIONS =
-            "enforce_content_provider_restrictions";
+    // Keep the value consistent with SdkSandboxmanagerService.ENFORCE_RESTRICTIONS
+    private static final String ENFORCE_RESTRICTIONS = "enforce_sdk_sandbox_restrictions";
 
     // Keep the value consistent with SdkSandboxmanagerService.PROPERTY_CONTENTPROVIDER_ALLOWLIST.
     private static final String PROPERTY_CONTENTPROVIDER_ALLOWLIST =
             "contentprovider_allowlist_per_targetSdkVersion";
+
+    // Keep the value consistent with
+    // SdkSandboxManagerService.PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS.
+    private static final String PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS =
+            "apply_sdk_sandbox_next_restrictions";
+
+    // Keep the value consistent with
+    // SdkSandboxManagerService.PROPERTY_NEXT_CONTENTPROVIDER_ALLOWLIST.
+    private static final String PROPERTY_NEXT_CONTENTPROVIDER_ALLOWLIST =
+            "next_contentprovider_allowlist";
 
     private static final String SDK_PACKAGE =
             "com.android.tests.sdkprovider.restrictions.contentproviders";
@@ -65,6 +74,8 @@ public class ContentProviderRestrictionsTestApp {
 
     private String mInitialContentProviderRestrictionValue;
     private String mInitialContentProviderAllowlistValue;
+    private String mInitialApplyNextContentProviderAllowlistValue;
+    private String mInitialNextContentProviderAllowlistValue;
 
     @Before
     public void setup() {
@@ -77,11 +88,17 @@ public class ContentProviderRestrictionsTestApp {
                         Manifest.permission.WRITE_DEVICE_CONFIG,
                         Manifest.permission.READ_DEVICE_CONFIG);
         mInitialContentProviderRestrictionValue =
-                DeviceConfig.getProperty(
-                        DeviceConfig.NAMESPACE_ADSERVICES, ENFORCE_CONTENT_PROVIDER_RESTRICTIONS);
+                DeviceConfig.getProperty(DeviceConfig.NAMESPACE_ADSERVICES, ENFORCE_RESTRICTIONS);
         mInitialContentProviderAllowlistValue =
                 DeviceConfig.getProperty(
                         DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_CONTENTPROVIDER_ALLOWLIST);
+        mInitialApplyNextContentProviderAllowlistValue =
+                DeviceConfig.getProperty(
+                        DeviceConfig.NAMESPACE_ADSERVICES,
+                        PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS);
+        mInitialNextContentProviderAllowlistValue =
+                DeviceConfig.getProperty(
+                        DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_NEXT_CONTENTPROVIDER_ALLOWLIST);
 
         // Greedily unload SDK to reduce flakiness
         mSdkSandboxManager.unloadSdk(SDK_PACKAGE);
@@ -91,7 +108,7 @@ public class ContentProviderRestrictionsTestApp {
     public void teardown() {
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
-                ENFORCE_CONTENT_PROVIDER_RESTRICTIONS,
+                ENFORCE_RESTRICTIONS,
                 mInitialContentProviderRestrictionValue,
                 /*makeDefault=*/ false);
 
@@ -99,6 +116,18 @@ public class ContentProviderRestrictionsTestApp {
                 DeviceConfig.NAMESPACE_ADSERVICES,
                 PROPERTY_CONTENTPROVIDER_ALLOWLIST,
                 mInitialContentProviderAllowlistValue,
+                /*makeDefault=*/ false);
+
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS,
+                mInitialApplyNextContentProviderAllowlistValue,
+                /*makeDefault=*/ false);
+
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                PROPERTY_NEXT_CONTENTPROVIDER_ALLOWLIST,
+                mInitialNextContentProviderAllowlistValue,
                 /*makeDefault=*/ false);
 
         InstrumentationRegistry.getInstrumentation()
@@ -114,10 +143,7 @@ public class ContentProviderRestrictionsTestApp {
         mRule.getScenario();
 
         DeviceConfig.setProperty(
-                DeviceConfig.NAMESPACE_ADSERVICES,
-                ENFORCE_CONTENT_PROVIDER_RESTRICTIONS,
-                "true",
-                false);
+                DeviceConfig.NAMESPACE_ADSERVICES, ENFORCE_RESTRICTIONS, "true", false);
 
         FakeLoadSdkCallback callback = new FakeLoadSdkCallback();
         mSdkSandboxManager.loadSdk(SDK_PACKAGE, new Bundle(), Runnable::run, callback);
@@ -136,10 +162,7 @@ public class ContentProviderRestrictionsTestApp {
         mRule.getScenario();
 
         DeviceConfig.setProperty(
-                DeviceConfig.NAMESPACE_ADSERVICES,
-                ENFORCE_CONTENT_PROVIDER_RESTRICTIONS,
-                "true",
-                false);
+                DeviceConfig.NAMESPACE_ADSERVICES, ENFORCE_RESTRICTIONS, "true", false);
 
         FakeLoadSdkCallback callback = new FakeLoadSdkCallback();
         mSdkSandboxManager.loadSdk(SDK_PACKAGE, new Bundle(), Runnable::run, callback);
@@ -160,14 +183,21 @@ public class ContentProviderRestrictionsTestApp {
 
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
-                ENFORCE_CONTENT_PROVIDER_RESTRICTIONS,
+                ENFORCE_RESTRICTIONS,
                 "true",
                 /*makeDefault=*/ false);
 
-        // Base64 encoded proto ContentProviderAllowlists containing mappings to the string
-        // 'com.android.textclassifier.icons' and 'user_dictionary'.
+        /**
+         * Base64 encoded proto ContentProviderAllowlists containing allowlist_per_target_sdk { key:
+         * 34 value { authorities: "com.android.textclassifier.icons" authorities: "user_dictionary"
+         * } }
+         *
+         * <p>allowlist_per_target_sdk { key: 35 value { authorities:
+         * "com.android.textclassifier.icons" authorities: "user_dictionary" } }
+         */
         final String encodedAllowlist =
-                "CjcIIhIzCiBjb20uYW5kcm9pZC50ZXh0Y2xhc3NpZmllci5pY29ucwoPdXNlcl9kaWN0aW9uYXJ5";
+                "CjcIIhIzCiBjb20uYW5kcm9pZC50ZXh0Y2xhc3NpZmllci5pY29ucwoPdXNlcl9kaWN0aW9uYXJ5CjcII"
+                        + "xIzCiBjb20uYW5kcm9pZC50ZXh0Y2xhc3NpZmllci5pY29ucwoPdXNlcl9kaWN0aW9uYXJ5";
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
                 PROPERTY_CONTENTPROVIDER_ALLOWLIST,
@@ -190,7 +220,150 @@ public class ContentProviderRestrictionsTestApp {
                 SecurityException.class,
                 () ->
                         contentProvidersSdkApi.getContentProviderByAuthority(
-                                "com.android.blockednumber"));
+                                "com.android.contacts.dumpfile/a-contacts-db.zip"));
+    }
+
+    @Test
+    public void testGetContentProvider_DeviceConfigNextAllowlistApplied() throws Exception {
+        mRule.getScenario();
+
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                ENFORCE_RESTRICTIONS,
+                "true",
+                /*makeDefault=*/ false);
+
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS,
+                "true",
+                /*makeDefault=*/ false);
+
+        // Base64 encoded proto AllowedContentProviders containing the string
+        // 'com.android.textclassifier.icons'
+        final String encodedNextAllowlist = "CiBjb20uYW5kcm9pZC50ZXh0Y2xhc3NpZmllci5pY29ucw==";
+        // Set the canary set.
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                PROPERTY_NEXT_CONTENTPROVIDER_ALLOWLIST,
+                encodedNextAllowlist,
+                false);
+
+        // Base64 encoded proto ContentProviderAllowlists containing mappings to the string
+        // 'com.android.textclassifier.icons' and 'user_dictionary'.
+        final String encodedAllowlist =
+                "CjcIIhIzCiBjb20uYW5kcm9pZC50ZXh0Y2xhc3NpZmllci5pY29ucwoPdXNlcl9kaWN0aW9uYXJ5";
+        // Also set the non-canary allowlist to verify that this allowlist is not applied when the
+        // canary flag is set.
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                PROPERTY_CONTENTPROVIDER_ALLOWLIST,
+                encodedAllowlist,
+                false);
+
+        final FakeLoadSdkCallback callback = new FakeLoadSdkCallback();
+        mSdkSandboxManager.loadSdk(SDK_PACKAGE, new Bundle(), Runnable::run, callback);
+        callback.assertLoadSdkIsSuccessful();
+        final SandboxedSdk sandboxedSdk = callback.getSandboxedSdk();
+
+        final IBinder binder = sandboxedSdk.getInterface();
+        final IContentProvidersSdkApi contentProvidersSdkApi =
+                IContentProvidersSdkApi.Stub.asInterface(binder);
+
+        contentProvidersSdkApi.getContentProviderByAuthority("com.android.textclassifier.icons");
+        assertThrows(SecurityException.class, () -> contentProvidersSdkApi.getContentProvider());
+        assertThrows(
+                SecurityException.class,
+                () ->
+                        contentProvidersSdkApi.getContentProviderByAuthority(
+                                "com.android.contacts.dumpfile/a-contacts-db.zip"));
+    }
+
+    @Test
+    public void testGetContentProvider_DeviceConfigWildcardAllowlistApplied() throws Exception {
+        mRule.getScenario();
+
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                ENFORCE_RESTRICTIONS,
+                "true",
+                /*makeDefault=*/ false);
+
+        /*
+         * Base64 encoded proto ContentProviderAllowlists in the following form:
+         * allowlist_per_target_sdk {
+         *   key: 34
+         *   value {
+         *     authorities: "*"
+         *   }
+         * }
+         */
+        final String encodedAllowlist = "CgcIIhIDCgEq";
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                PROPERTY_CONTENTPROVIDER_ALLOWLIST,
+                encodedAllowlist,
+                false);
+
+        final FakeLoadSdkCallback callback = new FakeLoadSdkCallback();
+        mSdkSandboxManager.loadSdk(SDK_PACKAGE, new Bundle(), Runnable::run, callback);
+        callback.assertLoadSdkIsSuccessful();
+        final SandboxedSdk sandboxedSdk = callback.getSandboxedSdk();
+
+        final IBinder binder = sandboxedSdk.getInterface();
+        final IContentProvidersSdkApi contentProvidersSdkApi =
+                IContentProvidersSdkApi.Stub.asInterface(binder);
+
+        // All kinds of ContentProviders should be accessible.
+        contentProvidersSdkApi.getContentProviderByAuthority("com.android.textclassifier.icons");
+        contentProvidersSdkApi.getContentProvider();
+        contentProvidersSdkApi.getContentProviderByAuthority(
+                "com.android.contacts.dumpfile/a-contacts-db.zip");
+    }
+
+    @Test
+    public void testGetContentProvider_DeviceConfigAllowlistWithWildcardApplied() throws Exception {
+        mRule.getScenario();
+
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                ENFORCE_RESTRICTIONS,
+                "true",
+                /*makeDefault=*/ false);
+
+        /*
+         * Base64 encoded proto ContentProviderAllowlists in the following form:
+         * allowlist_per_target_sdk {
+         *   key: 34
+         *   value {
+         *     authorities: "com.android.contacts.*"
+         *   }
+         * }
+         */
+        final String encodedAllowlist = "ChwIIhIYChZjb20uYW5kcm9pZC5jb250YWN0cy4q";
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                PROPERTY_CONTENTPROVIDER_ALLOWLIST,
+                encodedAllowlist,
+                false);
+
+        final FakeLoadSdkCallback callback = new FakeLoadSdkCallback();
+        mSdkSandboxManager.loadSdk(SDK_PACKAGE, new Bundle(), Runnable::run, callback);
+        callback.assertLoadSdkIsSuccessful();
+        final SandboxedSdk sandboxedSdk = callback.getSandboxedSdk();
+
+        final IBinder binder = sandboxedSdk.getInterface();
+        final IContentProvidersSdkApi contentProvidersSdkApi =
+                IContentProvidersSdkApi.Stub.asInterface(binder);
+
+        contentProvidersSdkApi.getContentProviderByAuthority(
+                "com.android.contacts.dumpfile/a-contacts-db.zip");
+        assertThrows(SecurityException.class, () -> contentProvidersSdkApi.getContentProvider());
+        assertThrows(
+                SecurityException.class,
+                () ->
+                        contentProvidersSdkApi.getContentProviderByAuthority(
+                                "com.android.textclassifier.icons"));
     }
 
     @Test(expected = Test.None.class /* no exception expected */)
@@ -198,10 +371,7 @@ public class ContentProviderRestrictionsTestApp {
         mRule.getScenario();
 
         DeviceConfig.setProperty(
-                DeviceConfig.NAMESPACE_ADSERVICES,
-                ENFORCE_CONTENT_PROVIDER_RESTRICTIONS,
-                "true",
-                false);
+                DeviceConfig.NAMESPACE_ADSERVICES, ENFORCE_RESTRICTIONS, "true", false);
 
         final FakeLoadSdkCallback callback = new FakeLoadSdkCallback();
         mSdkSandboxManager.loadSdk(SDK_PACKAGE, new Bundle(), Runnable::run, callback);
@@ -224,10 +394,7 @@ public class ContentProviderRestrictionsTestApp {
         mRule.getScenario();
 
         DeviceConfig.setProperty(
-                DeviceConfig.NAMESPACE_ADSERVICES,
-                ENFORCE_CONTENT_PROVIDER_RESTRICTIONS,
-                "false",
-                false);
+                DeviceConfig.NAMESPACE_ADSERVICES, ENFORCE_RESTRICTIONS, "false", false);
 
         FakeLoadSdkCallback callback = new FakeLoadSdkCallback();
         mSdkSandboxManager.loadSdk(SDK_PACKAGE, new Bundle(), Runnable::run, callback);
@@ -246,10 +413,7 @@ public class ContentProviderRestrictionsTestApp {
         mRule.getScenario();
 
         DeviceConfig.setProperty(
-                DeviceConfig.NAMESPACE_ADSERVICES,
-                ENFORCE_CONTENT_PROVIDER_RESTRICTIONS,
-                "false",
-                false);
+                DeviceConfig.NAMESPACE_ADSERVICES, ENFORCE_RESTRICTIONS, "false", false);
 
         FakeLoadSdkCallback callback = new FakeLoadSdkCallback();
         mSdkSandboxManager.loadSdk(SDK_PACKAGE, new Bundle(), Runnable::run, callback);
@@ -264,10 +428,9 @@ public class ContentProviderRestrictionsTestApp {
     }
 
     @Test(expected = Test.None.class /* no exception expected */)
-    public void testGetContentProvider_defaultValueRestrictionsNotApplied() throws Exception {
+    public void testGetContentProvider_defaultValueRestrictionsApplied() throws Exception {
         /** Ensuring that the property is not present in DeviceConfig */
-        DeviceConfig.deleteProperty(
-                DeviceConfig.NAMESPACE_ADSERVICES, ENFORCE_CONTENT_PROVIDER_RESTRICTIONS);
+        DeviceConfig.deleteProperty(DeviceConfig.NAMESPACE_ADSERVICES, ENFORCE_RESTRICTIONS);
 
         FakeLoadSdkCallback callback = new FakeLoadSdkCallback();
         mSdkSandboxManager.loadSdk(SDK_PACKAGE, new Bundle(), Runnable::run, callback);
@@ -278,14 +441,13 @@ public class ContentProviderRestrictionsTestApp {
         IContentProvidersSdkApi contentProvidersSdkApi =
                 IContentProvidersSdkApi.Stub.asInterface(binder);
 
-        contentProvidersSdkApi.getContentProvider();
+        assertThrows(SecurityException.class, () -> contentProvidersSdkApi.getContentProvider());
     }
 
     @Test(expected = Test.None.class /* no exception expected */)
-    public void testRegisterContentObserver_defaultValueRestrictionsNotApplied() throws Exception {
+    public void testRegisterContentObserver_defaultValueRestrictionsApplied() throws Exception {
         /** Ensuring that the property is not present in DeviceConfig */
-        DeviceConfig.deleteProperty(
-                DeviceConfig.NAMESPACE_ADSERVICES, ENFORCE_CONTENT_PROVIDER_RESTRICTIONS);
+        DeviceConfig.deleteProperty(DeviceConfig.NAMESPACE_ADSERVICES, ENFORCE_RESTRICTIONS);
 
         FakeLoadSdkCallback callback = new FakeLoadSdkCallback();
         mSdkSandboxManager.loadSdk(SDK_PACKAGE, new Bundle(), Runnable::run, callback);
@@ -296,6 +458,6 @@ public class ContentProviderRestrictionsTestApp {
         IContentProvidersSdkApi contentProvidersSdkApi =
                 IContentProvidersSdkApi.Stub.asInterface(binder);
 
-        contentProvidersSdkApi.registerContentObserver();
+        assertThrows(SecurityException.class, () -> contentProvidersSdkApi.getContentProvider());
     }
 }

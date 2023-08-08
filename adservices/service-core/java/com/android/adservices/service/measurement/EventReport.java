@@ -414,16 +414,12 @@ public class EventReport {
                 @NonNull SourceNoiseHandler sourceNoiseHandler,
                 List<Uri> eventReportDestinations,
                 boolean enableFlexEventApi) {
-            mBuilding.mTriggerPriority = eventTrigger.getTriggerPriority();
             mBuilding.mTriggerDedupKey = eventTrigger.getDedupKey();
             mBuilding.mTriggerTime = trigger.getTriggerTime();
             mBuilding.mSourceEventId = source.getEventId();
             mBuilding.mEnrollmentId = source.getEnrollmentId();
             mBuilding.mStatus = Status.PENDING;
             mBuilding.mAttributionDestinations = eventReportDestinations;
-            mBuilding.mReportTime =
-                    eventReportWindowCalcDelegate.getReportingTime(
-                            source, trigger.getTriggerTime(), trigger.getDestinationType());
             mBuilding.mSourceType = source.getSourceType();
             mBuilding.mSourceDebugKey = debugKeyPair.first;
             mBuilding.mTriggerDebugKey = debugKeyPair.second;
@@ -453,11 +449,11 @@ public class EventReport {
                                         eventTrigger.getTriggerPriority());
                 mBuilding.mTriggerData = eventTrigger.getTriggerData();
                 mBuilding.mReportTime =
-                        source.getFlexEventReportSpec()
-                                .getFlexEventReportingTime(
-                                        source.getEventTime(),
-                                        trigger.getTriggerTime(),
-                                        eventTrigger.getTriggerData());
+                        ReportSpecUtil.getFlexEventReportingTime(
+                                source.getFlexEventReportSpec(),
+                                source.getEventTime(),
+                                trigger.getTriggerTime(),
+                                eventTrigger.getTriggerData());
                 mBuilding.mRandomizedTriggerRate =
                         source.getFlexEventReportSpec().getFlipProbability();
                 mBuilding.mTriggerValue = eventTrigger.getTriggerValue();

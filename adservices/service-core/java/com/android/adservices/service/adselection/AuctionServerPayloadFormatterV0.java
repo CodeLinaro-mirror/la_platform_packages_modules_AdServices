@@ -36,16 +36,12 @@ public class AuctionServerPayloadFormatterV0 implements AuctionServerPayloadForm
 
     private static final String DATA_SIZE_MISMATCH =
             "Data size extracted from padded bytes is longer than the rest of the data";
-    @VisibleForTesting static final int PAYLOAD_FORMAT_VERSION_LENGTH_BITS = 3;
-    @VisibleForTesting static final int COMPRESSION_ALGORITHM_VERSION_LENGTH_BITS = 5;
-    private static final int META_INFO_LENGTH_BYTE =
-            (PAYLOAD_FORMAT_VERSION_LENGTH_BITS + COMPRESSION_ALGORITHM_VERSION_LENGTH_BITS)
-                    / ONE_BYTE_IN_BITS;
+
     private static final int DATA_SIZE_PADDING_LENGTH_BYTE = 4;
-    @NonNull private final ByteBuffer mByteBuffer;
+    @NonNull private final ByteBuffer mDataSizeBytesBuffer;
 
     public AuctionServerPayloadFormatterV0() {
-        mByteBuffer = ByteBuffer.allocate(DATA_SIZE_PADDING_LENGTH_BYTE);
+        mDataSizeBytesBuffer = ByteBuffer.allocate(DATA_SIZE_PADDING_LENGTH_BYTE);
     }
 
     /**
@@ -74,19 +70,25 @@ public class AuctionServerPayloadFormatterV0 implements AuctionServerPayloadForm
         byte[] payload = new byte[getPayloadBucketSize(data.length)];
 
         // Fill in
-        payload[0] = getMetaInfoByte(compressorVersion);
+        payload[0] = AuctionServerPayloadFormatter.getMetaInfoByte(compressorVersion, VERSION);
+        sLogger.v("Meta info byte added: " + payload[0]);
+        byte[] dataSizeBytes = mDataSizeBytesBuffer.putInt(data.length).array();
         System.arraycopy(
-                mByteBuffer.putInt(data.length).array(),
-                0,
-                payload,
-                META_INFO_LENGTH_BYTE,
-                DATA_SIZE_PADDING_LENGTH_BYTE);
+                dataSizeBytes, 0, payload, META_INFO_LENGTH_BYTE, DATA_SIZE_PADDING_LENGTH_BYTE);
+        sLogger.v(
+                "Data size bytes are added: "
+                        + Arrays.toString(dataSizeBytes)
+                        + " for size: "
+                        + data.length);
         System.arraycopy(
                 data,
                 0,
                 payload,
                 META_INFO_LENGTH_BYTE + DATA_SIZE_PADDING_LENGTH_BYTE,
                 data.length);
+
+        // Clear the buffer in-case the formatter is used again.
+        mDataSizeBytesBuffer.clear();
 
         return FormattedData.create(payload);
     }
@@ -114,18 +116,6 @@ public class AuctionServerPayloadFormatterV0 implements AuctionServerPayloadForm
         return UnformattedData.create(data);
     }
 
-    private byte getMetaInfoByte(int compressionVersion) {
-        String payloadFormatterVersionBits =
-                getFixLengthVersionString(
-                        AuctionServerPayloadFormatterV0.VERSION,
-                        PAYLOAD_FORMAT_VERSION_LENGTH_BITS);
-        String compressionAlgorithmVersionBits =
-                getFixLengthVersionString(
-                        compressionVersion, COMPRESSION_ALGORITHM_VERSION_LENGTH_BITS);
-        int base2 = 2;
-        return Byte.parseByte(payloadFormatterVersionBits + compressionAlgorithmVersionBits, base2);
-    }
-
     private int getPayloadBucketSize(int dataLength) {
         int payloadSize = META_INFO_LENGTH_BYTE + DATA_SIZE_PADDING_LENGTH_BYTE + dataLength;
 
@@ -143,10 +133,5 @@ public class AuctionServerPayloadFormatterV0 implements AuctionServerPayloadForm
 
         // Convert KB back to B
         return bucketSizeKB << 10; // Equivalent to bucketSizeKB * 1024
-    }
-
-    /** Returns a fix sized string for a given version int aligned right */
-    private String getFixLengthVersionString(int version, int length) {
-        return String.format("%0" + length + "d", version);
     }
 }

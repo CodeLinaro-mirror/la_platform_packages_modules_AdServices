@@ -39,6 +39,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
+// TODO(b/283857101): Delete and use CustomAudienceBlob instead.
 /** A parser and validator for a JSON representation of a Custom Audience. */
 public class FetchCustomAudienceReader {
     private static final LoggerFactory.Logger sLogger = LoggerFactory.getFledgeLogger();
@@ -76,7 +77,9 @@ public class FetchCustomAudienceReader {
             int maxTrustedBiddingDataSizeB,
             int maxAdsSizeB,
             int maxNumAds,
-            boolean filteringEnabled) {
+            boolean filteringEnabled,
+            boolean adRenderIdEnabled,
+            long adRenderIdMaxLength) {
         Objects.requireNonNull(responseObject);
         Objects.requireNonNull(responseHash);
         Objects.requireNonNull(buyer);
@@ -93,7 +96,9 @@ public class FetchCustomAudienceReader {
                         maxTrustedBiddingDataSizeB,
                         maxAdsSizeB,
                         maxNumAds,
-                        filteringEnabled);
+                        filteringEnabled,
+                        adRenderIdEnabled,
+                        adRenderIdMaxLength);
     }
 
     /**

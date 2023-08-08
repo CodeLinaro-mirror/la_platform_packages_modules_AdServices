@@ -33,6 +33,7 @@ import static com.android.adservices.service.PhFlagsFixture.EXTENDED_FLEDGE_AD_S
 import static com.android.adservices.service.PhFlagsFixture.EXTENDED_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS;
 import static com.android.adservices.service.PhFlagsFixture.EXTENDED_FLEDGE_AD_SELECTION_SCORING_TIMEOUT_MS;
 import static com.android.adservices.service.PhFlagsFixture.EXTENDED_FLEDGE_REPORT_IMPRESSION_OVERALL_TIMEOUT_MS;
+import static com.android.adservices.service.adselection.AdSelectionScriptEngine.NUM_BITS_STOCHASTIC_ROUNDING;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_API_CALLED__API_NAME__OVERRIDE_AD_SELECTION_CONFIG_REMOTE_INFO;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_API_CALLED__API_NAME__REMOVE_AD_SELECTION_CONFIG_REMOTE_INFO_OVERRIDE;
@@ -120,6 +121,7 @@ import com.android.adservices.data.customaudience.CustomAudienceDatabase;
 import com.android.adservices.data.customaudience.DBCustomAudience;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.adselection.AppInstallAdvertisersSetterTest.SetAppInstallAdvertisersTestCallback;
+import com.android.adservices.service.adselection.encryption.ObliviousHttpEncryptor;
 import com.android.adservices.service.common.AdSelectionServiceFilter;
 import com.android.adservices.service.common.AppImportanceFilter;
 import com.android.adservices.service.common.AppImportanceFilter.WrongCallingApplicationStateException;
@@ -288,6 +290,9 @@ public class AdSelectionServiceImplTest {
     private AdFilteringFeatureFactory mAdFilteringFeatureFactory;
 
     @Mock private AdSelectionServiceFilter mAdSelectionServiceFilterMock;
+    @Mock private ObliviousHttpEncryptor mObliviousHttpEncryptor;
+
+    public AdSelectionServiceImplTest() {}
 
     @Before
     public void setUp() {
@@ -304,7 +309,7 @@ public class AdSelectionServiceImplTest {
 
         mCustomAudienceDao =
                 Room.inMemoryDatabaseBuilder(CONTEXT, CustomAudienceDatabase.class)
-                        .addTypeConverter(new DBCustomAudience.Converters(true))
+                        .addTypeConverter(new DBCustomAudience.Converters(true, true))
                         .build()
                         .customAudienceDao();
 
@@ -478,7 +483,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -499,6 +505,128 @@ public class AdSelectionServiceImplTest {
                 ImmutableList.of(server.takeRequest().getPath(), server.takeRequest().getPath());
 
         assertThat(notifications).containsExactly(mSellerReportingPath, mBuyerReportingPath);
+
+        verify(mAdServicesLoggerMock)
+                .logFledgeApiCallStats(
+                        eq(AD_SERVICES_API_CALLED__API_NAME__REPORT_IMPRESSION),
+                        eq(STATUS_SUCCESS),
+                        anyInt());
+    }
+
+    @Test
+    public void testReportImpressionSuccessfullyReportsAdCost() throws Exception {
+        Assume.assumeTrue(JSScriptEngine.AvailabilityChecker.isJSSandboxAvailable());
+
+        Uri sellerReportingUri = mMockWebServerRule.uriForPath(mSellerReportingPath);
+        Uri buyerReportingUri = mMockWebServerRule.uriForPath(mBuyerReportingPath);
+
+        Uri biddingLogicUri = (mMockWebServerRule.uriForPath(mFetchJavaScriptPathBuyer));
+
+        String sellerDecisionLogicJs =
+                "function reportResult(ad_selection_config, render_uri, bid, contextual_signals) {"
+                        + " \n"
+                        + " return {'status': 0, 'results': {'signals_for_buyer':"
+                        + " '{\"signals_for_buyer\":1}', 'reporting_uri': '"
+                        + sellerReportingUri
+                        + "' } };\n"
+                        + "}";
+
+        String buyerDecisionLogicJs =
+                "function reportWin(ad_selection_signals, per_buyer_signals, "
+                        + "signals_for_buyer,\n"
+                        + "    contextual_signals, custom_audience_reporting_signals) {\n"
+                        + "    let reporting_address = '"
+                        + buyerReportingUri
+                        + "';\n"
+                        + "    return {'status': 0, 'results': {'reporting_uri':\n"
+                        + "                reporting_address + '?adCost=' +"
+                        + " contextual_signals.adCost} };\n"
+                        + "}";
+
+        MockWebServer server =
+                mMockWebServerRule.startMockWebServer(
+                        List.of(
+                                new MockResponse().setBody(sellerDecisionLogicJs),
+                                new MockResponse(),
+                                new MockResponse()));
+
+        DBBuyerDecisionLogic dbBuyerDecisionLogic =
+                new DBBuyerDecisionLogic.Builder()
+                        .setBiddingLogicUri(biddingLogicUri)
+                        .setBuyerDecisionLogicJs(buyerDecisionLogicJs)
+                        .build();
+
+        AdCost adCost = new AdCost(1.1, NUM_BITS_STOCHASTIC_ROUNDING);
+        BuyerContextualSignals buyerContextualSignals =
+                BuyerContextualSignals.builder().setAdCost(adCost).build();
+
+        DBAdSelection dbAdSelection =
+                new DBAdSelection.Builder()
+                        .setAdSelectionId(AD_SELECTION_ID)
+                        .setCustomAudienceSignals(mCustomAudienceSignals)
+                        .setBuyerContextualSignals(buyerContextualSignals.toString())
+                        .setBiddingLogicUri(biddingLogicUri)
+                        .setWinningAdRenderUri(RENDER_URI)
+                        .setWinningAdBid(BID)
+                        .setCreationTimestamp(ACTIVATION_TIME)
+                        .setCallerPackageName(CommonFixture.TEST_PACKAGE_NAME)
+                        .build();
+
+        mAdSelectionEntryDao.persistAdSelection(dbAdSelection);
+        mAdSelectionEntryDao.persistBuyerDecisionLogic(dbBuyerDecisionLogic);
+
+        AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
+
+        when(mDevContextFilterMock.createDevContext())
+                .thenReturn(DevContext.createForDevOptionsDisabled());
+
+        AdSelectionServiceImpl adSelectionService =
+                new AdSelectionServiceImpl(
+                        mAdSelectionEntryDao,
+                        mAppInstallDao,
+                        mCustomAudienceDao,
+                        mFrequencyCapDao,
+                        mEncryptionContextDao,
+                        mEncryptionKeyDao,
+                        mReportingUrisDao,
+                        mClientSpy,
+                        mDevContextFilterMock,
+                        mLightweightExecutorService,
+                        mBackgroundExecutorService,
+                        mScheduledExecutor,
+                        CONTEXT,
+                        mAdServicesLoggerMock,
+                        mFlags,
+                        CallingAppUidSupplierProcessImpl.create(),
+                        mFledgeAuthorizationFilterMock,
+                        mAdSelectionServiceFilterMock,
+                        mAdFilteringFeatureFactory,
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
+
+        ReportImpressionInput input =
+                new ReportImpressionInput.Builder()
+                        .setAdSelectionId(AD_SELECTION_ID)
+                        .setAdSelectionConfig(adSelectionConfig)
+                        .setCallerPackageName(TEST_PACKAGE_NAME)
+                        .build();
+
+        // Count down callback + log interaction.
+        ReportImpressionTestCallback callback =
+                callReportImpression(adSelectionService, input, true);
+
+        assertTrue(callback.mIsSuccess);
+        RecordedRequest fetchRequest = server.takeRequest();
+        assertEquals(mFetchJavaScriptPathSeller, fetchRequest.getPath());
+
+        List<String> notifications =
+                ImmutableList.of(server.takeRequest().getPath(), server.takeRequest().getPath());
+
+        String buyerReportingPathWithAdCost =
+                mBuyerReportingPath + "?adCost=" + buyerContextualSignals.getAdCost().toString();
+
+        assertThat(notifications)
+                .containsExactly(mSellerReportingPath, buyerReportingPathWithAdCost);
 
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
@@ -587,7 +715,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -700,7 +829,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -819,7 +949,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -935,7 +1066,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1057,7 +1189,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1227,7 +1360,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1367,7 +1501,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1525,7 +1660,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1689,7 +1825,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1844,7 +1981,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1988,7 +2126,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2136,7 +2275,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2299,7 +2439,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2440,7 +2581,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2543,7 +2685,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2645,7 +2788,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2753,7 +2897,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2856,7 +3001,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2954,7 +3100,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput request =
                 new ReportImpressionInput.Builder()
@@ -3051,7 +3198,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput request =
                 new ReportImpressionInput.Builder()
@@ -3149,7 +3297,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput request =
                 new ReportImpressionInput.Builder()
@@ -3267,7 +3416,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
                         .setAdSelectionId(AD_SELECTION_ID)
@@ -3408,7 +3558,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
                         .setAdSelectionId(AD_SELECTION_ID)
@@ -3499,7 +3650,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -3555,7 +3707,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -3606,7 +3759,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -3662,7 +3816,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -3729,7 +3884,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -3792,7 +3948,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -3859,7 +4016,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -3927,7 +4085,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig1 = mAdSelectionConfigBuilder.build();
         AdSelectionConfig adSelectionConfig2 =
@@ -4036,7 +4195,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig1 = mAdSelectionConfigBuilder.build();
         AdSelectionConfig adSelectionConfig2 =
@@ -4147,7 +4307,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig1 = mAdSelectionConfigBuilder.build();
         AdSelectionConfig adSelectionConfig2 =
@@ -4254,7 +4415,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig1 = mAdSelectionConfigBuilder.build();
         AdSelectionConfig adSelectionConfig2 =
@@ -4358,7 +4520,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         adSelectionService.destroy();
         verify(jsScriptEngineMock).shutdown();
@@ -4391,7 +4554,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         adSelectionService.destroy();
         verify(jsScriptEngineMock, never()).shutdown();
@@ -4437,7 +4601,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput request =
                 new ReportImpressionInput.Builder()
@@ -4498,7 +4663,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -4560,7 +4726,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -4613,7 +4780,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -4668,7 +4836,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -4717,7 +4886,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionOverrideTestCallback callback = callResetAllOverrides(adSelectionService);
 
@@ -4770,7 +4940,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionOverrideTestCallback callback = callResetAllOverrides(adSelectionService);
 
@@ -4865,7 +5036,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -4974,7 +5146,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -5087,7 +5260,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -5205,7 +5379,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -5306,7 +5481,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
         ReportImpressionInput request =
                 new ReportImpressionInput.Builder()
                         .setAdSelectionId(INCORRECT_AD_SELECTION_ID)
@@ -5407,7 +5583,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -5535,7 +5712,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -5645,7 +5823,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -5757,7 +5936,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -5890,7 +6070,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -6017,7 +6198,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -6129,7 +6311,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -6189,7 +6372,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionFromOutcomesConfig config =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -6248,7 +6432,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionFromOutcomesConfig config =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -6301,7 +6486,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionFromOutcomesConfig config =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -6360,7 +6546,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionFromOutcomesConfig config =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -6431,7 +6618,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionFromOutcomesConfig config =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -6496,7 +6684,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionFromOutcomesConfig config =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -6565,7 +6754,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionFromOutcomesConfig config =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -6633,7 +6823,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionFromOutcomesConfig config1 =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -6750,7 +6941,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionFromOutcomesConfig config1 =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -6861,7 +7053,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionFromOutcomesConfig config1 =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -6977,7 +7170,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionFromOutcomesConfig config1 =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -7111,7 +7305,8 @@ public class AdSelectionServiceImplTest {
                         mFledgeAuthorizationFilterMock,
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
-                        mConsentManagerMock);
+                        mConsentManagerMock,
+                        mObliviousHttpEncryptor);
 
         AdSelectionOverrideTestCallback overridesCallback =
                 callAddOverrideForSelectAds(
@@ -7686,7 +7881,8 @@ public class AdSelectionServiceImplTest {
                 mFledgeAuthorizationFilterMock,
                 mAdSelectionServiceFilterMock,
                 mAdFilteringFeatureFactory,
-                mConsentManagerMock);
+                mConsentManagerMock,
+                mObliviousHttpEncryptor);
     }
 
     private void persistAdSelectionEntryDaoResults(Map<Long, Double> adSelectionIdToBidMap) {
@@ -7900,7 +8096,9 @@ public class AdSelectionServiceImplTest {
         return callReportImpression(adSelectionService, requestParams, false);
     }
 
-    /** @param shouldCountLog if true, adds a latch to the log interaction as well. */
+    /**
+     * @param shouldCountLog if true, adds a latch to the log interaction as well.
+     */
     private ReportImpressionTestCallback callReportImpression(
             AdSelectionServiceImpl adSelectionService,
             ReportImpressionInput requestParams,
@@ -8050,7 +8248,9 @@ public class AdSelectionServiceImplTest {
         return callReportInteraction(adSelectionService, inputParams, false);
     }
 
-    /** @param shouldCountLog if true, adds a latch to the log interaction as well. */
+    /**
+     * @param shouldCountLog if true, adds a latch to the log interaction as well.
+     */
     private ReportInteractionTestCallback callReportInteraction(
             AdSelectionServiceImpl adSelectionService,
             ReportInteractionInput inputParams,

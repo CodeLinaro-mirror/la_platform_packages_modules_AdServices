@@ -15,9 +15,12 @@
  */
 package com.android.adservices.service.ui.data;
 
+import static com.android.adservices.service.ui.ux.collection.PrivacySandboxUxCollection.UNSUPPORTED_UX;
+
 import android.adservices.common.AdServicesStates;
 import android.annotation.NonNull;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Build;
 
 import androidx.annotation.RequiresApi;
@@ -25,6 +28,7 @@ import androidx.annotation.RequiresApi;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.consent.ConsentManager;
+import com.android.adservices.service.consent.DeviceRegionProvider;
 import com.android.adservices.service.ui.enrollment.collection.PrivacySandboxEnrollmentChannelCollection;
 import com.android.adservices.service.ui.ux.collection.PrivacySandboxUxCollection;
 
@@ -33,9 +37,9 @@ import java.util.Map;
 /**
  * Manager that deals with all UX related states. All other UX code should use this class to read ux
  * component states. Specifically, this class:
- * <li>Reads sessionized UX flags from {@code Flags}, and provide these flags through the getFlags
- *     API.
- * <li>Reads sessionized consent manager bits such as UX and enrollment channel, so that these
+ * <li>Reads process statble UX flags from {@code Flags}, and provide these flags through the
+ *     getFlags API.
+ * <li>Reads process statble consent manager bits such as UX and enrollment channel, so that these
  *     values are process stable.
  */
 @RequiresApi(Build.VERSION_CODES.S)
@@ -45,12 +49,20 @@ public class UxStatesManager {
     private static volatile UxStatesManager sUxStatesManager;
     private final Map<String, Boolean> mUxFlags;
     private final ConsentManager mConsentManager;
+    private final SharedPreferences mUxSharedPreferences;
     private PrivacySandboxUxCollection mUx;
     private PrivacySandboxEnrollmentChannelCollection mEnrollmentChannel;
+    private final boolean mIsEeaDevice;
 
-    UxStatesManager(@NonNull Flags flags, @NonNull ConsentManager consentManager) {
+    UxStatesManager(
+            @NonNull Context context,
+            @NonNull Flags flags,
+            @NonNull ConsentManager consentManager) {
         mUxFlags = flags.getUxFlags();
         mConsentManager = consentManager;
+        mIsEeaDevice = DeviceRegionProvider.isEuDevice(context);
+        mUxSharedPreferences =
+                context.getSharedPreferences("UX_SHARED_PREFERENCES", Context.MODE_PRIVATE);
     }
 
     /** Returns an instance of the UxStatesManager. */
@@ -61,7 +73,9 @@ public class UxStatesManager {
                 if (sUxStatesManager == null) {
                     sUxStatesManager =
                             new UxStatesManager(
-                                    FlagsFactory.getFlags(), ConsentManager.getInstance(context));
+                                    context,
+                                    FlagsFactory.getFlags(),
+                                    ConsentManager.getInstance(context));
                 }
             }
         }
@@ -77,27 +91,37 @@ public class UxStatesManager {
         mConsentManager.setEntryPointEnabled(adServicesStates.isPrivacySandboxUiEnabled());
     }
 
-    /** Return the sessionized UX flags. */
+    /** Returns process statble UX flags. */
     public boolean getFlag(String uxFlagKey) {
         Boolean value = mUxFlags.get(uxFlagKey);
         return value != null ? value : false;
     }
 
-    /** Return the current UX. */
+    /** Returns process statble UX. */
     public PrivacySandboxUxCollection getUx() {
         // Lazy read.
         if (mUx == null) {
             mUx = mConsentManager.getUx();
         }
-        return mUx;
+        return mUx != null ? mUx : UNSUPPORTED_UX;
     }
 
-    /** Return the current enrollment channel. */
+    /** Returns process statble enrollment channel. */
     public PrivacySandboxEnrollmentChannelCollection getEnrollmentChannel() {
         // Lazy read.
         if (mEnrollmentChannel == null) {
             mEnrollmentChannel = mConsentManager.getEnrollmentChannel(mUx);
         }
         return mEnrollmentChannel;
+    }
+
+    /** Returns process statble devicce region. */
+    public boolean isEeaDevice() {
+        return mIsEeaDevice;
+    }
+
+    /** Returns a common shared preference for storing temporary UX states. */
+    public SharedPreferences getUxSharedPreferences() {
+        return mUxSharedPreferences;
     }
 }

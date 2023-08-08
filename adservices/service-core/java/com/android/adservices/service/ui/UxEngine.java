@@ -70,15 +70,25 @@ public class UxEngine {
 
         PrivacySandboxUxCollection eligibleUx =
                 mUxEngineUtil.getEligibleUxCollection(mConsentManager, mUxStatesManager);
+        mConsentManager.setUx(eligibleUx);
 
         PrivacySandboxEnrollmentChannelCollection eligibleEnrollmentChannel =
                 mUxEngineUtil.getEligibleEnrollmentChannelCollection(
                         eligibleUx, mConsentManager, mUxStatesManager);
+        mConsentManager.setEnrollmentChannel(eligibleUx, eligibleEnrollmentChannel);
 
-        if (eligibleEnrollmentChannel != null) {
-            eligibleEnrollmentChannel.getEnrollmentChannel().enroll(mContext, mConsentManager);
+        // TO-DO: Add an UNSUPPORTED_ENROLLMENT_CHANNEL, rather than using null handling.
+        // Entry point request should not trigger entrollment.
+        if (!adServicesStates.isPrivacySandboxUiRequest() && eligibleEnrollmentChannel != null) {
+            eligibleUx
+                    .getUx()
+                    .handleEnrollment(
+                            eligibleEnrollmentChannel.getEnrollmentChannel(),
+                            mContext,
+                            mConsentManager);
 
-            mUxEngineUtil.startBackgroundTasksUponConsent(mContext, FlagsFactory.getFlags());
+            mUxEngineUtil.startBackgroundTasksUponConsent(
+                    eligibleUx, mContext, FlagsFactory.getFlags());
         }
     }
 }
