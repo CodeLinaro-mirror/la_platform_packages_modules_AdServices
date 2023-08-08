@@ -28,6 +28,7 @@ import static com.android.adservices.service.measurement.TriggerFixture.getValid
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
@@ -37,17 +38,21 @@ import android.util.Pair;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.measurement.noising.SourceNoiseHandler;
 import com.android.adservices.service.measurement.reporting.EventReportWindowCalcDelegate;
 import com.android.adservices.service.measurement.util.UnsignedLong;
 import com.android.modules.utils.testing.TestableDeviceConfig;
 
+import com.google.common.collect.ImmutableList;
+
 import org.json.JSONException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -96,6 +101,7 @@ public final class EventReportTest {
 
     private EventReportWindowCalcDelegate mEventReportWindowCalcDelegate;
     private SourceNoiseHandler mSourceNoiseHandler;
+    private Flags mFlags;
 
     @Before
     public void setup() {
@@ -105,9 +111,9 @@ public final class EventReportTest {
                 "measurement_debug_join_key_enrollment_allowlist",
                 phOverridingValue,
                 /* makeDefault */ false);
-        mEventReportWindowCalcDelegate =
-                new EventReportWindowCalcDelegate(FlagsFactory.getFlagsForTest());
-        mSourceNoiseHandler = new SourceNoiseHandler(FlagsFactory.getFlagsForTest());
+        mFlags = spy(FlagsFactory.getFlags());
+        mEventReportWindowCalcDelegate = new EventReportWindowCalcDelegate(mFlags);
+        mSourceNoiseHandler = new SourceNoiseHandler(mFlags);
 
         final String phOverridingValueAdIdMatching = "";
         DeviceConfig.setProperty(
@@ -227,7 +233,8 @@ public final class EventReportTest {
                                 eventTriggers.get(0),
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
-                                mSourceNoiseHandler)
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()))
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -242,6 +249,61 @@ public final class EventReportTest {
         assertEquals(source.getEventReportWindow() + ONE_HOUR_IN_MILLIS, report.getReportTime());
         assertEquals(source.getSourceType(), report.getSourceType());
         assertEquals(EVENT_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
+        assertEquals(SOURCE_ID, report.getSourceId());
+        assertEquals(TRIGGER_ID, report.getTriggerId());
+        assertEquals(REGISTRATION_ORIGIN, report.getRegistrationOrigin());
+    }
+
+    @Test
+    public void populate_eventSourceAppDestWithoutInstallConfigured() throws JSONException {
+        long baseTime = System.currentTimeMillis();
+        doReturn(true).when(mFlags).getMeasurementEnableConfigurableEventReportingWindows();
+        String earlyReportingWindows1h1d =
+                String.join(
+                        ",",
+                        Long.toString(TimeUnit.HOURS.toSeconds(1)),
+                        Long.toString(TimeUnit.DAYS.toSeconds(1)));
+        doReturn(earlyReportingWindows1h1d)
+                .when(mFlags)
+                .getMeasurementEventReportsVtcEarlyReportingWindows();
+        doReturn(true).when(mFlags).getMeasurementEnableVtcConfigurableMaxEventReports();
+        doReturn(3).when(mFlags).getMeasurementVtcConfigurableMaxEventReportsCount();
+        Source source =
+                createSourceForTest(
+                        baseTime, Source.SourceType.EVENT, false, APP_DESTINATION, null);
+        Trigger trigger =
+                createTriggerForTest(
+                        baseTime + TimeUnit.SECONDS.toMillis(10),
+                        APP_DESTINATION,
+                        EventSurfaceType.APP);
+
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+        EventReport report =
+                new EventReport.Builder()
+                        .populateFromSourceAndTrigger(
+                                source,
+                                trigger,
+                                eventTriggers.get(0),
+                                sDebugKeyPair,
+                                mEventReportWindowCalcDelegate,
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()))
+                        .build();
+
+        assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
+        assertEquals(TRIGGER_DEDUP_KEY, report.getTriggerDedupKey());
+        // Truncated data 4 % 2 = 0
+        assertEquals(new UnsignedLong(0L), report.getTriggerData());
+        assertEquals(trigger.getTriggerTime(), report.getTriggerTime());
+        assertEquals(source.getEventId(), report.getSourceEventId());
+        assertEquals(source.getEnrollmentId(), report.getEnrollmentId());
+        assertEquals(
+                trigger.getAttributionDestination(), report.getAttributionDestinations().get(0));
+        assertEquals(
+                baseTime + TimeUnit.HOURS.toMillis(1) + ONE_HOUR_IN_MILLIS, report.getReportTime());
+        assertEquals(source.getSourceType(), report.getSourceType());
+        // VTC, 3-1-3 config
+        assertEquals(0.0000698, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
         assertEquals(SOURCE_ID, report.getSourceId());
         assertEquals(TRIGGER_ID, report.getTriggerId());
         assertEquals(REGISTRATION_ORIGIN, report.getRegistrationOrigin());
@@ -267,7 +329,8 @@ public final class EventReportTest {
                                 eventTrigger,
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
-                                mSourceNoiseHandler)
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()))
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -310,7 +373,8 @@ public final class EventReportTest {
                                 eventTriggers.get(0),
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
-                                mSourceNoiseHandler)
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()))
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -347,7 +411,8 @@ public final class EventReportTest {
                                 eventTriggers.get(0),
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
-                                mSourceNoiseHandler)
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()))
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -385,7 +450,8 @@ public final class EventReportTest {
                                 eventTriggers.get(0),
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
-                                mSourceNoiseHandler)
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()))
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -421,7 +487,8 @@ public final class EventReportTest {
                                 eventTriggers.get(0),
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
-                                mSourceNoiseHandler)
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()))
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -461,7 +528,8 @@ public final class EventReportTest {
                                 eventTriggers.get(0),
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
-                                mSourceNoiseHandler)
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()))
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -501,7 +569,8 @@ public final class EventReportTest {
                                 eventTriggers.get(0),
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
-                                mSourceNoiseHandler)
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()))
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -546,7 +615,8 @@ public final class EventReportTest {
                                 eventTriggers.get(0),
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
-                                mSourceNoiseHandler)
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()))
                         .build();
 
         assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
@@ -566,6 +636,64 @@ public final class EventReportTest {
         assertEquals(source.getSourceType(), report.getSourceType());
         assertEquals(
                 NAVIGATION_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
+        assertEquals(SOURCE_ID, report.getSourceId());
+        assertEquals(TRIGGER_ID, report.getTriggerId());
+        assertEquals(REGISTRATION_ORIGIN, report.getRegistrationOrigin());
+    }
+
+    @Test
+    public void populate_eventSourceWebAndAppDest_coarseDestination() throws JSONException {
+        long baseTime = System.currentTimeMillis();
+        Source source =
+                getValidSourceBuilder()
+                        .setId(SOURCE_ID)
+                        .setEventId(new UnsignedLong(10L))
+                        .setSourceType(Source.SourceType.EVENT)
+                        .setInstallCooldownWindow(0)
+                        .setEventTime(baseTime)
+                        .setEnrollmentId("enrollment-id")
+                        .setAppDestinations(Collections.singletonList(APP_DESTINATION))
+                        .setWebDestinations(Collections.singletonList(WEB_DESTINATION))
+                        .setEventReportWindow(baseTime + TimeUnit.DAYS.toMillis(10))
+                        .setCoarseEventReportDestinations(true)
+                        .build();
+        Trigger trigger =
+                createTriggerForTest(
+                        baseTime + TimeUnit.SECONDS.toMillis(10),
+                        WEB_DESTINATION,
+                        EventSurfaceType.WEB);
+
+        List<EventTrigger> eventTriggers = trigger.parseEventTriggers();
+        EventReport report =
+                new EventReport.Builder()
+                        .populateFromSourceAndTrigger(
+                                source,
+                                trigger,
+                                eventTriggers.get(0),
+                                sDebugKeyPair,
+                                mEventReportWindowCalcDelegate,
+                                mSourceNoiseHandler,
+                                new ImmutableList.Builder<Uri>()
+                                        .add(APP_DESTINATION)
+                                        .add(WEB_DESTINATION)
+                                        .build())
+                        .build();
+
+        assertEquals(TRIGGER_PRIORITY, report.getTriggerPriority());
+        assertEquals(TRIGGER_DEDUP_KEY, report.getTriggerDedupKey());
+        // Truncated data 4 % 2 = 0
+        assertEquals(new UnsignedLong(0L), report.getTriggerData());
+        assertEquals(trigger.getTriggerTime(), report.getTriggerTime());
+        assertEquals(source.getEventId(), report.getSourceEventId());
+        assertEquals(source.getEnrollmentId(), report.getEnrollmentId());
+        assertEquals(2, report.getAttributionDestinations().size());
+        assertEquals(
+                source.getAppDestinations().get(0), report.getAttributionDestinations().get(0));
+        assertEquals(
+                source.getWebDestinations().get(0), report.getAttributionDestinations().get(1));
+        assertEquals(source.getEventReportWindow() + ONE_HOUR_IN_MILLIS, report.getReportTime());
+        assertEquals(Source.SourceType.EVENT, report.getSourceType());
+        assertEquals(EVENT_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
         assertEquals(SOURCE_ID, report.getSourceId());
         assertEquals(TRIGGER_ID, report.getTriggerId());
         assertEquals(REGISTRATION_ORIGIN, report.getRegistrationOrigin());
@@ -647,7 +775,8 @@ public final class EventReportTest {
                                 eventTriggers.get(0),
                                 sDebugKeyPair,
                                 mEventReportWindowCalcDelegate,
-                                mSourceNoiseHandler)
+                                mSourceNoiseHandler,
+                                source.getAttributionDestinations(trigger.getDestinationType()))
                         .build();
 
         assertEquals(triggerRegistrationUrl, report.getRegistrationOrigin());
