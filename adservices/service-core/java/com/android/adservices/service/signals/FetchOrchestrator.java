@@ -52,18 +52,18 @@ public class FetchOrchestrator {
      *
      * @param validatedUri Validated Uri to fetch JSON from.
      * @param packageName The package name of the calling app.
+     * @return A future for running the orchestration, with no return value
      */
-    public void orchestrateFetch(Uri validatedUri, AdTechIdentifier adtech, String packageName) {
+    public FluentFuture<Object> orchestrateFetch(
+            Uri validatedUri, AdTechIdentifier adtech, String packageName) {
         FluentFuture<JSONObject> jsonFuture =
                 mUpdatesDownloader.getUpdateJson(validatedUri, packageName);
-        // We don't care about the return value here
-        var unused =
-                jsonFuture.transform(
-                        x -> {
-                            mUpdateProcessingOrchestrator.processUpdates(
-                                    adtech, packageName, Instant.now(), x);
-                            return null;
-                        },
-                        mBackgroundExecutor);
+        return jsonFuture.transform(
+                x -> {
+                    mUpdateProcessingOrchestrator.processUpdates(
+                            adtech, packageName, Instant.now(), x);
+                    return null;
+                },
+                mBackgroundExecutor);
     }
 }
