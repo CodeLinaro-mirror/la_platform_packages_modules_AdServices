@@ -17,15 +17,13 @@ package com.android.adservices.common;
 
 import static android.os.Build.VERSION.SDK_INT;
 
-import android.provider.DeviceConfig;
 import android.util.Log;
 import android.util.Pair;
 
 import com.android.adservices.common.AbstractFlagsRouletteRunner.FlagsRouletteState;
 import com.android.adservices.common.DeviceConfigHelper.SyncDisabledMode;
-import com.android.adservices.service.Flags;
+import com.android.adservices.service.FlagsConstants;
 import com.android.adservices.service.PhFlags;
-import com.android.compatibility.common.util.ShellUtils;
 import com.android.modules.utils.build.SdkLevel;
 
 import com.google.errorprone.annotations.FormatMethod;
@@ -36,6 +34,8 @@ import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 
+import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -54,13 +54,13 @@ public final class AdServicesFlagsSetterRule implements TestRule {
 
     private static final String TAG = AdServicesFlagsSetterRule.class.getSimpleName();
 
+    private static final String ALLOWLIST_SEPARATOR = FlagsConstants.ARRAY_SPLITTER_COMMA;
+
     private final DeviceConfigHelper mDeviceConfig =
-            new DeviceConfigHelper(DeviceConfig.NAMESPACE_ADSERVICES);
+            new DeviceConfigHelper(FlagsConstants.NAMESPACE_ADSERVICES);
 
     private final SystemPropertiesHelper mSystemProperties =
-            new SystemPropertiesHelper(PhFlags.SYSTEM_PROPERTY_PREFIX);
-
-    private static final String ALLOWLIST_SEPARATOR = ",";
+            new SystemPropertiesHelper(FlagsConstants.SYSTEM_PROPERTY_PREFIX);
 
     // Cache flags that were set before the test started, so the rule can be instantiated using a
     // builder-like approach - will be set to null after test starts.
@@ -72,6 +72,14 @@ public final class AdServicesFlagsSetterRule implements TestRule {
 
     // TODO(b/294423183): remove once legacy usage is gone
     private final boolean mUsedByLegacyHelper;
+
+    private AdServicesFlagsSetterRule() {
+        this(/* usedByLegacyHelper= */ false);
+    }
+
+    private AdServicesFlagsSetterRule(boolean usedByLegacyHelper) {
+        mUsedByLegacyHelper = usedByLegacyHelper;
+    }
 
     @Override
     public Statement apply(Statement base, Description description) {
@@ -85,36 +93,45 @@ public final class AdServicesFlagsSetterRule implements TestRule {
                 mDeviceConfig.setSyncDisabledMode(SyncDisabledMode.PERSISTENT);
                 setInitialSystemProperties(testName);
                 setInitialFlags(testName);
-                List<Throwable> errors = new ArrayList<>();
+                List<Throwable> cleanUpErrors = new ArrayList<>();
                 Throwable testError = null;
+                StringBuilder dump = new StringBuilder("*** Flags before:\n");
+                dumpFlagsSafely(dump).append("\n\n*** SystemProperties before:\n");
+                dumpSystemPropertiesSafely(dump);
                 try {
                     base.evaluate();
                 } catch (Throwable t) {
-                    errors.add(t);
                     testError = t;
                 } finally {
-                    runSafely(errors, () -> resetFlags(testName));
-                    runSafely(errors, () -> resetSystemProperties(testName));
+                    dump.append("\n*** Flags after:\n");
+                    dumpFlagsSafely(dump).append("\n\n***SystemProperties after:\n");
+                    dumpSystemPropertiesSafely(dump);
+                    runSafely(cleanUpErrors, () -> resetFlags(testName));
+                    runSafely(cleanUpErrors, () -> resetSystemProperties(testName));
                     runSafely(
-                            errors, () -> mDeviceConfig.setSyncDisabledMode(SyncDisabledMode.NONE));
+                            cleanUpErrors,
+                            () -> mDeviceConfig.setSyncDisabledMode(SyncDisabledMode.NONE));
                 }
-                if (testError instanceof AssumptionViolatedException) {
-                    throw testError;
-                }
-                if (!errors.isEmpty()) {
-                    throw new RuntimeException(
-                            errors.size() + " errors finalizing infra: " + errors);
-                }
+                // TODO(b/294423183): ideally it should throw an exception if cleanUpErrors is not
+                // empty, but it's better to wait until this class is unit tested to do so (for now,
+                // it's just logging it)
+                throwIfNecessary(testName, dump, testError);
             }
         };
     }
 
-    private AdServicesFlagsSetterRule() {
-        this(/* usedByLegacyHelper= */ false);
-    }
-
-    private AdServicesFlagsSetterRule(boolean usedByLegacyHelper) {
-        mUsedByLegacyHelper = usedByLegacyHelper;
+    private void throwIfNecessary(
+            String testName, StringBuilder dump, @Nullable Throwable testError) throws Throwable {
+        if (testError == null) {
+            Log.v(TAG, "Good News, Everyone! " + testName + " passed.");
+            return;
+        }
+        if (testError instanceof AssumptionViolatedException) {
+            Log.i(TAG, testName + " is being ignored: " + testError);
+            throw testError;
+        }
+        Log.e(TAG, testName + " failed with " + testError + ".\n" + dump);
+        throw new TestFailure(testError, dump);
     }
 
     /** Factory method that only disables the global kill switch. */
@@ -169,36 +186,71 @@ public final class AdServicesFlagsSetterRule implements TestRule {
      */
     @FormatMethod
     public void dumpFlags(@FormatString String reasonFmt, @Nullable Object... reasonArgs) {
-        String message =
-                "Logging all flags on " + TAG + ". Reason: " + String.format(reasonFmt, reasonArgs);
-        Log.i(TAG, message);
-        Log.v(
-                TAG,
-                ShellUtils.runShellCommand(
-                        "device_config list %s", DeviceConfig.NAMESPACE_ADSERVICES));
+        StringBuilder message =
+                new StringBuilder("Logging all flags on ")
+                        .append(TAG)
+                        .append(". Reason: ")
+                        .append(String.format(reasonFmt, reasonArgs))
+                        .append(". Flags: \n");
+        dumpFlagsSafely(message);
+        Log.i(TAG, message.toString());
     }
 
-    // TODO(b/294423183): add dumpProperties (need to filter output as
-    // runShellCommand("getprop | grep PREFIX") wouldn't work
+    private StringBuilder dumpFlagsSafely(StringBuilder dump) {
+        try {
+            mDeviceConfig.dumpFlags(dump);
+        } catch (Throwable t) {
+            dump.append("Failed to dump flags: ").append(t);
+        }
+        return dump;
+    }
+
+    /**
+     * Dumps all system properties using the {@value #TAG} tag.
+     *
+     * <p>Typically use for temporary debugging purposes like {@code
+     * dumpSystemProperties("getFoo(%s)", bar)}.
+     */
+    @FormatMethod
+    public void dumpSystemProperties(
+            @FormatString String reasonFmt, @Nullable Object... reasonArgs) {
+        StringBuilder message =
+                new StringBuilder("Logging all SystemProperties on ")
+                        .append(TAG)
+                        .append(". Reason: ")
+                        .append(String.format(reasonFmt, reasonArgs))
+                        .append(". SystemProperties: \n");
+        dumpSystemPropertiesSafely(message);
+        Log.i(TAG, message.toString());
+    }
+
+    private StringBuilder dumpSystemPropertiesSafely(StringBuilder dump) {
+        try {
+            mSystemProperties.dump(dump);
+        } catch (Throwable t) {
+            dump.append("Failed to dump SystemProperties: ").append(t);
+        }
+        return dump;
+    }
 
     /** Overrides the flag that sets the global AdServices kill switch. */
     public AdServicesFlagsSetterRule setGlobalKillSwitch(boolean value) {
-        return setOrCacheFlag(PhFlags.KEY_GLOBAL_KILL_SWITCH, value);
+        return setOrCacheFlag(FlagsConstants.KEY_GLOBAL_KILL_SWITCH, value);
     }
 
     /** Overrides the flag that sets the Topics kill switch. */
     public AdServicesFlagsSetterRule setTopicsKillSwitch(boolean value) {
-        return setOrCacheFlag(PhFlags.KEY_TOPICS_KILL_SWITCH, value);
+        return setOrCacheFlag(FlagsConstants.KEY_TOPICS_KILL_SWITCH, value);
     }
 
     /** Overrides the flag that sets the Topics Device Classifier kill switch. */
     public AdServicesFlagsSetterRule setTopicsOnDeviceClassifierKillSwitch(boolean value) {
-        return setOrCacheFlag(PhFlags.KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH, value);
+        return setOrCacheFlag(FlagsConstants.KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH, value);
     }
 
     /** Overrides the flag that sets the enrollment seed. */
     public AdServicesFlagsSetterRule setEnableEnrollmentTestSeed(boolean value) {
-        return setOrCacheFlag(PhFlags.KEY_ENABLE_ENROLLMENT_TEST_SEED, value);
+        return setOrCacheFlag(FlagsConstants.KEY_ENABLE_ENROLLMENT_TEST_SEED, value);
     }
 
     /**
@@ -206,17 +258,18 @@ public final class AdServicesFlagsSetterRule implements TestRule {
      * run.
      */
     public AdServicesFlagsSetterRule setTopicsEpochJobPeriodMsForTests(long value) {
-        return setOrCacheSystemProperty(PhFlags.KEY_TOPICS_EPOCH_JOB_PERIOD_MS, value);
+        return setOrCacheSystemProperty(FlagsConstants.KEY_TOPICS_EPOCH_JOB_PERIOD_MS, value);
     }
 
     /** Overrides the system property that defines the percentage for random topic. */
     public AdServicesFlagsSetterRule setTopicsPercentageForRandomTopicForTests(long value) {
-        return setOrCacheSystemProperty(PhFlags.KEY_TOPICS_PERCENTAGE_FOR_RANDOM_TOPIC, value);
+        return setOrCacheSystemProperty(
+                FlagsConstants.KEY_TOPICS_PERCENTAGE_FOR_RANDOM_TOPIC, value);
     }
 
     /** Overrides the flag to select the topics classifier type. */
     public AdServicesFlagsSetterRule setTopicsClassifierType(int value) {
-        return setOrCacheFlag(PhFlags.KEY_CLASSIFIER_TYPE, value);
+        return setOrCacheFlag(FlagsConstants.KEY_CLASSIFIER_TYPE, value);
     }
 
     /**
@@ -224,51 +277,51 @@ public final class AdServicesFlagsSetterRule implements TestRule {
      * type.
      */
     public AdServicesFlagsSetterRule setTopicsClassifierNumberOfTopLabels(int value) {
-        return setOrCacheFlag(PhFlags.KEY_CLASSIFIER_NUMBER_OF_TOP_LABELS, value);
+        return setOrCacheFlag(FlagsConstants.KEY_CLASSIFIER_NUMBER_OF_TOP_LABELS, value);
     }
 
     /** Overrides the flag to change the threshold for the classifier. */
     public AdServicesFlagsSetterRule setTopicsClassifierThreshold(float value) {
-        return setOrCacheFlag(PhFlags.KEY_CLASSIFIER_THRESHOLD, value);
+        return setOrCacheFlag(FlagsConstants.KEY_CLASSIFIER_THRESHOLD, value);
     }
 
     /** Overrides the flag that forces the use of bundle files for the Topics classifier. */
     public AdServicesFlagsSetterRule setTopicsClassifierForceUseBundleFiles(boolean value) {
-        return setOrCacheFlag(PhFlags.KEY_CLASSIFIER_FORCE_USE_BUNDLED_FILES, value);
+        return setOrCacheFlag(FlagsConstants.KEY_CLASSIFIER_FORCE_USE_BUNDLED_FILES, value);
     }
 
     public AdServicesFlagsSetterRule setTopicsClassifierForceUseBundleFilesx(boolean value) {
-        return setOrCacheFlag(PhFlags.KEY_CLASSIFIER_FORCE_USE_BUNDLED_FILES, value);
+        return setOrCacheFlag(FlagsConstants.KEY_CLASSIFIER_FORCE_USE_BUNDLED_FILES, value);
     }
 
     /** Overrides the system property used to disable topics enrollment check. */
     public AdServicesFlagsSetterRule setDisableTopicsEnrollmentCheckForTests(boolean value) {
-        return setOrCacheSystemProperty(PhFlags.KEY_DISABLE_TOPICS_ENROLLMENT_CHECK, value);
+        return setOrCacheSystemProperty(FlagsConstants.KEY_DISABLE_TOPICS_ENROLLMENT_CHECK, value);
     }
 
     /** Overrides the system property used to set ConsentManager debug mode keys. */
     public AdServicesFlagsSetterRule setConsentManagerDebugMode(boolean value) {
-        return setOrCacheSystemProperty(PhFlags.KEY_CONSENT_MANAGER_DEBUG_MODE, value);
+        return setOrCacheSystemProperty(FlagsConstants.KEY_CONSENT_MANAGER_DEBUG_MODE, value);
     }
 
     /** Overrides flag used by {@link PhFlags#getEnableBackCompat()}. */
     public AdServicesFlagsSetterRule setEnableBackCompat(boolean value) {
-        return setOrCacheFlag(PhFlags.KEY_ENABLE_BACK_COMPAT, value);
+        return setOrCacheFlag(FlagsConstants.KEY_ENABLE_BACK_COMPAT, value);
     }
 
     /** Overrides flag used by {@link PhFlags#getConsentSourceOfTruth()}. */
     public AdServicesFlagsSetterRule setConsentSourceOfTruth(int value) {
-        return setOrCacheFlag(PhFlags.KEY_CONSENT_SOURCE_OF_TRUTH, value);
+        return setOrCacheFlag(FlagsConstants.KEY_CONSENT_SOURCE_OF_TRUTH, value);
     }
 
     /** Overrides flag used by {@link PhFlags#getBlockedTopicsSourceOfTruth()}. */
     public AdServicesFlagsSetterRule setBlockedTopicsSourceOfTruth(int value) {
-        return setOrCacheFlag(PhFlags.KEY_BLOCKED_TOPICS_SOURCE_OF_TRUTH, value);
+        return setOrCacheFlag(FlagsConstants.KEY_BLOCKED_TOPICS_SOURCE_OF_TRUTH, value);
     }
 
     /** Overrides flag used by {@link PhFlags#getEnableAppsearchConsentData()}. */
     public AdServicesFlagsSetterRule setEnableAppsearchConsentData(boolean value) {
-        return setOrCacheFlag(PhFlags.KEY_ENABLE_APPSEARCH_CONSENT_DATA, value);
+        return setOrCacheFlag(FlagsConstants.KEY_ENABLE_APPSEARCH_CONSENT_DATA, value);
     }
 
     /**
@@ -277,29 +330,29 @@ public final class AdServicesFlagsSetterRule implements TestRule {
     public AdServicesFlagsSetterRule setMeasurementRollbackDeletionAppSearchKillSwitch(
             boolean value) {
         return setOrCacheFlag(
-                PhFlags.KEY_MEASUREMENT_ROLLBACK_DELETION_APP_SEARCH_KILL_SWITCH, value);
+                FlagsConstants.KEY_MEASUREMENT_ROLLBACK_DELETION_APP_SEARCH_KILL_SWITCH, value);
     }
 
     /** Overrides flag used by {@link PhFlags#getPpapiAppAllowList()}. */
     public AdServicesFlagsSetterRule setPpapiAppAllowList(String value) {
         return setOrCacheFlagWithSeparator(
-                PhFlags.KEY_PPAPI_APP_ALLOW_LIST, value, ALLOWLIST_SEPARATOR);
+                FlagsConstants.KEY_PPAPI_APP_ALLOW_LIST, value, ALLOWLIST_SEPARATOR);
     }
 
     /** Overrides flag used by {@link PhFlags#getMsmtApiAppAllowList()}. */
     public AdServicesFlagsSetterRule setMsmtApiAppAllowList(String value) {
         return setOrCacheFlagWithSeparator(
-                PhFlags.KEY_MSMT_API_APP_ALLOW_LIST, value, ALLOWLIST_SEPARATOR);
+                FlagsConstants.KEY_MSMT_API_APP_ALLOW_LIST, value, ALLOWLIST_SEPARATOR);
     }
 
     /** Overrides flag used by {@link PhFlags#getAdIdRequestPermitsPerSecond()}. */
     public AdServicesFlagsSetterRule setAdIdRequestPermitsPerSecond(double value) {
-        return setOrCacheFlag(PhFlags.KEY_ADID_REQUEST_PERMITS_PER_SECOND, value);
+        return setOrCacheFlag(FlagsConstants.KEY_ADID_REQUEST_PERMITS_PER_SECOND, value);
     }
 
     /** Overrides flag used by {@link PhFlags#getAdIdKillSwitchForTests()}. */
     public AdServicesFlagsSetterRule setAdIdKillSwitchForTests(boolean value) {
-        return setOrCacheSystemProperty(PhFlags.KEY_ADID_KILL_SWITCH, value);
+        return setOrCacheSystemProperty(FlagsConstants.KEY_ADID_KILL_SWITCH, value);
     }
 
     /** Calls {@link PhFlags#getAdIdRequestPerSecond()} with the proper permissions. */
@@ -308,10 +361,11 @@ public final class AdServicesFlagsSetterRule implements TestRule {
             return DeviceConfigHelper.callWithDeviceConfigPermissions(
                     () -> PhFlags.getInstance().getAdIdRequestPermitsPerSecond());
         } catch (Throwable t) {
-            float defaultValue = Flags.ADID_REQUEST_PERMITS_PER_SECOND;
+            float defaultValue = FlagsConstants.ADID_REQUEST_PERMITS_PER_SECOND;
             Log.e(
                     TAG,
-                    "PhFlags.getAdIdRequestPermitsPerSecond() failed, returning default value ("
+                    "FlagsConstants.getAdIdRequestPermitsPerSecond() failed, returning default"
+                            + " value ("
                             + defaultValue
                             + ")",
                     t);
@@ -333,8 +387,8 @@ public final class AdServicesFlagsSetterRule implements TestRule {
         if (SdkLevel.isAtLeastS()) {
             Log.d(TAG, "setCompatModeFlags(): setting flags for S+");
             setEnableBackCompat(true);
-            setBlockedTopicsSourceOfTruth(Flags.APPSEARCH_ONLY);
-            setConsentSourceOfTruth(Flags.APPSEARCH_ONLY);
+            setBlockedTopicsSourceOfTruth(FlagsConstants.APPSEARCH_ONLY);
+            setConsentSourceOfTruth(FlagsConstants.APPSEARCH_ONLY);
             setEnableAppsearchConsentData(true);
             setMeasurementRollbackDeletionAppSearchKillSwitch(false);
             return this;
@@ -342,8 +396,8 @@ public final class AdServicesFlagsSetterRule implements TestRule {
         Log.d(TAG, "setCompatModeFlags(): setting flags for R+");
         setEnableBackCompat(true);
         // TODO (b/285208753): Update flags once AppSearch is supported on R.
-        setBlockedTopicsSourceOfTruth(Flags.PPAPI_ONLY);
-        setConsentSourceOfTruth(Flags.PPAPI_ONLY);
+        setBlockedTopicsSourceOfTruth(FlagsConstants.PPAPI_ONLY);
+        setConsentSourceOfTruth(FlagsConstants.PPAPI_ONLY);
         setEnableAppsearchConsentData(false);
         setMeasurementRollbackDeletionAppSearchKillSwitch(true);
 
@@ -382,8 +436,9 @@ public final class AdServicesFlagsSetterRule implements TestRule {
         setEnableBackCompat(false);
         // TODO (b/285208753): Set to AppSearch always once it's supported on R.
         setBlockedTopicsSourceOfTruth(
-                SdkLevel.isAtLeastS() ? Flags.APPSEARCH_ONLY : Flags.PPAPI_ONLY);
-        setConsentSourceOfTruth(SdkLevel.isAtLeastS() ? Flags.APPSEARCH_ONLY : Flags.PPAPI_ONLY);
+                SdkLevel.isAtLeastS() ? FlagsConstants.APPSEARCH_ONLY : FlagsConstants.PPAPI_ONLY);
+        setConsentSourceOfTruth(
+                SdkLevel.isAtLeastS() ? FlagsConstants.APPSEARCH_ONLY : FlagsConstants.PPAPI_ONLY);
         setEnableAppsearchConsentData(SdkLevel.isAtLeastS());
         setMeasurementRollbackDeletionAppSearchKillSwitch(!SdkLevel.isAtLeastS());
     }
@@ -394,7 +449,7 @@ public final class AdServicesFlagsSetterRule implements TestRule {
     @Deprecated
     String getPpapiAppAllowList() {
         assertCalledByLegacyHelper();
-        return mDeviceConfig.get(PhFlags.KEY_PPAPI_APP_ALLOW_LIST);
+        return mDeviceConfig.get(FlagsConstants.KEY_PPAPI_APP_ALLOW_LIST);
     }
 
     /**
@@ -403,7 +458,7 @@ public final class AdServicesFlagsSetterRule implements TestRule {
     @Deprecated
     String getMsmtApiAppAllowList() {
         assertCalledByLegacyHelper();
-        return mDeviceConfig.get(PhFlags.KEY_MSMT_API_APP_ALLOW_LIST);
+        return mDeviceConfig.get(FlagsConstants.KEY_MSMT_API_APP_ALLOW_LIST);
     }
 
     private void assertCalledByLegacyHelper() {
@@ -545,8 +600,41 @@ public final class AdServicesFlagsSetterRule implements TestRule {
         try {
             r.run();
         } catch (Throwable e) {
-            Log.e(TAG, "runSafely() failed", e);
+            Log.e(TAG, "runSafely() failure", e);
             errors.add(e);
+        }
+    }
+
+    @SuppressWarnings("serial")
+    public static final class TestFailure extends Exception {
+
+        private final String mDump;
+
+        TestFailure(Throwable cause, StringBuilder dump) {
+            super(
+                    "Test failed (see flags / system proprties below the stack trace)",
+                    cause,
+                    /* enableSuppression= */ false,
+                    /* writableStackTrace= */ false);
+            mDump = "\n" + dump;
+            setStackTrace(cause.getStackTrace());
+        }
+
+        @Override
+        public void printStackTrace(PrintWriter s) {
+            super.printStackTrace(s);
+            s.println(mDump);
+        }
+
+        @Override
+        public void printStackTrace(PrintStream s) {
+            super.printStackTrace(s);
+            s.println(mDump);
+        }
+
+        /** Gets the flags / system properties state. */
+        public String getFlagsState() {
+            return mDump;
         }
     }
 

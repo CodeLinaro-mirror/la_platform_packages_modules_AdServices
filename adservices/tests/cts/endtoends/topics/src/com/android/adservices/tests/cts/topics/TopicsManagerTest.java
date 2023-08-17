@@ -22,8 +22,10 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
 import android.adservices.clients.topics.AdvertisingTopicsClient;
+import android.adservices.topics.GetTopicsRequest;
 import android.adservices.topics.GetTopicsResponse;
 import android.adservices.topics.Topic;
+import android.adservices.topics.TopicsManager;
 import android.content.Context;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -31,7 +33,9 @@ import androidx.test.core.app.ApplicationProvider;
 import com.android.adservices.common.AdServicesDeviceSupportedRule;
 import com.android.adservices.common.AdServicesFlagsSetterRule;
 import com.android.adservices.common.AdservicesTestHelper;
-import com.android.adservices.common.RequiresSdkLevelAtLeastT;
+import com.android.adservices.common.OutcomeReceiverForTests;
+import com.android.adservices.common.RequiresDeviceNotSupported;
+import com.android.adservices.common.RequiresSdkLevelAtLeastS;
 import com.android.adservices.common.SdkLevelSupportRule;
 import com.android.compatibility.common.util.ShellUtils;
 
@@ -211,7 +215,6 @@ public class TopicsManagerTest {
     }
 
     @Test
-    @RequiresSdkLevelAtLeastT(reason = "TODO(b/295378824) re-enable tests on S once it is fixed")
     public void testTopicsManager_runDefaultClassifier_usingGetMethodToCreateManager()
             throws Exception {
         testTopicsManager_runDefaultClassifier(/* useGetMethodToCreateManager */ true);
@@ -288,7 +291,6 @@ public class TopicsManagerTest {
     }
 
     @Test
-    @RequiresSdkLevelAtLeastT(reason = "TODO(b/295378824) re-enable tests on S once it is fixed")
     public void testTopicsManager_runOnDeviceClassifier_usingGetMethodToCreateManager()
             throws Exception {
         testTopicsManager_runOnDeviceClassifier(true);
@@ -350,7 +352,7 @@ public class TopicsManagerTest {
                 .isEqualTo(EXPECTED_TAXONOMY_VERSION);
 
         // Top 5 classifications for empty string with v4 model are:
-        // S-: [10420, 10189, 10301, 10230, 10276].
+        // S-: [10420, 10189, 10301, 10230, 10010].
         // T+: [10166, 10010, 10301, 10230, 10184].
         // V4 model uses package name as part of input, which differs between
         // versions for back-compat, changing the returned topics for each version.
@@ -359,7 +361,7 @@ public class TopicsManagerTest {
         // Returned topic is one of the 5 classification topics of the test app.
         List<Integer> expectedTopTopicIds;
         if (ADSERVICES_PACKAGE_NAME.contains("ext.services")) {
-            expectedTopTopicIds = Arrays.asList(10420, 10189, 10301, 10230, 10276);
+            expectedTopTopicIds = Arrays.asList(10420, 10189, 10301, 10230, 10010);
         } else {
             expectedTopTopicIds = Arrays.asList(10166, 10010, 10301, 10230, 10184);
         }
@@ -367,7 +369,6 @@ public class TopicsManagerTest {
     }
 
     @Test
-    @RequiresSdkLevelAtLeastT(reason = "TODO(b/295378824) re-enable tests on S once it is fixed")
     public void testTopicsManager_runPrecomputedClassifier_usingGetMethodToCreateManager()
             throws Exception {
         testTopicsManager_runPrecomputedClassifier(/* useGetMethodToCreateManager = */ true);
@@ -426,6 +427,28 @@ public class TopicsManagerTest {
         // Top 5 topic ids as listed in precomputed_app_list.csv
         List<Integer> expectedTopTopicIds = Arrays.asList(10147, 10253, 10175, 10254, 10333);
         assertThat(topic.getTopicId()).isIn(expectedTopTopicIds);
+    }
+
+    @Test
+    @RequiresDeviceNotSupported
+    @RequiresSdkLevelAtLeastS(reason = "OutcomeReceiver is not available on R")
+    public void testGetTopics_whenDeviceNotSupported() throws Exception {
+        TopicsManager manager = TopicsManager.get(sContext);
+        assertWithMessage("manager").that(manager).isNotNull();
+        OutcomeReceiverForTests<GetTopicsResponse> receiver = new OutcomeReceiverForTests<>();
+
+        assertThrows(
+                IllegalStateException.class,
+                () ->
+                        manager.getTopics(
+                                new GetTopicsRequest.Builder().build(),
+                                CALLBACK_EXECUTOR,
+                                receiver));
+
+        // TODO(b/295235571): remove assertThrows above and instead check the callback:
+        if (false) {
+            receiver.assertFailure(IllegalStateException.class);
+        }
     }
 
     /** Forces JobScheduler to run the Epoch Computation job */
