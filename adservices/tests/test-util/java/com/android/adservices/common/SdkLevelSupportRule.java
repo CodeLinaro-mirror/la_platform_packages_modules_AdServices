@@ -25,10 +25,8 @@ import com.android.modules.utils.build.SdkLevel;
  */
 public final class SdkLevelSupportRule extends AbstractSdkLevelSupportedRule {
 
-    private static final AndroidLogger sLogger = new AndroidLogger(SdkLevelSupportRule.class);
-
     private SdkLevelSupportRule(AndroidSdkLevel level) {
-        super(sLogger, level);
+        super(AndroidLogger.getInstance(), level);
     }
 
     /**
@@ -97,23 +95,5 @@ public final class SdkLevelSupportRule extends AbstractSdkLevelSupportedRule {
     @Override
     public boolean isDeviceAtLeastV() {
         return SdkLevel.isAtLeastV();
-    }
-
-    // TODO(b/295321663): remove 2 methods below once in-flight CLs are merged
-
-    /**
-     * @deprecated - use {@link #forAtLeastS()} instead
-     */
-    @Deprecated
-    public static SdkLevelSupportRule isAtLeastS() {
-        return forAtLeastS();
-    }
-
-    /**
-     * @deprecated - use {@link #forAtLeastT()} instead
-     */
-    @Deprecated
-    public static SdkLevelSupportRule isAtLeastT() {
-        return forAtLeastT();
     }
 }
