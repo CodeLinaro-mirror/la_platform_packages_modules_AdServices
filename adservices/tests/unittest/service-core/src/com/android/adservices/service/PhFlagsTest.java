@@ -16,6 +16,7 @@
 
 package com.android.adservices.service;
 
+import static com.android.adservices.mockito.ExtendedMockitoExpectations.mockIsAtLeastT;
 import static com.android.adservices.service.Flags.ADID_KILL_SWITCH;
 import static com.android.adservices.service.Flags.ADID_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.Flags.ADSERVICES_APK_SHA_CERTIFICATE;
@@ -33,6 +34,8 @@ import static com.android.adservices.service.Flags.CLASSIFIER_FORCE_USE_BUNDLED_
 import static com.android.adservices.service.Flags.CLASSIFIER_NUMBER_OF_TOP_LABELS;
 import static com.android.adservices.service.Flags.CLASSIFIER_THRESHOLD;
 import static com.android.adservices.service.Flags.COBALT_ADSERVICES_API_KEY_HEX;
+import static com.android.adservices.service.Flags.COBALT_LOGGING_ENABLED;
+import static com.android.adservices.service.Flags.COBALT_LOGGING_JOB_PERIOD_MS;
 import static com.android.adservices.service.Flags.COMPAT_LOGGING_KILL_SWITCH;
 import static com.android.adservices.service.Flags.CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE;
 import static com.android.adservices.service.Flags.CONSENT_NOTIFICATION_RESET_TOKEN;
@@ -267,6 +270,7 @@ import static com.android.adservices.service.Flags.PPAPI_AND_SYSTEM_SERVER;
 import static com.android.adservices.service.Flags.PPAPI_APP_ALLOW_LIST;
 import static com.android.adservices.service.Flags.PPAPI_APP_SIGNATURE_ALLOW_LIST;
 import static com.android.adservices.service.Flags.PRECOMPUTED_CLASSIFIER;
+import static com.android.adservices.service.Flags.PROTECTED_SIGNALS_SERVICE_KILL_SWITCH;
 import static com.android.adservices.service.Flags.RECORD_MANUAL_INTERACTION_ENABLED;
 import static com.android.adservices.service.Flags.SDK_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.Flags.TOGGLE_SPEED_BUMP_ENABLED;
@@ -306,6 +310,8 @@ import static com.android.adservices.service.FlagsConstants.KEY_CLASSIFIER_NUMBE
 import static com.android.adservices.service.FlagsConstants.KEY_CLASSIFIER_THRESHOLD;
 import static com.android.adservices.service.FlagsConstants.KEY_CLASSIFIER_TYPE;
 import static com.android.adservices.service.FlagsConstants.KEY_COBALT_ADSERVICES_API_KEY_HEX;
+import static com.android.adservices.service.FlagsConstants.KEY_COBALT_LOGGING_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_COBALT_LOGGING_JOB_PERIOD_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_COMPAT_LOGGING_KILL_SWITCH;
 import static com.android.adservices.service.FlagsConstants.KEY_CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE;
 import static com.android.adservices.service.FlagsConstants.KEY_CONSENT_NOTIFICATION_RESET_TOKEN;
@@ -525,6 +531,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_NOTIFICATION_DIS
 import static com.android.adservices.service.FlagsConstants.KEY_NUMBER_OF_EPOCHS_TO_KEEP_IN_HISTORY;
 import static com.android.adservices.service.FlagsConstants.KEY_PPAPI_APP_ALLOW_LIST;
 import static com.android.adservices.service.FlagsConstants.KEY_PPAPI_APP_SIGNATURE_ALLOW_LIST;
+import static com.android.adservices.service.FlagsConstants.KEY_PROTECTED_SIGNALS_SERVICE_KILL_SWITCH;
 import static com.android.adservices.service.FlagsConstants.KEY_RECORD_MANUAL_INTERACTION_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_SDK_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.FlagsConstants.KEY_TOPICS_API_APP_REQUEST_PERMITS_PER_SECOND;
@@ -559,7 +566,6 @@ import androidx.test.filters.SmallTest;
 import com.android.adservices.mockito.AdServicesExtendedMockitoRule;
 import com.android.adservices.service.Flags.ClassifierType;
 import com.android.adservices.service.topics.fixture.SysPropForceDefaultValueFixture;
-import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.modules.utils.testing.TestableDeviceConfig;
 
@@ -881,6 +887,15 @@ public class PhFlagsTest {
 
     @Test
     public void testTopicsCobaltLoggingEnabled() {
+        // Disable global_kill_switch so that this flag can be tested.
+        disableGlobalKillSwitch();
+        // Enable the cobalt_logging_enabled to test other flag values.
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_COBALT_LOGGING_ENABLED,
+                Boolean.toString(true),
+                /* makeDefault */ false);
+
         // Without any overriding, the value is the hard coded constant.
         assertThat(mPhFlags.getTopicsCobaltLoggingEnabled())
                 .isEqualTo(TOPICS_COBALT_LOGGING_ENABLED);
@@ -925,6 +940,49 @@ public class PhFlagsTest {
                 /* makeDefault */ false);
 
         assertThat(mPhFlags.getAdservicesReleaseStageForCobalt()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testGetCobaltLoggingJobPeriodMs() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(mPhFlags.getCobaltLoggingJobPeriodMs()).isEqualTo(COBALT_LOGGING_JOB_PERIOD_MS);
+
+        long phOverridingValue = COBALT_LOGGING_JOB_PERIOD_MS + 4;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_COBALT_LOGGING_JOB_PERIOD_MS,
+                Long.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        assertThat(mPhFlags.getCobaltLoggingJobPeriodMs()).isEqualTo(phOverridingValue);
+
+        // Validate that maintenanceJobPeriodMs got from PH > 0
+        long illegalPhOverridingValue = -1;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_COBALT_LOGGING_JOB_PERIOD_MS,
+                Long.toString(illegalPhOverridingValue),
+                /* makeDefault */ false);
+        assertThrows(IllegalArgumentException.class, mPhFlags::getCobaltLoggingJobPeriodMs);
+    }
+
+    @Test
+    public void testGetCobaltLoggingEnabled() {
+        // Disable global_kill_switch so that this flag can be tested.
+        disableGlobalKillSwitch();
+
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(mPhFlags.getCobaltLoggingEnabled()).isEqualTo(COBALT_LOGGING_ENABLED);
+
+        // Now overriding with the value from PH.
+        boolean phOverridingValue = !COBALT_LOGGING_ENABLED;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_COBALT_LOGGING_ENABLED,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        assertThat(mPhFlags.getCobaltLoggingEnabled()).isEqualTo(phOverridingValue);
     }
 
     @Test
@@ -2799,7 +2857,7 @@ public class PhFlagsTest {
             boolean sdkAtleastT,
             boolean enableBackCompat,
             boolean expected) {
-        ExtendedMockito.doReturn(sdkAtleastT).when(SdkLevel::isAtLeastT);
+        mockIsAtLeastT(sdkAtleastT);
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
                 KEY_GLOBAL_KILL_SWITCH,
@@ -4583,6 +4641,27 @@ public class PhFlagsTest {
     }
 
     @Test
+    public void testGetProtectedSignalsServiceKillSwitch() {
+        // Disable global_kill_switch so that this flag can be tested.
+        disableGlobalKillSwitch();
+
+        // without any overrides the Protected Signals Service kill switch should be equal to the
+        // set constant.
+        assertThat(mPhFlags.getProtectedSignalsServiceKillSwitch())
+                .isEqualTo(PROTECTED_SIGNALS_SERVICE_KILL_SWITCH);
+
+        // Now overriding with the value from PH.
+        boolean phOverridingValue = !PROTECTED_SIGNALS_SERVICE_KILL_SWITCH;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_PROTECTED_SIGNALS_SERVICE_KILL_SWITCH,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        assertThat(mPhFlags.getProtectedSignalsServiceKillSwitch()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
     public void testGetFledgeAuctionServerKillSwitch() {
         // Disable global_kill_switch so that this flag can be tested.
         disableGlobalKillSwitch();
@@ -4627,6 +4706,26 @@ public class PhFlagsTest {
         assertThat(mPhFlags.getFledgeCustomAudienceServiceKillSwitch())
                 .isEqualTo(phOverridingValue);
         assertThat(mPhFlags.getFledgeAuctionServerKillSwitch()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testGlobalKillSwitchOverridesProtectedSignalsKillSwitch() {
+        // Disable global_kill_switch so that this flag can be tested.
+        disableGlobalKillSwitch();
+
+        // without any overrides the protected signals API kill switch equal to the constant
+        assertThat(mPhFlags.getProtectedSignalsServiceKillSwitch())
+                .isEqualTo(PROTECTED_SIGNALS_SERVICE_KILL_SWITCH);
+
+        // Now overriding with the value from PH.
+        boolean phOverridingValue = !PROTECTED_SIGNALS_SERVICE_KILL_SWITCH;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_GLOBAL_KILL_SWITCH,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        assertThat(mPhFlags.getProtectedSignalsServiceKillSwitch()).isEqualTo(phOverridingValue);
     }
 
     @Test
@@ -5717,7 +5816,7 @@ public class PhFlagsTest {
 
     private void testEnableBackCompat(
             boolean sdkAtleastT, boolean enableBackCompat, boolean expected) {
-        ExtendedMockito.doReturn(sdkAtleastT).when(SdkLevel::isAtLeastT);
+        mockIsAtLeastT(sdkAtleastT);
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
                 KEY_ENABLE_BACK_COMPAT,
@@ -5752,7 +5851,7 @@ public class PhFlagsTest {
                 KEY_ENABLE_BACK_COMPAT,
                 Boolean.toString(true),
                 /* makeDefault */ false);
-        ExtendedMockito.doReturn(false).when(SdkLevel::isAtLeastT);
+        mockIsAtLeastT(false);
         // Without any overriding, the value is the hard coded constant.
         assertThat(mPhFlags.getEnableAppsearchConsentData())
                 .isEqualTo(ENABLE_APPSEARCH_CONSENT_DATA);
@@ -5822,7 +5921,7 @@ public class PhFlagsTest {
                 KEY_ENABLE_BACK_COMPAT,
                 Boolean.toString(true),
                 /* makeDefault */ false);
-        ExtendedMockito.doReturn(false).when(SdkLevel::isAtLeastT);
+        mockIsAtLeastT(false);
         assertThat(mPhFlags.isBackCompatActivityFeatureEnabled())
                 .isEqualTo(IS_BACK_COMPACT_ACTIVITY_FEATURE_ENABLED);
 
@@ -5843,7 +5942,7 @@ public class PhFlagsTest {
                 KEY_ENABLE_BACK_COMPAT,
                 Boolean.toString(true),
                 /* makeDefault */ false);
-        ExtendedMockito.doReturn(false).when(SdkLevel::isAtLeastT);
+        mockIsAtLeastT(false);
         // Without any overriding, the value is the hard coded constant.
         assertThat(mPhFlags.getMeasurementRollbackDeletionAppSearchKillSwitch())
                 .isEqualTo(MEASUREMENT_ROLLBACK_DELETION_APP_SEARCH_KILL_SWITCH);
@@ -5858,6 +5957,7 @@ public class PhFlagsTest {
         assertThat(mPhFlags.getMeasurementRollbackDeletionAppSearchKillSwitch())
                 .isEqualTo(phOverridingValue);
     }
+
     // CHECKSTYLE:ON IndentationCheck
 
     @Test
@@ -6394,8 +6494,8 @@ public class PhFlagsTest {
         assertThat(mPhFlags.getFledgeBackgroundFetchNetworkReadTimeoutMs())
                 .isEqualTo(FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_READ_TIMEOUT_MS);
 
-        long phOverridingValue = FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_READ_TIMEOUT_MS
-                + 1000;
+        long phOverridingValue =
+                FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_READ_TIMEOUT_MS + 1000;
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
                 KEY_FLEDGE_BACKGROUND_FETCH_NETWORK_READ_TIMEOUT_MS,
@@ -6409,12 +6509,13 @@ public class PhFlagsTest {
     @Test
     public void testFledgeAuctionServerKeyFetchMaxResponseSize() {
         // Without any overriding, the value is the hard coded constant.
-        assertThat(FlagsFactory.getFlags()
-                .getFledgeAuctionServerBackgroundKeyFetchMaxResponseSizeB())
+        assertThat(
+                        FlagsFactory.getFlags()
+                                .getFledgeAuctionServerBackgroundKeyFetchMaxResponseSizeB())
                 .isEqualTo(FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RESPONSE_SIZE_B);
 
-        long phOverridingValue = FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RESPONSE_SIZE_B
-                + 1000;
+        long phOverridingValue =
+                FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RESPONSE_SIZE_B + 1000;
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
                 KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RESPONSE_SIZE_B,
@@ -6428,12 +6529,12 @@ public class PhFlagsTest {
     @Test
     public void testFledgeAuctionServerKeyFetchMaxRuntimeMs() {
         // Without any overriding, the value is the hard coded constant.
-        assertThat(FlagsFactory.getFlags()
-                .getFledgeAuctionServerBackgroundKeyFetchJobMaxRuntimeMs())
+        assertThat(
+                        FlagsFactory.getFlags()
+                                .getFledgeAuctionServerBackgroundKeyFetchJobMaxRuntimeMs())
                 .isEqualTo(FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS);
 
-        long phOverridingValue = FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS
-                + 1000;
+        long phOverridingValue = FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS + 1000;
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
                 KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS,

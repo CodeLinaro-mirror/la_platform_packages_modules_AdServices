@@ -254,11 +254,13 @@ public final class PhFlags implements Flags {
 
     @Override
     public boolean getTopicsCobaltLoggingEnabled() {
+        // We check the getCobaltLoggingEnabled first.
         // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
-        return DeviceConfig.getBoolean(
-                FlagsConstants.NAMESPACE_ADSERVICES,
-                /* flagName */ FlagsConstants.KEY_TOPICS_COBALT_LOGGING_ENABLED,
-                /* defaultValue */ TOPICS_COBALT_LOGGING_ENABLED);
+        return getCobaltLoggingEnabled()
+                && DeviceConfig.getBoolean(
+                        FlagsConstants.NAMESPACE_ADSERVICES,
+                        /* flagName */ FlagsConstants.KEY_TOPICS_COBALT_LOGGING_ENABLED,
+                        /* defaultValue */ TOPICS_COBALT_LOGGING_ENABLED);
     }
 
     @Override
@@ -277,6 +279,37 @@ public final class PhFlags implements Flags {
                 FlagsConstants.NAMESPACE_ADSERVICES,
                 /* flagName */ FlagsConstants.KEY_ADSERVICES_RELEASE_STAGE_FOR_COBALT,
                 /* defaultValue */ ADSERVICES_RELEASE_STAGE_FOR_COBALT);
+    }
+
+    @Override
+    public long getCobaltLoggingJobPeriodMs() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        long cobaltLoggingJobPeriodMs =
+                DeviceConfig.getLong(
+                        FlagsConstants.NAMESPACE_ADSERVICES,
+                        /* flagName */ FlagsConstants.KEY_COBALT_LOGGING_JOB_PERIOD_MS,
+                        /* defaultValue */ COBALT_LOGGING_JOB_PERIOD_MS);
+        if (cobaltLoggingJobPeriodMs < 0) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "cobaltLoggingJobPeriodMs=%d. cobaltLoggingJobPeriodMs should >= 0",
+                            cobaltLoggingJobPeriodMs));
+        }
+        return cobaltLoggingJobPeriodMs;
+    }
+
+    @Override
+    public boolean getCobaltLoggingEnabled() {
+        // We check the Global Kill switch first. As a result, it overrides all other kill switches.
+        // The priority of applying the flag values: SystemProperties, PH (DeviceConfig), then
+        // hard-coded value.
+        return !getGlobalKillSwitch()
+                && SystemProperties.getBoolean(
+                        getSystemPropertyName(FlagsConstants.KEY_COBALT_LOGGING_ENABLED),
+                        /* defaultValue */ DeviceConfig.getBoolean(
+                                FlagsConstants.NAMESPACE_ADSERVICES,
+                                /* flagName */ FlagsConstants.KEY_COBALT_LOGGING_ENABLED,
+                                /* defaultValue */ COBALT_LOGGING_ENABLED));
     }
 
     @Override
@@ -1609,6 +1642,22 @@ public final class PhFlags implements Flags {
                                 /* flagName */ FlagsConstants
                                         .KEY_FLEDGE_CUSTOM_AUDIENCE_SERVICE_KILL_SWITCH,
                                 /* defaultValue */ FLEDGE_CUSTOM_AUDIENCE_SERVICE_KILL_SWITCH));
+    }
+
+    @Override
+    public boolean getProtectedSignalsServiceKillSwitch() {
+        // We check the Global Kill switch first. As a result, it overrides all other kill switches.
+        // The priority of applying the flag values: SystemProperties, PH (DeviceConfig), then
+        // hard-coded value.
+        return getGlobalKillSwitch()
+                || SystemProperties.getBoolean(
+                        getSystemPropertyName(
+                                FlagsConstants.KEY_PROTECTED_SIGNALS_SERVICE_KILL_SWITCH),
+                        /* defaultValue */ DeviceConfig.getBoolean(
+                                FlagsConstants.NAMESPACE_ADSERVICES,
+                                /* flagName */ FlagsConstants
+                                        .KEY_PROTECTED_SIGNALS_SERVICE_KILL_SWITCH,
+                                /* defaultValue */ PROTECTED_SIGNALS_SERVICE_KILL_SWITCH));
     }
 
     @Override
@@ -3782,6 +3831,11 @@ public final class PhFlags implements Flags {
                         + FlagsConstants.KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH
                         + " = "
                         + getFledgeEventLevelDebugReportingMaxItemsPerBatch());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_PROTECTED_SIGNALS_SERVICE_KILL_SWITCH
+                        + " = "
+                        + getProtectedSignalsServiceKillSwitch());
         writer.println("==== AdServices PH Flags Throttling Related Flags ====");
         writer.println(
                 "\t"

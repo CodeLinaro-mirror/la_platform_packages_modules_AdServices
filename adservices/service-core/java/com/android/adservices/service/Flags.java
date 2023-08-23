@@ -1874,6 +1874,20 @@ public interface Flags {
     }
 
     /**
+     * Protected signals API kill switch. The default value is false which means that protected
+     * signals are enabled by default. This flag should be should as emergency andon cord.
+     */
+    boolean PROTECTED_SIGNALS_SERVICE_KILL_SWITCH = false;
+
+    /**
+     * @return value of the protected signals API kill switch.
+     */
+    default boolean getProtectedSignalsServiceKillSwitch() {
+        // Check for global kill switch first, as it should override all other kill switches
+        return getGlobalKillSwitch() || PROTECTED_SIGNALS_SERVICE_KILL_SWITCH;
+    }
+
+    /**
      * Enable Back Compat feature flag. The default value is false which means that all back compat
      * related features are disabled by default. This flag would be enabled for R/S during rollout.
      */
@@ -2901,9 +2915,14 @@ public interface Flags {
     /** Default value of whether topics cobalt logging feature is enabled. */
     boolean TOPICS_COBALT_LOGGING_ENABLED = false;
 
-    /** Returns whether the topics cobalt logging feature is enabled. */
+    /**
+     * Returns whether the topics cobalt logging feature is enabled.
+     *
+     * <p>The topics cobalt logging will be disabled either the getCobaltLoggingEnabled or {@code
+     * TOPICS_COBALT_LOGGING_ENABLED} is {@code false}.
+     */
     default boolean getTopicsCobaltLoggingEnabled() {
-        return TOPICS_COBALT_LOGGING_ENABLED;
+        return getCobaltLoggingEnabled() && TOPICS_COBALT_LOGGING_ENABLED;
     }
 
     /** Default value of Cobalt Adservices Api key. */
@@ -3002,5 +3021,24 @@ public interface Flags {
     default boolean getFledgeMeasurementReportAndRegisterEventApiFallbackEnabled() {
         return getFledgeMeasurementReportAndRegisterEventApiEnabled()
                 && FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_FALLBACK_ENABLED;
+    }
+
+    /** Cobalt logging job period in milliseconds. */
+    long COBALT_LOGGING_JOB_PERIOD_MS = 6 * 60 * 60 * 1000; // 6 hours.
+
+    /** Returns the max time period (in milliseconds) between each cobalt logging job run. */
+    default long getCobaltLoggingJobPeriodMs() {
+        return COBALT_LOGGING_JOB_PERIOD_MS;
+    }
+
+    /** Cobalt logging feature flag. */
+    boolean COBALT_LOGGING_ENABLED = false;
+
+    /**
+     * Returns the feature flag value for cobalt logging job. The cobalt logging feature will be
+     * disabled if either the Global Kill Switch or the Cobalt Logging enabled flag is true.
+     */
+    default boolean getCobaltLoggingEnabled() {
+        return !getGlobalKillSwitch() && COBALT_LOGGING_ENABLED;
     }
 }
