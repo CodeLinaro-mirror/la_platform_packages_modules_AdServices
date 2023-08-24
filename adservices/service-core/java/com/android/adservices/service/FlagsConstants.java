@@ -497,6 +497,7 @@ public final class FlagsConstants {
     public static final String KEY_PPAPI_APP_ALLOW_LIST = "ppapi_app_allow_list";
 
     public static final String KEY_MSMT_API_APP_ALLOW_LIST = "msmt_api_app_allow_list";
+    public static final String KEY_MSMT_API_APP_BLOCK_LIST = "msmt_api_app_block_list";
 
     public static final String KEY_PPAPI_APP_SIGNATURE_ALLOW_LIST =
             "ppapi_app_signature_allow_list";
@@ -652,6 +653,8 @@ public final class FlagsConstants {
     public static final String KEY_FLEDGE_REGISTER_AD_BEACON_ENABLED =
             "fledge_register_ad_beacon_enabled";
     public static final String KEY_FLEDGE_CPC_BILLING_ENABLED = "fledge_cpc_billing_enabled";
+    public static final String KEY_FLEDGE_DATA_VERSION_HEADER_ENABLED =
+            "fledge_data_version_header_enabled";
 
     public static final String KEY_MEASUREMENT_DEBUG_JOIN_KEY_HASH_LIMIT =
             "measurement_debug_join_key_hash_limit";
@@ -687,6 +690,9 @@ public final class FlagsConstants {
 
     public static final String KEY_MEASUREMENT_MINIMUM_EVENT_REPORT_WINDOW_IN_SECONDS =
             "measurement_minimum_event_report_window_in_seconds";
+
+    public static final String KEY_MEASUREMENT_MINIMUM_AGGREGATABLE_REPORT_WINDOW_IN_SECONDS =
+            "measurement_minimum_aggregatable_report_window_in_seconds";
 
     public static final String KEY_MEASUREMENT_MAX_SOURCES_PER_PUBLISHER =
             "measurement_max_sources_per_publisher";

@@ -27,19 +27,17 @@ import com.android.adservices.service.Flags;
 import com.android.adservices.service.PhFlags;
 import com.android.modules.utils.build.SdkLevel;
 
-// TODO(b/295321663): rename to AdServicesFlagsSetterRule - it was temporary renamed to
-// DeviceSideAdServicesFlagsSetterRule to minimize git diff in the superclass
-public final class DeviceSideAdServicesFlagsSetterRule
-        extends AbstractAdServicesFlagsSetterRule<DeviceSideAdServicesFlagsSetterRule> {
+public final class AdServicesFlagsSetterRule
+        extends AbstractAdServicesFlagsSetterRule<AdServicesFlagsSetterRule> {
 
     // TODO(b/294423183): remove once legacy usage is gone
     private final boolean mUsedByLegacyHelper;
 
-    private DeviceSideAdServicesFlagsSetterRule() {
+    private AdServicesFlagsSetterRule() {
         this(/* usedByLegacyHelper= */ false);
     }
 
-    private DeviceSideAdServicesFlagsSetterRule(boolean usedByLegacyHelper) {
+    private AdServicesFlagsSetterRule(boolean usedByLegacyHelper) {
         super(
                 AndroidLogger.getInstance(),
                 namespace -> new DeviceSideDeviceConfigHelper(namespace),
@@ -48,34 +46,29 @@ public final class DeviceSideAdServicesFlagsSetterRule
     }
 
     /** Factory method that only disables the global kill switch. */
-    public static DeviceSideAdServicesFlagsSetterRule forGlobalKillSwitchDisabledTests() {
-        return newInstance(
-                new DeviceSideAdServicesFlagsSetterRule(), rule -> rule.setGlobalKillSwitch(false));
+    public static AdServicesFlagsSetterRule forGlobalKillSwitchDisabledTests() {
+        return new AdServicesFlagsSetterRule().setGlobalKillSwitch(false);
     }
 
     /** Factory method for Topics end-to-end CTS tests. */
-    public static DeviceSideAdServicesFlagsSetterRule forTopicsE2ETests() {
-        return newInstance(
-                forGlobalKillSwitchDisabledTests(),
-                rule ->
-                        rule.setTopicsKillSwitch(false)
-                                .setTopicsOnDeviceClassifierKillSwitch(false)
-                                .setTopicsClassifierForceUseBundleFiles(true)
-                                .setDisableTopicsEnrollmentCheckForTests(true)
-                                .setEnableEnrollmentTestSeed(true)
-                                .setConsentManagerDebugMode(true)
-                                .setCompatModeFlags());
+    public static AdServicesFlagsSetterRule forTopicsE2ETests() {
+        return forGlobalKillSwitchDisabledTests()
+                .setTopicsKillSwitch(false)
+                .setTopicsOnDeviceClassifierKillSwitch(false)
+                .setTopicsClassifierForceUseBundleFiles(true)
+                .setDisableTopicsEnrollmentCheckForTests(true)
+                .setEnableEnrollmentTestSeed(true)
+                .setConsentManagerDebugMode(true)
+                .setCompatModeFlags();
     }
 
     /** Factory method for AdId end-to-end CTS tests. */
-    public static DeviceSideAdServicesFlagsSetterRule forAdidE2ETests(String packageName) {
-        return newInstance(
-                forGlobalKillSwitchDisabledTests(),
-                rule ->
-                        rule.setAdIdKillSwitchForTests(false)
-                                .setAdIdRequestPermitsPerSecond(25.0)
-                                .setPpapiAppAllowList(packageName)
-                                .setCompatModeFlag());
+    public static AdServicesFlagsSetterRule forAdidE2ETests(String packageName) {
+        return forGlobalKillSwitchDisabledTests()
+                .setAdIdKillSwitchForTests(false)
+                .setAdIdRequestPermitsPerSecond(25.0)
+                .setPpapiAppAllowList(packageName)
+                .setCompatModeFlag();
     }
 
     /**
@@ -83,16 +76,15 @@ public final class DeviceSideAdServicesFlagsSetterRule
      *     helpers, it will be remove once such helpers are replaced by this rule.
      */
     @Deprecated
-    static DeviceSideAdServicesFlagsSetterRule forLegacyHelpers(Class<?> helperClass) {
-        return newInstance(
-                new DeviceSideAdServicesFlagsSetterRule(/* usedByLegacyHelper= */ true),
-                rule -> {
-                    // This object won't be used as a JUnit rule, so we need to explicitly
-                    // initialize it
-                    String testName = helperClass.getSimpleName();
-                    rule.setInitialSystemProperties(testName);
-                    rule.setInitialFlags(testName);
-                });
+    static AdServicesFlagsSetterRule forLegacyHelpers(Class<?> helperClass) {
+        AdServicesFlagsSetterRule rule =
+                new AdServicesFlagsSetterRule(/* usedByLegacyHelper= */ true);
+        String testName = helperClass.getSimpleName();
+        // This object won't be used as a JUnit rule, so we need to explicitly
+        // initialize it
+        rule.setInitialSystemProperties(testName);
+        rule.setInitialFlags(testName);
+        return rule;
     }
 
     // NOTE: add more factory methods as needed
@@ -128,7 +120,7 @@ public final class DeviceSideAdServicesFlagsSetterRule
     // the logic defined by PhFlags - if needed by hostside, we'll have to move it up and
     // re-implement that logic there.
     /** Calls {@link PhFlags#getAdIdRequestPerSecond()} with the proper permissions. */
-    public float getAdIdRequestPerSecond() throws Exception {
+    public float getAdIdRequestPerSecond() {
         try {
             return callWithDeviceConfigPermissions(
                     () -> PhFlags.getInstance().getAdIdRequestPermitsPerSecond());
@@ -147,7 +139,7 @@ public final class DeviceSideAdServicesFlagsSetterRule
      * @deprecated only used by {@code CompatAdServicesTestUtils}
      */
     @Deprecated
-    String getPpapiAppAllowList() throws Exception {
+    String getPpapiAppAllowList() {
         assertCalledByLegacyHelper();
         return mDeviceConfig.get(KEY_PPAPI_APP_ALLOW_LIST);
     }
@@ -156,7 +148,7 @@ public final class DeviceSideAdServicesFlagsSetterRule
      * @deprecated only used by {@code CompatAdServicesTestUtils}
      */
     @Deprecated
-    String getMsmtApiAppAllowList() throws Exception {
+    String getMsmtApiAppAllowList() {
         assertCalledByLegacyHelper();
         return mDeviceConfig.get(KEY_MSMT_API_APP_ALLOW_LIST);
     }

@@ -534,6 +534,13 @@ public interface Flags {
         return MEASUREMENT_MINIMUM_EVENT_REPORT_WINDOW_IN_SECONDS;
     }
 
+    long MEASUREMENT_MINIMUM_AGGREGATABLE_REPORT_WINDOW_IN_SECONDS = TimeUnit.HOURS.toSeconds(1);
+
+    /** Returns minimum aggregatable report window */
+    default long getMeasurementMinimumAggregatableReportWindowInSeconds() {
+        return MEASUREMENT_MINIMUM_AGGREGATABLE_REPORT_WINDOW_IN_SECONDS;
+    }
+
     boolean MEASUREMENT_ENABLE_LOOKBACK_WINDOW_FILTER = false;
 
     /** Returns true if lookback window filter is enabled else false. */
@@ -1954,7 +1961,7 @@ public interface Flags {
 
     /*
      * The allow-list for Measurement APIs. This list has the list of app package names that we
-     * allow using Measurement APIs.
+     * allow using Measurement APIs. Overridden by Block List
      */
     String MSMT_API_APP_ALLOW_LIST =
             "android.platform.test.scenario,"
@@ -1987,10 +1994,28 @@ public interface Flags {
      * App Package Name that does not belong to this allow-list will not be able to use Measurement
      * APIs.
      * If this list has special value "*", then all package names are allowed.
+     * Block List takes precedence over Allow List.
      * There must be not any empty space between comma.
      */
     default String getMsmtApiAppAllowList() {
         return MSMT_API_APP_ALLOW_LIST;
+    }
+
+    /*
+     * The blocklist for Measurement APIs. This list has the list of app package names that we
+     * do not allow to use Measurement APIs.
+     */
+    String MSMT_API_APP_BLOCK_LIST = "";
+
+    /*
+     * App Package Name that belong to this blocklist will not be able to use Measurement
+     * APIs.
+     * If this list has special value "*", then all package names are blocked.
+     * Block List takes precedence over Allow List.
+     * There must be not any empty space between comma.
+     */
+    default String getMsmtApiAppBlockList() {
+        return MSMT_API_APP_BLOCK_LIST;
     }
 
     /*
@@ -2616,6 +2641,7 @@ public interface Flags {
     // New Feature Flags
     boolean FLEDGE_REGISTER_AD_BEACON_ENABLED = false;
     boolean FLEDGE_CPC_BILLING_ENABLED = false;
+    boolean FLEDGE_DATA_VERSION_HEADER_ENABLED = false;
 
     /** Returns whether the {@code registerAdBeacon} feature is enabled. */
     default boolean getFledgeRegisterAdBeaconEnabled() {
@@ -2625,6 +2651,11 @@ public interface Flags {
     /** Returns whether the CPC billing feature is enabled. */
     default boolean getFledgeCpcBillingEnabled() {
         return FLEDGE_CPC_BILLING_ENABLED;
+    }
+
+    /** Returns whether the data version header feature is enabled. */
+    default boolean getFledgeDataVersionHeaderEnabled() {
+        return FLEDGE_DATA_VERSION_HEADER_ENABLED;
     }
 
     /**

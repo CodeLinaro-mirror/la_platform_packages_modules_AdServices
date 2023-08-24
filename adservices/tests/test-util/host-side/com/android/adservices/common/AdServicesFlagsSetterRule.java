@@ -15,31 +15,27 @@
  */
 package com.android.adservices.common;
 
-import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 
-// TODO(b/295321663): rename to AdServicesFlagsSetterRule - it was temporary renamed to
-// HostSideAdServicesFlagsSetterRule to minimize git diff in the superclass
 /** See {@link AbstractAdServicesFlagsSetterRule}. */
-public final class HostSideAdServicesFlagsSetterRule
-        extends AbstractAdServicesFlagsSetterRule<HostSideAdServicesFlagsSetterRule> {
+public final class AdServicesFlagsSetterRule
+        extends AbstractAdServicesFlagsSetterRule<AdServicesFlagsSetterRule> {
 
     /** Factory method that only disables the global kill switch. */
-    public static HostSideAdServicesFlagsSetterRule forGlobalKillSwitchDisabledTests() {
-        return newInstance(
-                new HostSideAdServicesFlagsSetterRule(), rule -> rule.setGlobalKillSwitch(false));
+    public static AdServicesFlagsSetterRule forGlobalKillSwitchDisabledTests() {
+        return new AdServicesFlagsSetterRule().setGlobalKillSwitch(false);
     }
 
     @Override
-    protected int getDeviceSdk() throws DeviceNotAvailableException {
-        return TestDeviceHelper.getTestDevice().getApiLevel();
+    protected int getDeviceSdk() {
+        return TestDeviceHelper.getApiLevel();
     }
 
     public void setDevice(ITestDevice device) {
         TestDeviceHelper.setTestDevice(device);
     }
 
-    private HostSideAdServicesFlagsSetterRule() {
+    private AdServicesFlagsSetterRule() {
         super(
                 ConsoleLogger.getInstance(),
                 namespace -> new HostSideDeviceConfigHelper(namespace),

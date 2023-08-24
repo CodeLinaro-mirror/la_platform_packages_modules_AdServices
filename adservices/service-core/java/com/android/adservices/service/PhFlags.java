@@ -1692,6 +1692,15 @@ public final class PhFlags implements Flags {
                 /* defaultValue */ MSMT_API_APP_ALLOW_LIST);
     }
 
+    @Override
+    public String getMsmtApiAppBlockList() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getString(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants.KEY_MSMT_API_APP_BLOCK_LIST,
+                /* defaultValue */ MSMT_API_APP_BLOCK_LIST);
+    }
+
     // AdServices APK SHA certs.
     @Override
     public String getAdservicesApkShaCertificate() {
@@ -2277,6 +2286,14 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getFledgeDataVersionHeaderEnabled() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants.KEY_FLEDGE_DATA_VERSION_HEADER_ENABLED,
+                /* defaultValue */ FLEDGE_DATA_VERSION_HEADER_ENABLED);
+    }
+
+    @Override
     public boolean getEnforceForegroundStatusForMeasurementDeleteRegistrations() {
         return DeviceConfig.getBoolean(
                 FlagsConstants.NAMESPACE_ADSERVICES,
@@ -2620,6 +2637,15 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public long getMeasurementMinimumAggregatableReportWindowInSeconds() {
+        return DeviceConfig.getLong(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants
+                        .KEY_MEASUREMENT_MINIMUM_AGGREGATABLE_REPORT_WINDOW_IN_SECONDS,
+                /* defaultValue */ MEASUREMENT_MINIMUM_AGGREGATABLE_REPORT_WINDOW_IN_SECONDS);
+    }
+
+    @Override
     public int getMeasurementMaxSourcesPerPublisher() {
         // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
         return DeviceConfig.getInt(
@@ -2921,6 +2947,11 @@ public final class PhFlags implements Flags {
                         + FlagsConstants.KEY_MSMT_API_APP_ALLOW_LIST
                         + " = "
                         + getMsmtApiAppAllowList());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_MSMT_API_APP_BLOCK_LIST
+                        + " = "
+                        + getMsmtApiAppBlockList());
 
         writer.println("==== AdServices PH Flags Dump MDD related flags: ====");
         writer.println(
@@ -3226,6 +3257,12 @@ public final class PhFlags implements Flags {
                         + FlagsConstants.KEY_MEASUREMENT_MINIMUM_EVENT_REPORT_WINDOW_IN_SECONDS
                         + " = "
                         + getMeasurementMinimumEventReportWindowInSeconds());
+        writer.println(
+                "\t"
+                        + FlagsConstants
+                                .KEY_MEASUREMENT_MINIMUM_AGGREGATABLE_REPORT_WINDOW_IN_SECONDS
+                        + " = "
+                        + getMeasurementMinimumAggregatableReportWindowInSeconds());
         writer.println(
                 "\t"
                         + FlagsConstants.KEY_WEB_CONTEXT_CLIENT_ALLOW_LIST
@@ -3908,6 +3945,11 @@ public final class PhFlags implements Flags {
                         + FlagsConstants.KEY_FLEDGE_CPC_BILLING_ENABLED
                         + " = "
                         + getFledgeCpcBillingEnabled());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_FLEDGE_DATA_VERSION_HEADER_ENABLED
+                        + " = "
+                        + getFledgeDataVersionHeaderEnabled());
         writer.println(
                 "\t"
                         + FlagsConstants.KEY_TOPICS_COBALT_LOGGING_ENABLED
