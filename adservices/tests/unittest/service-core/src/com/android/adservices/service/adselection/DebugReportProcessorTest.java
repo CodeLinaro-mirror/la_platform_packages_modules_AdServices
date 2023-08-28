@@ -21,20 +21,31 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import android.adservices.common.AdTechIdentifier;
+import android.adservices.customaudience.CustomAudienceFixture;
 import android.net.Uri;
+
+import com.android.adservices.data.adselection.CustomAudienceSignals;
 
 import org.junit.Test;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 
 public class DebugReportProcessorTest {
 
     private static final String CUSTOM_AUDIENCE_NAME_1 = "example_ca_1";
     private static final String CUSTOM_AUDIENCE_NAME_2 = "example_ca_2";
     private static final String CUSTOM_AUDIENCE_NAME_3 = "example_ca_3";
+    private static final Instant NOW = Instant.now();
+    private static final Instant ACTIVATION_TIME = NOW;
+    private static final Instant EXPIRATION_TIME = NOW.plus(Duration.ofDays(1));
+
     public static final AdTechIdentifier AD_TECH_IDENTIFIER_1 =
             AdTechIdentifier.fromString("example.com");
     public static final AdTechIdentifier AD_TECH_IDENTIFIER_2 =
@@ -52,8 +63,7 @@ public class DebugReportProcessorTest {
                 DebugReport.builder()
                         .setLossDebugReportUri(lossUri)
                         .setWinDebugReportUri(winUri)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1)
+                        .setCustomAudienceSignals(newDefaultCustomAudienceSignals().build())
                         .build();
 
         List<Uri> uris = DebugReportProcessor.getUrisFromAdAuction(List.of(debugReport), signals);
@@ -69,14 +79,16 @@ public class DebugReportProcessorTest {
         DebugReport debugReport =
                 DebugReport.builder()
                         .setLossDebugReportUri(lossUri1)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_2)
+                        .setCustomAudienceSignals(newDefaultCustomAudienceSignals().build())
                         .build();
         DebugReport debugReport2 =
                 DebugReport.builder()
                         .setLossDebugReportUri(lossUri2)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_2)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_3)
+                        .setCustomAudienceSignals(
+                                newDefaultCustomAudienceSignals()
+                                        .setBuyer(AD_TECH_IDENTIFIER_2)
+                                        .setName(CUSTOM_AUDIENCE_NAME_2)
+                                        .build())
                         .build();
 
         List<Uri> uris =
@@ -93,8 +105,7 @@ public class DebugReportProcessorTest {
         DebugReport debugReport =
                 DebugReport.builder()
                         .setWinDebugReportUri(winUri)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1)
+                        .setCustomAudienceSignals(newDefaultCustomAudienceSignals().build())
                         .build();
 
         List<Uri> uris = DebugReportProcessor.getUrisFromAdAuction(List.of(debugReport), signals);
@@ -105,14 +116,16 @@ public class DebugReportProcessorTest {
 
     @Test
     public void singleBuyerSessionWithMismatchedAdTech_returnsNoUri() {
-        AdTechIdentifier buyer = AdTechIdentifier.fromString("not_google.com");
-        String firstDomain = "google.com";
-        PostAuctionSignals signals = newDefaultPostAuctionSignals().setWinningBuyer(buyer).build();
+        String firstDomain = "not_google.com";
+        PostAuctionSignals signals =
+                newDefaultPostAuctionSignals().setWinningBuyer(AD_TECH_IDENTIFIER_2).build();
         DebugReport debugReport =
                 DebugReport.builder()
                         .setWinDebugReportUri(Uri.parse(firstDomain))
-                        .setCustomAudienceBuyer(buyer)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1)
+                        .setCustomAudienceSignals(
+                                newDefaultCustomAudienceSignals()
+                                        .setBuyer(AD_TECH_IDENTIFIER_2)
+                                        .build())
                         .build();
 
         List<Uri> uris = DebugReportProcessor.getUrisFromAdAuction(List.of(debugReport), signals);
@@ -127,8 +140,7 @@ public class DebugReportProcessorTest {
                 DebugReport.builder()
                         .setWinDebugReportUri(Uri.EMPTY)
                         .setLossDebugReportUri(Uri.EMPTY)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1)
+                        .setCustomAudienceSignals(newDefaultCustomAudienceSignals().build())
                         .build();
 
         List<Uri> uris = DebugReportProcessor.getUrisFromAdAuction(List.of(debugReport), signals);
@@ -143,8 +155,7 @@ public class DebugReportProcessorTest {
                 DebugReport.builder()
                         .setLossDebugReportUri(Uri.parse("http://example.com"))
                         .setLossDebugReportUri(Uri.parse("http://example.com"))
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1)
+                        .setCustomAudienceSignals(newDefaultCustomAudienceSignals().build())
                         .build();
 
         List<Uri> uris = DebugReportProcessor.getUrisFromAdAuction(List.of(debugReport), signals);
@@ -166,8 +177,7 @@ public class DebugReportProcessorTest {
                 DebugReport.builder()
                         .setLossDebugReportUri(overlyLongUri)
                         .setLossDebugReportUri(overlyLongUri)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1)
+                        .setCustomAudienceSignals(newDefaultCustomAudienceSignals().build())
                         .build();
 
         List<Uri> uris = DebugReportProcessor.getUrisFromAdAuction(List.of(debugReport), signals);
@@ -184,14 +194,19 @@ public class DebugReportProcessorTest {
             debugReports.add(
                     DebugReport.builder()
                             .setLossDebugReportUri(makeUri(AD_TECH_IDENTIFIER_1, i))
-                            .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                            .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1 + "_" + i)
+                            .setCustomAudienceSignals(
+                                    newDefaultCustomAudienceSignals()
+                                            .setName(CUSTOM_AUDIENCE_NAME_1 + "_" + i)
+                                            .build())
                             .build());
             debugReports.add(
                     DebugReport.builder()
                             .setLossDebugReportUri(makeUri(AD_TECH_IDENTIFIER_2, i))
-                            .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_2)
-                            .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_2 + "_" + i)
+                            .setCustomAudienceSignals(
+                                    newDefaultCustomAudienceSignals()
+                                            .setBuyer(AD_TECH_IDENTIFIER_2)
+                                            .setName(CUSTOM_AUDIENCE_NAME_2 + "_" + i)
+                                            .build())
                             .build());
         }
 
@@ -210,8 +225,7 @@ public class DebugReportProcessorTest {
                 DebugReport.builder()
                         .setLossDebugReportUri(lossUri)
                         .setWinDebugReportUri(winUri)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1)
+                        .setCustomAudienceSignals(newDefaultCustomAudienceSignals().build())
                         .setSeller(AD_TECH_IDENTIFIER_2)
                         .build();
 
@@ -234,8 +248,7 @@ public class DebugReportProcessorTest {
         DebugReport debugReport =
                 DebugReport.builder()
                         .setWinDebugReportUri(winUri)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1)
+                        .setCustomAudienceSignals(newDefaultCustomAudienceSignals().build())
                         .build();
 
         List<Uri> uris = DebugReportProcessor.getUrisFromAdAuction(List.of(debugReport), signals);
@@ -252,8 +265,7 @@ public class DebugReportProcessorTest {
         DebugReport debugReport =
                 DebugReport.builder()
                         .setLossDebugReportUri(lossUri)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1)
+                        .setCustomAudienceSignals(newDefaultCustomAudienceSignals().build())
                         .build();
 
         List<Uri> uris = DebugReportProcessor.getUrisFromAdAuction(List.of(debugReport), signals);
@@ -270,8 +282,7 @@ public class DebugReportProcessorTest {
         DebugReport debugReport =
                 DebugReport.builder()
                         .setLossDebugReportUri(lossUri)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1)
+                        .setCustomAudienceSignals(newDefaultCustomAudienceSignals().build())
                         .build();
 
         List<Uri> uris = DebugReportProcessor.getUrisFromAdAuction(List.of(debugReport), signals);
@@ -292,8 +303,7 @@ public class DebugReportProcessorTest {
         DebugReport debugReport =
                 DebugReport.builder()
                         .setLossDebugReportUri(lossUri)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1)
+                        .setCustomAudienceSignals(newDefaultCustomAudienceSignals().build())
                         .build();
 
         List<Uri> uris = DebugReportProcessor.getUrisFromAdAuction(List.of(debugReport), signals);
@@ -309,14 +319,16 @@ public class DebugReportProcessorTest {
         DebugReport debugReport =
                 DebugReport.builder()
                         .setLossDebugReportUri(winUri)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1)
+                        .setCustomAudienceSignals(newDefaultCustomAudienceSignals().build())
                         .build();
         DebugReport debugReport2 =
                 DebugReport.builder()
                         .setLossDebugReportUri(lossUri)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_2)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_2)
+                        .setCustomAudienceSignals(
+                                newDefaultCustomAudienceSignals()
+                                        .setBuyer(AD_TECH_IDENTIFIER_2)
+                                        .setName(CUSTOM_AUDIENCE_NAME_2)
+                                        .build())
                         .build();
 
         List<Uri> uris =
@@ -330,8 +342,11 @@ public class DebugReportProcessorTest {
     }
 
     @Test
-    public void multiBuyerWonSession_returnsOtherWinningBid() {
-        Uri lossUri = Uri.parse("https://example.com/reportLoss?wb=${highestScoringOtherBid}");
+    public void multiBuyerWonSession_returnsOtherWinningBidOnlyForWinner() {
+        Uri winUri = Uri.parse("https://google.com/reportWin?hob=${highestScoringOtherBid}");
+        Uri lossUri = Uri.parse("https://google.com/reportLoss?hob=${highestScoringOtherBid}");
+        Uri lossUriForOtherAdTech =
+                Uri.parse("https://example.com/reportLoss?hob=${highestScoringOtherBid}");
         PostAuctionSignals signals =
                 newDefaultPostAuctionSignals()
                         .setWinningBuyer(AD_TECH_IDENTIFIER_2)
@@ -339,37 +354,92 @@ public class DebugReportProcessorTest {
                         .setSecondHighestScoredBid(AD_BID_2)
                         .setSecondHighestScoredBuyer(AD_TECH_IDENTIFIER_2)
                         .build();
-        DebugReport debugReport =
+        DebugReport winDebugReport =
+                DebugReport.builder()
+                        .setLossDebugReportUri(winUri)
+                        .setCustomAudienceSignals(
+                                newDefaultCustomAudienceSignals()
+                                        .setBuyer(AD_TECH_IDENTIFIER_2)
+                                        .setName(CUSTOM_AUDIENCE_NAME_2)
+                                        .build())
+                        .build();
+        DebugReport lossDebugReport =
                 DebugReport.builder()
                         .setLossDebugReportUri(lossUri)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1)
+                        .setCustomAudienceSignals(
+                                newDefaultCustomAudienceSignals()
+                                        .setBuyer(AD_TECH_IDENTIFIER_2)
+                                        .setName(CUSTOM_AUDIENCE_NAME_3)
+                                        .build())
+                        .build();
+        DebugReport lossDebugReportDifferentBuyer =
+                DebugReport.builder()
+                        .setLossDebugReportUri(lossUriForOtherAdTech)
+                        .setCustomAudienceSignals(newDefaultCustomAudienceSignals().build())
                         .build();
 
-        List<Uri> uris = DebugReportProcessor.getUrisFromAdAuction(List.of(debugReport), signals);
+        List<Uri> uris =
+                DebugReportProcessor.getUrisFromAdAuction(
+                        List.of(winDebugReport, lossDebugReport, lossDebugReportDifferentBuyer),
+                        signals);
 
-        Uri actualUri = Objects.requireNonNull(uris).get(0);
-        assertEquals(Uri.parse("https://example.com/reportLoss?wb=2.0"), actualUri);
+        Set<Uri> expectedUris = new HashSet<>();
+        expectedUris.add(Uri.parse("https://google.com/reportWin?hob=" + AD_BID_2));
+        expectedUris.add(Uri.parse("https://google.com/reportLoss?hob=0.0"));
+        expectedUris.add(Uri.parse("https://example.com/reportLoss?hob=0.0"));
+        assertEquals(3, uris.size());
+        Set<Uri> actualUris = new HashSet<>(uris);
+        assertEquals(expectedUris, actualUris);
     }
 
     @Test
-    public void singleBuyerLostSession_returnsMadeOtherWinningBid() {
-        Uri winUri = Uri.parse("https://example.com/reportWin?wb=${madeHighestScoringOtherBid}");
+    public void singleBuyerLostSession_returnsMadeOtherWinningBidOnlyForWinner() {
+        Uri winUri = Uri.parse("https://example.com/reportWin?m-hob=${madeHighestScoringOtherBid}");
+        Uri lossUri =
+                Uri.parse("https://example.com/reportLoss?m-hob=${madeHighestScoringOtherBid}");
+        Uri lossUriOtherBuyer =
+                Uri.parse("https://google.com/reportLoss?m-hob=${madeHighestScoringOtherBid}");
         PostAuctionSignals signals =
                 newDefaultPostAuctionSignals()
                         .setSecondHighestScoredBid(AD_BID_2)
                         .setSecondHighestScoredBuyer(AD_TECH_IDENTIFIER_1)
                         .build();
-        DebugReport debugReport =
+        DebugReport winDebugReport =
                 DebugReport.builder()
                         .setWinDebugReportUri(winUri)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_1)
+                        .setCustomAudienceSignals(newDefaultCustomAudienceSignals().build())
+                        .build();
+        DebugReport lossDebugReport =
+                DebugReport.builder()
+                        .setLossDebugReportUri(lossUri)
+                        .setCustomAudienceSignals(
+                                newDefaultCustomAudienceSignals()
+                                        .setBuyer(AD_TECH_IDENTIFIER_1)
+                                        .setName(CUSTOM_AUDIENCE_NAME_2)
+                                        .build())
+                        .build();
+        DebugReport lossDebugReportForOtherBuyer =
+                DebugReport.builder()
+                        .setLossDebugReportUri(lossUriOtherBuyer)
+                        .setCustomAudienceSignals(
+                                newDefaultCustomAudienceSignals()
+                                        .setBuyer(AD_TECH_IDENTIFIER_2)
+                                        .setName(CUSTOM_AUDIENCE_NAME_3)
+                                        .build())
                         .build();
 
-        List<Uri> uris = DebugReportProcessor.getUrisFromAdAuction(List.of(debugReport), signals);
+        List<Uri> uris =
+                DebugReportProcessor.getUrisFromAdAuction(
+                        List.of(winDebugReport, lossDebugReport, lossDebugReportForOtherBuyer),
+                        signals);
 
-        assertThat(uris).containsExactly(Uri.parse("https://example.com/reportWin?wb=true"));
+        Set<Uri> expectedUris = new HashSet<>();
+        expectedUris.add(Uri.parse("https://example.com/reportWin?m-hob=true"));
+        expectedUris.add(Uri.parse("https://example.com/reportLoss?m-hob=false"));
+        expectedUris.add(Uri.parse("https://google.com/reportLoss?m-hob=false"));
+        assertEquals(3, uris.size());
+        Set<Uri> actualUris = new HashSet<>(uris);
+        assertEquals(expectedUris, actualUris);
     }
 
     @Test
@@ -378,8 +448,10 @@ public class DebugReportProcessorTest {
         DebugReport debugReport =
                 DebugReport.builder()
                         .setLossDebugReportUri(lossUri)
-                        .setCustomAudienceBuyer(AD_TECH_IDENTIFIER_1)
-                        .setCustomAudienceName(CUSTOM_AUDIENCE_NAME_2)
+                        .setCustomAudienceSignals(
+                                newDefaultCustomAudienceSignals()
+                                        .setName(CUSTOM_AUDIENCE_NAME_2)
+                                        .build())
                         .build();
 
         List<Uri> uris =
@@ -390,12 +462,122 @@ public class DebugReportProcessorTest {
     }
 
     @Test
+    public void singleBuyerLoss_rejectReasonIsNotAvailable() {
+        Uri lossUri = Uri.parse("https://example.com/reportLoss?rr=${rejectReason}");
+        PostAuctionSignals signals = newDefaultPostAuctionSignals().build();
+        DebugReport lossDebugReport =
+                DebugReport.builder()
+                        .setLossDebugReportUri(lossUri)
+                        .setCustomAudienceSignals(
+                                newDefaultCustomAudienceSignals()
+                                        .setName(CUSTOM_AUDIENCE_NAME_2)
+                                        .build())
+                        .build();
+
+        List<Uri> uris =
+                DebugReportProcessor.getUrisFromAdAuction(List.of(lossDebugReport), signals);
+
+        Uri expectedUri = Uri.parse("https://example.com/reportLoss?rr=not-available");
+        assertThat(uris).containsExactly(expectedUri);
+    }
+
+    @Test
+    public void singleBuyerLoss_rejectReasonIsNotAvailable_InvalidRejectReason() {
+        Uri lossUri = Uri.parse("https://example.com/reportLoss?rr=${rejectReason}");
+        PostAuctionSignals signals = newDefaultPostAuctionSignals().build();
+        DebugReport lossDebugReport =
+                DebugReport.builder()
+                        .setLossDebugReportUri(lossUri)
+                        .setCustomAudienceSignals(
+                                newDefaultCustomAudienceSignals()
+                                        .setBuyer(AD_TECH_IDENTIFIER_1)
+                                        .setName(CUSTOM_AUDIENCE_NAME_2)
+                                        .build())
+                        .setSellerRejectReason("a-random-reject-reason")
+                        .build();
+
+        List<Uri> uris =
+                DebugReportProcessor.getUrisFromAdAuction(List.of(lossDebugReport), signals);
+
+        Uri expectedUri = Uri.parse("https://example.com/reportLoss?rr=not-available");
+        assertThat(uris).containsExactly(expectedUri);
+    }
+
+    @Test
+    public void singleBuyerLoss_rejectReasonIsSet() {
+        Uri lossUri = Uri.parse("https://example.com/reportLoss?rr=${rejectReason}");
+        PostAuctionSignals signals = newDefaultPostAuctionSignals().build();
+        DebugReport lossDebugReport =
+                DebugReport.builder()
+                        .setLossDebugReportUri(lossUri)
+                        .setCustomAudienceSignals(
+                                newDefaultCustomAudienceSignals()
+                                        .setBuyer(AD_TECH_IDENTIFIER_1)
+                                        .setName(CUSTOM_AUDIENCE_NAME_2)
+                                        .build())
+                        .setSellerRejectReason("invalid-bid")
+                        .build();
+
+        List<Uri> uris =
+                DebugReportProcessor.getUrisFromAdAuction(List.of(lossDebugReport), signals);
+
+        Uri expectedUri = Uri.parse("https://example.com/reportLoss?rr=invalid-bid");
+        assertThat(uris).containsExactly(expectedUri);
+    }
+
+    @Test
+    public void singleBuyerLoss_rejectReasonIsCapturedFromSellerToBuyer() {
+        Uri buyerLossUri = Uri.parse("https://example.com/reportLoss?rr=${rejectReason}");
+        Uri sellerLossUri = Uri.parse("https://google.com/reportLoss?rr=${rejectReason}");
+        PostAuctionSignals signals = newDefaultPostAuctionSignals().build();
+        DebugReport buyerLossDebugReport =
+                DebugReport.builder()
+                        .setLossDebugReportUri(buyerLossUri)
+                        .setCustomAudienceSignals(
+                                newDefaultCustomAudienceSignals()
+                                        .setName(CUSTOM_AUDIENCE_NAME_2)
+                                        .build())
+                        .build();
+        DebugReport sellerLossDebugReport =
+                DebugReport.builder()
+                        .setLossDebugReportUri(sellerLossUri)
+                        .setCustomAudienceSignals(
+                                newDefaultCustomAudienceSignals()
+                                        .setName(CUSTOM_AUDIENCE_NAME_2)
+                                        .build())
+                        .setSellerRejectReason("invalid-bid")
+                        .setSeller(AD_TECH_IDENTIFIER_2)
+                        .build();
+
+        List<Uri> uris =
+                DebugReportProcessor.getUrisFromAdAuction(
+                        List.of(buyerLossDebugReport, sellerLossDebugReport), signals);
+
+        Set<Uri> expectedUris = new HashSet<>();
+        expectedUris.add(Uri.parse("https://example.com/reportLoss?rr=invalid-bid"));
+        expectedUris.add(Uri.parse("https://google.com/reportLoss?rr=invalid-bid"));
+        assertEquals(2, uris.size());
+        Set<Uri> actualUris = new HashSet<>(uris);
+        assertEquals(expectedUris, actualUris);
+    }
+
+    @Test
     public void emptySession_doesNotThrow() {
         List<Uri> uris =
                 DebugReportProcessor.getUrisFromAdAuction(
                         List.of(), PostAuctionSignals.builder().build());
 
         assertThat(uris).isEmpty();
+    }
+
+    private static CustomAudienceSignals.Builder newDefaultCustomAudienceSignals() {
+        return new CustomAudienceSignals.Builder()
+                .setOwner(CustomAudienceFixture.VALID_OWNER)
+                .setBuyer(AD_TECH_IDENTIFIER_1)
+                .setName(CUSTOM_AUDIENCE_NAME_1)
+                .setActivationTime(ACTIVATION_TIME)
+                .setExpirationTime(EXPIRATION_TIME)
+                .setUserBiddingSignals(CustomAudienceFixture.VALID_USER_BIDDING_SIGNALS);
     }
 
     private static PostAuctionSignals.Builder newDefaultPostAuctionSignals() {

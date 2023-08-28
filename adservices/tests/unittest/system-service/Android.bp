@@ -50,4 +50,5 @@ android_test {
         "mts-adservices"
     ],
     test_mainline_modules: ["com.google.android.adservices.apex"],
+    visibility: ["//packages/modules/AdServices/adservices/tests/unittest/system-service"],
 }
