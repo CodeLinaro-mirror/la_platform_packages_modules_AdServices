@@ -18,7 +18,6 @@ package com.android.adservices.service.adselection;
 
 import android.adservices.adselection.PersistAdSelectionResultCallback;
 import android.adservices.adselection.PersistAdSelectionResultInput;
-import android.adservices.adselection.PersistAdSelectionResultRequest;
 import android.adservices.adselection.PersistAdSelectionResultResponse;
 import android.adservices.common.AdTechIdentifier;
 import android.adservices.common.FledgeErrorResponse;
@@ -37,7 +36,9 @@ import com.android.adservices.service.adselection.encryption.ObliviousHttpEncryp
 import com.android.adservices.service.common.AdSelectionServiceFilter;
 import com.android.adservices.service.common.Throttler;
 import com.android.adservices.service.consent.ConsentManager;
+import com.android.adservices.service.devapi.DevContext;
 import com.android.adservices.service.exception.FilterException;
+import com.android.adservices.service.profiling.Tracing;
 import com.android.adservices.service.proto.bidding_auction_servers.BiddingAuctionServers.AuctionResult;
 import com.android.adservices.service.proto.bidding_auction_servers.BiddingAuctionServers.WinReportingUrls;
 import com.android.adservices.service.stats.AdServicesLoggerUtil;
@@ -64,7 +65,7 @@ public class PersistAdSelectionResultRunner {
     @NonNull private final ListeningExecutorService mBackgroundExecutorService;
     @NonNull private final ListeningExecutorService mLightweightExecutorService;
     @NonNull private final int mCallerUid;
-
+    @NonNull private final DevContext mDevContext;
     @NonNull private AuctionServerDataCompressor mDataCompressor;
     @NonNull private AuctionServerPayloadExtractor mPayloadExtractor;
 
@@ -74,12 +75,14 @@ public class PersistAdSelectionResultRunner {
             @NonNull final AdSelectionServiceFilter adSelectionServiceFilter,
             @NonNull final ExecutorService backgroundExecutorService,
             @NonNull final ExecutorService lightweightExecutorService,
-            @NonNull final int callerUid) {
+            @NonNull final int callerUid,
+            @NonNull final DevContext devContext) {
         Objects.requireNonNull(obliviousHttpEncryptor);
         Objects.requireNonNull(auctionServerAdSelectionDao);
         Objects.requireNonNull(adSelectionServiceFilter);
         Objects.requireNonNull(backgroundExecutorService);
         Objects.requireNonNull(lightweightExecutorService);
+        Objects.requireNonNull(devContext);
 
         mObliviousHttpEncryptor = obliviousHttpEncryptor;
         mAuctionServerAdSelectionDao = auctionServerAdSelectionDao;
@@ -87,6 +90,7 @@ public class PersistAdSelectionResultRunner {
         mBackgroundExecutorService = MoreExecutors.listeningDecorator(backgroundExecutorService);
         mLightweightExecutorService = MoreExecutors.listeningDecorator(lightweightExecutorService);
         mCallerUid = callerUid;
+        mDevContext = devContext;
     }
 
     /** Orchestrates PersistAdSelectionResultRunner process. */
@@ -97,7 +101,7 @@ public class PersistAdSelectionResultRunner {
         Objects.requireNonNull(callback);
 
         int apiName = AdServicesStatsLog.AD_SERVICES_API_CALLED__API_NAME__API_NAME_UNKNOWN;
-        long adSelectionId = inputParams.getPersistAdSelectionResultRequest().getAdSelectionId();
+        long adSelectionId = inputParams.getAdSelectionId();
         try {
             ListenableFuture<Void> filteredRequest =
                     Futures.submit(
@@ -108,16 +112,14 @@ public class PersistAdSelectionResultRunner {
                                                     + " API.");
                                     // TODO(b/288371478): Validate seller owns the ad selection id
                                     mAdSelectionServiceFilter.filterRequest(
-                                            inputParams
-                                                    .getPersistAdSelectionResultRequest()
-                                                    .getSeller(),
+                                            inputParams.getSeller(),
                                             inputParams.getCallerPackageName(),
                                             false,
                                             true,
                                             mCallerUid,
                                             apiName,
-                                            Throttler.ApiKey
-                                                    .FLEDGE_API_PERSIST_AD_SELECTION_RESULT);
+                                            Throttler.ApiKey.FLEDGE_API_PERSIST_AD_SELECTION_RESULT,
+                                            mDevContext);
                                 } finally {
                                     sLogger.v("Completed filtering.");
                                 }
@@ -128,9 +130,7 @@ public class PersistAdSelectionResultRunner {
                     FluentFuture.from(filteredRequest)
                             .transformAsync(
                                     ignoredVoid ->
-                                            orchestratePersistAdSelectionResultRunner(
-                                                    inputParams
-                                                            .getPersistAdSelectionResultRequest()),
+                                            orchestratePersistAdSelectionResultRunner(inputParams),
                                     mLightweightExecutorService);
 
             Futures.addCallback(
@@ -173,20 +173,27 @@ public class PersistAdSelectionResultRunner {
     }
 
     private ListenableFuture<AuctionResult> orchestratePersistAdSelectionResultRunner(
-            @NonNull PersistAdSelectionResultRequest request) {
+            PersistAdSelectionResultInput request) {
+        int traceCookie =
+                Tracing.beginAsyncSection(Tracing.ORCHESTRATE_PERSIST_AD_SELECTION_RESULT);
         long adSelectionId = request.getAdSelectionId();
-
+        AdTechIdentifier seller = request.getSeller();
         return decryptBytes(request)
                 .transform(this::parseAdSelectionResult, mLightweightExecutorService)
                 .transformAsync(
-                        auctionResult ->
-                                persistAuctionResults(
-                                        auctionResult, adSelectionId, request.getSeller()),
+                        auctionResult -> {
+                            ListenableFuture<AuctionResult> auctionResultFuture =
+                                    persistAuctionResults(auctionResult, adSelectionId, seller);
+                            Tracing.endAsyncSection(
+                                    Tracing.ORCHESTRATE_PERSIST_AD_SELECTION_RESULT, traceCookie);
+                            return auctionResultFuture;
+                        },
                         mLightweightExecutorService);
         // TODO(b/278087551): Check if ad render uri is present on the device
     }
 
-    private FluentFuture<byte[]> decryptBytes(PersistAdSelectionResultRequest request) {
+    private FluentFuture<byte[]> decryptBytes(PersistAdSelectionResultInput request) {
+        int traceCookie = Tracing.beginAsyncSection(Tracing.OHTTP_DECRYPT_BYTES);
         byte[] encryptedAuctionResult = request.getAdSelectionResult();
         long adSelectionId = request.getAdSelectionId();
 
@@ -194,12 +201,16 @@ public class PersistAdSelectionResultRunner {
                 mLightweightExecutorService.submit(
                         () -> {
                             sLogger.v("Decrypting auction result data for :" + adSelectionId);
-                            return mObliviousHttpEncryptor.decryptBytes(
-                                    encryptedAuctionResult, adSelectionId);
+                            byte[] decryptedBytes =
+                                    mObliviousHttpEncryptor.decryptBytes(
+                                            encryptedAuctionResult, adSelectionId);
+                            Tracing.endAsyncSection(Tracing.OHTTP_DECRYPT_BYTES, traceCookie);
+                            return decryptedBytes;
                         }));
     }
 
     private AuctionResult parseAdSelectionResult(byte[] resultBytes) {
+        int traceCookie = Tracing.beginAsyncSection(Tracing.PARSE_AD_SELECTION_RESULT);
         initializeDataCompressor(resultBytes);
         initializePayloadFormatter(resultBytes);
 
@@ -213,7 +224,9 @@ public class PersistAdSelectionResultRunner {
                         AuctionServerDataCompressor.CompressedData.create(
                                 unformattedResult.getData()));
 
-        return composeAuctionResult(uncompressedResult);
+        AuctionResult auctionResult = composeAuctionResult(uncompressedResult);
+        Tracing.endAsyncSection(Tracing.PARSE_AD_SELECTION_RESULT, traceCookie);
+        return auctionResult;
     }
 
     private void initializeDataCompressor(@NonNull byte[] resultBytes) {
@@ -246,6 +259,7 @@ public class PersistAdSelectionResultRunner {
 
     private ListenableFuture<AuctionResult> persistAuctionResults(
             AuctionResult auctionResult, long adSelectionId, AdTechIdentifier seller) {
+        int traceCookie = Tracing.beginAsyncSection(Tracing.PERSIST_AUCTION_RESULTS);
         return mBackgroundExecutorService.submit(
                 () -> {
                     WinReportingUrls winReportingUrls = auctionResult.getWinReportingUrls();
@@ -279,7 +293,7 @@ public class PersistAdSelectionResultRunner {
                                                         : Uri.parse(sellerReportingUrl))
                                         .build());
                     }
-
+                    Tracing.endAsyncSection(Tracing.PERSIST_AUCTION_RESULTS, traceCookie);
                     return auctionResult;
                 });
     }

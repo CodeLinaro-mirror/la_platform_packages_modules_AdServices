@@ -116,6 +116,7 @@ public class ImpressionReporter {
     @NonNull private final PrebuiltLogicGenerator mPrebuiltLogicGenerator;
     @NonNull private final FledgeAuthorizationFilter mFledgeAuthorizationFilter;
     @NonNull private final FrequencyCapAdDataValidator mFrequencyCapAdDataValidator;
+    @NonNull private final DevContext mDevContext;
 
     public ImpressionReporter(
             @NonNull Context context,
@@ -144,6 +145,7 @@ public class ImpressionReporter {
         Objects.requireNonNull(flags);
         Objects.requireNonNull(adSelectionServiceFilter);
         Objects.requireNonNull(frequencyCapAdDataValidator);
+        Objects.requireNonNull(devContext);
 
         mLightweightExecutorService = MoreExecutors.listeningDecorator(lightweightExecutor);
         mBackgroundExecutorService = MoreExecutors.listeningDecorator(backgroundExecutor);
@@ -151,6 +153,7 @@ public class ImpressionReporter {
         mAdSelectionEntryDao = adSelectionEntryDao;
         mCustomAudienceDao = customAudienceDao;
         mAdServicesHttpsClient = adServicesHttpsClient;
+        mDevContext = devContext;
         boolean isRegisterAdBeaconEnabled =
                 BinderFlagReader.readFlag(flags::getFledgeRegisterAdBeaconEnabled);
 
@@ -190,7 +193,8 @@ public class ImpressionReporter {
                         mBackgroundExecutorService,
                         mLightweightExecutorService,
                         mAdServicesHttpsClient,
-                        mFlags);
+                        mFlags,
+                        mDevContext);
         mPrebuiltLogicGenerator = new PrebuiltLogicGenerator(mFlags);
         mFledgeAuthorizationFilter = fledgeAuthorizationFilter;
     }
@@ -252,7 +256,8 @@ public class ImpressionReporter {
                                         true,
                                         mCallerUid,
                                         AD_SERVICES_API_CALLED__API_NAME__REPORT_IMPRESSION,
-                                        Throttler.ApiKey.FLEDGE_API_REPORT_IMPRESSIONS);
+                                        Throttler.ApiKey.FLEDGE_API_REPORT_IMPRESSIONS,
+                                        mDevContext);
                                 validateAdSelectionConfig(adSelectionConfig);
                             } finally {
                                 sLogger.v("Completed filtering and validation.");
@@ -395,7 +400,8 @@ public class ImpressionReporter {
             // We don't need to verify enrollment since that is done during request filtering
             // Perform reporting if no exception was thrown
             sellerFuture =
-                    mAdServicesHttpsClient.getAndReadNothing(reportingUris.sellerReportingUri);
+                    mAdServicesHttpsClient.getAndReadNothing(
+                            reportingUris.sellerReportingUri, mDevContext);
         } catch (IllegalArgumentException e) {
             sLogger.d(e, "Seller reporting URI validation failed!");
             sellerFuture = Futures.immediateFuture(null);
@@ -423,7 +429,8 @@ public class ImpressionReporter {
                 }
                 // Perform reporting if no exception was thrown
                 buyerFuture =
-                        mAdServicesHttpsClient.getAndReadNothing(reportingUris.buyerReportingUri);
+                        mAdServicesHttpsClient.getAndReadNothing(
+                                reportingUris.buyerReportingUri, mDevContext);
             } catch (IllegalArgumentException
                     | FledgeAuthorizationFilter.AdTechNotAllowedException e) {
                 sLogger.d(e, "Buyer reporting URI validation failed!");
@@ -504,6 +511,7 @@ public class ImpressionReporter {
                 AdServicesHttpClientRequest.builder()
                         .setUri(ctx.mAdSelectionConfig.getDecisionLogicUri())
                         .setUseCache(mFlags.getFledgeHttpJsCachingEnabled())
+                        .setDevContext(mDevContext)
                         .build();
 
         return mJsFetcher
@@ -532,6 +540,7 @@ public class ImpressionReporter {
                 AdServicesHttpClientRequest.builder()
                         .setUri(ctx.mDBAdSelectionEntry.getBiddingLogicUri())
                         .setUseCache(mFlags.getFledgeHttpJsCachingEnabled())
+                        .setDevContext(mDevContext)
                         .build();
 
         return mJsFetcher.getBuyerReportingLogic(
@@ -753,6 +762,9 @@ public class ImpressionReporter {
          * to the database. 2. We will not commit an entry to the database if {@link
          * InteractionUriRegistrationInfo#getInteractionKey()} is larger than {@link
          * ImpressionReporter#mFlags#getFledgeReportImpressionRegisteredAdBeaconsMaxInteractionKeySize()}
+         * or if {@link InteractionUriRegistrationInfo#getInteractionReportingUri()} is larger than
+         * {@link
+         * ImpressionReporter#mFlags#getFledgeReportImpressionMaxInteractionReportingUriSizeB()}
          */
         private void commitRegisteredAdInteractionsToDatabase(
                 @NonNull List<InteractionUriRegistrationInfo> interactionUriRegistrationInfos,
@@ -763,6 +775,8 @@ public class ImpressionReporter {
             long maxTableSize = mFlags.getFledgeReportImpressionMaxRegisteredAdBeaconsTotalCount();
             long maxInteractionKeySize =
                     mFlags.getFledgeReportImpressionRegisteredAdBeaconsMaxInteractionKeySizeB();
+            long maxInteractionReportingUriSize =
+                    mFlags.getFledgeReportImpressionMaxInteractionReportingUriSizeB();
             long maxNumRowsPerDestination =
                     mFlags.getFledgeReportImpressionMaxRegisteredAdBeaconsPerAdTechCount();
 
@@ -774,6 +788,18 @@ public class ImpressionReporter {
                         > maxInteractionKeySize) {
                     sLogger.v(
                             "InteractionKey size exceeds the maximum allowed! Skipping this entry");
+                    continue;
+                }
+
+                if (uriRegistrationInfo
+                                .getInteractionReportingUri()
+                                .toString()
+                                .getBytes(StandardCharsets.UTF_8)
+                                .length
+                        > maxInteractionReportingUriSize) {
+                    sLogger.v(
+                            "Interaction reporting uri size exceeds the maximum allowed! Skipping"
+                                    + " this entry");
                     continue;
                 }
 
