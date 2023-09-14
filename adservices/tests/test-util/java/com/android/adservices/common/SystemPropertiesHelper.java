@@ -15,30 +15,34 @@
  */
 package com.android.adservices.common;
 
-import android.os.SystemProperties;
-import android.text.TextUtils;
-import android.util.ArrayMap;
-import android.util.Log;
+import com.android.adservices.common.Logger.RealLogger;
 
-import com.android.compatibility.common.util.ShellUtils;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Objects;
 
 // TODO(b/294423183): add unit tests
 /**
  * Helper class to set {@link android.os.SystemProperties} and properly reset then to their original
  * values.
  *
- * <p><b>Note: </b>this class is not thread safe.
+ * <p><b>NOTE:</b>this class should not have any dependency on Android classes as its used both on
+ * device and host side tests.
+ *
+ * <p><b>NOTE: </b>this class is not thread safe.
  */
 public final class SystemPropertiesHelper {
 
-    private static final String TAG = SystemPropertiesHelper.class.getSimpleName();
+    private final Map<String, String> mPropsToBeReset = new HashMap<>();
 
-    private final String mPrefix;
-    private final ArrayMap<String, String> mPropsToBeReset = new ArrayMap<>();
+    private final Logger mLog;
+    private final Interface mInterface;
 
-    public SystemPropertiesHelper(String prefix) {
-        Log.v(TAG, "Constructor for " + prefix);
-        mPrefix = prefix;
+    public SystemPropertiesHelper(Interface helperInterface, RealLogger logger) {
+        mInterface = Objects.requireNonNull(helperInterface);
+        mLog = new Logger(Objects.requireNonNull(logger), SystemPropertiesHelper.class);
+        mLog.v("Constructor: interface=%s, logger=%s", helperInterface, logger);
     }
 
     public void set(String name, String value) {
@@ -49,65 +53,40 @@ public final class SystemPropertiesHelper {
     public void reset() {
         int size = mPropsToBeReset.size();
         if (size == 0) {
-            Log.d(TAG, "reset(): not needed");
+            mLog.d("reset(): not needed");
             return;
         }
-        Log.v(TAG, "reset(): restoring " + size + " flags");
+        mLog.v("reset(): restoring %s flags", size);
         try {
-            mPropsToBeReset.forEach((name, value) -> setOnly(name, value));
+            for (Entry<String, String> flag : mPropsToBeReset.entrySet()) {
+                setOnly(flag.getKey(), flag.getValue());
+            }
         } finally {
             mPropsToBeReset.clear();
         }
     }
 
-    public void dump(StringBuilder dump) {
-        String properties = ShellUtils.runShellCommand("getprop");
-        addProperties(dump, properties, mPrefix);
+    public void dumpSystemProperties(StringBuilder dump, String prefix) {
+        String properties = mInterface.dumpSystemProperties();
+        addProperties(dump, properties, prefix);
     }
 
     private String get(String name) {
-        return SystemProperties.get(getPropertyName(name));
+        return mInterface.get(name);
     }
 
     private void savePreviousValue(String name) {
         if (mPropsToBeReset.containsKey(name)) {
-            Log.v(
-                    TAG,
-                    "Value of "
-                            + name
-                            + "("
-                            + mPropsToBeReset.get(name)
-                            + ") already saved for reset()");
+            mLog.v("Value of %s (%s) already saved for reset()", name, mPropsToBeReset.get(name));
             return;
         }
         String oldValue = get(name);
-        Log.v(TAG, "Saving " + name + "=" + oldValue + " for reset");
+        mLog.v("Saving %s=%s for reset", name, oldValue);
         mPropsToBeReset.put(name, oldValue);
     }
 
     private void setOnly(String name, String value) {
-        String prop = getPropertyName(name);
-        Log.v(TAG, "set(" + prop + ", " + value + ")");
-
-        if (!TextUtils.isEmpty(value)) {
-            ShellUtils.runShellCommand("setprop %s %s", prop, value);
-        } else {
-            // TODO(b/293132368): UIAutomation doesn't support passing a "" or '' - it will quote
-            // them, which would cause the property value to be "" or '', not the empty String.
-            // Another approach would be calling SystemProperties.set(), but that method is hidden
-            // (b/294414609)
-            Log.w(
-                    TAG,
-                    "NOT resetting property "
-                            + name
-                            + " to empty String as it's not supported by"
-                            + " runShellCommand(), but setting it as null");
-            ShellUtils.runShellCommand("setprop %s null", prop);
-        }
-    }
-
-    private String getPropertyName(String name) {
-        return mPrefix + name;
+        mInterface.set(name, value);
     }
 
     private static void addProperties(StringBuilder builder, String properties, String prefix) {
@@ -124,5 +103,18 @@ public final class SystemPropertiesHelper {
         if (!foundAtLeastOne) {
             builder.append("(no properties with prefix ").append(prefix).append(')');
         }
+    }
+
+    /** Low-level interface for {@link android.os.SystemProperties}. */
+    interface Interface {
+
+        /** Gets the value of a property. */
+        String get(String name);
+
+        /** Sets the value of a property. */
+        void set(String name, String value);
+
+        /** Lists all properties (names and values). */
+        String dumpSystemProperties();
     }
 }

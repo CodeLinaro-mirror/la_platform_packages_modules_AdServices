@@ -34,7 +34,7 @@ import com.android.adservices.common.AdServicesDeviceSupportedRule;
 import com.android.adservices.common.AdServicesFlagsSetterRule;
 import com.android.adservices.common.AdservicesTestHelper;
 import com.android.adservices.common.OutcomeReceiverForTests;
-import com.android.adservices.common.RequiresDeviceNotSupported;
+import com.android.adservices.common.RequiresLowRamDevice;
 import com.android.adservices.common.RequiresSdkLevelAtLeastS;
 import com.android.adservices.common.SdkLevelSupportRule;
 import com.android.compatibility.common.util.ShellUtils;
@@ -104,7 +104,7 @@ public class TopicsManagerTest {
                     + " apex.";
 
     @Rule(order = 0)
-    public final SdkLevelSupportRule sdkLevelSupportRule = SdkLevelSupportRule.isAtLeastR();
+    public final SdkLevelSupportRule sdkLevel = SdkLevelSupportRule.forAnyLevel();
 
     // Skip the test if it runs on unsupported platforms.
     @Rule(order = 1)
@@ -151,12 +151,29 @@ public class TopicsManagerTest {
                         .build();
 
         // As the kill switch for Topics API is enabled, we should expect failure here.
-        assertThat(
+        Exception e =
                 assertThrows(
-                        ExecutionException.class,
-                        () -> advertisingTopicsClient.getTopics().get())
-                        .getMessage())
-                .isEqualTo("java.lang.IllegalStateException: Service is not available.");
+                        ExecutionException.class, () -> advertisingTopicsClient.getTopics().get());
+        assertThat(e).hasCauseThat().isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    public void testTopicsManager_disableDirectAppCalls_testEmptySdkNameRequests()
+            throws Exception {
+        flags.setTopicsDisableDirectAppCalls(true);
+
+        AdvertisingTopicsClient advertisingTopicsClient =
+                new AdvertisingTopicsClient.Builder()
+                        .setContext(sContext)
+                        .setSdkName("")
+                        .setExecutor(CALLBACK_EXECUTOR)
+                        .setUseGetMethodToCreateManagerInstance(false)
+                        .build();
+
+        Exception e =
+                assertThrows(
+                        ExecutionException.class, () -> advertisingTopicsClient.getTopics().get());
+        assertThat(e).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -430,9 +447,9 @@ public class TopicsManagerTest {
     }
 
     @Test
-    @RequiresDeviceNotSupported
+    @RequiresLowRamDevice
     @RequiresSdkLevelAtLeastS(reason = "OutcomeReceiver is not available on R")
-    public void testGetTopics_whenDeviceNotSupported() throws Exception {
+    public void testGetTopics_lowRamDevice() throws Exception {
         TopicsManager manager = TopicsManager.get(sContext);
         assertWithMessage("manager").that(manager).isNotNull();
         OutcomeReceiverForTests<GetTopicsResponse> receiver = new OutcomeReceiverForTests<>();

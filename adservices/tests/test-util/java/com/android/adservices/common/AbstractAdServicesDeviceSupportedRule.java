@@ -41,9 +41,9 @@ import java.util.Objects;
  * supports {@code AdServices} - if the device doesn't support it, the test will be skipped (with an
  * {@link AssumptionViolatedException}).
  *
- * <p>This rule can also be used in the opposite case, i.e., to only run a test when the device
- * doesn't support {@code AdServices} (and skip it when it does), in which case the test must be
- * annotated with {@link RequiresDeviceNotSupported}.
+ * <p>This rule can also be used to run tests only on devices that have {@link
+ * android.content.pm.PackageManager#FEATURE_RAM_LOW low memory}, by annotating them with {@link
+ * RequiresLowRamDevice}.
  *
  * <p>When used with another similar rules, you should organize them using the order of feature
  * dependency. For example, if the test also requires a given SDK level, you should check use that
@@ -52,7 +52,7 @@ import java.util.Objects;
  *
  * <pre class="prettyprint">
  * &#064;Rule(order = 0)
- *   @Rule public final SdkLevelSupportRule sdkLevelRule = SdkLevelSupportRule.isAtLeastS();
+ * public final SdkLevelSupportRule sdkLevelRule = SdkLevelSupportRule.forAtLeastS();
  *
  * &#064;Rule(order = 1)
  * public final AdServicesDeviceSupportedRule adServicesDeviceSupportedRule =
@@ -65,12 +65,15 @@ public abstract class AbstractAdServicesDeviceSupportedRule implements TestRule 
 
     /** Default constructor. */
     public AbstractAdServicesDeviceSupportedRule(RealLogger logger) {
-        mLog = new Logger(Objects.requireNonNull(logger));
+        mLog = new Logger(Objects.requireNonNull(logger), "AdServicesDeviceSupportedRule");
         mLog.d("Constructor: logger=%s", logger);
     }
 
     /** Checks whether {@code AdServices} is supported by the device. */
     public abstract boolean isAdServicesSupportedOnDevice() throws Exception;
+
+    /** Checks whether the device has low ram. */
+    public abstract boolean isLowRamDevice() throws Exception;
 
     @Override
     public Statement apply(Statement base, Description description) {
@@ -79,30 +82,25 @@ public abstract class AbstractAdServicesDeviceSupportedRule implements TestRule 
             public void evaluate() throws Throwable {
                 String testName = description.getDisplayName();
                 boolean isDeviceSupported = isAdServicesSupportedOnDevice();
-                RequiresDeviceSupported requiresSupported =
-                        description.getAnnotation(RequiresDeviceSupported.class);
-                RequiresDeviceNotSupported requiresNotSupported =
-                        description.getAnnotation(RequiresDeviceNotSupported.class);
+                boolean isLowRamDevice = isLowRamDevice();
+                RequiresLowRamDevice requiresLowRamDevice =
+                        description.getAnnotation(RequiresLowRamDevice.class);
                 mLog.d(
-                        "apply(): testName=%s, isDeviceSupported=%b, requiresSupported=%s,"
-                                + " requiresNotSupported=%s",
-                        testName, isDeviceSupported, requiresSupported, requiresNotSupported);
+                        "apply(): testName=%s, isDeviceSupported=%b, isLowRamDevice=%b,"
+                                + " requiresLowRamDevice=%s",
+                        testName, isDeviceSupported, isLowRamDevice, requiresLowRamDevice);
 
-                if (requiresSupported != null && requiresNotSupported != null) {
-                    throw new IllegalArgumentException(
-                            "Test annotated with both @RequiresDeviceSupported and"
-                                    + " @RequiresDeviceNotSupported");
+                if (!isDeviceSupported && requiresLowRamDevice == null) {
+                    // Low-ram devices is a sub-set of unsupported, hence we cannot skip it right
+                    // away as the test might be annotated with @RequiresLowRamDevice (which is
+                    // checked below)
+                    throw new AssumptionViolatedException("Device doesn't support Adservices");
                 }
-                if (!isDeviceSupported && requiresSupported != null) {
+                if (!isLowRamDevice && requiresLowRamDevice != null) {
                     throw new AssumptionViolatedException(
-                            "Test annotated with @RequiresDeviceSupported and device doesn't"
-                                    + " support it");
+                            "Test annotated with @RequiresLowRamDevice and device is not");
                 }
-                if (isDeviceSupported && requiresNotSupported != null) {
-                    throw new AssumptionViolatedException(
-                            "Test annotated with @RequiresDeviceNotSupported and device doesn't"
-                                    + " support it");
-                }
+
                 base.evaluate();
             }
         };

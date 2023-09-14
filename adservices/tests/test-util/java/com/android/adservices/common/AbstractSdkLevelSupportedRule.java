@@ -37,11 +37,13 @@ import java.util.Objects;
  */
 abstract class AbstractSdkLevelSupportedRule implements TestRule {
 
+    private static final String TAG = "SdkLevelSupportedRule";
+
     private final AndroidSdkLevel mDefaultMinLevel;
     protected final Logger mLog;
 
     AbstractSdkLevelSupportedRule(RealLogger logger, AndroidSdkLevel defaultMinLevel) {
-        mLog = new Logger(Objects.requireNonNull(logger));
+        mLog = new Logger(Objects.requireNonNull(logger), TAG);
         mDefaultMinLevel = Objects.requireNonNull(defaultMinLevel);
         mLog.d("Constructor: logger=%s, defaultMinLevel=%s", logger, defaultMinLevel);
     }
@@ -64,22 +66,22 @@ abstract class AbstractSdkLevelSupportedRule implements TestRule {
                     case ANY:
                         break;
                     case R:
-                        skip = !isDeviceAtLeastR();
+                        skip = !isAtLeastR();
                         break;
                     case S:
-                        skip = !isDeviceAtLeastS();
+                        skip = !isAtLeastS();
                         break;
                     case S_V2:
-                        skip = !isDeviceAtLeastS_V2();
+                        skip = !isAtLeastSv2();
                         break;
                     case T:
-                        skip = !isDeviceAtLeastT();
+                        skip = !isAtLeastT();
                         break;
                     case U:
-                        skip = !isDeviceAtLeastU();
+                        skip = !isAtLeastU();
                         break;
                     case V:
-                        skip = !isDeviceAtLeastV();
+                        skip = !isAtLeastV();
                         break;
                     default:
                         // Shouldn't happen
@@ -117,10 +119,10 @@ abstract class AbstractSdkLevelSupportedRule implements TestRule {
         if (atLeastT != null) {
             return new MinimumLevelRequired(AndroidSdkLevel.T, atLeastT.reason());
         }
-        RequiresSdkLevelAtLeastS_V2 atLeastS_V2 =
-                description.getAnnotation(RequiresSdkLevelAtLeastS_V2.class);
-        if (atLeastS_V2 != null) {
-            return new MinimumLevelRequired(AndroidSdkLevel.S_V2, atLeastS_V2.reason());
+        RequiresSdkLevelAtLeastSv2 atLeastSv2 =
+                description.getAnnotation(RequiresSdkLevelAtLeastSv2.class);
+        if (atLeastSv2 != null) {
+            return new MinimumLevelRequired(AndroidSdkLevel.S_V2, atLeastSv2.reason());
         }
         RequiresSdkLevelAtLeastS atLeastS =
                 description.getAnnotation(RequiresSdkLevelAtLeastS.class);
@@ -152,22 +154,22 @@ abstract class AbstractSdkLevelSupportedRule implements TestRule {
     }
 
     /** Gets whether the device supports at least Android {@code R}. */
-    public abstract boolean isDeviceAtLeastR();
+    public abstract boolean isAtLeastR() throws Exception;
 
     /** Gets whether the device supports at least Android {@code S}. */
-    public abstract boolean isDeviceAtLeastS();
+    public abstract boolean isAtLeastS() throws Exception;
 
     /** Gets whether the device supports at least Android {@code S_V2}. */
-    public abstract boolean isDeviceAtLeastS_V2();
+    public abstract boolean isAtLeastSv2() throws Exception;
 
     /** Gets whether the device supports at least Android {@code T}. */
-    public abstract boolean isDeviceAtLeastT();
+    public abstract boolean isAtLeastT() throws Exception;
 
     /** Gets whether the device supports at least Android {@code U}. */
-    public abstract boolean isDeviceAtLeastU();
+    public abstract boolean isAtLeastU() throws Exception;
 
     /** Gets whether the device supports at least Android {@code V}. */
-    public abstract boolean isDeviceAtLeastV();
+    public abstract boolean isAtLeastV() throws Exception;
 
     // This must match Build.VERSION_CODES.CUR_DEVELOPMENT
     private static final int CUR_DEVELOPMENT = 10_000;
@@ -193,6 +195,10 @@ abstract class AbstractSdkLevelSupportedRule implements TestRule {
 
         boolean isAtLeast(AndroidSdkLevel level) {
             return mLevel >= level.mLevel;
+        }
+
+        int getLevel() {
+            return mLevel;
         }
     }
 }

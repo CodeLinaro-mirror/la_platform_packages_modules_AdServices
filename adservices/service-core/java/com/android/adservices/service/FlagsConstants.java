@@ -37,9 +37,9 @@ public final class FlagsConstants {
     public static final int APPSEARCH_ONLY = 3;
     public static final float ADID_REQUEST_PERMITS_PER_SECOND = 25;
 
-    // *********************************************
-    // * Flag names (initially defined by PhFlags) *
-    // *********************************************
+    // **************************************************
+    // * Other constants (initially defined by PhFlags) *
+    // **************************************************
 
     // AdServices Namespace String from DeviceConfig class not available in S Minus
     public static final String NAMESPACE_ADSERVICES = "adservices";
@@ -48,6 +48,10 @@ public final class FlagsConstants {
 
     // Maximum possible percentage for percentage variables
     public static final int MAX_PERCENTAGE = 100;
+
+    // *********************************************
+    // * Flag names (initially defined by PhFlags) *
+    // *********************************************
 
     /*
      * Keys for ALL the flags stored in DeviceConfig.
@@ -73,6 +77,8 @@ public final class FlagsConstants {
     public static final String KEY_NUMBER_OF_EPOCHS_TO_KEEP_IN_HISTORY =
             "topics_number_of_epochs_to_keep_in_history";
     public static final String KEY_GLOBAL_BLOCKED_TOPIC_IDS = "topics_global_blocked_topic_ids";
+    public static final String KEY_TOPICS_DISABLE_DIRECT_APP_CALLS =
+            "topics_disable_direct_app_calls";
 
     // Topics classifier keys
     public static final String KEY_CLASSIFIER_TYPE = "classifier_type";
@@ -91,6 +97,8 @@ public final class FlagsConstants {
     public static final String KEY_COBALT_ADSERVICES_API_KEY_HEX = "cobalt_adservices_api_key_hex";
     public static final String KEY_ADSERVICES_RELEASE_STAGE_FOR_COBALT =
             "adservices_release_stage_for_cobalt";
+    public static final String KEY_COBALT_LOGGING_JOB_PERIOD_MS = "cobalt_logging_job_period_ms";
+    public static final String KEY_COBALT_LOGGING_ENABLED = "cobalt_logging_enabled";
 
     // Measurement keys
     public static final String KEY_MEASUREMENT_EVENT_MAIN_REPORTING_JOB_PERIOD_MS =
@@ -482,10 +490,14 @@ public final class FlagsConstants {
     public static final String KEY_BACKGROUND_JOBS_LOGGING_KILL_SWITCH =
             "background_jobs_logging_kill_switch";
 
+    public static final String KEY_PROTECTED_SIGNALS_SERVICE_KILL_SWITCH =
+            "protected_signals_service_kill_switch";
+
     // App/SDK AllowList/DenyList keys
     public static final String KEY_PPAPI_APP_ALLOW_LIST = "ppapi_app_allow_list";
 
     public static final String KEY_MSMT_API_APP_ALLOW_LIST = "msmt_api_app_allow_list";
+    public static final String KEY_MSMT_API_APP_BLOCK_LIST = "msmt_api_app_block_list";
 
     public static final String KEY_PPAPI_APP_SIGNATURE_ALLOW_LIST =
             "ppapi_app_signature_allow_list";
@@ -540,9 +552,6 @@ public final class FlagsConstants {
 
     public static final String KEY_ENROLLMENT_MDD_RECORD_DELETION_ENABLED =
             "enable_enrollment_mdd_record_deletion";
-
-    // SystemProperty prefix. We can use SystemProperty to override the AdService Configs.
-    public static final String SYSTEM_PROPERTY_PREFIX = "debug.adservices.";
 
     // Consent Notification interval begin ms.
     public static final String KEY_CONSENT_NOTIFICATION_INTERVAL_BEGIN_MS =
@@ -644,6 +653,8 @@ public final class FlagsConstants {
     public static final String KEY_FLEDGE_REGISTER_AD_BEACON_ENABLED =
             "fledge_register_ad_beacon_enabled";
     public static final String KEY_FLEDGE_CPC_BILLING_ENABLED = "fledge_cpc_billing_enabled";
+    public static final String KEY_FLEDGE_DATA_VERSION_HEADER_ENABLED =
+            "fledge_data_version_header_enabled";
 
     public static final String KEY_MEASUREMENT_DEBUG_JOIN_KEY_HASH_LIMIT =
             "measurement_debug_join_key_hash_limit";
@@ -679,6 +690,9 @@ public final class FlagsConstants {
 
     public static final String KEY_MEASUREMENT_MINIMUM_EVENT_REPORT_WINDOW_IN_SECONDS =
             "measurement_minimum_event_report_window_in_seconds";
+
+    public static final String KEY_MEASUREMENT_MINIMUM_AGGREGATABLE_REPORT_WINDOW_IN_SECONDS =
+            "measurement_minimum_aggregatable_report_window_in_seconds";
 
     public static final String KEY_MEASUREMENT_MAX_SOURCES_PER_PUBLISHER =
             "measurement_max_sources_per_publisher";
@@ -722,8 +736,15 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_AGGREGATE_REPORT_DELAY_CONFIG =
             "measurement_aggregate_report_delay_config";
 
+    public static final String KEY_MEASUREMENT_ENABLE_LOOKBACK_WINDOW_FILTER =
+            "measurement_enable_lookback_window_filter";
+
     public static final String KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_ENABLED =
             "fledge_measurement_report_and_register_event_api_enabled";
+
+    public static final String
+            KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_FALLBACK_ENABLED =
+                    "fledge_measurement_report_and_register_event_api_fallback_enabled";
 
     public static final String KEY_ENABLE_LOGGED_TOPIC = "enable_logged_topic";
 

@@ -16,6 +16,9 @@
 
 package com.android.adservices.service;
 
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_FALLBACK_ENABLED;
+
 import static java.lang.Float.parseFloat;
 
 import android.annotation.NonNull;
@@ -25,6 +28,7 @@ import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
 
+import com.android.adservices.AdServicesCommon;
 import com.android.adservices.LogUtil;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.modules.utils.build.SdkLevel;
@@ -180,6 +184,15 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getTopicsDisableDirectAppCalls() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants.KEY_TOPICS_DISABLE_DIRECT_APP_CALLS,
+                /* defaultValue */ TOPICS_DISABLE_DIRECT_APP_CALLS);
+    }
+
+    @Override
     public int getClassifierType() {
         // The priority of applying the flag values: SystemProperties, PH (DeviceConfig), then
         // hard-coded value.
@@ -241,11 +254,13 @@ public final class PhFlags implements Flags {
 
     @Override
     public boolean getTopicsCobaltLoggingEnabled() {
+        // We check the getCobaltLoggingEnabled first.
         // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
-        return DeviceConfig.getBoolean(
-                FlagsConstants.NAMESPACE_ADSERVICES,
-                /* flagName */ FlagsConstants.KEY_TOPICS_COBALT_LOGGING_ENABLED,
-                /* defaultValue */ TOPICS_COBALT_LOGGING_ENABLED);
+        return getCobaltLoggingEnabled()
+                && DeviceConfig.getBoolean(
+                        FlagsConstants.NAMESPACE_ADSERVICES,
+                        /* flagName */ FlagsConstants.KEY_TOPICS_COBALT_LOGGING_ENABLED,
+                        /* defaultValue */ TOPICS_COBALT_LOGGING_ENABLED);
     }
 
     @Override
@@ -264,6 +279,37 @@ public final class PhFlags implements Flags {
                 FlagsConstants.NAMESPACE_ADSERVICES,
                 /* flagName */ FlagsConstants.KEY_ADSERVICES_RELEASE_STAGE_FOR_COBALT,
                 /* defaultValue */ ADSERVICES_RELEASE_STAGE_FOR_COBALT);
+    }
+
+    @Override
+    public long getCobaltLoggingJobPeriodMs() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        long cobaltLoggingJobPeriodMs =
+                DeviceConfig.getLong(
+                        FlagsConstants.NAMESPACE_ADSERVICES,
+                        /* flagName */ FlagsConstants.KEY_COBALT_LOGGING_JOB_PERIOD_MS,
+                        /* defaultValue */ COBALT_LOGGING_JOB_PERIOD_MS);
+        if (cobaltLoggingJobPeriodMs < 0) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "cobaltLoggingJobPeriodMs=%d. cobaltLoggingJobPeriodMs should >= 0",
+                            cobaltLoggingJobPeriodMs));
+        }
+        return cobaltLoggingJobPeriodMs;
+    }
+
+    @Override
+    public boolean getCobaltLoggingEnabled() {
+        // We check the Global Kill switch first. As a result, it overrides all other kill switches.
+        // The priority of applying the flag values: SystemProperties, PH (DeviceConfig), then
+        // hard-coded value.
+        return !getGlobalKillSwitch()
+                && SystemProperties.getBoolean(
+                        getSystemPropertyName(FlagsConstants.KEY_COBALT_LOGGING_ENABLED),
+                        /* defaultValue */ DeviceConfig.getBoolean(
+                                FlagsConstants.NAMESPACE_ADSERVICES,
+                                /* flagName */ FlagsConstants.KEY_COBALT_LOGGING_ENABLED,
+                                /* defaultValue */ COBALT_LOGGING_ENABLED));
     }
 
     @Override
@@ -1599,6 +1645,22 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getProtectedSignalsServiceKillSwitch() {
+        // We check the Global Kill switch first. As a result, it overrides all other kill switches.
+        // The priority of applying the flag values: SystemProperties, PH (DeviceConfig), then
+        // hard-coded value.
+        return getGlobalKillSwitch()
+                || SystemProperties.getBoolean(
+                        getSystemPropertyName(
+                                FlagsConstants.KEY_PROTECTED_SIGNALS_SERVICE_KILL_SWITCH),
+                        /* defaultValue */ DeviceConfig.getBoolean(
+                                FlagsConstants.NAMESPACE_ADSERVICES,
+                                /* flagName */ FlagsConstants
+                                        .KEY_PROTECTED_SIGNALS_SERVICE_KILL_SWITCH,
+                                /* defaultValue */ PROTECTED_SIGNALS_SERVICE_KILL_SWITCH));
+    }
+
+    @Override
     public boolean getFledgeAuctionServerKillSwitch() {
         // We check the Global Kill switch first. As a result, it overrides all other kill switches.
         // The priority of applying the flag values: SystemProperties, PH (DeviceConfig), then
@@ -1628,6 +1690,15 @@ public final class PhFlags implements Flags {
                 FlagsConstants.NAMESPACE_ADSERVICES,
                 /* flagName */ FlagsConstants.KEY_MSMT_API_APP_ALLOW_LIST,
                 /* defaultValue */ MSMT_API_APP_ALLOW_LIST);
+    }
+
+    @Override
+    public String getMsmtApiAppBlockList() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getString(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants.KEY_MSMT_API_APP_BLOCK_LIST,
+                /* defaultValue */ MSMT_API_APP_BLOCK_LIST);
     }
 
     // AdServices APK SHA certs.
@@ -2215,6 +2286,14 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getFledgeDataVersionHeaderEnabled() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants.KEY_FLEDGE_DATA_VERSION_HEADER_ENABLED,
+                /* defaultValue */ FLEDGE_DATA_VERSION_HEADER_ENABLED);
+    }
+
+    @Override
     public boolean getEnforceForegroundStatusForMeasurementDeleteRegistrations() {
         return DeviceConfig.getBoolean(
                 FlagsConstants.NAMESPACE_ADSERVICES,
@@ -2381,7 +2460,7 @@ public final class PhFlags implements Flags {
 
     @VisibleForTesting
     static String getSystemPropertyName(String key) {
-        return FlagsConstants.SYSTEM_PROPERTY_PREFIX + key;
+        return AdServicesCommon.SYSTEM_PROPERTY_FOR_DEBUGGING_PREFIX + key;
     }
 
     @Override
@@ -2558,6 +2637,15 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public long getMeasurementMinimumAggregatableReportWindowInSeconds() {
+        return DeviceConfig.getLong(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants
+                        .KEY_MEASUREMENT_MINIMUM_AGGREGATABLE_REPORT_WINDOW_IN_SECONDS,
+                /* defaultValue */ MEASUREMENT_MINIMUM_AGGREGATABLE_REPORT_WINDOW_IN_SECONDS);
+    }
+
+    @Override
     public int getMeasurementMaxSourcesPerPublisher() {
         // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
         return DeviceConfig.getInt(
@@ -2690,6 +2778,15 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getMeasurementEnableLookbackWindowFilter() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants.KEY_MEASUREMENT_ENABLE_LOOKBACK_WINDOW_FILTER,
+                /* defaultValue */ MEASUREMENT_ENABLE_LOOKBACK_WINDOW_FILTER);
+    }
+
+    @Override
     public boolean isEnrollmentBlocklisted(String enrollmentId) {
         return getEnrollmentBlocklist().contains(enrollmentId);
     }
@@ -2714,9 +2811,18 @@ public final class PhFlags implements Flags {
     public boolean getFledgeMeasurementReportAndRegisterEventApiEnabled() {
         return DeviceConfig.getBoolean(
                 FlagsConstants.NAMESPACE_ADSERVICES,
-                /* flagName */ FlagsConstants
-                        .KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_ENABLED,
+                /* flagName */ KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_ENABLED,
                 /* defaultValue */ FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_ENABLED);
+    }
+
+    @Override
+    public boolean getFledgeMeasurementReportAndRegisterEventApiFallbackEnabled() {
+        String flagName = KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_FALLBACK_ENABLED;
+        boolean defaultValue = FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_FALLBACK_ENABLED;
+
+        return getFledgeMeasurementReportAndRegisterEventApiEnabled()
+                && DeviceConfig.getBoolean(
+                        FlagsConstants.NAMESPACE_ADSERVICES, flagName, defaultValue);
     }
 
     @Override
@@ -2841,6 +2947,11 @@ public final class PhFlags implements Flags {
                         + FlagsConstants.KEY_MSMT_API_APP_ALLOW_LIST
                         + " = "
                         + getMsmtApiAppAllowList());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_MSMT_API_APP_BLOCK_LIST
+                        + " = "
+                        + getMsmtApiAppBlockList());
 
         writer.println("==== AdServices PH Flags Dump MDD related flags: ====");
         writer.println(
@@ -2909,6 +3020,11 @@ public final class PhFlags implements Flags {
                         + FlagsConstants.KEY_GLOBAL_BLOCKED_TOPIC_IDS
                         + " = "
                         + getGlobalBlockedTopicIds());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_TOPICS_DISABLE_DIRECT_APP_CALLS
+                        + " = "
+                        + getTopicsDisableDirectAppCalls());
 
         writer.println("==== AdServices PH Flags Dump Topics Classifier related flags ====");
         writer.println(
@@ -3141,6 +3257,12 @@ public final class PhFlags implements Flags {
                         + FlagsConstants.KEY_MEASUREMENT_MINIMUM_EVENT_REPORT_WINDOW_IN_SECONDS
                         + " = "
                         + getMeasurementMinimumEventReportWindowInSeconds());
+        writer.println(
+                "\t"
+                        + FlagsConstants
+                                .KEY_MEASUREMENT_MINIMUM_AGGREGATABLE_REPORT_WINDOW_IN_SECONDS
+                        + " = "
+                        + getMeasurementMinimumAggregatableReportWindowInSeconds());
         writer.println(
                 "\t"
                         + FlagsConstants.KEY_WEB_CONTEXT_CLIENT_ALLOW_LIST
@@ -3746,6 +3868,11 @@ public final class PhFlags implements Flags {
                         + FlagsConstants.KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH
                         + " = "
                         + getFledgeEventLevelDebugReportingMaxItemsPerBatch());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_PROTECTED_SIGNALS_SERVICE_KILL_SWITCH
+                        + " = "
+                        + getProtectedSignalsServiceKillSwitch());
         writer.println("==== AdServices PH Flags Throttling Related Flags ====");
         writer.println(
                 "\t"
@@ -3818,6 +3945,11 @@ public final class PhFlags implements Flags {
                         + FlagsConstants.KEY_FLEDGE_CPC_BILLING_ENABLED
                         + " = "
                         + getFledgeCpcBillingEnabled());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_FLEDGE_DATA_VERSION_HEADER_ENABLED
+                        + " = "
+                        + getFledgeDataVersionHeaderEnabled());
         writer.println(
                 "\t"
                         + FlagsConstants.KEY_TOPICS_COBALT_LOGGING_ENABLED
@@ -3893,10 +4025,20 @@ public final class PhFlags implements Flags {
                         + getMeasurementMaxAggregateKeysPerTriggerRegistration());
         writer.println(
                 "\t"
+                        + FlagsConstants.KEY_MEASUREMENT_ENABLE_LOOKBACK_WINDOW_FILTER
+                        + " = "
+                        + getMeasurementEnableLookbackWindowFilter());
+        writer.println(
+                "\t"
                         + FlagsConstants
                                 .KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_ENABLED
                         + " = "
                         + getFledgeMeasurementReportAndRegisterEventApiEnabled());
+        writer.println(
+                "\t"
+                        + KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_FALLBACK_ENABLED
+                        + " = "
+                        + getFledgeMeasurementReportAndRegisterEventApiFallbackEnabled());
     }
 
     @VisibleForTesting
