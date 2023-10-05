@@ -56,7 +56,6 @@ public class StubSdkSandboxManagerService extends ISdkSandboxManager.Stub {
             IBinder clientApplicationThreadBinder,
             String sdkName,
             SandboxLatencyInfo sandboxLatencyInfo,
-            long timeAppCalledSystemServer,
             Bundle params,
             ILoadSdkCallback callback) {}
 
@@ -72,7 +71,7 @@ public class StubSdkSandboxManagerService extends ISdkSandboxManager.Stub {
             int displayId,
             int width,
             int height,
-            long timeAppCalledSystemServer,
+            SandboxLatencyInfo sandboxLatencyInfo,
             Bundle params,
             IRequestSurfacePackageCallback callback) {}
 
@@ -84,7 +83,7 @@ public class StubSdkSandboxManagerService extends ISdkSandboxManager.Stub {
 
     @Override
     public List<SandboxedSdk> getSandboxedSdks(
-            String callingPackageName, long timeAppCalledSystemServer) {
+            String callingPackageName, SandboxLatencyInfo sandboxLatencyInfo) {
         return Collections.emptyList();
     }
 
@@ -112,9 +111,6 @@ public class StubSdkSandboxManagerService extends ISdkSandboxManager.Stub {
 
     @Override
     public void logLatencies(SandboxLatencyInfo sandboxLatencyInfo) {}
-
-    @Override
-    public void logLatencyFromSystemServerToApp(String method, int latency) {}
 
     @Override
     public IBinder getAdServicesManager() {

@@ -58,6 +58,7 @@ import com.android.adservices.service.stats.AdServicesLoggerImpl;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 /** Implementation of the Protected Signals service. */
@@ -238,20 +239,24 @@ public class ProtectedSignalsServiceImpl extends IProtectedSignalsService.Stub {
                             .orchestrateFetch(
                                     input.getFetchUri(), buyer, input.getCallerPackageName())
                             .get();
-                    // TODO(b/294900127) Schedule background job for periodically running encoding
-                    // logic
-                    // PeriodicEncodingJobService.scheduleIfNeeded(mContext, mFlags, false);
+                    PeriodicEncodingJobService.scheduleIfNeeded(mContext, mFlags, false);
                     resultCode = AdServicesStatusUtils.STATUS_SUCCESS;
                 } else {
                     sLogger.v("Consent revoked");
                     resultCode = AdServicesStatusUtils.STATUS_USER_CONSENT_REVOKED;
                 }
+            } catch (ExecutionException exception) {
+                sLogger.d(
+                        exception,
+                        "Error encountered in fetchSignalUpdates, unpacking from ExecutionException"
+                                + " and notifying caller");
+                resultCode = notifyFailure(callback, exception.getCause());
+                return;
             } catch (Exception exception) {
                 sLogger.d(exception, "Error encountered in fetchSignalUpdates, notifying caller");
                 resultCode = notifyFailure(callback, exception);
                 return;
             }
-
             callback.onSuccess();
         } catch (Exception exception) {
             sLogger.e(exception, "Unable to send result to the callback");
@@ -276,6 +281,7 @@ public class ProtectedSignalsServiceImpl extends IProtectedSignalsService.Stub {
 
     private int notifyFailure(FetchSignalUpdatesCallback callback, Throwable t)
             throws RemoteException {
+        sLogger.d(t, "Notifying caller about exception");
         int resultCode;
 
         boolean isFilterException = t instanceof FilterException;

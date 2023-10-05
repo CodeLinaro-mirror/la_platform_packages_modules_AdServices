@@ -18,6 +18,22 @@ package com.android.adservices.service;
 
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_FALLBACK_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_DEBUG_REPORTING_FALLBACK_JOB_PERSISTED;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_DEBUG_REPORTING_FALLBACK_JOB_REQUIRED_NETWORK_TYPE;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_DEBUG_REPORTING_JOB_REQUIRED_NETWORK_TYPE;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_DELETE_EXPIRED_JOB_PERIOD_MS;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_DELETE_EXPIRED_JOB_PERSISTED;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_DELETE_EXPIRED_JOB_REQUIRES_DEVICE_IDLE;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_DELETE_UNINSTALLED_JOB_PERIOD_MS;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_DELETE_UNINSTALLED_JOB_PERSISTED;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_PERSISTED;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_REQUIRED_NETWORK_TYPE;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_EVENT_REPORTING_JOB_PERSISTED;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_EVENT_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_EVENT_REPORTING_JOB_REQUIRED_NETWORK_TYPE;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_VERBOSE_DEBUG_REPORTING_FALLBACK_JOB_PERSISTED;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_VERBOSE_DEBUG_REPORTING_JOB_REQUIRED_NETWORK_TYPE;
 
 import static java.lang.Float.parseFloat;
 
@@ -47,20 +63,8 @@ import java.util.stream.Collectors;
 /** Flags Implementation that delegates to DeviceConfig. */
 // TODO(b/228037065): Add validation logics for Feature flags read from PH.
 public final class PhFlags implements Flags {
-    // TODO b/298278031 Migrate Keys/Namespace to FlagConstants.
-    static final String KEY_MEASUREMENT_REPORT_RETRY_LIMIT = "measurement_report_retry_limit";
-    static final String KEY_MEASUREMENT_REPORT_RETRY_LIMIT_ENABLED =
-            "measurement_report_retry_limit_enabled";
 
     private static final PhFlags sSingleton = new PhFlags();
-
-    // TODO(b/298090610): Move this flag to FlagsConstants after M10 is fully rolled out.
-    public static final String KEY_MAINLINE_TRAIN_VERSION = "mainline_train_version";
-    // TODO(b/298090610): Remove NAMESPACE_ADSERVICES after M10 is fully rolled out.
-    static final String NAMESPACE_ADSERVICES = "adservices";
-    // TODO(b/297089223): Move this flag to FlagsConstants after M10 is fully rolled out.
-    public static final String KEY_MEASUREMENT_APP_PACKAGE_NAME_LOGGING_ALLOWLIST =
-            "measurement_app_package_name_logging_allowlist";
 
     /** Returns the singleton instance of the PhFlags. */
     @NonNull
@@ -470,8 +474,8 @@ public final class PhFlags implements Flags {
     public boolean getMeasurementReportingRetryLimitEnabled() {
         // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
         return DeviceConfig.getBoolean(
-                NAMESPACE_ADSERVICES,
-                /* flagName */ KEY_MEASUREMENT_REPORT_RETRY_LIMIT_ENABLED,
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants.KEY_MEASUREMENT_REPORT_RETRY_LIMIT_ENABLED,
                 /* defaultValue */ MEASUREMENT_REPORT_RETRY_LIMIT_ENABLED);
     }
 
@@ -479,8 +483,8 @@ public final class PhFlags implements Flags {
     public int getMeasurementReportingRetryLimit() {
         // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
         return DeviceConfig.getInt(
-                NAMESPACE_ADSERVICES,
-                /* flagName */ KEY_MEASUREMENT_REPORT_RETRY_LIMIT,
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants.KEY_MEASUREMENT_REPORT_RETRY_LIMIT,
                 /* defaultValue */ MEASUREMENT_REPORT_RETRY_LIMIT);
     }
 
@@ -668,6 +672,25 @@ public final class PhFlags implements Flags {
                 /* flagName */ FlagsConstants
                         .KEY_MEASUREMENT_MAX_DISTINCT_DESTINATIONS_IN_ACTIVE_SOURCE,
                 /* defaultValue */ MEASUREMENT_MAX_DISTINCT_DESTINATIONS_IN_ACTIVE_SOURCE);
+    }
+
+    @Override
+    public int getMeasurementMaxReportingOriginsPerSourceReportingSitePerWindow() {
+        return DeviceConfig.getInt(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants
+                        .KEY_MEASUREMENT_MAX_REPORTING_ORIGINS_PER_SOURCE_REPORTING_SITE_PER_WINDOW,
+                /* defaultValue */
+                        MEASUREMENT_MAX_REPORTING_ORIGINS_PER_SOURCE_REPORTING_SITE_PER_WINDOW);
+    }
+
+    @Override
+    public int getMeasurementMaxDistinctRepOrigPerPublXDestInSource() {
+        return DeviceConfig.getInt(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants
+                        .KEY_MEASUREMENT_MAX_DISTINCT_REPORTING_ORIGINS_IN_SOURCE,
+                MEASUREMENT_MAX_DISTINCT_REP_ORIG_PER_PUBLISHER_X_DEST_IN_SOURCE);
     }
 
     @Override
@@ -963,6 +986,15 @@ public final class PhFlags implements Flags {
                 FlagsConstants.NAMESPACE_ADSERVICES,
                 /* flagName */ FlagsConstants.KEY_PROTECTED_SIGNALS_PERIODIC_ENCODING_JOB_FLEX_MS,
                 /* defaultValue */ PROTECTED_SIGNALS_PERIODIC_ENCODING_JOB_FLEX_MS);
+    }
+
+    @Override
+    public int getProtectedSignalsEncodedPayloadMaxSizeBytes() {
+        // The priority of applying the flag values: PH (DeviceConfig) and then hard-coded value.
+        return DeviceConfig.getInt(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants.KEY_PROTECTED_SIGNALS_ENCODED_PAYLOAD_MAX_SIZE_BYTES,
+                /* defaultValue */ PROTECTED_SIGNALS_ENCODED_PAYLOAD_MAX_SIZE_BYTES);
     }
 
     @Override
@@ -1343,6 +1375,25 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getMeasurementApiRegisterSourcesKillSwitch() {
+        // We check the Global Killswitch first then Measurement Killswitch.
+        // As a result, it overrides all other killswitches.
+        // The priority of applying the flag values: SystemProperties, PH (DeviceConfig), then
+        // hard-coded value.
+        final boolean defaultValue = MEASUREMENT_API_REGISTER_SOURCES_KILL_SWITCH;
+        return getGlobalKillSwitch()
+                || getMeasurementKillSwitch()
+                || SystemProperties.getBoolean(
+                        getSystemPropertyName(
+                                FlagsConstants.KEY_MEASUREMENT_API_REGISTER_SOURCES_KILL_SWITCH),
+                        /* defaultValue */ DeviceConfig.getBoolean(
+                                FlagsConstants.NAMESPACE_ADSERVICES,
+                                /* flagName */ FlagsConstants
+                                        .KEY_MEASUREMENT_API_REGISTER_SOURCES_KILL_SWITCH,
+                                defaultValue));
+    }
+
+    @Override
     public boolean getMeasurementApiRegisterWebTriggerKillSwitch() {
         // We check the Global Killswitch first then Measurement Killswitch.
         // As a result, it overrides all other killswitches.
@@ -1606,8 +1657,8 @@ public final class PhFlags implements Flags {
     @Override
     public String getMainlineTrainVersion() {
         return DeviceConfig.getString(
-                NAMESPACE_ADSERVICES,
-                /* flagName */ KEY_MAINLINE_TRAIN_VERSION,
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants.KEY_MAINLINE_TRAIN_VERSION,
                 /* defaultValue */ DEFAULT_MAINLINE_TRAIN_VERSION);
     }
 
@@ -2577,6 +2628,15 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getEnforceForegroundStatusForMeasurementRegisterSources() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */
+                FlagsConstants.KEY_MEASUREMENT_ENFORCE_FOREGROUND_STATUS_REGISTER_SOURCES,
+                /* defaultValue */ MEASUREMENT_ENFORCE_FOREGROUND_STATUS_REGISTER_SOURCES);
+    }
+
+    @Override
     public boolean getEnforceEnrollmentOriginMatch() {
         return DeviceConfig.getBoolean(
                 FlagsConstants.NAMESPACE_ADSERVICES,
@@ -2606,6 +2666,14 @@ public final class PhFlags implements Flags {
                 FlagsConstants.NAMESPACE_ADSERVICES,
                 /* flagName */ FlagsConstants.KEY_WEB_CONTEXT_CLIENT_ALLOW_LIST,
                 /* defaultValue */ WEB_CONTEXT_CLIENT_ALLOW_LIST);
+    }
+
+    @Override
+    public boolean getConsentManagerLazyEnableMode() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants.KEY_CONSENT_MANAGER_LAZY_ENABLE_MODE,
+                /* defaultValue */ CONSENT_MANAGER_LAZY_ENABLE_MODE);
     }
 
     @Override
@@ -3300,12 +3368,12 @@ public final class PhFlags implements Flags {
                         + getMeasurementDbSizeLimit());
         writer.println(
                 "\t"
-                        + KEY_MEASUREMENT_REPORT_RETRY_LIMIT
+                        + FlagsConstants.KEY_MEASUREMENT_REPORT_RETRY_LIMIT
                         + " = "
                         + getMeasurementReportingRetryLimit());
         writer.println(
                 "\t"
-                        + KEY_MEASUREMENT_REPORT_RETRY_LIMIT_ENABLED
+                        + FlagsConstants.KEY_MEASUREMENT_REPORT_RETRY_LIMIT_ENABLED
                         + " = "
                         + getMeasurementReportingRetryLimitEnabled());
         writer.println(
@@ -3462,7 +3530,11 @@ public final class PhFlags implements Flags {
                                 .KEY_MEASUREMENT_DEBUG_KEY_AD_ID_MATCHING_ENROLLMENT_BLOCKLIST
                         + " = "
                         + getMeasurementPlatformDebugAdIdMatchingEnrollmentBlocklist());
-        writer.println("\t" + KEY_MAINLINE_TRAIN_VERSION + " = " + getMainlineTrainVersion());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_MAINLINE_TRAIN_VERSION
+                        + " = "
+                        + getMainlineTrainVersion());
         writer.println(
                 "\t"
                         + FlagsConstants.KEY_MEASUREMENT_FLEXIBLE_EVENT_REPORTING_API_ENABLED
@@ -3630,6 +3702,16 @@ public final class PhFlags implements Flags {
                         + " = "
                         + getMeasurementMaxDistinctDestinationsInActiveSource());
         writer.println(
+                "\t" + FlagsConstants
+                        .KEY_MEASUREMENT_MAX_REPORTING_ORIGINS_PER_SOURCE_REPORTING_SITE_PER_WINDOW
+                        + " = "
+                        + getMeasurementMaxReportingOriginsPerSourceReportingSitePerWindow());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_MEASUREMENT_MAX_DISTINCT_REPORTING_ORIGINS_IN_SOURCE
+                        + " = "
+                        + getMeasurementMaxDistinctRepOrigPerPublXDestInSource());
+        writer.println(
                 "\t"
                         + FlagsConstants.KEY_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT
                         + " = "
@@ -3651,12 +3733,17 @@ public final class PhFlags implements Flags {
                         + getMeasurementEnableAraDeduplicationAlignmentV1());
         writer.println(
                 "\t"
+                        + FlagsConstants.KEY_MEASUREMENT_ENABLE_SOURCE_DEACTIVATION_AFTER_FILTERING
+                        + " = "
+                        + getMeasurementEnableSourceDeactivationAfterFiltering());
+        writer.println(
+                "\t"
                         + FlagsConstants.KEY_MEASUREMENT_ENABLE_APP_PACKAGE_NAME_LOGGING
                         + " = "
                         + getMeasurementEnableAppPackageNameLogging());
         writer.println(
                 "\t"
-                        + KEY_MEASUREMENT_APP_PACKAGE_NAME_LOGGING_ALLOWLIST
+                        + FlagsConstants.KEY_MEASUREMENT_APP_PACKAGE_NAME_LOGGING_ALLOWLIST
                         + " = "
                         + getMeasurementAppPackageNameLoggingAllowlist());
         writer.println(
@@ -3919,6 +4006,11 @@ public final class PhFlags implements Flags {
                         + FlagsConstants.KEY_PROTECTED_SIGNALS_PERIODIC_ENCODING_JOB_FLEX_MS
                         + " = "
                         + getProtectedSignalsPeriodicEncodingJobFlexMs());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_PROTECTED_SIGNALS_ENCODED_PAYLOAD_MAX_SIZE_BYTES
+                        + " = "
+                        + getProtectedSignalsEncodedPayloadMaxSizeBytes());
         writer.println(
                 "\t"
                         + FlagsConstants.KEY_FLEDGE_AD_SELECTION_MAX_CONCURRENT_BIDDING_COUNT
@@ -4449,6 +4541,86 @@ public final class PhFlags implements Flags {
                         + FlagsConstants.KEY_IS_U18_SUPERVISED_ACCOUNT_ENABLED
                         + " = "
                         + isU18SupervisedAccountEnabled());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_DELETE_UNINSTALLED_JOB_PERSISTED
+                        + " = "
+                        + getMeasurementDeleteUninstalledJobPersisted());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_DELETE_UNINSTALLED_JOB_PERIOD_MS
+                        + " = "
+                        + getMeasurementDeleteUninstalledJobPeriodMs());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_DELETE_EXPIRED_JOB_PERSISTED
+                        + " = "
+                        + getMeasurementDeleteExpiredJobPersisted());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_DELETE_EXPIRED_JOB_REQUIRES_DEVICE_IDLE
+                        + " = "
+                        + getMeasurementDeleteExpiredJobRequiresDeviceIdle());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_DELETE_EXPIRED_JOB_PERIOD_MS
+                        + " = "
+                        + getMeasurementDeleteExpiredJobPeriodMs());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_EVENT_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW
+                        + " = "
+                        + getMeasurementEventReportingJobRequiredBatteryNotLow());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_EVENT_REPORTING_JOB_REQUIRED_NETWORK_TYPE
+                        + " = "
+                        + getMeasurementEventReportingJobRequiredNetworkType());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_EVENT_REPORTING_JOB_PERSISTED
+                        + " = "
+                        + getMeasurementEventReportingJobPersisted());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW
+                        + " = "
+                        + getMeasurementEventFallbackReportingJobRequiredBatteryNotLow());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_REQUIRED_NETWORK_TYPE
+                        + " = "
+                        + getMeasurementEventFallbackReportingJobRequiredNetworkType());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_PERSISTED
+                        + " = "
+                        + getMeasurementEventFallbackReportingJobPersisted());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_DEBUG_REPORTING_JOB_REQUIRED_NETWORK_TYPE
+                        + " = "
+                        + getMeasurementDebugReportingJobRequiredNetworkType());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_DEBUG_REPORTING_FALLBACK_JOB_REQUIRED_NETWORK_TYPE
+                        + " = "
+                        + getMeasurementDebugReportingFallbackJobRequiredNetworkType());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_DEBUG_REPORTING_FALLBACK_JOB_PERSISTED
+                        + " = "
+                        + getMeasurementDebugReportingFallbackJobPersisted());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_VERBOSE_DEBUG_REPORTING_JOB_REQUIRED_NETWORK_TYPE
+                        + " = "
+                        + getMeasurementVerboseDebugReportingJobRequiredNetworkType());
+        writer.println(
+                "\t"
+                        + KEY_MEASUREMENT_VERBOSE_DEBUG_REPORTING_FALLBACK_JOB_PERSISTED
+                        + " = "
+                        + getMeasurementVerboseDebugReportingFallbackJobPersisted());
     }
 
     @VisibleForTesting
@@ -4702,6 +4874,15 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getMeasurementEnableSourceDeactivationAfterFiltering() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants
+                        .KEY_MEASUREMENT_ENABLE_SOURCE_DEACTIVATION_AFTER_FILTERING,
+                /* defaultValue */ MEASUREMENT_ENABLE_SOURCE_DEACTIVATION_AFTER_FILTERING);
+    }
+
+    @Override
     public boolean getMeasurementEnableReportingJobsThrowUnaccountedException() {
         return DeviceConfig.getBoolean(
                 FlagsConstants.NAMESPACE_ADSERVICES,
@@ -4752,6 +4933,136 @@ public final class PhFlags implements Flags {
                 FlagsConstants.NAMESPACE_ADSERVICES,
                 /* flagName */ FlagsConstants.KEY_MEASUREMENT_THROW_UNKNOWN_EXCEPTION_SAMPLING_RATE,
                 /* defaultValue */ MEASUREMENT_THROW_UNKNOWN_EXCEPTION_SAMPLING_RATE);
+    }
+
+    @Override
+    public boolean getMeasurementDeleteUninstalledJobPersisted() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_DELETE_UNINSTALLED_JOB_PERSISTED,
+                /* defaultValue */ MEASUREMENT_DELETE_UNINSTALLED_JOB_PERSISTED);
+    }
+
+    @Override
+    public long getMeasurementDeleteUninstalledJobPeriodMs() {
+        return DeviceConfig.getLong(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_DELETE_UNINSTALLED_JOB_PERIOD_MS,
+                /* defaultValue */ MEASUREMENT_DELETE_UNINSTALLED_JOB_PERIOD_MS);
+    }
+
+    @Override
+    public boolean getMeasurementDeleteExpiredJobPersisted() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_DELETE_EXPIRED_JOB_PERSISTED,
+                /* defaultValue */ MEASUREMENT_DELETE_EXPIRED_JOB_PERSISTED);
+    }
+
+    @Override
+    public boolean getMeasurementDeleteExpiredJobRequiresDeviceIdle() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_DELETE_EXPIRED_JOB_REQUIRES_DEVICE_IDLE,
+                /* defaultValue */ MEASUREMENT_DELETE_EXPIRED_JOB_REQUIRES_DEVICE_IDLE);
+    }
+
+    @Override
+    public long getMeasurementDeleteExpiredJobPeriodMs() {
+        return DeviceConfig.getLong(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_DELETE_EXPIRED_JOB_PERIOD_MS,
+                /* defaultValue */ MEASUREMENT_DELETE_EXPIRED_JOB_PERIOD_MS);
+    }
+
+    @Override
+    public boolean getMeasurementEventReportingJobRequiredBatteryNotLow() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_EVENT_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW,
+                /* defaultValue */ MEASUREMENT_EVENT_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW);
+    }
+
+    @Override
+    public int getMeasurementEventReportingJobRequiredNetworkType() {
+        return DeviceConfig.getInt(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_EVENT_REPORTING_JOB_REQUIRED_NETWORK_TYPE,
+                /* defaultValue */ MEASUREMENT_EVENT_REPORTING_JOB_REQUIRED_NETWORK_TYPE);
+    }
+
+    @Override
+    public boolean getMeasurementEventReportingJobPersisted() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_EVENT_REPORTING_JOB_PERSISTED,
+                /* defaultValue */ MEASUREMENT_EVENT_REPORTING_JOB_PERSISTED);
+    }
+
+    @Override
+    public boolean getMeasurementEventFallbackReportingJobRequiredBatteryNotLow() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */
+                KEY_MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW,
+                /* defaultValue */
+                MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW);
+    }
+
+    @Override
+    public int getMeasurementEventFallbackReportingJobRequiredNetworkType() {
+        return DeviceConfig.getInt(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_REQUIRED_NETWORK_TYPE,
+                /* defaultValue */ MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_REQUIRED_NETWORK_TYPE);
+    }
+
+    @Override
+    public boolean getMeasurementEventFallbackReportingJobPersisted() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_PERSISTED,
+                /* defaultValue */ MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_PERSISTED);
+    }
+
+    @Override
+    public int getMeasurementDebugReportingJobRequiredNetworkType() {
+        return DeviceConfig.getInt(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_DEBUG_REPORTING_JOB_REQUIRED_NETWORK_TYPE,
+                /* defaultValue */ MEASUREMENT_DEBUG_REPORTING_JOB_REQUIRED_NETWORK_TYPE);
+    }
+
+    @Override
+    public int getMeasurementDebugReportingFallbackJobRequiredNetworkType() {
+        return DeviceConfig.getInt(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_DEBUG_REPORTING_FALLBACK_JOB_REQUIRED_NETWORK_TYPE,
+                /* defaultValue */ MEASUREMENT_DEBUG_REPORTING_FALLBACK_JOB_REQUIRED_NETWORK_TYPE);
+    }
+
+    @Override
+    public boolean getMeasurementDebugReportingFallbackJobPersisted() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_DEBUG_REPORTING_FALLBACK_JOB_PERSISTED,
+                /* defaultValue */ MEASUREMENT_DEBUG_REPORTING_FALLBACK_JOB_PERSISTED);
+    }
+
+    @Override
+    public int getMeasurementVerboseDebugReportingJobRequiredNetworkType() {
+        return DeviceConfig.getInt(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_VERBOSE_DEBUG_REPORTING_JOB_REQUIRED_NETWORK_TYPE,
+                /* defaultValue */ MEASUREMENT_VERBOSE_DEBUG_REPORTING_JOB_REQUIRED_NETWORK_TYPE);
+    }
+
+    @Override
+    public boolean getMeasurementVerboseDebugReportingFallbackJobPersisted() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ KEY_MEASUREMENT_VERBOSE_DEBUG_REPORTING_FALLBACK_JOB_PERSISTED,
+                /* defaultValue */ MEASUREMENT_VERBOSE_DEBUG_REPORTING_FALLBACK_JOB_PERSISTED);
     }
 
     @Override
@@ -4852,7 +5163,9 @@ public final class PhFlags implements Flags {
     @Override
     public String getMeasurementAppPackageNameLoggingAllowlist() {
         return DeviceConfig.getString(
-                NAMESPACE_ADSERVICES, KEY_MEASUREMENT_APP_PACKAGE_NAME_LOGGING_ALLOWLIST, "");
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants.KEY_MEASUREMENT_APP_PACKAGE_NAME_LOGGING_ALLOWLIST,
+                /* defaultValue */ "");
     }
 
     @Override

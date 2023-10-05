@@ -53,6 +53,7 @@ import com.android.adservices.data.measurement.IMeasurementDao;
 import com.android.adservices.data.measurement.ITransaction;
 import com.android.adservices.data.measurement.MeasurementTables;
 import com.android.adservices.data.measurement.SQLDatastoreManager;
+import com.android.adservices.errorlogging.AdServicesErrorLogger;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.enrollment.EnrollmentData;
@@ -168,6 +169,7 @@ public class AsyncRegistrationQueueRunnerTest {
     @Mock HttpsURLConnection mUrlConnection;
     @Mock Flags mFlags;
     @Mock AdServicesLogger mLogger;
+    @Mock AdServicesErrorLogger mErrorLogger;
     @Mock SourceNoiseHandler mSourceNoiseHandler;
 
     private MockitoSession mStaticMockSession;
@@ -177,6 +179,10 @@ public class AsyncRegistrationQueueRunnerTest {
     }
 
     class FakeDatastoreManager extends DatastoreManager {
+
+        FakeDatastoreManager() {
+            super(mErrorLogger);
+        }
 
         @Override
         public ITransaction createNewTransaction() {
@@ -234,6 +240,11 @@ public class AsyncRegistrationQueueRunnerTest {
                 .thenReturn(Flags.MEASUREMENT_MAX_DISTINCT_ENROLLMENTS_IN_ATTRIBUTION);
         when(mFlags.getMeasurementMaxDistinctDestinationsInActiveSource())
                 .thenReturn(Flags.MEASUREMENT_MAX_DISTINCT_DESTINATIONS_IN_ACTIVE_SOURCE);
+        when(mFlags.getMeasurementMaxReportingOriginsPerSourceReportingSitePerWindow())
+                .thenReturn(Flags
+                        .MEASUREMENT_MAX_REPORTING_ORIGINS_PER_SOURCE_REPORTING_SITE_PER_WINDOW);
+        when(mFlags.getMeasurementMaxDistinctRepOrigPerPublXDestInSource())
+                .thenReturn(Flags.MEASUREMENT_MAX_DISTINCT_REP_ORIG_PER_PUBLISHER_X_DEST_IN_SOURCE);
     }
 
     @Test
@@ -1662,6 +1673,7 @@ public class AsyncRegistrationQueueRunnerTest {
                         .setSourceSite(source.getPublisher().toString())
                         .setRegistrant(source.getRegistrant().toString())
                         .setTriggerTime(source.getEventTime())
+                        .setRegistrationOrigin(source.getRegistrationOrigin())
                         .build(),
                 attributionRateLimitArgCaptor.getValue());
     }
@@ -1711,6 +1723,7 @@ public class AsyncRegistrationQueueRunnerTest {
                         .setSourceSite(source.getPublisher().toString())
                         .setRegistrant(source.getRegistrant().toString())
                         .setTriggerTime(source.getEventTime())
+                        .setRegistrationOrigin(source.getRegistrationOrigin())
                         .build(),
                 attributionRateLimitArgCaptor.getValue());
     }
@@ -1765,6 +1778,7 @@ public class AsyncRegistrationQueueRunnerTest {
                         .setSourceSite(source.getPublisher().toString())
                         .setRegistrant(source.getRegistrant().toString())
                         .setTriggerTime(source.getEventTime())
+                        .setRegistrationOrigin(source.getRegistrationOrigin())
                         .build(),
                 attributionRateLimitArgCaptor.getAllValues().get(0));
 
@@ -1777,6 +1791,7 @@ public class AsyncRegistrationQueueRunnerTest {
                         .setSourceSite(source.getPublisher().toString())
                         .setRegistrant(source.getRegistrant().toString())
                         .setTriggerTime(source.getEventTime())
+                        .setRegistrationOrigin(source.getRegistrationOrigin())
                         .build(),
                 attributionRateLimitArgCaptor.getAllValues().get(1));
     }
@@ -1823,6 +1838,7 @@ public class AsyncRegistrationQueueRunnerTest {
                         .setSourceSite(source.getPublisher().toString())
                         .setRegistrant(source.getRegistrant().toString())
                         .setTriggerTime(source.getEventTime())
+                        .setRegistrationOrigin(source.getRegistrationOrigin())
                         .build(),
                 attributionRateLimitArgCaptor.getValue());
     }
@@ -1846,7 +1862,7 @@ public class AsyncRegistrationQueueRunnerTest {
         when(mMeasurementDao.countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
-        when(mMeasurementDao.countDistinctEnrollmentsPerPublisherXDestinationInSource(
+        when(mMeasurementDao.countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
         boolean status =
@@ -1863,7 +1879,7 @@ public class AsyncRegistrationQueueRunnerTest {
                 .countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong());
         verify(mMeasurementDao, times(2))
-                .countDistinctEnrollmentsPerPublisherXDestinationInSource(
+                .countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong());
     }
 
@@ -1887,7 +1903,7 @@ public class AsyncRegistrationQueueRunnerTest {
         when(mMeasurementDao.countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(100));
-        when(mMeasurementDao.countDistinctEnrollmentsPerPublisherXDestinationInSource(
+        when(mMeasurementDao.countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
         boolean status =
@@ -1904,7 +1920,7 @@ public class AsyncRegistrationQueueRunnerTest {
                 .countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong());
         verify(mMeasurementDao, never())
-                .countDistinctEnrollmentsPerPublisherXDestinationInSource(
+                .countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong());
     }
 
@@ -1995,7 +2011,7 @@ public class AsyncRegistrationQueueRunnerTest {
         when(mMeasurementDao.countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
-        when(mMeasurementDao.countDistinctEnrollmentsPerPublisherXDestinationInSource(
+        when(mMeasurementDao.countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(100));
         boolean status =
@@ -2012,7 +2028,7 @@ public class AsyncRegistrationQueueRunnerTest {
                 .countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong());
         verify(mMeasurementDao, times(1))
-                .countDistinctEnrollmentsPerPublisherXDestinationInSource(
+                .countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong());
     }
 
@@ -2036,7 +2052,7 @@ public class AsyncRegistrationQueueRunnerTest {
         when(mMeasurementDao.countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(100));
-        when(mMeasurementDao.countDistinctEnrollmentsPerPublisherXDestinationInSource(
+        when(mMeasurementDao.countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
         boolean status =
@@ -2054,7 +2070,7 @@ public class AsyncRegistrationQueueRunnerTest {
                 .countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong());
         verify(mMeasurementDao, never())
-                .countDistinctEnrollmentsPerPublisherXDestinationInSource(
+                .countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong());
     }
 
@@ -2077,7 +2093,7 @@ public class AsyncRegistrationQueueRunnerTest {
         when(mMeasurementDao.countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
-        when(mMeasurementDao.countDistinctEnrollmentsPerPublisherXDestinationInSource(
+        when(mMeasurementDao.countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(100));
 
@@ -2095,7 +2111,7 @@ public class AsyncRegistrationQueueRunnerTest {
                 .countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong());
         verify(mMeasurementDao, times(1))
-                .countDistinctEnrollmentsPerPublisherXDestinationInSource(
+                .countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong());
     }
 
@@ -2239,7 +2255,9 @@ public class AsyncRegistrationQueueRunnerTest {
                                                 + "\""
                                                 + "}")));
         DatastoreManager datastoreManager =
-                spy(new SQLDatastoreManager(DbTestUtil.getMeasurementDbHelperForTest()));
+                spy(
+                        new SQLDatastoreManager(
+                                DbTestUtil.getMeasurementDbHelperForTest(), mErrorLogger));
         AsyncRegistrationQueueRunner asyncRegistrationQueueRunner =
                 spy(
                         new AsyncRegistrationQueueRunner(
@@ -2342,7 +2360,7 @@ public class AsyncRegistrationQueueRunnerTest {
         when(mMeasurementDao.countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
-        when(mMeasurementDao.countDistinctEnrollmentsPerPublisherXDestinationInSource(
+        when(mMeasurementDao.countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
         boolean status =
@@ -2414,7 +2432,7 @@ public class AsyncRegistrationQueueRunnerTest {
         when(mMeasurementDao.countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
-        when(mMeasurementDao.countDistinctEnrollmentsPerPublisherXDestinationInSource(
+        when(mMeasurementDao.countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
         boolean status =
@@ -2475,7 +2493,7 @@ public class AsyncRegistrationQueueRunnerTest {
         when(mMeasurementDao.countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
-        when(mMeasurementDao.countDistinctEnrollmentsPerPublisherXDestinationInSource(
+        when(mMeasurementDao.countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
         boolean status =
@@ -2535,7 +2553,7 @@ public class AsyncRegistrationQueueRunnerTest {
         when(mMeasurementDao.countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
-        when(mMeasurementDao.countDistinctEnrollmentsPerPublisherXDestinationInSource(
+        when(mMeasurementDao.countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
         boolean status =
@@ -2608,7 +2626,7 @@ public class AsyncRegistrationQueueRunnerTest {
         when(mMeasurementDao.countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
-        when(mMeasurementDao.countDistinctEnrollmentsPerPublisherXDestinationInSource(
+        when(mMeasurementDao.countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
         boolean status =
@@ -2680,7 +2698,7 @@ public class AsyncRegistrationQueueRunnerTest {
         when(mMeasurementDao.countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
-        when(mMeasurementDao.countDistinctEnrollmentsPerPublisherXDestinationInSource(
+        when(mMeasurementDao.countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
         boolean status =
@@ -2747,7 +2765,7 @@ public class AsyncRegistrationQueueRunnerTest {
         when(mMeasurementDao.countDistinctDestinationsPerPublisherXEnrollmentInActiveSource(
                         any(), anyInt(), any(), any(), anyInt(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
-        when(mMeasurementDao.countDistinctEnrollmentsPerPublisherXDestinationInSource(
+        when(mMeasurementDao.countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         any(), anyInt(), any(), any(), anyLong(), anyLong()))
                 .thenReturn(Integer.valueOf(0));
         boolean status =

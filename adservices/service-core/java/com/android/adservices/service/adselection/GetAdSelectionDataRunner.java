@@ -16,6 +16,7 @@
 
 package com.android.adservices.service.adselection;
 
+
 import android.adservices.adselection.GetAdSelectionDataCallback;
 import android.adservices.adselection.GetAdSelectionDataInput;
 import android.adservices.adselection.GetAdSelectionDataResponse;
@@ -33,6 +34,7 @@ import com.android.adservices.LoggerFactory;
 import com.android.adservices.data.adselection.AdSelectionEntryDao;
 import com.android.adservices.data.adselection.datahandlers.AdSelectionInitialization;
 import com.android.adservices.data.customaudience.CustomAudienceDao;
+import com.android.adservices.data.signals.EncodedPayloadDao;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.adselection.encryption.ObliviousHttpEncryptor;
 import com.android.adservices.service.common.AdSelectionServiceFilter;
@@ -74,10 +76,13 @@ public class GetAdSelectionDataRunner {
     static final String GET_AD_SELECTION_DATA_TIMED_OUT =
             "GetAdSelectionData exceeded allowed time limit";
 
+    static final String GET_AD_ID_TIMED_OUT = "Get Ad Id exceeded allowed time limit";
+
     @VisibleForTesting static final int REVOKED_CONSENT_RANDOM_DATA_SIZE = 1024;
     @NonNull private final ObliviousHttpEncryptor mObliviousHttpEncryptor;
     @NonNull private final AdSelectionEntryDao mAdSelectionEntryDao;
     @NonNull private final CustomAudienceDao mCustomAudienceDao;
+    @NonNull private final EncodedPayloadDao mEncodedPayloadDao;
     @NonNull private final AdSelectionServiceFilter mAdSelectionServiceFilter;
     @NonNull private final ListeningExecutorService mBackgroundExecutorService;
     @NonNull private final ListeningExecutorService mLightweightExecutorService;
@@ -89,6 +94,7 @@ public class GetAdSelectionDataRunner {
     @NonNull private final BuyerInputGenerator mBuyerInputGenerator;
     @NonNull private final AuctionServerDataCompressor mDataCompressor;
     @NonNull private final AuctionServerPayloadFormatter mPayloadFormatter;
+    @NonNull private final AdIdFetcher mAdIdFetcher;
     @NonNull private final DevContext mDevContext;
     @NonNull private final Clock mClock;
 
@@ -96,6 +102,7 @@ public class GetAdSelectionDataRunner {
             @NonNull final ObliviousHttpEncryptor obliviousHttpEncryptor,
             @NonNull final AdSelectionEntryDao adSelectionEntryDao,
             @NonNull final CustomAudienceDao customAudienceDao,
+            @NonNull final EncodedPayloadDao encodedPayloadDao,
             @NonNull final AdSelectionServiceFilter adSelectionServiceFilter,
             @NonNull final AdFilterer adFilterer,
             @NonNull final ExecutorService backgroundExecutorService,
@@ -103,10 +110,12 @@ public class GetAdSelectionDataRunner {
             @NonNull final ScheduledThreadPoolExecutor scheduledExecutor,
             @NonNull final Flags flags,
             final int callerUid,
-            @NonNull final DevContext devContext) {
+            @NonNull final DevContext devContext,
+            @NonNull final AdIdFetcher adIdFetcher) {
         Objects.requireNonNull(obliviousHttpEncryptor);
         Objects.requireNonNull(adSelectionEntryDao);
         Objects.requireNonNull(customAudienceDao);
+        Objects.requireNonNull(encodedPayloadDao);
         Objects.requireNonNull(adFilterer);
         Objects.requireNonNull(adSelectionServiceFilter);
         Objects.requireNonNull(backgroundExecutorService);
@@ -114,10 +123,12 @@ public class GetAdSelectionDataRunner {
         Objects.requireNonNull(scheduledExecutor);
         Objects.requireNonNull(flags);
         Objects.requireNonNull(devContext);
+        Objects.requireNonNull(adIdFetcher);
 
         mObliviousHttpEncryptor = obliviousHttpEncryptor;
         mAdSelectionEntryDao = adSelectionEntryDao;
         mCustomAudienceDao = customAudienceDao;
+        mEncodedPayloadDao = encodedPayloadDao;
         mAdSelectionServiceFilter = adSelectionServiceFilter;
         mBackgroundExecutorService = MoreExecutors.listeningDecorator(backgroundExecutorService);
         mLightweightExecutorService = MoreExecutors.listeningDecorator(lightweightExecutorService);
@@ -131,6 +142,7 @@ public class GetAdSelectionDataRunner {
         mBuyerInputGenerator =
                 new BuyerInputGenerator(
                         mCustomAudienceDao,
+                        mEncodedPayloadDao,
                         adFilterer,
                         mLightweightExecutorService,
                         mBackgroundExecutorService,
@@ -145,6 +157,7 @@ public class GetAdSelectionDataRunner {
                 AuctionServerPayloadFormatterFactory.createPayloadFormatter(
                         mFlags.getFledgeAuctionServerPayloadFormatVersion(),
                         mFlags.getFledgeAuctionServerPayloadBucketSizes());
+        mAdIdFetcher = adIdFetcher;
     }
 
     @VisibleForTesting
@@ -152,6 +165,7 @@ public class GetAdSelectionDataRunner {
             @NonNull final ObliviousHttpEncryptor obliviousHttpEncryptor,
             @NonNull final AdSelectionEntryDao adSelectionEntryDao,
             @NonNull final CustomAudienceDao customAudienceDao,
+            @NonNull final EncodedPayloadDao encodedPayloadDao,
             @NonNull final AdSelectionServiceFilter adSelectionServiceFilter,
             @NonNull final AdFilterer adFilterer,
             @NonNull final ExecutorService backgroundExecutorService,
@@ -160,10 +174,12 @@ public class GetAdSelectionDataRunner {
             @NonNull final Flags flags,
             final int callerUid,
             @NonNull final DevContext devContext,
-            @NonNull Clock clock) {
+            @NonNull Clock clock,
+            @NonNull AdIdFetcher adIdFetcher) {
         Objects.requireNonNull(obliviousHttpEncryptor);
         Objects.requireNonNull(adSelectionEntryDao);
         Objects.requireNonNull(customAudienceDao);
+        Objects.requireNonNull(encodedPayloadDao);
         Objects.requireNonNull(adFilterer);
         Objects.requireNonNull(adSelectionServiceFilter);
         Objects.requireNonNull(backgroundExecutorService);
@@ -172,10 +188,12 @@ public class GetAdSelectionDataRunner {
         Objects.requireNonNull(flags);
         Objects.requireNonNull(devContext);
         Objects.requireNonNull(clock);
+        Objects.requireNonNull(adIdFetcher);
 
         mObliviousHttpEncryptor = obliviousHttpEncryptor;
         mAdSelectionEntryDao = adSelectionEntryDao;
         mCustomAudienceDao = customAudienceDao;
+        mEncodedPayloadDao = encodedPayloadDao;
         mAdSelectionServiceFilter = adSelectionServiceFilter;
         mBackgroundExecutorService = MoreExecutors.listeningDecorator(backgroundExecutorService);
         mLightweightExecutorService = MoreExecutors.listeningDecorator(lightweightExecutorService);
@@ -189,6 +207,7 @@ public class GetAdSelectionDataRunner {
         mBuyerInputGenerator =
                 new BuyerInputGenerator(
                         mCustomAudienceDao,
+                        mEncodedPayloadDao,
                         adFilterer,
                         mLightweightExecutorService,
                         mBackgroundExecutorService,
@@ -203,6 +222,7 @@ public class GetAdSelectionDataRunner {
                 AuctionServerPayloadFormatterFactory.createPayloadFormatter(
                         mFlags.getFledgeAuctionServerPayloadFormatVersion(),
                         mFlags.getFledgeAuctionServerPayloadBucketSizes());
+        mAdIdFetcher = adIdFetcher;
     }
 
     /** Orchestrates GetAdSelectionData process. */
@@ -291,9 +311,13 @@ public class GetAdSelectionDataRunner {
         long keyFetchTimeout = mFlags.getFledgeAuctionServerAuctionKeyFetchTimeoutMs();
         return mBuyerInputGenerator
                 .createCompressedBuyerInputs()
-                .transform(
+                .transformAsync(
                         compressedBuyerInputs ->
-                                createPayload(compressedBuyerInputs, packageName, adSelectionId),
+                                createBuyerInputWithIsLimitedAdTrackingEnabled(
+                                        packageName, compressedBuyerInputs),
+                        mLightweightExecutorService)
+                .transform(
+                        input -> createPayload(input, packageName, adSelectionId),
                         mLightweightExecutorService)
                 .transformAsync(
                         formatted -> {
@@ -329,12 +353,15 @@ public class GetAdSelectionDataRunner {
     }
 
     private AuctionServerPayloadFormattedData createPayload(
-            Map<AdTechIdentifier, AuctionServerDataCompressor.CompressedData> compressedBuyerInput,
+            BuyerInputWithIsLimitedAdTrackingEnabled buyerInputWithIsLimitedAdTrackingEnabled,
             String packageName,
             long adSelectionId) {
         ProtectedAudienceInput protectedAudienceInput =
                 composeProtectedAudienceInputBytes(
-                        compressedBuyerInput, packageName, adSelectionId);
+                        buyerInputWithIsLimitedAdTrackingEnabled.mCompressedBuyerInput,
+                        packageName,
+                        adSelectionId,
+                        buyerInputWithIsLimitedAdTrackingEnabled.mIsLimitedAdTrackingEnabled);
         sLogger.v("ProtectedAudienceInput composed");
         return applyPayloadFormatter(protectedAudienceInput);
     }
@@ -364,7 +391,8 @@ public class GetAdSelectionDataRunner {
     ProtectedAudienceInput composeProtectedAudienceInputBytes(
             Map<AdTechIdentifier, AuctionServerDataCompressor.CompressedData> compressedBuyerInputs,
             String packageName,
-            long adSelectionId) {
+            long adSelectionId,
+            boolean isDebugReportingEnabled) {
         sLogger.v("Composing ProtectedAudienceInput with buyer inputs and publisher");
         return ProtectedAudienceInput.newBuilder()
                 .putAllBuyerInput(
@@ -374,7 +402,7 @@ public class GetAdSelectionDataRunner {
                                                 e -> e.getKey().toString(),
                                                 e -> ByteString.copyFrom(e.getValue().getData()))))
                 .setPublisherName(packageName)
-                .setEnableDebugReporting(mFlags.getFledgeAuctionServerEnableDebugReporting())
+                .setEnableDebugReporting(isDebugReportingEnabled)
                 // TODO(b/288287435): Set generation ID as a UUID generated per request which is not
                 //  accessible in plaintext.
                 .setGenerationId(String.valueOf(adSelectionId))
@@ -443,6 +471,44 @@ public class GetAdSelectionDataRunner {
             sLogger.e(e, "Encountered exception during notifying GetAdSelectionDataCallback");
         } finally {
             sLogger.v("Get Ad Selection Data failed");
+        }
+    }
+
+    private ListenableFuture<Boolean> isDebugReportingEnabledForAuctionServer(String packageName) {
+        if (!mFlags.getFledgeAuctionServerEnableDebugReporting()) {
+            return Futures.immediateFuture(false);
+        }
+        return FluentFuture.from(mAdIdFetcher.isLimitedAdTrackingEnabled(packageName, mCallerUid))
+                .transform(isLatEnabled -> !isLatEnabled, mLightweightExecutorService);
+    }
+
+    private FluentFuture<BuyerInputWithIsLimitedAdTrackingEnabled>
+            createBuyerInputWithIsLimitedAdTrackingEnabled(
+                    String packageName,
+                    Map<AdTechIdentifier, AuctionServerDataCompressor.CompressedData>
+                            compressedBuyerInput) {
+        return FluentFuture.from(isDebugReportingEnabledForAuctionServer(packageName))
+                .transform(
+                        isLatEnabled -> {
+                            return new BuyerInputWithIsLimitedAdTrackingEnabled(
+                                    compressedBuyerInput, isLatEnabled);
+                        },
+                        mLightweightExecutorService);
+    }
+
+    static class BuyerInputWithIsLimitedAdTrackingEnabled {
+        @NonNull
+        private final Map<AdTechIdentifier, AuctionServerDataCompressor.CompressedData>
+                mCompressedBuyerInput;
+
+        private final boolean mIsLimitedAdTrackingEnabled;
+
+        BuyerInputWithIsLimitedAdTrackingEnabled(
+                Map<AdTechIdentifier, AuctionServerDataCompressor.CompressedData>
+                        compressedBuyerInput,
+                boolean isLimitedAdTrackingEnabled) {
+            mCompressedBuyerInput = compressedBuyerInput;
+            mIsLimitedAdTrackingEnabled = isLimitedAdTrackingEnabled;
         }
     }
 }

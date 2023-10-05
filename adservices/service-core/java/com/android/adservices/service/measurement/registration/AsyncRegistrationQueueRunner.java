@@ -332,6 +332,7 @@ public class AsyncRegistrationQueueRunner {
                         dao)) {
             return false;
         }
+        Flags flags = FlagsFactory.getFlags();
         int numOfOriginExcludingRegistrationOrigin =
                 dao.countSourcesPerPublisherXEnrollmentExcludingRegOrigin(
                         source.getRegistrationOrigin(),
@@ -340,14 +341,16 @@ public class AsyncRegistrationQueueRunner {
                         source.getEnrollmentId(),
                         source.getEventTime(),
                         PrivacyParams.MIN_REPORTING_ORIGIN_UPDATE_WINDOW);
-        if (numOfOriginExcludingRegistrationOrigin > 0) {
+        if (numOfOriginExcludingRegistrationOrigin
+                >= flags.getMeasurementMaxReportingOriginsPerSourceReportingSitePerWindow()) {
+            debugReportApi.scheduleSourceSuccessDebugReport(source, dao);
             LogUtil.d(
                     "insertSources: Max limit of 1 reporting origin for publisher - %s and"
                             + " enrollment - %s reached.",
                     publisher, source.getEnrollmentId());
             return false;
         }
-        if (!source.hasValidInformationGain(FlagsFactory.getFlags())) {
+        if (!source.hasValidInformationGain(flags)) {
             debugReportApi.scheduleSourceFlexibleEventReportApiDebugReport(source, dao);
             return false;
         }
@@ -388,22 +391,22 @@ public class AsyncRegistrationQueueRunner {
             return false;
         }
 
-        int destinationEnrollmentCount =
-                dao.countDistinctEnrollmentsPerPublisherXDestinationInSource(
+        int distinctReportingOriginCount =
+                dao.countDistinctReportingOriginsPerPublisherXDestinationInSource(
                         publisher,
                         publisherType,
                         destinations,
-                        enrollmentId,
+                        source.getRegistrationOrigin(),
                         windowStartTime,
                         requestTime);
-        if (destinationEnrollmentCount
-                >= PrivacyParams.getMaxDistinctEnrollmentsPerPublisherXDestinationInSource()) {
+        if (distinctReportingOriginCount
+                >= FlagsFactory.getFlags().getMeasurementMaxDistinctRepOrigPerPublXDestInSource()) {
             debugReportApi.scheduleSourceSuccessDebugReport(source, dao);
             LogUtil.d(
                     "AsyncRegistrationQueueRunner: "
                             + (destinationType == EventSurfaceType.APP ? "App" : "Web")
-                            + " enrollment count >= "
-                            + "MaxDistinctEnrollmentsPerPublisherXDestinationInSource");
+                            + " distinct reporting origin count >= "
+                            + "MaxDistinctRepOrigPerPublisherXDestInSource exceeded");
             return false;
         }
         return true;
@@ -606,6 +609,8 @@ public class AsyncRegistrationQueueRunner {
                 .setSourceId(source.getId())
                 // Intentionally kept it as null because it's a fake attribution
                 .setTriggerId(null)
+                // Intentionally using source here since trigger is not available
+                .setRegistrationOrigin(source.getRegistrationOrigin())
                 .build();
     }
 

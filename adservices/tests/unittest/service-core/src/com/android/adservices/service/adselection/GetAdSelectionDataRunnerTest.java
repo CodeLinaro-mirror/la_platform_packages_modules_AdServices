@@ -27,7 +27,9 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -57,6 +59,8 @@ import com.android.adservices.data.adselection.datahandlers.AdSelectionInitializ
 import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.customaudience.CustomAudienceDatabase;
 import com.android.adservices.data.customaudience.DBCustomAudience;
+import com.android.adservices.data.signals.EncodedPayloadDao;
+import com.android.adservices.data.signals.ProtectedSignalsDatabase;
 import com.android.adservices.ohttp.algorithms.UnsupportedHpkeAlgorithmException;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
@@ -73,6 +77,7 @@ import com.android.dx.mockito.inline.extended.ExtendedMockito;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FluentFuture;
+import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.ByteString;
 
 import org.junit.After;
@@ -114,11 +119,14 @@ public class GetAdSelectionDataRunnerTest {
     private ExecutorService mBackgroundExecutorService;
     private ScheduledThreadPoolExecutor mScheduledExecutor;
     private CustomAudienceDao mCustomAudienceDao;
+    private EncodedPayloadDao mEncodedPayloadDao;
     @Spy private AdSelectionEntryDao mAdSelectionEntryDaoSpy;
     @Mock private ObliviousHttpEncryptor mObliviousHttpEncryptorMock;
     @Mock private AdSelectionServiceFilter mAdSelectionServiceFilterMock;
     @Spy private AdFilterer mAdFiltererSpy = new AdFiltererNoOpImpl();
     @Mock private Clock mClockMock;
+
+    @Mock private AdIdFetcher mAdIdFetcher;
     private GetAdSelectionDataRunner mGetAdSelectionDataRunner;
     private MockitoSession mStaticMockSession = null;
 
@@ -135,6 +143,10 @@ public class GetAdSelectionDataRunnerTest {
                         .addTypeConverter(new DBCustomAudience.Converters(true, true))
                         .build()
                         .customAudienceDao();
+        mEncodedPayloadDao =
+                Room.inMemoryDatabaseBuilder(mContext, ProtectedSignalsDatabase.class)
+                        .build()
+                        .getEncodedPayloadDao();
         mAdSelectionEntryDaoSpy =
                 Room.inMemoryDatabaseBuilder(mContext, AdSelectionDatabase.class)
                         .build()
@@ -163,20 +175,9 @@ public class GetAdSelectionDataRunnerTest {
                         Throttler.ApiKey.FLEDGE_API_SELECT_ADS,
                         DevContext.createForDevOptionsDisabled());
         when(mClockMock.instant()).thenReturn(AD_SELECTION_INITIALIZATION_INSTANT);
-        mGetAdSelectionDataRunner =
-                new GetAdSelectionDataRunner(
-                        mObliviousHttpEncryptorMock,
-                        mAdSelectionEntryDaoSpy,
-                        mCustomAudienceDao,
-                        mAdSelectionServiceFilterMock,
-                        mAdFiltererSpy,
-                        mBackgroundExecutorService,
-                        mLightweightExecutorService,
-                        mScheduledExecutor,
-                        mFlags,
-                        CALLER_UID,
-                        DevContext.createForDevOptionsDisabled(),
-                        mClockMock);
+        when(mAdIdFetcher.isLimitedAdTrackingEnabled(anyString(), anyInt()))
+                .thenReturn(Futures.immediateFuture(false));
+        mGetAdSelectionDataRunner = initRunner(mFlags);
     }
 
     @After
@@ -272,7 +273,7 @@ public class GetAdSelectionDataRunnerTest {
 
         ProtectedAudienceInput result =
                 mGetAdSelectionDataRunner.composeProtectedAudienceInputBytes(
-                        buyerInputs, CALLER_PACKAGE_NAME, adSelectionId);
+                        buyerInputs, CALLER_PACKAGE_NAME, adSelectionId, false);
 
         Map<String, ByteString> expectedBuyerInput =
                 ImmutableMap.of(
@@ -286,6 +287,23 @@ public class GetAdSelectionDataRunnerTest {
                 result.getEnableDebugReporting(),
                 mFlags.getFledgeAuctionServerEnableDebugReporting());
         Assert.assertEquals(result.getGenerationId(), String.valueOf(adSelectionId));
+    }
+
+    @Test
+    public void test_composeProtectedAudienceInput_DebugReportingEnabled() {
+        boolean isDebugReportingEnabled = false;
+        long adSelectionId = 234L;
+        Flags flags = new GetAdSelectionDataRunnerTestFlagsDebugReportingEnabled();
+        GetAdSelectionDataRunner getAdSelectionDataRunner = initRunner(flags);
+
+        ProtectedAudienceInput result =
+                getAdSelectionDataRunner.composeProtectedAudienceInputBytes(
+                        createTestBuyerInputs(),
+                        CALLER_PACKAGE_NAME,
+                        adSelectionId,
+                        isDebugReportingEnabled);
+
+        Assert.assertEquals(false, result.getEnableDebugReporting());
     }
 
     @Test
@@ -312,6 +330,7 @@ public class GetAdSelectionDataRunnerTest {
                         mObliviousHttpEncryptorMock,
                         mAdSelectionEntryDaoSpy,
                         mCustomAudienceDao,
+                        mEncodedPayloadDao,
                         mAdSelectionServiceFilterMock,
                         mAdFiltererSpy,
                         mBackgroundExecutorService,
@@ -319,7 +338,8 @@ public class GetAdSelectionDataRunnerTest {
                         mScheduledExecutor,
                         shortTimeoutFlags,
                         CALLER_UID,
-                        DevContext.createForDevOptionsDisabled());
+                        DevContext.createForDevOptionsDisabled(),
+                        mAdIdFetcher);
 
         createAndPersistDBCustomAudiencesWithAdRenderId();
         GetAdSelectionDataInput inputParams =
@@ -334,6 +354,35 @@ public class GetAdSelectionDataRunnerTest {
         Assert.assertFalse(callback.mIsSuccess);
         assertNotNull(callback.mFledgeErrorResponse);
         assertEquals(STATUS_TIMEOUT, callback.mFledgeErrorResponse.getStatusCode());
+    }
+
+    private Map<AdTechIdentifier, AuctionServerDataCompressor.CompressedData>
+            createTestBuyerInputs() {
+        byte[] buyer1data = new byte[] {2, 3};
+        byte[] buyer2data = new byte[] {1};
+        return ImmutableMap.of(
+                BUYER_1,
+                AuctionServerDataCompressor.CompressedData.create(buyer1data),
+                BUYER_2,
+                AuctionServerDataCompressor.CompressedData.create(buyer2data));
+    }
+
+    private GetAdSelectionDataRunner initRunner(Flags flags) {
+        return new GetAdSelectionDataRunner(
+                mObliviousHttpEncryptorMock,
+                mAdSelectionEntryDaoSpy,
+                mCustomAudienceDao,
+                mEncodedPayloadDao,
+                mAdSelectionServiceFilterMock,
+                mAdFiltererSpy,
+                mBackgroundExecutorService,
+                mLightweightExecutorService,
+                mScheduledExecutor,
+                flags,
+                CALLER_UID,
+                DevContext.createForDevOptionsDisabled(),
+                mClockMock,
+                mAdIdFetcher);
     }
 
     private void createAndPersistDBCustomAudiencesWithAdRenderId() {
@@ -385,6 +434,14 @@ public class GetAdSelectionDataRunnerTest {
         @Override
         public boolean getFledgeAuctionServerEnableDebugReporting() {
             return false;
+        }
+    }
+
+    static class GetAdSelectionDataRunnerTestFlagsDebugReportingEnabled
+            extends GetAdSelectionDataRunnerTestFlags {
+        @Override
+        public boolean getFledgeAuctionServerEnableDebugReporting() {
+            return true;
         }
     }
 

@@ -42,7 +42,7 @@ public class UpdateEncoderEventHandler {
     @NonNull private final EncoderLogicHandler mEncoderLogicHandler;
 
     @VisibleForTesting
-    UpdateEncoderEventHandler(
+    public UpdateEncoderEventHandler(
             @NonNull EncoderEndpointsDao encoderEndpointsDao,
             @NonNull EncoderLogicHandler encoderLogicHandler) {
         Objects.requireNonNull(encoderEndpointsDao);
@@ -92,10 +92,6 @@ public class UpdateEncoderEventHandler {
                     // We immediately download and update if no previous encoder existed
                     FluentFuture<Boolean> unused = mEncoderLogicHandler.downloadAndUpdate(buyer);
                 }
-                break;
-            case DELETE:
-                mEncoderEndpointsDao.deleteEncoderEndpoint(buyer);
-                // TODO(b/297586190): Delete persisted encoding logic when deleting encoder endpoint
                 break;
             default:
                 throw new IllegalArgumentException(

@@ -131,13 +131,13 @@ public interface IMeasurementDao {
             throws DatastoreException;
 
     /**
-     * Gets the count of distinct IDs of enrollments in the Attribution table in a time window with
-     * matching publisher and destination, excluding a given enrollment ID.
+     * Gets the count of distinct reporting origins in the Attribution table in a time window with
+     * matching publisher and destination, excluding a given reporting origin.
      */
-    Integer countDistinctEnrollmentsPerPublisherXDestinationInAttribution(
+    Integer countDistinctReportingOriginsPerPublisherXDestInAttribution(
             Uri sourceSite,
             Uri destination,
-            String excludedEnrollmentId,
+            Uri excludedReportingOrigin,
             long windowStartTime,
             long windowEndTime)
             throws DatastoreException;
@@ -173,11 +173,11 @@ public interface IMeasurementDao {
      * Gets the count of distinct IDs of enrollments in the Source table in a time window with
      * matching publisher and destination, excluding a given enrollment ID.
      */
-    Integer countDistinctEnrollmentsPerPublisherXDestinationInSource(
+    Integer countDistinctReportingOriginsPerPublisherXDestinationInSource(
             Uri publisher,
             @EventSurfaceType int publisherType,
             List<Uri> destinations,
-            String excludedEnrollmentId,
+            Uri excludedReportingOrigin,
             long windowStartTime,
             long windowEndTime)
             throws DatastoreException;
