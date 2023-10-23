@@ -21,6 +21,7 @@ import static com.android.adservices.service.signals.SignalsFixture.intToBase64;
 import static com.android.adservices.service.signals.SignalsFixture.intToBytes;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doNothing;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.verify;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -33,17 +34,15 @@ import android.adservices.common.AdTechIdentifier;
 import android.adservices.common.CallingAppUidSupplierProcessImpl;
 import android.adservices.common.CommonFixture;
 import android.adservices.http.MockWebServerRule;
-import android.adservices.signals.FetchSignalUpdatesInput;
+import android.adservices.signals.UpdateSignalsInput;
 import android.content.Context;
 import android.net.Uri;
 
 import androidx.room.Room;
 import androidx.test.core.app.ApplicationProvider;
+import androidx.test.filters.FlakyTest;
 
 import com.android.adservices.MockWebServerRuleFactory;
-import com.android.adservices.common.AdServicesDeviceSupportedRule;
-import com.android.adservices.common.SupportedByConditionRule;
-import com.android.adservices.common.WebViewSupportUtil;
 import com.android.adservices.concurrency.AdServicesExecutors;
 import com.android.adservices.data.DbTestUtil;
 import com.android.adservices.data.enrollment.EnrollmentDao;
@@ -55,7 +54,7 @@ import com.android.adservices.data.signals.EncoderLogicHandler;
 import com.android.adservices.data.signals.EncoderPersistenceDao;
 import com.android.adservices.data.signals.ProtectedSignalsDao;
 import com.android.adservices.data.signals.ProtectedSignalsDatabase;
-import com.android.adservices.service.FlagsFactory;
+import com.android.adservices.service.Flags;
 import com.android.adservices.service.adselection.AdCounterKeyCopierNoOpImpl;
 import com.android.adservices.service.adselection.AdSelectionScriptEngine;
 import com.android.adservices.service.adselection.DebugReportingScriptDisabledStrategy;
@@ -70,6 +69,7 @@ import com.android.adservices.service.consent.ConsentManager;
 import com.android.adservices.service.devapi.DevContext;
 import com.android.adservices.service.devapi.DevContextFilter;
 import com.android.adservices.service.js.IsolateSettings;
+import com.android.adservices.service.js.JSScriptEngine;
 import com.android.adservices.service.signals.updateprocessors.UpdateEncoderEventHandler;
 import com.android.adservices.service.signals.updateprocessors.UpdateProcessorSelector;
 import com.android.adservices.service.stats.AdServicesLogger;
@@ -83,6 +83,7 @@ import com.google.mockwebserver.MockResponse;
 import com.google.mockwebserver.RecordedRequest;
 
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -108,20 +109,7 @@ public class SignalsEncodingE2ETest {
 
     @Spy private final Context mContextSpy = ApplicationProvider.getApplicationContext();
 
-    @Rule(order = 0)
-    public final AdServicesDeviceSupportedRule deviceSupported =
-            new AdServicesDeviceSupportedRule();
-
-    @Rule(order = 1)
-    public final SupportedByConditionRule webViewSupportsJSSandbox =
-            WebViewSupportUtil.createJSSandboxAvailableRule();
-
-    @Rule(order = 2)
-    public final SupportedByConditionRule webViewSupportsConfigurableHeapSize =
-            WebViewSupportUtil.createJSSandboxConfigurableHeapSizeRule(mContextSpy);
-
-    @Rule(order = 3)
-    public MockWebServerRule mMockWebServerRule = MockWebServerRuleFactory.createForHttps();
+    @Rule public MockWebServerRule mMockWebServerRule = MockWebServerRuleFactory.createForHttps();
 
     private final AdServicesLogger mAdServicesLoggerMock =
             ExtendedMockito.mock(AdServicesLoggerImpl.class);
@@ -130,15 +118,49 @@ public class SignalsEncodingE2ETest {
     @Mock private Throttler mMockThrottler;
     @Mock private DevContextFilter mDevContextFilterMock;
 
+    private Flags mFlagsWithProtectedSignalsAndEncodingEnabled =
+            new Flags() {
+                @Override
+                public boolean getGaUxFeatureEnabled() {
+                    return true;
+                }
+
+                @Override
+                public boolean getProtectedSignalsPeriodicEncodingEnabled() {
+                    return true;
+                }
+
+                @Override
+                public boolean getBackgroundJobsLoggingKillSwitch() {
+                    return false;
+                }
+
+                @Override
+                public boolean getProtectedSignalsServiceKillSwitch() {
+                    return false;
+                }
+
+                @Override
+                public boolean getGlobalKillSwitch() {
+                    return false;
+                }
+
+                @Override
+                public boolean getDisableFledgeEnrollmentCheck() {
+                    return true;
+                }
+            };
+
     @Spy
     FledgeAllowListsFilter mFledgeAllowListsFilterSpy =
-            new FledgeAllowListsFilter(FlagsFactory.getFlagsForTest(), mAdServicesLoggerMock);
+            new FledgeAllowListsFilter(
+                    mFlagsWithProtectedSignalsAndEncodingEnabled, mAdServicesLoggerMock);
 
     private ProtectedSignalsDao mSignalsDao;
     private EncoderEndpointsDao mEncoderEndpointsDao;
     private EncoderLogicDao mEncoderLogicDao;
     private ProtectedSignalsServiceImpl mService;
-    private FetchOrchestrator mFetchOrchestrator;
+    private UpdateSignalsOrchestrator mUpdateSignalsOrchestrator;
     private UpdatesDownloader mUpdatesDownloader;
     private UpdateProcessingOrchestrator mUpdateProcessingOrchestrator;
     private UpdateProcessorSelector mUpdateProcessorSelector;
@@ -159,6 +181,7 @@ public class SignalsEncodingE2ETest {
 
     @Before
     public void setup() {
+        Assume.assumeTrue(JSScriptEngine.AvailabilityChecker.isJSSandboxAvailable());
 
         mStaticMockSession =
                 ExtendedMockito.mockitoSession()
@@ -209,13 +232,13 @@ public class SignalsEncodingE2ETest {
                                 new EnrollmentDao(
                                         mContextSpy,
                                         DbTestUtil.getSharedDbHelperForTest(),
-                                        FlagsFactory.getFlagsForTest()),
+                                        mFlagsWithProtectedSignalsAndEncodingEnabled),
                                 mAdServicesLoggerMock));
         mCustomAudienceServiceFilter =
                 new CustomAudienceServiceFilter(
                         mContextSpy,
                         mConsentManagerMock,
-                        FlagsFactory.getFlagsForTest(),
+                        mFlagsWithProtectedSignalsAndEncodingEnabled,
                         mAppImportanceFilterMock,
                         mFledgeAuthorizationFilter,
                         mFledgeAllowListsFilterSpy,
@@ -230,8 +253,8 @@ public class SignalsEncodingE2ETest {
         mUpdatesDownloader =
                 new UpdatesDownloader(mLightweightExecutorService, mAdServicesHttpsClient);
 
-        mFetchOrchestrator =
-                new FetchOrchestrator(
+        mUpdateSignalsOrchestrator =
+                new UpdateSignalsOrchestrator(
                         mBackgroundExecutorService,
                         mUpdatesDownloader,
                         mUpdateProcessingOrchestrator,
@@ -239,13 +262,13 @@ public class SignalsEncodingE2ETest {
         mService =
                 new ProtectedSignalsServiceImpl(
                         mContextSpy,
-                        mFetchOrchestrator,
+                        mUpdateSignalsOrchestrator,
                         mFledgeAuthorizationFilter,
                         mConsentManagerMock,
                         mDevContextFilterMock,
                         AdServicesExecutors.getBackgroundExecutor(),
                         AdServicesLoggerImpl.getInstance(),
-                        FlagsFactory.getFlagsForTest(),
+                        mFlagsWithProtectedSignalsAndEncodingEnabled,
                         CallingAppUidSupplierProcessImpl.create(),
                         mCustomAudienceServiceFilter);
 
@@ -273,7 +296,7 @@ public class SignalsEncodingE2ETest {
                         mAdSelectionScriptEngine,
                         mBackgroundExecutorService,
                         mLightweightExecutorService,
-                        FlagsFactory.getFlagsForTest());
+                        mFlagsWithProtectedSignalsAndEncodingEnabled);
 
         doNothing()
                 .when(
@@ -291,6 +314,7 @@ public class SignalsEncodingE2ETest {
     }
 
     @Test
+    @FlakyTest(bugId = 302689885)
     public void testSignalsEncoding_Success() throws Exception {
         String encodeSignalsJS =
                 "\nfunction encodeSignals(signals, maxSize) {\n"
@@ -398,7 +422,7 @@ public class SignalsEncodingE2ETest {
                 mEncoderPersistenceDao.getEncoder(BUYER));
 
         // Validate that the periodic job for encoding would have been scheduled
-        ExtendedMockito.verify(
+        verify(
                 () -> PeriodicEncodingJobService.scheduleIfNeeded(any(), any(), eq(false)),
                 times(1));
 
@@ -418,6 +442,7 @@ public class SignalsEncodingE2ETest {
      * was used in encoding just by looking at the encoded payload output.
      */
     @Test
+    @FlakyTest(bugId = 302689885)
     public void testSecondUpdateEncoderDoesNotDownloadEncodingLogic() throws Exception {
         String encodeSignalsJS1 =
                 "\nfunction encodeSignals(signals, maxSize) {\n"
@@ -549,11 +574,11 @@ public class SignalsEncodingE2ETest {
     }
 
     private void callForUri(Uri uri) throws Exception {
-        FetchSignalUpdatesInput input =
-                new FetchSignalUpdatesInput.Builder(uri, CommonFixture.TEST_PACKAGE_NAME).build();
+        UpdateSignalsInput input =
+                new UpdateSignalsInput.Builder(uri, CommonFixture.TEST_PACKAGE_NAME).build();
         SignalsIntakeE2ETest.CallbackForTesting callback =
                 new SignalsIntakeE2ETest.CallbackForTesting();
-        mService.fetchSignalUpdates(input, callback);
+        mService.updateSignals(input, callback);
         callback.mSuccessLatch.await(WAIT_TIME_SECONDS, TimeUnit.SECONDS);
     }
 

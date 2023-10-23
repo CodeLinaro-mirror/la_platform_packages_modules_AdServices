@@ -38,6 +38,7 @@ import android.net.Uri;
 
 import androidx.test.core.app.ApplicationProvider;
 
+import com.android.adservices.common.WebUtil;
 import com.android.adservices.data.enrollment.EnrollmentDao;
 import com.android.adservices.data.measurement.DatastoreException;
 import com.android.adservices.data.measurement.DatastoreManager;
@@ -49,7 +50,6 @@ import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.enrollment.EnrollmentData;
 import com.android.adservices.service.measurement.EventReport;
-import com.android.adservices.service.measurement.WebUtil;
 import com.android.adservices.service.measurement.aggregation.AggregateReport;
 import com.android.adservices.service.measurement.util.UnsignedLong;
 import com.android.adservices.service.stats.AdServicesLogger;
@@ -145,8 +145,7 @@ public class EventReportingJobHandlerTest {
         doReturn(false).when(mFlags).getMeasurementEnableReportingJobsThrowJsonException();
         doReturn(false).when(mFlags).getMeasurementEnableReportingJobsThrowCryptoException();
         doReturn(false).when(mFlags).getMeasurementEnableReportingJobsThrowUnaccountedException();
-        ExtendedMockito.doNothing()
-                .when(() -> ErrorLogUtil.e(anyInt(), anyInt(), anyString(), anyString()));
+        ExtendedMockito.doNothing().when(() -> ErrorLogUtil.e(anyInt(), anyInt()));
         ExtendedMockito.doNothing().when(() -> ErrorLogUtil.e(any(), anyInt(), anyInt()));
         mEventReportingJobHandler =
                 new EventReportingJobHandler(mEnrollmentDao, mDatastoreManager, mFlags, mLogger);

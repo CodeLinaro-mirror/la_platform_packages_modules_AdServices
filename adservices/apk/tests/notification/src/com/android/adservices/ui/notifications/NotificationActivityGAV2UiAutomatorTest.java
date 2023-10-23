@@ -23,6 +23,7 @@ import android.os.Build;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.FlakyTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.UiDevice;
@@ -47,6 +48,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Spy;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
 public class NotificationActivityGAV2UiAutomatorTest {
@@ -63,8 +65,12 @@ public class NotificationActivityGAV2UiAutomatorTest {
             new AdServicesDeviceSupportedRule();
 
     @BeforeClass
-    public static void classSetup() {
+    public static void classSetup() throws InterruptedException {
         AdservicesTestHelper.killAdservicesProcess(ApplicationProvider.getApplicationContext());
+        // sleep for 1 min for bootCompleteReceiver to get invoked on S-
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            TimeUnit.SECONDS.sleep(60);
+        }
     }
 
     @Before
@@ -94,6 +100,7 @@ public class NotificationActivityGAV2UiAutomatorTest {
     }
 
     @Test
+    @FlakyTest(bugId = 302607350)
     public void moreButtonTest() throws UiObjectNotFoundException, InterruptedException {
         mTestName = new Object() {}.getClass().getEnclosingMethod().getName();
 
@@ -156,6 +163,7 @@ public class NotificationActivityGAV2UiAutomatorTest {
     }
 
     @Test
+    @FlakyTest(bugId = 302607350)
     public void rowClickGotItTest() throws UiObjectNotFoundException, InterruptedException {
         mTestName = new Object() {}.getClass().getEnclosingMethod().getName();
 
@@ -182,6 +190,7 @@ public class NotificationActivityGAV2UiAutomatorTest {
     }
 
     @Test
+    @FlakyTest(bugId = 302607350)
     public void rowClickSettingsTest() throws UiObjectNotFoundException, InterruptedException {
         mTestName = new Object() {}.getClass().getEnclosingMethod().getName();
 

@@ -22,7 +22,6 @@ import static com.android.dx.mockito.inline.extended.ExtendedMockito.verify;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 
 import android.util.Log;
@@ -59,22 +58,28 @@ public final class ExtendedMockitoExpectations {
         doReturn(null).when(() -> LocalManagerRegistry.getManager(managerClass));
     }
 
+    /** Mocks a call to {@link SdkLevel#isAtLeastR()}, returning {@code isIt}. */
+    public static void mockIsAtLeastR(boolean isIt) {
+        Log.v(TAG, "mockIsAtLeastR(" + isIt + ")");
+        doReturn(isIt).when(SdkLevel::isAtLeastR);
+    }
+
     /** Mocks a call to {@link SdkLevel#isAtLeastS()}, returning {@code isIt}. */
     public static void mockIsAtLeastS(boolean isIt) {
         Log.v(TAG, "mockIsAtLeastS(" + isIt + ")");
         doReturn(isIt).when(SdkLevel::isAtLeastS);
     }
 
-    /** Mocks a call to {@link SdkLevel#isAtLeastSv2()}, returning {@code isIt}. */
-    public static void mockIsAtLeastSv2(boolean isIt) {
-        Log.v(TAG, "mockIsAtLeastSv2(" + isIt + ")");
-        doReturn(isIt).when(SdkLevel::isAtLeastSv2);
-    }
-
     /** Mocks a call to {@link SdkLevel#isAtLeastT()}, returning {@code isIt}. */
     public static void mockIsAtLeastT(boolean isIt) {
         Log.v(TAG, "mockIsAtLeastT(" + isIt + ")");
         doReturn(isIt).when(SdkLevel::isAtLeastT);
+    }
+
+    /** Mocks a call to {@link SdkLevel#isAtLeastU()}, returning {@code isIt}. */
+    public static void mockIsAtLeastU(boolean isIt) {
+        Log.v(TAG, "mockIsAtLeastU(" + isIt + ")");
+        doReturn(isIt).when(SdkLevel::isAtLeastU);
     }
 
     /**
@@ -84,7 +89,7 @@ public final class ExtendedMockitoExpectations {
      */
     public static void doNothingOnErrorLogUtilError() {
         doNothing().when(() -> ErrorLogUtil.e(any(), anyInt(), anyInt()));
-        doNothing().when(() -> ErrorLogUtil.e(anyInt(), anyInt(), anyString(), anyString()));
+        doNothing().when(() -> ErrorLogUtil.e(anyInt(), anyInt()));
     }
 
     /**
@@ -92,7 +97,7 @@ public final class ExtendedMockitoExpectations {
      * FlagsFactory#getFlagsForTest()}
      */
     public static void mockGetFlagsForTest() {
-        doReturn(FlagsFactory.getFlagsForTest()).when(FlagsFactory::getFlags);
+        mockGetFlags(FlagsFactory.getFlagsForTest());
     }
 
     /**
@@ -104,7 +109,7 @@ public final class ExtendedMockitoExpectations {
     }
 
     /** Verifies {@link ErrorLogUtil#e()} was called with the expected values. */
-    public static void verifyErrorLogUtilError(
+    public static void verifyErrorLogUtilErrorWithException(
             int errorCode, int ppapiName, int numberOfInvocations) {
         verify(
                 () -> {
@@ -117,12 +122,10 @@ public final class ExtendedMockitoExpectations {
     public static void verifyErrorLogUtilError(
             int errorCode,
             int ppapiName,
-            String className,
-            String methodName,
             int numberOfInvocations) {
         verify(
                 () -> {
-                    ErrorLogUtil.e(eq(errorCode), eq(ppapiName), eq(className), eq(methodName));
+                    ErrorLogUtil.e(eq(errorCode), eq(ppapiName));
                 },
                 times(numberOfInvocations));
     }

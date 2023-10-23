@@ -23,6 +23,7 @@ import com.android.adservices.LoggerFactory;
 import com.android.adservices.service.common.httpclient.AdServicesHttpClientRequest;
 import com.android.adservices.service.common.httpclient.AdServicesHttpClientResponse;
 import com.android.adservices.service.common.httpclient.AdServicesHttpsClient;
+import com.android.adservices.service.devapi.DevContext;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FluentFuture;
@@ -33,7 +34,7 @@ import org.json.JSONObject;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 
-/** Downloads signal updates for the fetchSignalUpdates API. */
+/** Downloads signal updates for the updateSignals API. */
 public class UpdatesDownloader {
 
     public static final String PACKAGE_NAME_HEADER = "X-PROTECTED-SIGNALS-PACKAGE";
@@ -55,10 +56,12 @@ public class UpdatesDownloader {
      *
      * @param validatedUri Validated Uri to fetch JSON from.
      * @param packageName The package name of the calling app.
+     * @param devContext Development context for testing the network call
      * @return A future containing the fetched JSON.
      */
     @NonNull
-    public FluentFuture<JSONObject> getUpdateJson(Uri validatedUri, String packageName) {
+    public FluentFuture<JSONObject> getUpdateJson(
+            Uri validatedUri, String packageName, DevContext devContext) {
         sLogger.v("Fetching signals from " + validatedUri);
 
         ImmutableMap<String, String> requestProperties =
@@ -67,6 +70,7 @@ public class UpdatesDownloader {
                 AdServicesHttpClientRequest.builder()
                         .setRequestProperties(requestProperties)
                         .setUri(validatedUri)
+                        .setDevContext(devContext)
                         .build();
         FluentFuture<AdServicesHttpClientResponse> response =
                 FluentFuture.from(mHttpClient.fetchPayload(request));
@@ -77,7 +81,7 @@ public class UpdatesDownloader {
         try {
             return new JSONObject(response.getResponseBody());
         } catch (JSONException e) {
-            sLogger.e(e, "Error converting fetchSignalsUpdate response body to JSON");
+            sLogger.e(e, "Error converting updateSignals response body to JSON");
             throw new IllegalArgumentException(CONVERSION_ERROR_MSG, e);
         }
     }
