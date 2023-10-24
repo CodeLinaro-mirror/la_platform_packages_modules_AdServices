@@ -45,6 +45,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_DATA_VERS
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_USER_BIDDING_SIGNALS_SIZE_B;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_REGISTER_AD_BEACON_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_PROTECTED_SIGNALS_CLEANUP_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_SDK_REQUEST_PERMITS_PER_SECOND;
 
 import static org.junit.Assert.assertEquals;
@@ -218,6 +219,14 @@ public final class PhFlagsFixture {
                 false);
     }
 
+    public static void overrideFledgeEventLevelDebugReportSendImmediately(boolean enable) {
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                FlagsConstants.KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORT_SEND_IMMEDIATELY,
+                Boolean.toString(enable),
+                false);
+    }
+
     public static void overrideFledgeEventLevelDebugReportingBatchDelay(int batchDelayInSeconds) {
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
@@ -232,6 +241,47 @@ public final class PhFlagsFixture {
                 DeviceConfig.NAMESPACE_ADSERVICES,
                 FlagsConstants.KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH,
                 Integer.toString(maxItemsPerBatch),
+                false);
+    }
+
+    public static void overrideFledgeDebugReportSenderJobNetworkConnectionTimeoutMs(
+            int phOverrideValue) {
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                FlagsConstants.KEY_FLEDGE_DEBUG_REPORTI_SENDER_JOB_NETWORK_CONNECT_TIMEOUT_MS,
+                Integer.toString(phOverrideValue),
+                false);
+    }
+
+    public static void overrideFledgeDebugReportSenderJobNetworkReadTimeoutMs(int phOverrideValue) {
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                FlagsConstants.KEY_FLEDGE_DEBUG_REPORTI_SENDER_JOB_NETWORK_READ_TIMEOUT_MS,
+                Integer.toString(phOverrideValue),
+                false);
+    }
+
+    public static void overrideFledgeDebugReportSenderJobMaxRuntimeMs(long phOverrideValue) {
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                FlagsConstants.KEY_FLEDGE_DEBUG_REPORTI_SENDER_JOB_MAX_TIMEOUT_MS,
+                Long.toString(phOverrideValue),
+                false);
+    }
+
+    public static void overrideFledgeDebugReportSenderJobPeriodicMs(long phOverrideValue) {
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                FlagsConstants.KEY_FLEDGE_DEBUG_REPORT_SENDER_JOB_PERIOD_MS,
+                Long.toString(phOverrideValue),
+                false);
+    }
+
+    public static void overrideFledgeDebugReportSenderJobFlexMs(long phOverrideValue) {
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                FlagsConstants.KEY_FLEDGE_DEBUG_REPORT_SENDER_JOB_FLEX_MS,
+                Long.toString(phOverrideValue),
                 false);
     }
 
@@ -336,6 +386,15 @@ public final class PhFlagsFixture {
         DeviceConfig.setProperty(
                 DeviceConfig.NAMESPACE_ADSERVICES,
                 KEY_FLEDGE_CPC_BILLING_ENABLED,
+                Boolean.toString(value),
+                false);
+    }
+
+    /** Overrides whether the protected signals cleanup runs. */
+    public static void overrideProtectedSignalsCleanupEnabled(boolean value) {
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_PROTECTED_SIGNALS_CLEANUP_ENABLED,
                 Boolean.toString(value),
                 false);
     }

@@ -21,7 +21,6 @@ import android.content.Context;
 import androidx.annotation.NonNull;
 import androidx.room.AutoMigration;
 import androidx.room.Database;
-import androidx.room.Room;
 import androidx.room.RoomDatabase;
 import androidx.room.TypeConverters;
 
@@ -74,7 +73,8 @@ public abstract class AdSelectionDatabase extends RoomDatabase {
         synchronized (SINGLETON_LOCK) {
             if (sSingleton == null) {
                 sSingleton =
-                        Room.databaseBuilder(context, AdSelectionDatabase.class, DATABASE_NAME)
+                        FileCompatUtils.roomDatabaseBuilderHelper(
+                                        context, AdSelectionDatabase.class, DATABASE_NAME)
                                 .fallbackToDestructiveMigration()
                                 .build();
             }

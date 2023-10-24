@@ -111,10 +111,6 @@ public final class CustomAudienceManagerTest {
             CompatAdServicesTestUtils.setPpapiAppAllowList(mPreviousAppAllowList);
             CompatAdServicesTestUtils.resetFlagsToDefault();
         }
-        // TODO(b/294423183): remove adoptShellPermission call once using AdServicesFlagsSetterRule
-        InstrumentationRegistry.getInstrumentation()
-                .getUiAutomation()
-                .adoptShellPermissionIdentity(Manifest.permission.WRITE_DEVICE_CONFIG);
         PhFlagsFixture.overrideEnableEnrollmentSeed(false);
     }
 
@@ -216,7 +212,7 @@ public final class CustomAudienceManagerTest {
     @Ignore("TODO(b/295231590): remove annotation when bug is fixed")
     @Test
     @RequiresLowRamDevice
-    public void testGetchAndJoinCustomAudience_lowRamDevice() {
+    public void testGetchAndJoinCustomAudience_lowRamDevice() throws Exception {
         OutcomeReceiverForTests<Object> receiver = new OutcomeReceiverForTests<>();
 
         CustomAudienceManager manager = CustomAudienceManager.get(CONTEXT);
@@ -235,7 +231,7 @@ public final class CustomAudienceManagerTest {
     @Ignore("TODO(b/295231590): remove annotation when bug is fixed")
     @Test
     @RequiresLowRamDevice
-    public void testLeaveCustomAudienceRequest_lowRamDevice() {
+    public void testLeaveCustomAudienceRequest_lowRamDevice() throws Exception {
         OutcomeReceiverForTests<Object> receiver = new OutcomeReceiverForTests<>();
         CustomAudienceManager manager = CustomAudienceManager.get(CONTEXT);
         assertWithMessage("manager").that(manager).isNotNull();

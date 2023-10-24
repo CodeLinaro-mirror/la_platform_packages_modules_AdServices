@@ -30,6 +30,8 @@
     <string name="permdesc_accessAdServicesConsent" msgid="8440334072391708453">"Consente a un\'applicazione di accedere all\'API AdServices Consent."</string>
     <string name="permlab_adServicesAccessAdId" msgid="1425385999072194463">"Consente di accedere all\'API Ad ID"</string>
     <string name="permdesc_adServicesAccessAdId" msgid="5082994464565978279">"Consente a un\'applicazione di accedere all\'API Ad ID."</string>
+    <string name="permlab_adServicesAccessAdServicesCobaltUpload" msgid="3305366770828562349">"Accesso all\'API AdServices Cobalt Upload"</string>
+    <string name="permdesc_adServicesAccessAdServicesCobaltUpload" msgid="2584490228435633488">"Consente a un\'applicazione di accedere all\'API AdServices Cobalt Upload."</string>
     <string name="permlab_adServicesAccessAppSetId" msgid="1300149048751231124">"Consente di accedere all\'API App Set ID"</string>
     <string name="permdesc_adServicesAccessAppSetId" msgid="7919418391145455372">"Consente a un\'applicazione di accedere all\'API App Set ID."</string>
     <string name="permlab_adServicesAccessConsentService" msgid="5994709782267864205">"Accesso all\'API Consent Service"</string>
@@ -58,7 +60,7 @@
     <string name="notificationUI_confirmation_decline_title" msgid="6453417169877486440">"Hai deciso di non partecipare"</string>
     <string name="notificationUI_confirmation_decline_subtitle" msgid="4194388733937808440">"Grazie per la tua risposta. Privacy Sandbox è disattivato per il tuo dispositivo.\n\nSe cambi idea o vuoi saperne di più, vai alle impostazioni della privacy."</string>
     <string name="notificationUI_confirmation_left_control_button_text" msgid="7459283556129950513">"Impostazioni privacy"</string>
-    <string name="notificationUI_confirmation_right_control_button_text" msgid="1390803936115621269">"OK"</string>
+    <string name="notificationUI_confirmation_right_control_button_text" msgid="1390803936115621269">"Ok"</string>
     <string name="notificationUI_container2_title" msgid="3844342008598264655">"Fai parte del programma beta"</string>
     <string name="notificationUI_container2_body_text" msgid="758560159693325060">"Privacy Sandbox è attivato per il tuo dispositivo e le app possono testare queste nuove modalità più private di mostrarti gli annunci. Puoi disattivare la versione beta in qualsiasi momento dalle impostazioni di privacy."</string>
     <string name="notificationUI_right_control_button_text" msgid="4418849554981401536">"OK"</string>
@@ -196,7 +198,7 @@
     <string name="settingsUI_dialog_apps_opt_out_title" msgid="2152898453001885432">"Vuoi disattivare gli annunci suggeriti dalle app?"</string>
     <string name="settingsUI_dialog_apps_opt_out_message" msgid="6894065908128443334">"Tutti i dati relativi ai suggerimenti di annunci verranno eliminati. Le app non potranno più suggerire annunci, ma potresti comunque visualizzare annunci pertinenti."</string>
     <string name="settingsUI_dialog_measurement_opt_in_title" msgid="313317715284771681">"La misurazione degli annunci è attiva"</string>
-    <string name="settingsUI_dialog_measurement_opt_in_message" msgid="1122570790810645916">"Android può condividere soltanto informazioni molto limitate con le app per consentire loro di misurare il rendimento dei relativi annunci."</string>
+    <string name="settingsUI_dialog_measurement_opt_in_message" msgid="1122570790810645916">"Android può condividere soltanto informazioni molto limitate con le app affinché possano misurare il rendimento dei loro annunci."</string>
     <string name="settingsUI_dialog_measurement_opt_out_title" msgid="1629867723206716370">"Vuoi disattivare la misurazione degli annunci?"</string>
     <string name="settingsUI_dialog_measurement_opt_out_message" msgid="1050338738668085641">"Tutti i report relativi alla misurazione degli annunci in sospeso verranno eliminati e non ne verranno generati o condivisi di nuovi."</string>
     <string name="settingsUI_main_view_ga_title" msgid="4149820452019697214">"Privacy per gli annunci"</string>

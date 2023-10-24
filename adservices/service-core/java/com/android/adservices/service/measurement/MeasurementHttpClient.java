@@ -21,7 +21,7 @@ import android.net.Uri;
 
 import androidx.annotation.NonNull;
 
-import com.android.adservices.LogUtil;
+import com.android.adservices.LoggerFactory;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.common.WebAddresses;
@@ -62,8 +62,11 @@ public class MeasurementHttpClient {
 
         final HttpsURLConnection urlConnection = (HttpsURLConnection) url.openConnection();
         if (WebAddresses.isLocalhost(Uri.parse(url.toString()))) {
-            LogUtil.d("MeasurementHttpClient::setup : setting unsafe SSL for localhost, URI: %s",
-                    url.toString());
+            LoggerFactory.getMeasurementLogger()
+                    .d(
+                            "MeasurementHttpClient::setup : setting unsafe SSL for localhost, URI:"
+                                    + " %s",
+                            url.toString());
             urlConnection.setSSLSocketFactory(getUnsafeSslSocketFactory());
         }
         final Flags flags = FlagsFactory.getFlags();
@@ -72,6 +75,7 @@ public class MeasurementHttpClient {
 
         // Overriding default headers to avoid leaking information
         urlConnection.setRequestProperty("User-Agent", "");
+        urlConnection.setRequestProperty("Version", flags.getMainlineTrainVersion());
 
         return urlConnection;
     }
@@ -96,7 +100,7 @@ public class MeasurementHttpClient {
             sslContext.init(null, bypassTrustManagers, new SecureRandom());
             return sslContext.getSocketFactory();
         } catch (Exception e) {
-            LogUtil.e(e, "getUnsafeSslSocketFactory caught exception");
+            LoggerFactory.getMeasurementLogger().e(e, "getUnsafeSslSocketFactory caught exception");
             return null;
         }
     }

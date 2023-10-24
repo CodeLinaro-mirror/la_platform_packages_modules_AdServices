@@ -48,7 +48,7 @@ public class UiSettingsMainPage {
     private static UiDevice sDevice;
 
     @Before
-    public void setup() {
+    public void setup() throws Exception {
         UiUtils.disableGlobalKillswitch();
         // Initialize UiDevice instance
         sDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
@@ -70,7 +70,12 @@ public class UiSettingsMainPage {
     @Test
     public void testSettingsPage() throws Exception {
         final long start = System.currentTimeMillis();
-        AdservicesWorkflows.testSettingsPageFlow(sContext, sDevice, UiConstants.UX.GA_UX, true);
+        AdservicesWorkflows.testSettingsPageFlow(
+                sContext,
+                sDevice,
+                UiConstants.UX.GA_UX,
+                /* isOptIn= */ true,
+                /* isFlipConsent= */ true);
         final long duration = System.currentTimeMillis() - start;
         Log.i(TAG, "(" + UI_SETTINGS_LATENCY_METRIC + ": " + duration + ")");
     }
