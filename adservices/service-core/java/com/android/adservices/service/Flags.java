@@ -873,6 +873,12 @@ public interface Flags {
     boolean FLEDGE_HTTP_CACHE_ENABLE_JS_CACHING = true;
     long FLEDGE_HTTP_CACHE_DEFAULT_MAX_AGE_SECONDS = 2 * 24 * 60 * 60; // 2 days
     long FLEDGE_HTTP_CACHE_MAX_ENTRIES = 100;
+    boolean FLEDGE_ON_DEVICE_AUCTION_SHOULD_USE_UNIFIED_TABLES = false;
+
+    /** Returns {@code true} if the on device auction should use the unified flow tables */
+    default boolean getFledgeOnDeviceAuctionShouldUseUnifiedTables() {
+        return FLEDGE_ON_DEVICE_AUCTION_SHOULD_USE_UNIFIED_TABLES;
+    }
 
     /** Returns {@code true} if the FLEDGE Background Fetch is enabled. */
     default boolean getFledgeBackgroundFetchEnabled() {
@@ -2678,6 +2684,7 @@ public interface Flags {
     boolean ENFORCE_FOREGROUND_STATUS_FLEDGE_OVERRIDES = true;
     boolean ENFORCE_FOREGROUND_STATUS_FLEDGE_CUSTOM_AUDIENCE = true;
     boolean ENFORCE_FOREGROUND_STATUS_TOPICS = true;
+    boolean ENFORCE_FOREGROUND_STATUS_SIGNALS = true;
 
     /**
      * @return true if FLEDGE runAdSelection API should require that the calling API is running in
@@ -2794,6 +2801,14 @@ public interface Flags {
         return ENFORCE_FOREGROUND_STATUS_TOPICS;
     }
 
+    /**
+     * @return true if Protected Signals API should require that the calling API is running in
+     *     foreground.
+     */
+    default boolean getEnforceForegroundStatusForSignals() {
+        return ENFORCE_FOREGROUND_STATUS_SIGNALS;
+    }
+
     /** @return true if AdId API should require that the calling API is running in foreground. */
     default boolean getEnforceForegroundStatusForAdId() {
         return ENFORCE_FOREGROUND_STATUS_ADID;
@@ -2851,7 +2866,8 @@ public interface Flags {
     }
 
     /** Ui OTA strings manifest file url, used for MDD download. */
-    String UI_OTA_STRINGS_MANIFEST_FILE_URL = "";
+    String UI_OTA_STRINGS_MANIFEST_FILE_URL =
+            "https://www.gstatic.com/mdi-serving/rubidium-adservices-ui-ota-strings/1341/95580b00edbd8cbf62bfa0df9ebd79fba1e5b7ca";
 
     /** UI OTA strings manifest file url. */
     default String getUiOtaStringsManifestFileUrl() {
@@ -3313,8 +3329,8 @@ public interface Flags {
     String MEASUREMENT_AGGREGATE_REPORT_DELAY_CONFIG =
             String.join(
                     ",",
-                    Long.toString(TimeUnit.MINUTES.toMillis(10L)),
-                    Long.toString(TimeUnit.MINUTES.toMillis(50L)));
+                    Long.toString(TimeUnit.MINUTES.toMillis(0L)),
+                    Long.toString(TimeUnit.MINUTES.toMillis(10L)));
 
     /**
      * Returns configured comma separated aggregate report min delay and aggregate report delay
@@ -3721,6 +3737,61 @@ public interface Flags {
      */
     default boolean getMeasurementEnableCoarseEventReportDestinations() {
         return DEFAULT_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS;
+    }
+
+    /** Privacy Params */
+    int MEASUREMENT_MAX_DISTINCT_WEB_DESTINATIONS_IN_SOURCE_REGISTRATION = 3;
+
+    /** Max distinct web destinations in a source registration. */
+    default int getMeasurementMaxDistinctWebDestinationsInSourceRegistration() {
+        return MEASUREMENT_MAX_DISTINCT_WEB_DESTINATIONS_IN_SOURCE_REGISTRATION;
+    }
+
+    long MEASUREMENT_MAX_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS =
+            TimeUnit.DAYS.toSeconds(30);
+
+    /**
+     * Max expiration value in seconds for attribution reporting register source. This value is also
+     * the default if no expiration was specified.
+     */
+    default long getMeasurementMaxReportingRegisterSourceExpirationInSeconds() {
+        return MEASUREMENT_MAX_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS;
+    }
+
+    long MEASUREMENT_MIN_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS =
+            TimeUnit.DAYS.toSeconds(1);
+
+    /** Min expiration value in seconds for attribution reporting register source. */
+    default long getMeasurementMinReportingRegisterSourceExpirationInSeconds() {
+        return MEASUREMENT_MIN_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS;
+    }
+
+    long MEASUREMENT_MAX_INSTALL_ATTRIBUTION_WINDOW = TimeUnit.DAYS.toSeconds(30);
+
+    /** Maximum limit of duration to determine attribution for a verified installation. */
+    default long getMeasurementMaxInstallAttributionWindow() {
+        return MEASUREMENT_MAX_INSTALL_ATTRIBUTION_WINDOW;
+    }
+
+    long MEASUREMENT_MIN_INSTALL_ATTRIBUTION_WINDOW = TimeUnit.DAYS.toSeconds(1);
+
+    /** Minimum limit of duration to determine attribution for a verified installation. */
+    default long getMeasurementMinInstallAttributionWindow() {
+        return MEASUREMENT_MIN_INSTALL_ATTRIBUTION_WINDOW;
+    }
+
+    long MEASUREMENT_MAX_POST_INSTALL_EXCLUSIVITY_WINDOW = TimeUnit.DAYS.toSeconds(30);
+
+    /** Maximum acceptable install cooldown period. */
+    default long getMeasurementMaxPostInstallExclusivityWindow() {
+        return MEASUREMENT_MAX_POST_INSTALL_EXCLUSIVITY_WINDOW;
+    }
+
+    long MEASUREMENT_MIN_POST_INSTALL_EXCLUSIVITY_WINDOW = 0L;
+
+    /** Default and minimum value for cooldown period of source which led to installation. */
+    default long getMeasurementMinPostInstallExclusivityWindow() {
+        return MEASUREMENT_MIN_POST_INSTALL_EXCLUSIVITY_WINDOW;
     }
 
     /** Default value of flag for logging consent migration metrics when OTA from S to T+. */

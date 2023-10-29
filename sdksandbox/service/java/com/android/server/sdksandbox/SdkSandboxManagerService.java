@@ -297,6 +297,11 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                             Intent.ACTION_EDIT,
                             Intent.ACTION_INSERT));
 
+    static final ArraySet<String> DEFAULT_CONTENTPROVIDER_ALLOWED_AUTHORITIES =
+            new ArraySet<>(
+                    Arrays.asList(
+                            Settings.AUTHORITY, "com.android.textclassifier.icons", "downloads"));
+
     static class Injector {
         private final Context mContext;
         private SdkSandboxManagerLocal mLocalManager;
@@ -1747,6 +1752,13 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                         DEFAULT_VALUE_DISABLE_SDK_SANDBOX);
 
         @GuardedBy("mLock")
+        private boolean mCustomizedSdkContextEnabled =
+                DeviceConfig.getBoolean(
+                        DeviceConfig.NAMESPACE_ADSERVICES,
+                        PROPERTY_CUSTOMIZED_SDK_CONTEXT_ENABLED,
+                        DEFAULT_VALUE_CUSTOMIZED_SDK_CONTEXT_ENABLED);
+
+        @GuardedBy("mLock")
         private boolean mEnforceRestrictions =
                 DeviceConfig.getBoolean(
                         DeviceConfig.NAMESPACE_ADSERVICES,
@@ -1762,37 +1774,61 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
 
         @GuardedBy("mLock")
         private Map<Integer, AllowedServices> mServiceAllowlistPerTargetSdkVersion =
-                getServicesAllowlist();
+                getServicesAllowlist(
+                        DeviceConfig.getProperty(
+                                DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_SERVICES_ALLOWLIST));
 
         @GuardedBy("mLock")
-        private AllowedServices mNextServiceAllowlist = getNextServiceDeviceConfigAllowlist();
+        private AllowedServices mNextServiceAllowlist =
+                getNextServiceDeviceConfigAllowlist(
+                        DeviceConfig.getProperty(
+                                DeviceConfig.NAMESPACE_ADSERVICES,
+                                PROPERTY_NEXT_SERVICE_ALLOWLIST));
 
         @GuardedBy("mLock")
         private Map<Integer, AllowedContentProviders> mContentProviderAllowlistPerTargetSdkVersion =
-                getContentProviderDeviceConfigAllowlist();
+                getContentProviderDeviceConfigAllowlist(
+                        DeviceConfig.getProperty(
+                                DeviceConfig.NAMESPACE_ADSERVICES,
+                                PROPERTY_CONTENTPROVIDER_ALLOWLIST));
 
         @GuardedBy("mLock")
         private AllowedContentProviders mNextContentProviderAllowlist =
-                getNextContentProviderDeviceConfigAllowlist();
+                getNextContentProviderDeviceConfigAllowlist(
+                        DeviceConfig.getProperty(
+                                DeviceConfig.NAMESPACE_ADSERVICES,
+                                PROPERTY_NEXT_CONTENTPROVIDER_ALLOWLIST));
 
         @Nullable
         @GuardedBy("mLock")
         private Map<Integer, AllowedBroadcastReceivers>
                 mBroadcastReceiverAllowlistPerTargetSdkVersion =
-                        getBroadcastReceiverDeviceConfigAllowlist();
+                        getBroadcastReceiverDeviceConfigAllowlist(
+                                DeviceConfig.getProperty(
+                                        DeviceConfig.NAMESPACE_ADSERVICES,
+                                        PROPERTY_BROADCASTRECEIVER_ALLOWLIST));
 
         @GuardedBy("mLock")
         private ArraySet<String> mNextBroadcastReceiverAllowlist =
-                getNextBroadcastReceiverDeviceConfigAllowlist();
+                getNextBroadcastReceiverDeviceConfigAllowlist(
+                        DeviceConfig.getProperty(
+                                DeviceConfig.NAMESPACE_ADSERVICES,
+                                PROPERTY_NEXT_BROADCASTRECEIVER_ALLOWLIST));
 
         @Nullable
         @GuardedBy("mLock")
         private Map<Integer, AllowedActivities> mActivityAllowlistPerTargetSdkVersion =
-                getActivityDeviceConfigAllowlist();
+                getActivityDeviceConfigAllowlist(
+                        DeviceConfig.getProperty(
+                                DeviceConfig.NAMESPACE_ADSERVICES, PROPERTY_ACTIVITY_ALLOWLIST));
 
         @Nullable
         @GuardedBy("mLock")
-        private AllowedActivities mNextActivityAllowlist = getNextActivityDeviceConfigAllowlist();
+        private AllowedActivities mNextActivityAllowlist =
+                getNextActivityDeviceConfigAllowlist(
+                        DeviceConfig.getProperty(
+                                DeviceConfig.NAMESPACE_ADSERVICES,
+                                PROPERTY_NEXT_ACTIVITY_ALLOWLIST));
 
         SdkSandboxSettingsListener(Context context) {
             mContext = context;
@@ -1833,10 +1869,9 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             if (!SdkLevel.isAtLeastU()) {
                 return false;
             }
-            return DeviceConfig.getBoolean(
-                    DeviceConfig.NAMESPACE_ADSERVICES,
-                    PROPERTY_CUSTOMIZED_SDK_CONTEXT_ENABLED,
-                    DEFAULT_VALUE_CUSTOMIZED_SDK_CONTEXT_ENABLED);
+            synchronized (mLock) {
+                return mCustomizedSdkContextEnabled;
+            }
         }
 
         boolean areRestrictionsEnforced() {
@@ -1929,6 +1964,12 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                                 }
                             }
                             break;
+                        case PROPERTY_CUSTOMIZED_SDK_CONTEXT_ENABLED:
+                            mCustomizedSdkContextEnabled =
+                                    properties.getBoolean(
+                                            PROPERTY_CUSTOMIZED_SDK_CONTEXT_ENABLED,
+                                            DEFAULT_VALUE_CUSTOMIZED_SDK_CONTEXT_ENABLED);
+                            break;
                         case PROPERTY_ENFORCE_RESTRICTIONS:
                             mEnforceRestrictions =
                                     properties.getBoolean(
@@ -1942,33 +1983,53 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                                             DEFAULT_VALUE_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS);
                             break;
                         case PROPERTY_SERVICES_ALLOWLIST:
-                            mServiceAllowlistPerTargetSdkVersion = getServicesAllowlist();
+                            mServiceAllowlistPerTargetSdkVersion =
+                                    getServicesAllowlist(
+                                            properties.getString(
+                                                    PROPERTY_SERVICES_ALLOWLIST, null));
                             break;
                         case PROPERTY_NEXT_SERVICE_ALLOWLIST:
-                            mNextServiceAllowlist = getNextServiceDeviceConfigAllowlist();
+                            mNextServiceAllowlist =
+                                    getNextServiceDeviceConfigAllowlist(
+                                            properties.getString(
+                                                    PROPERTY_NEXT_SERVICE_ALLOWLIST, null));
                             break;
                         case PROPERTY_CONTENTPROVIDER_ALLOWLIST:
                             mContentProviderAllowlistPerTargetSdkVersion =
-                                    getContentProviderDeviceConfigAllowlist();
+                                    getContentProviderDeviceConfigAllowlist(
+                                            properties.getString(
+                                                    PROPERTY_CONTENTPROVIDER_ALLOWLIST, null));
                             break;
                         case PROPERTY_NEXT_CONTENTPROVIDER_ALLOWLIST:
                             mNextContentProviderAllowlist =
-                                    getNextContentProviderDeviceConfigAllowlist();
+                                    getNextContentProviderDeviceConfigAllowlist(
+                                            properties.getString(
+                                                    PROPERTY_NEXT_CONTENTPROVIDER_ALLOWLIST, null));
                             break;
                         case PROPERTY_BROADCASTRECEIVER_ALLOWLIST:
                             mBroadcastReceiverAllowlistPerTargetSdkVersion =
-                                    getBroadcastReceiverDeviceConfigAllowlist();
+                                    getBroadcastReceiverDeviceConfigAllowlist(
+                                            properties.getString(
+                                                    PROPERTY_BROADCASTRECEIVER_ALLOWLIST, null));
                             break;
                         case PROPERTY_NEXT_BROADCASTRECEIVER_ALLOWLIST:
                             mNextBroadcastReceiverAllowlist =
-                                    getNextBroadcastReceiverDeviceConfigAllowlist();
+                                    getNextBroadcastReceiverDeviceConfigAllowlist(
+                                            properties.getString(
+                                                    PROPERTY_NEXT_BROADCASTRECEIVER_ALLOWLIST,
+                                                    null));
                             break;
                         case PROPERTY_ACTIVITY_ALLOWLIST:
                             mActivityAllowlistPerTargetSdkVersion =
-                                    getActivityDeviceConfigAllowlist();
+                                    getActivityDeviceConfigAllowlist(
+                                            properties.getString(
+                                                    PROPERTY_ACTIVITY_ALLOWLIST, null));
                             break;
                         case PROPERTY_NEXT_ACTIVITY_ALLOWLIST:
-                            mNextActivityAllowlist = getNextActivityDeviceConfigAllowlist();
+                            mNextActivityAllowlist =
+                                    getNextActivityDeviceConfigAllowlist(
+                                            properties.getString(
+                                                    PROPERTY_NEXT_ACTIVITY_ALLOWLIST, null));
                         default:
                     }
                 }
@@ -1979,19 +2040,13 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
          * Helper function to decode a proto property
          *
          * @param property The property which needs to be decoded
+         * @param base64value The base64 value of the property
          * @return The decoded value of the property passed as the parameter
          */
-        private static byte[] getDecodedPropertyValue(@NonNull String property) {
-            final String base64 =
-                    DeviceConfig.getProperty(DeviceConfig.NAMESPACE_ADSERVICES, property);
-
-            if (TextUtils.isEmpty(base64)) {
-                Log.d(TAG, property + " property is empty");
-                return null;
-            }
-
+        private static byte[] getDecodedPropertyValue(
+                @NonNull String property, @NonNull String base64value) {
             try {
-                return Base64.decode(base64, Base64.NO_PADDING | Base64.NO_WRAP);
+                return Base64.decode(base64value, Base64.NO_PADDING | Base64.NO_WRAP);
             } catch (IllegalArgumentException e) {
                 Log.e(TAG, "Error while decoding " + property + " Error: " + e);
             }
@@ -2000,8 +2055,12 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
 
         @Nullable
         private static <T> T getDeviceConfigProtoProperty(
-                Parser<T> parser, @NonNull String property) {
-            final byte[] decode = getDecodedPropertyValue(property);
+                Parser<T> parser, @NonNull String property, @Nullable String value) {
+            if (TextUtils.isEmpty(value)) {
+                Log.d(TAG, "Property " + property + " is empty.");
+                return null;
+            }
+            final byte[] decode = getDecodedPropertyValue(property, value);
             if (Objects.isNull(decode)) {
                 return null;
             }
@@ -2017,27 +2076,29 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         }
 
         @NonNull
-        private static Map<Integer, AllowedServices> getServicesAllowlist() {
+        private static Map<Integer, AllowedServices> getServicesAllowlist(@Nullable String value) {
             final ServiceAllowlists allowedServicesProto =
                     getDeviceConfigProtoProperty(
-                            ServiceAllowlists.parser(), PROPERTY_SERVICES_ALLOWLIST);
+                            ServiceAllowlists.parser(), PROPERTY_SERVICES_ALLOWLIST, value);
             return allowedServicesProto == null
                     ? new ArrayMap<>()
                     : allowedServicesProto.getAllowlistPerTargetSdkMap();
         }
 
         @Nullable
-        private AllowedServices getNextServiceDeviceConfigAllowlist() {
+        private AllowedServices getNextServiceDeviceConfigAllowlist(@Nullable String value) {
             return getDeviceConfigProtoProperty(
-                    AllowedServices.parser(), PROPERTY_NEXT_SERVICE_ALLOWLIST);
+                    AllowedServices.parser(), PROPERTY_NEXT_SERVICE_ALLOWLIST, value);
         }
 
         @NonNull
         private static Map<Integer, AllowedContentProviders>
-                getContentProviderDeviceConfigAllowlist() {
+                getContentProviderDeviceConfigAllowlist(@Nullable String value) {
             final ContentProviderAllowlists contentProviderAllowlistsProto =
                     getDeviceConfigProtoProperty(
-                            ContentProviderAllowlists.parser(), PROPERTY_CONTENTPROVIDER_ALLOWLIST);
+                            ContentProviderAllowlists.parser(),
+                            PROPERTY_CONTENTPROVIDER_ALLOWLIST,
+                            value);
             // Content providers are restricted by default. If the property is not set, or it is an
             // empty string, there are no content providers to allowlist.
             return contentProviderAllowlistsProto == null
@@ -2046,29 +2107,35 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         }
 
         @Nullable
-        private static AllowedContentProviders getNextContentProviderDeviceConfigAllowlist() {
+        private static AllowedContentProviders getNextContentProviderDeviceConfigAllowlist(
+                @Nullable String value) {
             return getDeviceConfigProtoProperty(
-                    AllowedContentProviders.parser(), PROPERTY_NEXT_CONTENTPROVIDER_ALLOWLIST);
+                    AllowedContentProviders.parser(),
+                    PROPERTY_NEXT_CONTENTPROVIDER_ALLOWLIST,
+                    value);
         }
 
         @Nullable
         private static Map<Integer, AllowedBroadcastReceivers>
-                getBroadcastReceiverDeviceConfigAllowlist() {
+                getBroadcastReceiverDeviceConfigAllowlist(@Nullable String value) {
             final BroadcastReceiverAllowlists broadcastReceiverAllowlistsProto =
                     getDeviceConfigProtoProperty(
                             BroadcastReceiverAllowlists.parser(),
-                            PROPERTY_BROADCASTRECEIVER_ALLOWLIST);
+                            PROPERTY_BROADCASTRECEIVER_ALLOWLIST,
+                            value);
             return broadcastReceiverAllowlistsProto == null
                     ? null
                     : broadcastReceiverAllowlistsProto.getAllowlistPerTargetSdkMap();
         }
 
         @Nullable
-        private static ArraySet<String> getNextBroadcastReceiverDeviceConfigAllowlist() {
+        private static ArraySet<String> getNextBroadcastReceiverDeviceConfigAllowlist(
+                @Nullable String value) {
             AllowedBroadcastReceivers allowedBroadcastReceivers =
                     getDeviceConfigProtoProperty(
                             AllowedBroadcastReceivers.parser(),
-                            PROPERTY_NEXT_BROADCASTRECEIVER_ALLOWLIST);
+                            PROPERTY_NEXT_BROADCASTRECEIVER_ALLOWLIST,
+                            value);
             if (allowedBroadcastReceivers != null) {
                 return new ArraySet<>(allowedBroadcastReceivers.getIntentActionsList());
             }
@@ -2076,10 +2143,11 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         }
 
         @Nullable
-        private static Map<Integer, AllowedActivities> getActivityDeviceConfigAllowlist() {
+        private static Map<Integer, AllowedActivities> getActivityDeviceConfigAllowlist(
+                @Nullable String value) {
             ActivityAllowlists activityAllowlistsProto =
                     getDeviceConfigProtoProperty(
-                            ActivityAllowlists.parser(), PROPERTY_ACTIVITY_ALLOWLIST);
+                            ActivityAllowlists.parser(), PROPERTY_ACTIVITY_ALLOWLIST, value);
 
             return activityAllowlistsProto == null
                     ? null
@@ -2087,9 +2155,10 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
         }
 
         @Nullable
-        private static AllowedActivities getNextActivityDeviceConfigAllowlist() {
+        private static AllowedActivities getNextActivityDeviceConfigAllowlist(
+                @Nullable String value) {
             return getDeviceConfigProtoProperty(
-                    AllowedActivities.parser(), PROPERTY_NEXT_ACTIVITY_ALLOWLIST);
+                    AllowedActivities.parser(), PROPERTY_NEXT_ACTIVITY_ALLOWLIST, value);
         }
     }
 
@@ -2703,8 +2772,8 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
     }
 
     private ArraySet<String> getContentProviderAllowlist() {
-        final String curWebViewPackageName = WebViewUpdateService.getCurrentWebViewPackageName();
-        final ArraySet<String> contentProviderAuthoritiesAllowlist = new ArraySet<>();
+        String curWebViewPackageName = WebViewUpdateService.getCurrentWebViewPackageName();
+        ArraySet<String> contentProviderAuthoritiesAllowlist = new ArraySet<>();
         // TODO(b/279557220): Make curWebViewPackageName a static variable once fixed.
         for (String webViewAuthority :
                 new String[] {
@@ -2713,17 +2782,13 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             contentProviderAuthoritiesAllowlist.add(curWebViewPackageName + '.' + webViewAuthority);
         }
 
-        // Required by WebView. Adding temporarily since all restrictions are enabled by default.
-        // TODO(b/274070295): Update the default allowlist value.
-        contentProviderAuthoritiesAllowlist.add(Settings.AUTHORITY);
         synchronized (mLock) {
-            if (mSdkSandboxSettingsListener.applySdkSandboxRestrictionsNext()) {
-                if (mSdkSandboxSettingsListener.getNextContentProviderAllowlist() != null) {
-                    contentProviderAuthoritiesAllowlist.addAll(
-                            mSdkSandboxSettingsListener
-                                    .getNextContentProviderAllowlist()
-                                    .getAuthoritiesList());
-                }
+            if (mSdkSandboxSettingsListener.applySdkSandboxRestrictionsNext()
+                    && mSdkSandboxSettingsListener.getNextContentProviderAllowlist() != null) {
+                contentProviderAuthoritiesAllowlist.addAll(
+                        mSdkSandboxSettingsListener
+                                .getNextContentProviderAllowlist()
+                                .getAuthoritiesList());
                 return contentProviderAuthoritiesAllowlist;
             }
 
@@ -2735,9 +2800,11 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
             if (contentProviderAllowlistForTargetSdkVersion != null) {
                 contentProviderAuthoritiesAllowlist.addAll(
                         contentProviderAllowlistForTargetSdkVersion.getAuthoritiesList());
+            } else {
+                contentProviderAuthoritiesAllowlist.addAll(
+                        DEFAULT_CONTENTPROVIDER_ALLOWED_AUTHORITIES);
             }
         }
-
         return contentProviderAuthoritiesAllowlist;
     }
 

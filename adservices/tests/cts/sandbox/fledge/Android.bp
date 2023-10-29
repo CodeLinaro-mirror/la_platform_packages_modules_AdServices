@@ -29,7 +29,7 @@ android_test {
         "androidx.test.runner",
         "compatibility-device-util-axt",
         "SdkSandboxTestUtils",
-        "truth-prebuilt",
+        "truth",
     ],
     libs: [
         "android.test.base",
@@ -37,7 +37,7 @@ android_test {
         "android.test.runner",
     ],
     data: [
-      ":SdkFledge",
+        ":SdkFledge",
     ],
     // TODO(b/247834676) uncomment to bring in line with upstream
     // min_sdk_version: "33",
