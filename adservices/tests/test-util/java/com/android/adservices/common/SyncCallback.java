@@ -17,12 +17,13 @@ package com.android.adservices.common;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
 
-import com.android.internal.util.Preconditions;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -46,25 +47,43 @@ public abstract class SyncCallback<T, E> {
 
     private static final String TAG = SyncCallback.class.getSimpleName();
 
+    private static final boolean DEFAULT_BEHAVIOR_FOR_FAIL_IF_CALLED_ON_MAIN_THREAD = true;
+
     /** Default time (used when not specified by constructor). */
     public static final int DEFAULT_TIMEOUT_MS = 5_000;
 
     private final CountDownLatch mLatch = new CountDownLatch(1);
     private final int mTimeoutMs;
+    private final long mEpoch = SystemClock.elapsedRealtime();
 
     private @Nullable E mError;
     private @Nullable T mResult;
     private @Nullable String mMethodCalled;
-    private long mEpoch = SystemClock.elapsedRealtime();
+    private @Nullable RuntimeException mInternalFailure;
+    private final boolean mFailIfCalledOnMainThread;
 
-    /** Default constructor, uses {@link #DEFAULT_TIMEOUT_MS} for timeout. */
+    /**
+     * Default constructor, uses {@link #DEFAULT_TIMEOUT_MS} for timeout and fails if the {@code
+     * inject...} method is called in the main thread.
+     */
     protected SyncCallback() {
-        this(DEFAULT_TIMEOUT_MS);
+        this(DEFAULT_TIMEOUT_MS, DEFAULT_BEHAVIOR_FOR_FAIL_IF_CALLED_ON_MAIN_THREAD);
     }
 
     /** Constructor with a custom timeout to wait for the outcome. */
     protected SyncCallback(int timeoutMs) {
+        this(timeoutMs, DEFAULT_BEHAVIOR_FOR_FAIL_IF_CALLED_ON_MAIN_THREAD);
+    }
+
+    /** Constructor with custom settings. */
+    protected SyncCallback(int timeoutMs, boolean failIfCalledOnMainThread) {
         mTimeoutMs = timeoutMs;
+        mFailIfCalledOnMainThread = failIfCalledOnMainThread;
+    }
+
+    @VisibleForTesting
+    boolean isFailIfCalledOnMainThread() {
+        return mFailIfCalledOnMainThread;
     }
 
     /**
@@ -128,9 +147,21 @@ public abstract class SyncCallback<T, E> {
      * called, waiting up to {@link #getMaxTimeoutMs()} milliseconds before failing (if not called).
      */
     public final void assertReceived() throws InterruptedException {
-        Log.v(TAG, "waiting " + mTimeoutMs + " until called");
+        Log.v(
+                TAG,
+                "waiting up to "
+                        + mTimeoutMs
+                        + "ms on "
+                        + Thread.currentThread()
+                        + " until called");
         boolean called = mLatch.await(mTimeoutMs, TimeUnit.MILLISECONDS);
-        Preconditions.checkState(called, "Callback not received in %d ms", mTimeoutMs);
+        if (!called) {
+            throw new IllegalStateException(
+                    String.format("Callback not received in %d ms", mTimeoutMs));
+        }
+        if (mInternalFailure != null) {
+            throw mInternalFailure;
+        }
     }
 
     /** Gets the error returned by {@link #injectError(E)}. */
@@ -143,12 +174,43 @@ public abstract class SyncCallback<T, E> {
         return mResult;
     }
 
+    @Override
+    public String toString() {
+        return getClass().getSimpleName()
+                + "[latch="
+                + mLatch
+                + ", timeoutMs="
+                + mTimeoutMs
+                + ", epoch="
+                + mEpoch
+                + ", error="
+                + mError
+                + ", result="
+                + mResult
+                + ", methodCalled="
+                + mMethodCalled
+                + ", internalFailure="
+                + mInternalFailure
+                + ", failIfCalledOnMainThread="
+                + mFailIfCalledOnMainThread
+                + "]";
+    }
+
     private void setMethodCalled(String method, Object arg) {
         String methodCalled = method + "(" + arg + ")";
         long delta = SystemClock.elapsedRealtime() - mEpoch;
-        Log.v(TAG, methodCalled + " in " + delta + "ms");
+        Thread currentThread = Thread.currentThread();
+        Log.v(TAG, methodCalled + " in " + delta + "ms on " + currentThread);
         if (mMethodCalled != null) {
-            throw new IllegalStateException(methodCalled + " called after " + mMethodCalled);
+            mInternalFailure =
+                    new IllegalStateException(methodCalled + " called after " + mMethodCalled);
+        }
+        if (mFailIfCalledOnMainThread
+                && Looper.getMainLooper() != null
+                && Looper.getMainLooper().isCurrentThread()) {
+            mInternalFailure =
+                    new IllegalStateException(
+                            methodCalled + " called on main thread (" + currentThread + ")");
         }
         mMethodCalled = methodCalled;
         mLatch.countDown();
