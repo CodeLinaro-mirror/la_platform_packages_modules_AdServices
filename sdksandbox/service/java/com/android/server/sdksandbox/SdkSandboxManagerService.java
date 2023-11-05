@@ -239,9 +239,9 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
      * Property to enforce restrictions for SDK sandbox processes. If the value of this property is
      * {@code true}, the restrictions will be enforced.
      */
-    private static final String PROPERTY_ENFORCE_RESTRICTIONS = "sdksandbox_enforce_restrictions";
+    static final String PROPERTY_ENFORCE_RESTRICTIONS = "sdksandbox_enforce_restrictions";
 
-    private static final boolean DEFAULT_VALUE_ENFORCE_RESTRICTIONS = true;
+    static final boolean DEFAULT_VALUE_ENFORCE_RESTRICTIONS = true;
 
     private static final String PROPERTY_ACTIVITY_ALLOWLIST =
             "sdksandbox_activity_allowlist_per_targetSdkVersion";
@@ -757,7 +757,7 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                         new LoadSdkException(LOAD_SDK_INTERNAL_ERROR, e.getMessage(), e),
                         sandboxLatencyInfo);
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to send onLoadCodeFailure", e);
+                Log.e(TAG, "Failed to send onLoadSdkFailure", e);
             }
         }
     }
@@ -1107,7 +1107,7 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                         e.getMessage(),
                         sandboxLatencyInfo);
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to send onLoadCodeFailure", e);
+                Log.e(TAG, "Failed to send onRequestSurfacePackageError", e);
             }
         }
     }
@@ -1285,7 +1285,7 @@ public class SdkSandboxManagerService extends ISdkSandboxManager.Stub {
                         ISharedPreferencesSyncCallback.PREFERENCES_SYNC_INTERNAL_ERROR,
                         e.getMessage());
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to send onLoadCodeFailure", e);
+                Log.e(TAG, "Failed to send ISharedPreferencesSyncCallback.onError", e);
             }
         }
     }
