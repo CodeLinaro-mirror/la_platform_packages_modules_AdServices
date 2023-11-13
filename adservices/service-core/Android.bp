@@ -27,13 +27,16 @@ genrule {
 // Converts the text proto Cobalt registry into a binary proto.
 genrule {
     name: "cobalt-registry-binarypb-gen",
-    srcs: ["resources/cobalt_registry.textpb"],
+    srcs: [
+        "resources/cobalt_registry.textpb",
+        ":adservices-cobalt-proto",
+    ],
     out: ["cobalt_registry.binarypb"],
     tools: ["aprotoc"],
     cmd: "$(location aprotoc) --encode=cobalt.CobaltRegistry " +
         "--proto_path=packages/modules/AdServices/adservices/libraries/cobalt/proto " +
         "packages/modules/AdServices/adservices/libraries/cobalt/proto/cobalt_registry.proto " +
-        "< $(in) > $(out)",
+        "< $(location resources/cobalt_registry.textpb) > $(out)",
 }
 
 // Outputs a class confirming the Cobalt registry asset is validated, conditioned on
@@ -41,6 +44,7 @@ genrule {
 genrule {
     name: "cobalt-registry-validated-java",
     srcs: [
+        ":checked_in_cobalt_registry_binarypb",
         ":cobalt-registry-binarypb-gen",
         "resources/CobaltRegistryValidated.java",
     ],
@@ -48,7 +52,7 @@ genrule {
     // are different. Additionally, print a message with instructions on how to update
     // the asset binary proto.
     cmd: "cp $(location resources/CobaltRegistryValidated.java) $(out) && " +
-        "cmp -s $(location :cobalt-registry-binarypb-gen) packages/modules/AdServices/adservices/apk/assets/cobalt/cobalt_registry.binarypb " +
+        "cmp -s $(location :cobalt-registry-binarypb-gen) $(location :checked_in_cobalt_registry_binarypb) " +
         "|| (echo -e '\\n\\n################################################################\\n#\\n" +
         "#  ERROR: Binary registry is out of date.  To update it, run:\\n#\\n" +
         "#  cp $(location :cobalt-registry-binarypb-gen) " +
@@ -151,6 +155,7 @@ android_library {
         "adservices-cobalt",
         "adservices-proto-lite",
         "adservices-grpclib-lite",
+        "adservices-shared-storage",
         "modules-utils-build",
     ],
     jarjar_rules: "jarjar-rules.txt",
@@ -170,16 +175,19 @@ cc_library_shared {
         "-Wno-unused-parameter",
         "-Wno-unused-but-set-variable",
     ],
-    srcs: ["jni/cpp/hpke_jni.cpp", "jni/cpp/ohttp_jni.cpp"],
+    srcs: ["jni/cpp/hpke_jni.cpp", "jni/cpp/ohttp_jni.cpp", "jni/cpp/act_jni.cpp",],
     include_dirs: ["packages/modules/AdServices/adservices/service-core/jni/include"],
-    header_libs: [ "jni_headers"  ],
-    shared_libs: ["libcrypto", "liblog"],
+    header_libs: ["jni_headers"],
+    shared_libs: ["libcrypto", "liblog",],
+    static_libs: ["libact"],
+    version_script: "jni/version-script.lds",
     apex_available: ["com.android.adservices", "com.android.extservices"],
     visibility: [
         "//packages/modules/AdServices:__subpackages__",
         "//packages/modules/ExtServices:__subpackages__",
     ],
 }
+
 
 // Schemas needs to be bundled via this android_library since service-core unit tests for schema
 // migration will need this.
