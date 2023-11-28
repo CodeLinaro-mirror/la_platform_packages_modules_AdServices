@@ -17,10 +17,12 @@
 package com.android.adservices.service;
 
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE;
+import static android.os.Build.VERSION.SDK_INT;
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.app.job.JobInfo;
+import android.os.Build;
 
 import androidx.annotation.Nullable;
 
@@ -1710,6 +1712,13 @@ public interface Flags {
         return CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE;
     }
 
+    boolean CONSENT_NOTIFIED_DEBUG_MODE = false;
+
+    /** Returns whether to suppress consent notified state. */
+    default boolean getConsentNotifiedDebugMode() {
+        return CONSENT_NOTIFIED_DEBUG_MODE;
+    }
+
     boolean CONSENT_MANAGER_DEBUG_MODE = false;
 
     default boolean getConsentManagerDebugMode() {
@@ -1724,6 +1733,7 @@ public interface Flags {
                 PPAPI_ONLY,
                 PPAPI_AND_SYSTEM_SERVER,
                 APPSEARCH_ONLY,
+                PPAPI_AND_ADEXT_SERVICE,
             })
     @Retention(RetentionPolicy.SOURCE)
     @interface ConsentSourceOfTruth {}
@@ -1746,12 +1756,22 @@ public interface Flags {
     int APPSEARCH_ONLY = FlagsConstants.APPSEARCH_ONLY;
 
     /**
-     * Consent source of truth intended to be used by default. On S- devices, there is no AdServices
-     * code running in the system server, so the default for those is PPAPI_ONLY.
+     * Read and write data that need to be rollback-safe from AdServicesExtDataStorageService; rest
+     * can be handled by PPAPI_API only. This is intended to be used on Android R as AppSearch and
+     * system server are unavailable.
+     */
+    int PPAPI_AND_ADEXT_SERVICE = FlagsConstants.PPAPI_AND_ADEXT_SERVICE;
+
+    /**
+     * Consent source of truth intended to be used by default. On S devices, there is no AdServices
+     * code running in the system server, so the default is APPSEARCH_ONLY. On R devices, there is
+     * no system server and appseach, so the default is PPAPI_AND_ADEXT_SERVICE_ONLY.
      */
     @ConsentSourceOfTruth
     int DEFAULT_CONSENT_SOURCE_OF_TRUTH =
-            SdkLevel.isAtLeastT() ? PPAPI_AND_SYSTEM_SERVER : APPSEARCH_ONLY;
+            SdkLevel.isAtLeastT()
+                    ? PPAPI_AND_SYSTEM_SERVER
+                    : (SdkLevel.isAtLeastS() ? APPSEARCH_ONLY : PPAPI_AND_ADEXT_SERVICE);
 
     /** Returns the consent source of truth currently used for PPAPI. */
     @ConsentSourceOfTruth
@@ -1760,12 +1780,16 @@ public interface Flags {
     }
 
     /**
-     * Blocked topics source of truth intended to be used by default. On S- devices, there is no
-     * AdServices code running in the system server, so the default for those is PPAPI_ONLY.
+     * Blocked topics source of truth intended to be used by default. On S devices, there is no
+     * AdServices code running in the system server, so the default is APPSEARCH_ONLY. On R devices,
+     * there is no system server and appseach, so the default is PPAPI_ADEXT_SERVICE_ONLY. However,
+     * note that topics is not supported on R.
      */
     @ConsentSourceOfTruth
     int DEFAULT_BLOCKED_TOPICS_SOURCE_OF_TRUTH =
-            SdkLevel.isAtLeastT() ? PPAPI_AND_SYSTEM_SERVER : APPSEARCH_ONLY;
+            SdkLevel.isAtLeastT()
+                    ? PPAPI_AND_SYSTEM_SERVER
+                    : (SdkLevel.isAtLeastS() ? APPSEARCH_ONLY : PPAPI_AND_ADEXT_SERVICE);
 
     /** Returns the blocked topics source of truth currently used for PPAPI */
     @ConsentSourceOfTruth
@@ -2461,11 +2485,27 @@ public interface Flags {
      * AppSearch is not considered as source of truth after OTA. This flag should be enabled for OTA
      * support of consent data on T+ devices.
      */
-    boolean ENABLE_APPSEARCH_CONSENT_DATA = !SdkLevel.isAtLeastT();
+    boolean ENABLE_APPSEARCH_CONSENT_DATA = SdkLevel.isAtLeastS() && !SdkLevel.isAtLeastT();
 
     /** @return value of enable appsearch consent data flag */
     default boolean getEnableAppsearchConsentData() {
         return ENABLE_APPSEARCH_CONSENT_DATA;
+    }
+
+    /**
+     * Enable AdServicesExtDataStorageService read for consent data feature flag. The default value
+     * on R devices is true as the consent source of truth is PPAPI_AND_ADEXT_SERVICE_ONLY. The
+     * default value on S+ devices is false which means AdServicesExtDataStorageService is not
+     * considered as source of truth after OTA. This flag should be enabled for OTA support of
+     * consent data on S devices.
+     */
+    boolean ENABLE_ADEXT_SERVICE_CONSENT_DATA = SDK_INT == Build.VERSION_CODES.R;
+
+    /**
+     * @return value of enable AdExt service consent data flag.
+     */
+    default boolean getEnableAdExtServiceConsentData() {
+        return ENABLE_ADEXT_SERVICE_CONSENT_DATA;
     }
 
     /*
@@ -3824,6 +3864,14 @@ public interface Flags {
         return DEFAULT_RVC_UX_ENABLED;
     }
 
+    /** Default RVC NOTIFICATION feature flag.. */
+    boolean DEFAULT_RVC_NOTIFICATION_ENABLED = false;
+
+    /** RVC Notification feature flag.. */
+    default boolean getEnableRvcNotification() {
+        return DEFAULT_RVC_NOTIFICATION_ENABLED;
+    }
+
     /** Default enableAdServices system API feature flag.. */
     boolean DEFAULT_ENABLE_AD_SERVICES_SYSTEM_API = false;
 
@@ -3936,6 +3984,76 @@ public interface Flags {
     /** Minimum time window after which reporting origin can be migrated */
     default long getMeasurementMinReportingOriginUpdateWindow() {
         return MEASUREMENT_MIN_REPORTING_ORIGIN_UPDATE_WINDOW;
+    }
+
+    float MEASUREMENT_INSTALL_ATTR_DUAL_DESTINATION_EVENT_NOISE_PROBABILITY = 0.0000208f;
+
+    /**
+     * {@link Source} Noise probability for 'Event' when both destinations (app and web) are
+     * available on the source and supports install attribution.
+     */
+    default float getMeasurementInstallAttrDualDestinationEventNoiseProbability() {
+        return MEASUREMENT_INSTALL_ATTR_DUAL_DESTINATION_EVENT_NOISE_PROBABILITY;
+    }
+
+    float MEASUREMENT_DUAL_DESTINATION_NAVIGATION_NOISE_PROBABILITY = 0.0170218f;
+
+    /**
+     * {@link Source} Noise probability for 'Navigation' when both destinations (app and web) are
+     * available on the source.
+     */
+    default float getMeasurementDualDestinationNavigationNoiseProbability() {
+        return MEASUREMENT_DUAL_DESTINATION_NAVIGATION_NOISE_PROBABILITY;
+    }
+
+    float MEASUREMENT_INSTALL_ATTR_DUAL_DESTINATION_NAVIGATION_NOISE_PROBABILITY =
+            MEASUREMENT_DUAL_DESTINATION_NAVIGATION_NOISE_PROBABILITY;
+
+    /**
+     * {@link Source} Noise probability for 'Navigation' when both destinations (app and web) are
+     * available on the source and supports install attribution.
+     */
+    default float getMeasurementInstallAttrDualDestinationNavigationNoiseProbability() {
+        return MEASUREMENT_INSTALL_ATTR_DUAL_DESTINATION_NAVIGATION_NOISE_PROBABILITY;
+    }
+
+    float MEASUREMENT_DUAL_DESTINATION_EVENT_NOISE_PROBABILITY = 0.0000042f;
+
+    /**
+     * {@link Source} Noise probability for 'Event' when both destinations (app and web) are
+     * available on the source.
+     */
+    default float getMeasurementDualDestinationEventNoiseProbability() {
+        return MEASUREMENT_DUAL_DESTINATION_EVENT_NOISE_PROBABILITY;
+    }
+
+    float MEASUREMENT_INSTALL_ATTR_EVENT_NOISE_PROBABILITY = 0.0000125f;
+
+    /** {@link Source} Noise probability for 'Event' which supports install attribution. */
+    default float getMeasurementInstallAttrEventNoiseProbability() {
+        return MEASUREMENT_INSTALL_ATTR_EVENT_NOISE_PROBABILITY;
+    }
+
+    float MEASUREMENT_EVENT_NOISE_PROBABILITY = 0.0000025f;
+
+    /** {@link Source} Noise probability for 'Event'. */
+    default float getMeasurementEventNoiseProbability() {
+        return MEASUREMENT_EVENT_NOISE_PROBABILITY;
+    }
+
+    float MEASUREMENT_NAVIGATION_NOISE_PROBABILITY = 0.0024263f;
+
+    /** {@link Source} Noise probability for 'Navigation'. */
+    default float getMeasurementNavigationNoiseProbability() {
+        return MEASUREMENT_NAVIGATION_NOISE_PROBABILITY;
+    }
+
+    float MEASUREMENT_INSTALL_ATTR_NAVIGATION_NOISE_PROBABILITY =
+            MEASUREMENT_NAVIGATION_NOISE_PROBABILITY;
+
+    /** {@link Source} Noise probability for 'Navigation' which supports install attribution. */
+    default float getMeasurementInstallAttrNavigationNoiseProbability() {
+        return MEASUREMENT_INSTALL_ATTR_NAVIGATION_NOISE_PROBABILITY;
     }
 
     boolean MEASUREMENT_ENABLE_PREINSTALL_CHECK = false;
@@ -4195,6 +4313,16 @@ public interface Flags {
      */
     default boolean getEnableAdservicesApiEnabled() {
         return DEFAULT_ENABLE_ADSERVICES_API_ENABLED;
+    }
+
+    /**
+     * Default value to determine whether AdServicesExtDataStorageService related APIs are enabled.
+     */
+    boolean DEFAULT_ENABLE_ADEXT_DATA_SERVICE_APIS = true;
+
+    /** Returns whether AdServicesExtDataStorageService related APIs are enabled. */
+    default boolean getEnableAdExtDataServiceApis() {
+        return DEFAULT_ENABLE_ADEXT_DATA_SERVICE_APIS;
     }
 
     /**
