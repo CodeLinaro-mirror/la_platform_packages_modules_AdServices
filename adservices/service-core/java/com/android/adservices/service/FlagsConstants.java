@@ -91,6 +91,9 @@ public final class FlagsConstants {
     public static final String KEY_GLOBAL_BLOCKED_TOPIC_IDS = "topics_global_blocked_topic_ids";
     public static final String KEY_TOPICS_DISABLE_DIRECT_APP_CALLS =
             "topics_disable_direct_app_calls";
+    public static final String KEY_TOPICS_ENABLE_ENCRYPTION = "topics_enable_encryption";
+    public static final String KEY_TOPICS_DISABLE_PLAINTEXT_RESPONSE =
+            "topics_disable_plaintext_response";
 
     // Topics classifier keys
     public static final String KEY_CLASSIFIER_TYPE = "classifier_type";
@@ -245,6 +248,12 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_MAX_ATTRIBUTION_PER_RATE_LIMIT_WINDOW =
             "measurement_max_attribution_per_rate_limit_window";
 
+    public static final String KEY_MEASUREMENT_MAX_EVENT_ATTRIBUTION_PER_RATE_LIMIT_WINDOW =
+            "measurement_max_event_attribution_per_rate_limit_window";
+
+    public static final String KEY_MEASUREMENT_MAX_AGGREGATE_ATTRIBUTION_PER_RATE_LIMIT_WINDOW =
+            "measurement_max_aggregate_attribution_per_rate_limit_window";
+
     public static final String KEY_MEASUREMENT_MAX_DISTINCT_ENROLLMENTS_IN_ATTRIBUTION =
             "measurement_max_distinct_enrollments_in_attribution";
 
@@ -289,6 +298,9 @@ public final class FlagsConstants {
 
     public static final String KEY_MEASUREMENT_ENABLE_SOURCE_DEACTIVATION_AFTER_FILTERING =
             "measurement_enable_source_deactivation_after_filtering";
+
+    public static final String KEY_MEASUREMENT_ENABLE_SCOPED_ATTRIBUTION_RATE_LIMIT =
+            "measurement_enable_scoped_attribution_rate_limit";
 
     public static final String KEY_MEASUREMENT_DEBUG_REPORTING_FALLBACK_JOB_PERIOD_MS =
             "measurement_debug_reporting_fallback_job_period_ms";
@@ -417,6 +429,9 @@ public final class FlagsConstants {
 
     public static final String KEY_MEASUREMENT_ENABLE_AGGREGATABLE_REPORT_PAYLOAD_PADDING =
             "measurement_enable_aggregatable_report_payload_padding";
+
+    public static final String KEY_MEASUREMENT_ENABLE_SESSION_STABLE_KILL_SWITCHES =
+            "key_measurement_enable_session_stable_kill_switches";
 
     // FLEDGE Custom Audience keys
     public static final String KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_COUNT =
@@ -1096,14 +1111,14 @@ public final class FlagsConstants {
 
     public static final String
             KEY_MEASUREMENT_INSTALL_ATTR_DUAL_DESTINATION_EVENT_NOISE_PROBABILITY =
-            "measurement_install_attr_dual_destination_event_noise_probability";
+                    "measurement_install_attr_dual_destination_event_noise_probability";
 
     public static final String KEY_MEASUREMENT_DUAL_DESTINATION_NAVIGATION_NOISE_PROBABILITY =
             "measurement_dual_destination_navigation_noise_probability";
 
     public static final String
             KEY_MEASUREMENT_INSTALL_ATTR_DUAL_DESTINATION_NAVIGATION_NOISE_PROBABILITY =
-            "measurement_install_attr_dual_destination_navigation_noise_probability";
+                    "measurement_install_attr_dual_destination_navigation_noise_probability";
 
     public static final String KEY_MEASUREMENT_DUAL_DESTINATION_EVENT_NOISE_PROBABILITY =
             "measurement_dual_destination_event_noise_probability";
@@ -1155,8 +1170,14 @@ public final class FlagsConstants {
     public static final String KEY_ENABLE_ADEXT_DATA_SERVICE_APIS =
             "enable_adext_data_service_apis";
 
+    public static final String KEY_ENABLE_ADEXT_DATA_SERVICE_DEBUG_PROXY =
+            "enable_adext_data_service_debug_proxy";
+
     public static final String KEY_ENABLE_ADSERVICES_API_ENABLED = "enable_adservices_api_enabled";
 
     public static final String KEY_ADSERVICES_ENABLEMENT_CHECK_ENABLED =
             "adservices_enablement_check_enabled";
+
+    public static final String KEY_BACKGROUND_JOB_SAMPLING_LOGGING_RATE =
+            "key_background_job_sampling_logging_rate";
 }

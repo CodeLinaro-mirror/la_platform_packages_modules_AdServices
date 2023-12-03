@@ -51,11 +51,34 @@ import java.util.concurrent.atomic.AtomicLong;
  * This class manages the interface to read and write data required on Android R through {@link
  * AdServicesExtDataStorageService}.
  */
-public class AdServicesExtDataStorageServiceManager {
+public final class AdServicesExtDataStorageServiceManager {
     // Conservative timeouts based on what's used for AppSearch operations (500 ms for reads,
     // 2000 ms writes). An additional 100 ms buffer is added for delays such as binder latency.
     private static final long READ_OPERATION_TIMEOUT_MS = 600L;
     private static final long WRITE_OPERATION_TIMEOUT_MS = 2100L;
+
+    private static final AdServicesExtDataParams DEFAULT_PARAMS =
+            new AdServicesExtDataParams.Builder()
+                    .setNotificationDisplayed(BOOLEAN_UNKNOWN)
+                    .setMsmtConsent(BOOLEAN_UNKNOWN)
+                    .setIsU18Account(BOOLEAN_UNKNOWN)
+                    .setIsAdultAccount(BOOLEAN_UNKNOWN)
+                    .setManualInteractionWithConsentStatus(STATE_UNKNOWN)
+                    .setMsmtRollbackApexVersion(APEX_VERSION_WHEN_NOT_FOUND)
+                    .build();
+
+    // FIELD_IS_NOTIFICATION_DISPLAYED is not cleared as this information is used for notification
+    // eligibility upon OTA. As there is no requirement to delete this metadata, we won't be
+    // clearing it to simplify OTA deletion logic which can now happen immediately after consent
+    // migration.
+    private static final int[] DATA_FIELDS_TO_CLEAR_POST_OTA =
+            new int[] {
+                FIELD_IS_MEASUREMENT_CONSENTED,
+                FIELD_IS_U18_ACCOUNT,
+                FIELD_IS_ADULT_ACCOUNT,
+                FIELD_MANUAL_INTERACTION_WITH_CONSENT_STATUS,
+                FIELD_MEASUREMENT_ROLLBACK_APEX_VERSION
+            };
 
     private final AdServicesExtDataStorageServiceWorker mDataWorker;
 
@@ -82,7 +105,7 @@ public class AdServicesExtDataStorageServiceManager {
         CountDownLatch latch = new CountDownLatch(1);
 
         AtomicBoolean isSuccess = new AtomicBoolean();
-        AtomicInteger notifDisplayed = new AtomicInteger();
+        AtomicInteger notificationDisplayed = new AtomicInteger();
         AtomicInteger msmtConsent = new AtomicInteger();
         AtomicInteger isU18Account = new AtomicInteger();
         AtomicInteger isAdultAccount = new AtomicInteger();
@@ -93,7 +116,7 @@ public class AdServicesExtDataStorageServiceManager {
                 new AdServicesOutcomeReceiver<>() {
                     @Override
                     public void onResult(AdServicesExtDataParams result) {
-                        notifDisplayed.set(result.getIsNotificationDisplayed());
+                        notificationDisplayed.set(result.getIsNotificationDisplayed());
                         msmtConsent.set(result.getIsMeasurementConsented());
                         isU18Account.set(result.getIsU18Account());
                         isAdultAccount.set(result.getIsAdultAccount());
@@ -117,25 +140,25 @@ public class AdServicesExtDataStorageServiceManager {
             timedOut = !latch.await(READ_OPERATION_TIMEOUT_MS, TimeUnit.MILLISECONDS);
             if (timedOut) {
                 LogUtil.e("Getting AdExt data timed out! Returning default values.");
-                params = constructDefaultParams();
+                params = DEFAULT_PARAMS;
             } else {
                 params =
                         isSuccess.get()
                                 ? constructParams(
-                                        notifDisplayed.get(),
+                                        notificationDisplayed.get(),
                                         msmtConsent.get(),
                                         isU18Account.get(),
                                         isAdultAccount.get(),
                                         manualInteractionWithConsentStatus.get(),
                                         apexVersion.get())
-                                : constructDefaultParams();
+                                : DEFAULT_PARAMS;
             }
         } catch (Exception e) {
             LogUtil.e(e, "Error when awaiting latch! Returning default values.");
-            params = constructDefaultParams();
+            params = DEFAULT_PARAMS;
         }
 
-        LogUtil.d("Returned AdExt data: " + params);
+        LogUtil.d("Returned AdExt data: %s", params);
         return params;
     }
 
@@ -167,8 +190,8 @@ public class AdServicesExtDataStorageServiceManager {
                     @Override
                     public void onResult(AdServicesExtDataParams result) {
                         LogUtil.d(
-                                "Updated AdExt Data: "
-                                        + updateRequestToStr(params, fieldsToUpdate));
+                                "Updated AdExt Data: %s",
+                                updateRequestToString(params, fieldsToUpdate));
                         isSuccess.set(true);
                         latch.countDown();
                     }
@@ -242,7 +265,7 @@ public class AdServicesExtDataStorageServiceManager {
      *
      * @return true if update was successful; false otherwise.
      */
-    public boolean setNotifDisplayed(boolean isGiven) {
+    public boolean setNotificationDisplayed(boolean isGiven) {
         return setAdServicesExtData(
                 new AdServicesExtDataParams.Builder()
                         .setNotificationDisplayed(isGiven ? BOOLEAN_TRUE : BOOLEAN_FALSE)
@@ -254,7 +277,7 @@ public class AdServicesExtDataStorageServiceManager {
      * Retrieves the stored consent bit for notification displayed, converted into boolean. -1 (no
      * data) is considered false.
      */
-    public boolean getNotifDisplayed() {
+    public boolean getNotificationDisplayed() {
         return getAdServicesExtData().getIsNotificationDisplayed() == BOOLEAN_TRUE;
     }
 
@@ -294,15 +317,61 @@ public class AdServicesExtDataStorageServiceManager {
         return getAdServicesExtData().getIsAdultAccount() == BOOLEAN_TRUE;
     }
 
+    /**
+     * Sets the apex version when a measurement deletion event occurred, for rollback purposes
+     *
+     * @param apexVersion the version of the ExtServices apex that was running
+     * @return {@code true} if successful, {@code false} otherwise.
+     */
+    public boolean setMeasurementRollbackApexVersion(long apexVersion) {
+        return setAdServicesExtData(
+                new AdServicesExtDataParams.Builder()
+                        .setMsmtRollbackApexVersion(apexVersion)
+                        .build(),
+                new int[] {FIELD_MEASUREMENT_ROLLBACK_APEX_VERSION});
+    }
+
+    /**
+     * Returns the saved ExtServices apex version that had a measurement deletion event, if any
+     *
+     * @return the saved apex version if present, -1 otherwise.
+     */
+    public long getMeasurementRollbackApexVersion() {
+        return getAdServicesExtData().getMeasurementRollbackApexVersion();
+    }
+
+    /**
+     * Sets appropriate AdExt data values to their respective default values to indicate data
+     * clearance in a non-blocking manner. Data that indicates whether notification was shown on R
+     * will not be cleared to simplify OTA deletion logic as there's no requirement to delete it.
+     */
+    public void clearDataOnOtaAsync() {
+        mDataWorker.setAdServicesExtData(
+                DEFAULT_PARAMS,
+                DATA_FIELDS_TO_CLEAR_POST_OTA,
+                new AdServicesOutcomeReceiver<>() {
+                    @Override
+                    public void onResult(AdServicesExtDataParams result) {
+                        LogUtil.d("Cleared AdExt Data.");
+                    }
+
+                    @Override
+                    public void onError(@NonNull Exception e) {
+                        // TODO (b/301163895) Add logging to capture deletion failure.
+                        LogUtil.e(e, "Exception when clearing AdExt data!");
+                    }
+                });
+    }
+
     private AdServicesExtDataParams constructParams(
-            int notifDisplayed,
+            int notificationDisplayed,
             int msmtConsent,
             int isU18Account,
             int isAdultAccount,
             int manualInteractionStatus,
             long msmtApex) {
         return new AdServicesExtDataParams.Builder()
-                .setNotificationDisplayed(notifDisplayed)
+                .setNotificationDisplayed(notificationDisplayed)
                 .setMsmtConsent(msmtConsent)
                 .setIsU18Account(isU18Account)
                 .setIsAdultAccount(isAdultAccount)
@@ -311,20 +380,9 @@ public class AdServicesExtDataStorageServiceManager {
                 .build();
     }
 
-    private AdServicesExtDataParams constructDefaultParams() {
-        return new AdServicesExtDataParams.Builder()
-                .setNotificationDisplayed(BOOLEAN_UNKNOWN)
-                .setMsmtConsent(BOOLEAN_UNKNOWN)
-                .setIsU18Account(BOOLEAN_UNKNOWN)
-                .setIsAdultAccount(BOOLEAN_UNKNOWN)
-                .setManualInteractionWithConsentStatus(STATE_UNKNOWN)
-                .setMsmtRollbackApexVersion(APEX_VERSION_WHEN_NOT_FOUND)
-                .build();
-    }
-
     /** Converts AdExt data to be updated into readable string, used for debug logging. */
     @VisibleForTesting
-    String updateRequestToStr(AdServicesExtDataParams params, int[] fieldsToUpdate) {
+    String updateRequestToString(AdServicesExtDataParams params, int[] fieldsToUpdate) {
         StringBuilder sb = new StringBuilder("{");
         for (int fieldId : fieldsToUpdate) {
             switch (fieldId) {
@@ -351,12 +409,11 @@ public class AdServicesExtDataStorageServiceManager {
                     break;
                 default:
                     // Handle gracefully because this is only used for debugging.
-                    LogUtil.e("Invalid AdExt data field Id detected: " + fieldId);
+                    LogUtil.e("Invalid AdExt data field Id detected: %d", fieldId);
                     sb.append("INVALID_FIELD_ID: ").append(fieldId);
             }
             sb.append(",");
         }
-        sb.append("}");
-        return sb.toString();
+        return sb.append("}").toString();
     }
 }

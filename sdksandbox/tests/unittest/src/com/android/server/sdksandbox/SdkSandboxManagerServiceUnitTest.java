@@ -85,8 +85,6 @@ import com.android.server.SystemService.TargetUser;
 import com.android.server.am.ActivityManagerLocal;
 import com.android.server.pm.PackageManagerLocal;
 import com.android.server.sdksandbox.SdkSandboxStorageManager.StorageDirInfo;
-import com.android.server.sdksandbox.proto.Services.AllowedService;
-import com.android.server.sdksandbox.proto.Services.AllowedServices;
 import com.android.server.sdksandbox.testutils.FakeSdkSandboxProvider;
 import com.android.server.wm.ActivityInterceptorCallback;
 import com.android.server.wm.ActivityInterceptorCallbackRegistry;
@@ -177,7 +175,7 @@ public class SdkSandboxManagerServiceUnitTest {
     private static FakeSdkSandboxProvider sProvider;
     private static SdkSandboxPulledAtoms sSdkSandboxPulledAtoms;
 
-    private static SdkSandboxManagerService.SdkSandboxSettingsListener sSdkSandboxSettingsListener;
+    private static SdkSandboxSettingsListener sSdkSandboxSettingsListener;
 
     private SdkSandboxStorageManager mSdkSandboxStorageManager;
     private static SdkSandboxManagerLocal sSdkSandboxManagerLocal;
@@ -249,7 +247,13 @@ public class SdkSandboxManagerServiceUnitTest {
         mSdkSandboxStorageManagerUtility =
                 new SdkSandboxStorageManagerUtility(mSdkSandboxStorageManager);
 
-        mInjector = Mockito.spy(new InjectorForTest(mSpyContext, mSdkSandboxStorageManager));
+        mInjector =
+                Mockito.spy(
+                        new FakeInjector(
+                                mSpyContext,
+                                mSdkSandboxStorageManager,
+                                sProvider,
+                                sSdkSandboxPulledAtoms));
 
         mService = new SdkSandboxManagerService(mSpyContext, mInjector);
         mService.forceEnableSandbox();
@@ -2434,92 +2438,6 @@ public class SdkSandboxManagerServiceUnitTest {
     }
 
     @Test
-    public void testSdkSandboxSettings_killSwitch() {
-        assertThat(sSdkSandboxSettingsListener.isKillSwitchEnabled()).isFalse();
-        setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "true");
-        assertThat(sSdkSandboxSettingsListener.isKillSwitchEnabled()).isTrue();
-        setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "false");
-        assertThat(sSdkSandboxSettingsListener.isKillSwitchEnabled()).isFalse();
-    }
-
-    @Test
-    public void testOtherPropertyChangeDoesNotAffectKillSwitch() {
-        assertThat(sSdkSandboxSettingsListener.isKillSwitchEnabled()).isFalse();
-        setDeviceConfigProperty("other_property", "true");
-        assertThat(sSdkSandboxSettingsListener.isKillSwitchEnabled()).isFalse();
-    }
-
-    @Test
-    public void testSdkSandboxSettings_applySdkSandboxRestrictionsNext() {
-        assertThat(sSdkSandboxSettingsListener.applySdkSandboxRestrictionsNext()).isFalse();
-        setDeviceConfigProperty(PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS, "true");
-        assertThat(sSdkSandboxSettingsListener.applySdkSandboxRestrictionsNext()).isTrue();
-        setDeviceConfigProperty(PROPERTY_APPLY_SDK_SANDBOX_NEXT_RESTRICTIONS, "false");
-        assertThat(sSdkSandboxSettingsListener.applySdkSandboxRestrictionsNext()).isFalse();
-    }
-
-    @Test
-    public void testServiceAllowlist_DeviceConfigNotAvailable() {
-        setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, null);
-
-        assertThat(
-                        sSdkSandboxSettingsListener.getServiceAllowlistForTargetSdkVersion(
-                                /*targetSdkVersion=*/ 34))
-                .isNull();
-    }
-
-    @Test
-    public void testServiceAllowlist_DeviceConfigAllowlistApplied() {
-        /**
-         * Base64 encoded Service allowlist allowlist_per_target_sdk { key: 33 value: {
-         * allowed_services: { intentAction : "android.test.33" componentPackageName :
-         * "packageName.test.33" componentClassName : "className.test.33" } } }
-         *
-         * <p>allowlist_per_target_sdk { key: 34 value: { allowed_services: { intentAction :
-         * "android.test.34" componentPackageName : "packageName.test.34" componentClassName :
-         * "className.test.34" } } }
-         */
-        final String encodedServiceAllowlist =
-                "Cj8IIRI7CjkKD2FuZHJvaWQudGVzdC4zMxITcGFja2FnZU5hbWUudGVzdC4zMxoRY2xhc3NOYW1lLnRl"
-                        + "c3QuMzMKPwgiEjsKOQoPYW5kcm9pZC50ZXN0LjM0EhNwYWNrYWdlTmFtZS50ZXN0LjM0GhFj"
-                        + "bGFzc05hbWUudGVzdC4zNA==";
-
-        setDeviceConfigProperty(PROPERTY_SERVICES_ALLOWLIST, encodedServiceAllowlist);
-
-        AllowedServices allowedServices =
-                sSdkSandboxSettingsListener.getServiceAllowlistForTargetSdkVersion(
-                        /*targetSdkVersion=*/ 33);
-        assertThat(allowedServices).isNotNull();
-
-        verifyAllowlistEntryContents(
-                allowedServices.getAllowedServices(0),
-                /*action=*/ "android.test.33",
-                /*packageName=*/ "packageName.test.33",
-                /*componentClassName=*/ "className.test.33");
-
-        allowedServices =
-                sSdkSandboxSettingsListener.getServiceAllowlistForTargetSdkVersion(
-                        /*targetSdkVersion=*/ 34);
-        assertThat(allowedServices).isNotNull();
-
-        verifyAllowlistEntryContents(
-                allowedServices.getAllowedServices(0),
-                /*action=*/ "android.test.34",
-                /*packageName=*/ "packageName.test.34",
-                /*componentClassName=*/ "className.test.34");
-    }
-
-    private void verifyAllowlistEntryContents(
-            AllowedService allowedService,
-            String action,
-            String packageName,
-            String componentClassName) {
-        assertThat(allowedService.getAction()).isEqualTo(action);
-        assertThat(allowedService.getPackageName()).isEqualTo(packageName);
-        assertThat(allowedService.getComponentClassName()).isEqualTo(componentClassName);
-    }
-
-    @Test
     public void testKillswitchStopsSandbox() throws Exception {
         disableKillUid();
         setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "false");
@@ -2969,33 +2887,5 @@ public class SdkSandboxManagerServiceUnitTest {
         final Bundle data = new Bundle();
         data.putString(TEST_KEY, TEST_VALUE);
         return data;
-    }
-
-    public static class InjectorForTest extends SdkSandboxManagerService.Injector {
-        private SdkSandboxStorageManager mSdkSandboxStorageManager = null;
-
-        InjectorForTest(Context context, SdkSandboxStorageManager sdkSandboxStorageManager) {
-            super(context);
-            mSdkSandboxStorageManager = sdkSandboxStorageManager;
-        }
-
-        public InjectorForTest(Context spyContext) {
-            super(spyContext);
-        }
-
-        @Override
-        public SdkSandboxServiceProvider getSdkSandboxServiceProvider() {
-            return sProvider;
-        }
-
-        @Override
-        public SdkSandboxPulledAtoms getSdkSandboxPulledAtoms() {
-            return sSdkSandboxPulledAtoms;
-        }
-
-        @Override
-        public SdkSandboxStorageManager getSdkSandboxStorageManager() {
-            return mSdkSandboxStorageManager;
-        }
     }
 }
