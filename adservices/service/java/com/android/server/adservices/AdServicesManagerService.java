@@ -767,7 +767,7 @@ public class AdServicesManagerService extends IAdServicesManager.Stub {
         }
 
         LogUtil.v("Executing shell cmd: %s", Arrays.toString(args));
-        return new AdServicesShellCommand(mContext)
+        return new AdServicesShellCommand()
                 .exec(
                         this,
                         in.getFileDescriptor(),

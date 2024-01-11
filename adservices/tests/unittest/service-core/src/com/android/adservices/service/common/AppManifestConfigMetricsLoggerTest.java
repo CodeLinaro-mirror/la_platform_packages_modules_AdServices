@@ -49,6 +49,8 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.util.Log;
 
+import androidx.test.filters.FlakyTest;
+
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
 import com.android.adservices.common.Nullable;
 import com.android.adservices.common.SyncCallback;
@@ -156,6 +158,12 @@ public final class AppManifestConfigMetricsLoggerTest extends AdServicesExtended
         assertEditNotCalled();
     }
 
+    @FlakyTest(
+            bugId = 315979774,
+            detail =
+                    "Should be fine now (issue was probably calling mPrefs instead of pref, and"
+                        + " method is simpler now regardless), but annotation will be removed in a"
+                        + " follow-up CL")
     @Test
     public void testLogUsage_secondTimeDifferentResult() throws Exception {
         int result = RESULT_ALLOWED_APP_ALLOWS_ALL;

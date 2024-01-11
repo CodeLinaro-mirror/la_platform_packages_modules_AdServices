@@ -50,14 +50,46 @@ public class SourceNoiseHandlerTest {
     @Before
     public void setup() {
         mFlags = mock(Flags.class);
-        doReturn(Flags.DEFAULT_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT)
-                .when(mFlags).getMeasurementVtcConfigurableMaxEventReportsCount();
-        doReturn(Flags.MEASUREMENT_EVENT_REPORTS_VTC_EARLY_REPORTING_WINDOWS)
-                .when(mFlags).getMeasurementEventReportsVtcEarlyReportingWindows();
-        doReturn(Flags.MEASUREMENT_EVENT_REPORTS_CTC_EARLY_REPORTING_WINDOWS)
-                .when(mFlags).getMeasurementEventReportsCtcEarlyReportingWindows();
+        doReturn(false).when(mFlags).getMeasurementEnableConfigurableEventReportingWindows();
         mSourceNoiseHandler =
                 spy(new SourceNoiseHandler(mFlags, new EventReportWindowCalcDelegate(mFlags)));
+    }
+
+    @Test
+    public void fakeReports_eventSourceDualDestPostInstallMode_generatesFromStaticReportStates() {
+        long expiry = System.currentTimeMillis();
+        Source source =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setSourceType(Source.SourceType.EVENT)
+                        .setWebDestinations(SourceFixture.ValidSourceParams.WEB_DESTINATIONS)
+                        .setEventReportWindow(expiry)
+                        .setInstallCooldownWindow(
+                                SourceFixture.ValidSourceParams.INSTALL_COOLDOWN_WINDOW)
+                        .build();
+        // Force increase the probability of random attribution.
+        doReturn(0.50D).when(mSourceNoiseHandler).getRandomAttributionProbability(source);
+        int falseCount = 0;
+        int neverCount = 0;
+        int truthCount = 0;
+        for (int i = 0; i < 500; i++) {
+            List<Source.FakeReport> fakeReports =
+                    mSourceNoiseHandler.assignAttributionModeAndGenerateFakeReports(source);
+            if (source.getAttributionMode() == Source.AttributionMode.FALSELY) {
+                falseCount++;
+                assertNotEquals(0, fakeReports.size());
+                assertTrue(
+                        isValidEventSourceDualDestPostInstallModeFakeReportState(
+                                source, fakeReports));
+            } else if (source.getAttributionMode() == Source.AttributionMode.NEVER) {
+                neverCount++;
+                assertEquals(0, fakeReports.size());
+            } else {
+                truthCount++;
+            }
+        }
+        assertNotEquals(0, falseCount);
+        assertNotEquals(0, neverCount);
+        assertNotEquals(0, truthCount);
     }
 
     @Test
@@ -135,7 +167,6 @@ public class SourceNoiseHandlerTest {
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setSourceType(Source.SourceType.NAVIGATION)
                         .setEventTime(eventTime)
-                        .setExpiryTime(eventTime + TimeUnit.DAYS.toMillis(30))
                         .setEventReportWindow(eventTime + TimeUnit.DAYS.toMillis(30))
                         .build();
         assertEquals(
@@ -150,7 +181,6 @@ public class SourceNoiseHandlerTest {
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setSourceType(Source.SourceType.NAVIGATION)
                         .setEventTime(eventTime)
-                        .setExpiryTime(eventTime + TimeUnit.DAYS.toMillis(7))
                         .setEventReportWindow(eventTime + TimeUnit.DAYS.toMillis(7))
                         .build();
         assertEquals(
@@ -165,7 +195,6 @@ public class SourceNoiseHandlerTest {
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setSourceType(Source.SourceType.NAVIGATION)
                         .setEventTime(eventTime)
-                        .setExpiryTime(eventTime + TimeUnit.DAYS.toMillis(2))
                         .setEventReportWindow(eventTime + TimeUnit.DAYS.toMillis(2))
                         .build();
         assertEquals(
@@ -273,7 +302,6 @@ public class SourceNoiseHandlerTest {
                         .setInstallCooldownWindow(TimeUnit.DAYS.toMillis(2))
                         .setInstallAttributionWindow(TimeUnit.DAYS.toMillis(10))
                         .setEventTime(eventTime)
-                        .setExpiryTime(eventTime + TimeUnit.DAYS.toMillis(30))
                         .setEventReportWindow(eventTime + TimeUnit.DAYS.toMillis(30))
                         .build();
         assertEquals(
@@ -290,7 +318,6 @@ public class SourceNoiseHandlerTest {
                         .setInstallCooldownWindow(TimeUnit.DAYS.toMillis(2))
                         .setInstallAttributionWindow(TimeUnit.DAYS.toMillis(10))
                         .setEventTime(eventTime)
-                        .setExpiryTime(eventTime + TimeUnit.DAYS.toMillis(7))
                         .setEventReportWindow(eventTime + TimeUnit.DAYS.toMillis(7))
                         .build();
         assertEquals(
@@ -307,7 +334,6 @@ public class SourceNoiseHandlerTest {
                         .setInstallCooldownWindow(TimeUnit.DAYS.toMillis(2))
                         .setInstallAttributionWindow(TimeUnit.DAYS.toMillis(10))
                         .setEventTime(eventTime)
-                        .setExpiryTime(eventTime + TimeUnit.DAYS.toMillis(2))
                         .setEventReportWindow(eventTime + TimeUnit.DAYS.toMillis(2))
                         .build();
         assertEquals(
@@ -324,7 +350,6 @@ public class SourceNoiseHandlerTest {
                         .setInstallCooldownWindow(TimeUnit.DAYS.toMillis(2))
                         .setInstallAttributionWindow(TimeUnit.DAYS.toMillis(10))
                         .setEventTime(eventTime)
-                        .setExpiryTime(eventTime + TimeUnit.DAYS.toMillis(30))
                         .setEventReportWindow(eventTime + TimeUnit.DAYS.toMillis(30))
                         .build();
         assertEquals(
@@ -341,7 +366,6 @@ public class SourceNoiseHandlerTest {
                         .setInstallCooldownWindow(TimeUnit.DAYS.toMillis(2))
                         .setInstallAttributionWindow(TimeUnit.DAYS.toMillis(10))
                         .setEventTime(eventTime)
-                        .setExpiryTime(eventTime + TimeUnit.DAYS.toMillis(7))
                         .setEventReportWindow(eventTime + TimeUnit.DAYS.toMillis(7))
                         .build();
         assertEquals(
@@ -358,7 +382,6 @@ public class SourceNoiseHandlerTest {
                         .setInstallCooldownWindow(TimeUnit.DAYS.toMillis(2))
                         .setInstallAttributionWindow(TimeUnit.DAYS.toMillis(10))
                         .setEventTime(eventTime)
-                        .setExpiryTime(eventTime + TimeUnit.DAYS.toMillis(2))
                         .setEventReportWindow(eventTime + TimeUnit.DAYS.toMillis(2))
                         .build();
         assertEquals(
@@ -370,11 +393,11 @@ public class SourceNoiseHandlerTest {
                 mSourceNoiseHandler.getImpressionNoiseParams(navigationSource2dExpiry));
         Source eventSourceWith2Destinations30dExpiry =
                 SourceFixture.getMinimalValidSourceBuilder()
+                        .setWebDestinations(SourceFixture.ValidSourceParams.WEB_DESTINATIONS)
                         .setSourceType(Source.SourceType.EVENT)
                         .setInstallCooldownWindow(TimeUnit.DAYS.toMillis(2))
                         .setInstallAttributionWindow(TimeUnit.DAYS.toMillis(10))
                         .setEventTime(eventTime)
-                        .setExpiryTime(eventTime + TimeUnit.DAYS.toMillis(30))
                         .setEventReportWindow(eventTime + TimeUnit.DAYS.toMillis(30))
                         .build();
         assertEquals(
@@ -382,7 +405,7 @@ public class SourceNoiseHandlerTest {
                         /* reportCount= */ 2,
                         /* triggerDataCardinality= */ 2,
                         /* reportingWindowCount= */ 2,
-                        /* destinationMultiplier */ 1),
+                        /* destinationMultiplier */ 2),
                 mSourceNoiseHandler.getImpressionNoiseParams(
                         eventSourceWith2Destinations30dExpiry));
     }
@@ -468,6 +491,14 @@ public class SourceNoiseHandlerTest {
                 PrivacyParams.EVENT_TRIGGER_DATA_CARDINALITY);
     }
 
+    private boolean isValidEventSourceDualDestPostInstallModeFakeReportState(
+            Source source, List<Source.FakeReport> fakeReportsState) {
+        // Generated fake reports state matches one of the states
+        return Arrays.stream(ImpressionNoiseUtil.DUAL_DESTINATION_POST_INSTALL_FAKE_REPORT_CONFIG)
+                .map(reportsState -> convertToReportsState(reportsState, source))
+                .anyMatch(fakeReportsState::equals);
+    }
+
     private List<Source.FakeReport> convertToReportsState(int[][] reportsState, Source source) {
         return Arrays.stream(reportsState)
                 .map(
@@ -476,7 +507,7 @@ public class SourceNoiseHandlerTest {
                                         new UnsignedLong(Long.valueOf(reportState[0])),
                                         new EventReportWindowCalcDelegate(mFlags)
                                                 .getReportingTimeForNoising(
-                                                        source, reportState[1]),
+                                                        source, reportState[1], true),
                                         reportState[2] == 0
                                                 ? source.getAppDestinations()
                                                 : source.getWebDestinations()))

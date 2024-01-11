@@ -21,6 +21,7 @@ import static java.util.Map.entry;
 import android.adservices.measurement.RegistrationRequest;
 import android.net.Uri;
 import android.os.RemoteException;
+import android.provider.DeviceConfig;
 
 import com.android.adservices.service.measurement.actions.Action;
 import com.android.adservices.service.measurement.actions.RegisterSource;
@@ -34,6 +35,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -156,6 +158,17 @@ public class E2EInteropMockTest extends E2EMockTest {
                         mAsyncTriggerFetcher,
                         mDebugReportApi,
                         mFlags);
+    }
+
+    @Before
+    public void setup() {
+        // Chromium does not have a flag at dynamic noising based on expiry but Android does, so it
+        // needs to be enabled.
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                "measurement_enable_configurable_event_reporting_windows",
+                "true",
+                false);
     }
 
     @Override

@@ -109,7 +109,6 @@ public class SdkSandboxVerifierReceiver extends BroadcastReceiver {
                 () ->
                         mSdkDexVerifier.startDexVerification(
                                 apkPath,
-                                packageInfo.packageName,
                                 targetSdkVersion,
                                 new OutcomeReceiver<Void, Exception>() {
                                     @Override

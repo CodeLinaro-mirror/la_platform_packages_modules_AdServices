@@ -26,21 +26,26 @@ import static org.junit.Assert.assertThrows;
 import android.adservices.common.CommonFixture;
 import android.adservices.customaudience.CustomAudienceFixture;
 
-import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
 import com.android.adservices.customaudience.DBCustomAudienceBackgroundFetchDataFixture;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
+import com.android.adservices.service.PhFlagsFixture;
 import com.android.adservices.service.customaudience.BackgroundFetchRunner;
 import com.android.adservices.service.customaudience.CustomAudienceUpdatableData;
 import com.android.adservices.service.customaudience.CustomAudienceUpdatableDataFixture;
-import com.android.modules.utils.testing.ExtendedMockitoRule.SpyStatic;
+import com.android.modules.utils.testing.TestableDeviceConfig;
 
+import org.json.JSONException;
+import org.junit.Rule;
 import org.junit.Test;
 
 import java.time.Instant;
 
-public final class DBCustomAudienceBackgroundFetchDataTest
-        extends AdServicesExtendedMockitoTestCase {
+public class DBCustomAudienceBackgroundFetchDataTest {
+    // This rule is used for configuring P/H flags
+    @Rule
+    public final TestableDeviceConfig.TestableDeviceConfigRule mDeviceConfigRule =
+            new TestableDeviceConfig.TestableDeviceConfigRule();
 
     @Test
     public void testBuildFetchDataSuccess() {
@@ -174,28 +179,22 @@ public final class DBCustomAudienceBackgroundFetchDataTest
 
     @Test
     public void testComputeNextEligibleUpdateTimeWithPhFlags() {
-        Flags flags = FlagsFactory.getFlagsForTest();
-        long configuredBaseIntervalS = flags.getFledgeBackgroundFetchEligibleUpdateBaseIntervalS();
+        long configuredBaseIntervalS = 100L;
+        PhFlagsFixture.configureFledgeBackgroundFetchEligibleUpdateBaseIntervalS(
+                configuredBaseIntervalS);
         Instant expectedEligibleUpdateTime =
                 CommonFixture.FIXED_NOW.plusSeconds(configuredBaseIntervalS);
 
         Instant actualEligibleUpdateTime =
                 DBCustomAudienceBackgroundFetchData
                         .computeNextEligibleUpdateTimeAfterSuccessfulUpdate(
-                                CommonFixture.FIXED_NOW, flags);
+                                CommonFixture.FIXED_NOW);
 
         assertEquals(expectedEligibleUpdateTime, actualEligibleUpdateTime);
     }
 
     @Test
-    @SpyStatic(FlagsFactory.class)
-    public void testCopyWithFullSuccessfulUpdatableDataResetsFailureCounts() throws Exception {
-        // NOTE: copyWithUpdatableData() will eventually call the
-        // computeNextEligibleUpdateTimeAfterSuccessfulUpdate() method that calls
-        // FlagsFactory.getInstance(), so we need to mock that method (otherwise it would call
-        // DeviceConfig and fail due to lack of permissions)
-        extendedMockito.mockGetFlags(FlagsFactory.getFlagsForTest());
-
+    public void testCopyWithFullSuccessfulUpdatableDataResetsFailureCounts() throws JSONException {
         DBCustomAudienceBackgroundFetchData originalFetchData =
                 DBCustomAudienceBackgroundFetchDataFixture.getValidBuilderByBuyer(
                                 CommonFixture.VALID_BUYER_1)
@@ -207,7 +206,8 @@ public final class DBCustomAudienceBackgroundFetchDataTest
         Instant attemptedUpdateTime = CommonFixture.FIXED_NOW.plusSeconds(10);
         Instant expectedEligibleUpdateTime =
                 DBCustomAudienceBackgroundFetchData
-                        .computeNextEligibleUpdateTimeAfterSuccessfulUpdate(attemptedUpdateTime);
+                        .computeNextEligibleUpdateTimeAfterSuccessfulUpdate(
+                                attemptedUpdateTime, FlagsFactory.getFlagsForTest());
 
         CustomAudienceUpdatableData updatableData =
                 CustomAudienceUpdatableDataFixture.getValidBuilderFullSuccessfulResponse()
