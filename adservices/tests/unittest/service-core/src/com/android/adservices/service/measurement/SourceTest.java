@@ -1519,13 +1519,13 @@ public class SourceTest {
     }
 
     @Test
-    public void getOrDefaultEventReportWindowsForFlex() throws JSONException {
+    public void getOrDefaultEventReportWindows() throws JSONException {
         Flags flags = mock(Flags.class);
         JSONObject windowsObj = new JSONObject("{'start_time': '2000000', 'end_times': "
                 + "[3600000, 86400000, 172000000]}");
         // Provided Windows
         List<Pair<Long, Long>> eventReportWindows =
-                Source.getOrDefaultEventReportWindowsForFlex(
+                Source.getOrDefaultEventReportWindows(
                         windowsObj,
                         Source.SourceType.EVENT,
                         8640000,
@@ -1541,7 +1541,7 @@ public class SourceTest {
         when(flags.getMeasurementEventReportsCtcEarlyReportingWindows())
                 .thenReturn("172800,604800");
         eventReportWindows =
-                Source.getOrDefaultEventReportWindowsForFlex(
+                Source.getOrDefaultEventReportWindows(
                         null, Source.SourceType.EVENT, TimeUnit.DAYS.toMillis(15), flags);
         assertNotNull(eventReportWindows);
         assertEquals(2, eventReportWindows.size());
@@ -1550,7 +1550,7 @@ public class SourceTest {
 
         // Default Windows - Navigation
         eventReportWindows =
-                Source.getOrDefaultEventReportWindowsForFlex(
+                Source.getOrDefaultEventReportWindows(
                         null, Source.SourceType.NAVIGATION, TimeUnit.DAYS.toMillis(15), flags);
         assertNotNull(eventReportWindows);
         assertEquals(3, eventReportWindows.size());
@@ -1606,31 +1606,29 @@ public class SourceTest {
     }
 
     @Test
-    public void getEffectiveEventReportWindow() {
-        long expiryTime = 7654321L;
+    public void getProcessedEventReportWindow() {
         // null eventReportWindow
         Source sourceNullEventReportWindow =
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setEventTime(10)
-                        .setExpiryTime(expiryTime)
                         .setEventReportWindow(null)
                         .build();
-        assertEquals(expiryTime, sourceNullEventReportWindow.getEffectiveEventReportWindow());
+        assertNull(sourceNullEventReportWindow.getProcessedEventReportWindow());
 
         // eventReportWindow Value < eventTime
         Source sourceNewEventReportWindow =
                 SourceFixture.getMinimalValidSourceBuilder()
-                        .setEventTime(10L)
+                        .setEventTime(10)
                         .setEventReportWindow(4L)
                         .build();
-        assertEquals(14L, sourceNewEventReportWindow.getEffectiveEventReportWindow());
+        assertEquals(Long.valueOf(14L), sourceNewEventReportWindow.getProcessedEventReportWindow());
 
         // eventReportWindow Value > eventTime
         Source sourceOldEventReportWindow =
                 SourceFixture.getMinimalValidSourceBuilder()
-                        .setEventTime(10L)
+                        .setEventTime(10)
                         .setEventReportWindow(15L)
                         .build();
-        assertEquals(15L, sourceOldEventReportWindow.getEffectiveEventReportWindow());
+        assertEquals(Long.valueOf(15L), sourceOldEventReportWindow.getProcessedEventReportWindow());
     }
 }

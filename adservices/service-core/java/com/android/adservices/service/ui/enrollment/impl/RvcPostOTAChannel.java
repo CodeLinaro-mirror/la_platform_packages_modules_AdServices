@@ -16,7 +16,7 @@
 
 package com.android.adservices.service.ui.enrollment.impl;
 
-import static com.android.adservices.service.FlagsConstants.KEY_RVC_POST_OTA_NOTIFICATION_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_RVC_NOTIFICATION_ENABLED;
 
 import android.content.Context;
 import android.os.Build;
@@ -40,7 +40,8 @@ public class RvcPostOTAChannel implements PrivacySandboxEnrollmentChannel {
             ConsentManager consentManager,
             UxStatesManager uxStatesManager) {
         // Rvc user should be matched to RvcPostOTAChannel on S+
-        return uxStatesManager.getFlag(KEY_RVC_POST_OTA_NOTIFICATION_ENABLED)
+        // TODO: rename flag to KEY_RVC_POST_OTA_NOTIFICATION_ENABLED
+        return uxStatesManager.getFlag(KEY_RVC_NOTIFICATION_ENABLED)
                 && consentManager.isOtaAdultUserFromRvc();
     }
 

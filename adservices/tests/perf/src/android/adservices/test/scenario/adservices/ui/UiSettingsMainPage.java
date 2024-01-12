@@ -17,8 +17,8 @@
 package android.adservices.test.scenario.adservices.ui;
 
 import android.content.Context;
-import android.os.Trace;
 import android.platform.test.scenario.annotation.Scenario;
+import android.util.Log;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -74,12 +74,11 @@ public class UiSettingsMainPage {
 
     @Test
     public void testSettingsPage() throws Exception {
+        final long start = System.currentTimeMillis();
         UiConstants.UX ux = UiConstants.UX.GA_UX;
         if( SdkLevel.isAtLeastR() && !SdkLevel.isAtLeastS() ) {
             ux = UiConstants.UX.RVC_UX;
         }
-
-        Trace.beginSection("NotificationTriggerEvent");
         AdservicesWorkflows.testSettingsPageFlow(
                 sContext,
                 sDevice,
@@ -87,6 +86,7 @@ public class UiSettingsMainPage {
                 /* isOptIn= */ true,
                 /* isFlipConsent= */ true,
                 /* assertOptIn= */ false);
-        Trace.endSection();
+        final long duration = System.currentTimeMillis() - start;
+        Log.i(TAG, "(" + UI_SETTINGS_LATENCY_METRIC + ": " + duration + ")");
     }
 }

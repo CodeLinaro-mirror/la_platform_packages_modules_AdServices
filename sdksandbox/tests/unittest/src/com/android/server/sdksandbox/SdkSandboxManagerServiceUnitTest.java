@@ -2411,6 +2411,7 @@ public class SdkSandboxManagerServiceUnitTest {
         disableForegroundCheck();
 
         sSdkSandboxSettingsListener.setKillSwitchState(true);
+        setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "true");
         FakeLoadSdkCallbackBinder callback = new FakeLoadSdkCallbackBinder();
         mService.loadSdk(
                 TEST_PACKAGE,

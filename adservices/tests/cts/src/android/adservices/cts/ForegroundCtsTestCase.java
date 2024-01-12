@@ -16,10 +16,11 @@
 
 package android.adservices.cts;
 
-import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertTrue;
 
-import android.os.Build;
-import android.util.Log;
+import android.content.Context;
+
+import androidx.test.core.app.ApplicationProvider;
 
 import com.android.modules.utils.build.SdkLevel;
 
@@ -29,17 +30,13 @@ import org.junit.BeforeClass;
 import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 
-abstract class ForegroundCtsTestCase extends CtsAdServicesDeviceTestCase {
-
-    private static final String TAG = ForegroundCtsTestCase.class.getSimpleName();
-
-    // NOTICE: if the context used by tests is initialized in the setup method the importance of our
-    // foreground service will be IMPORTANCE_FOREGROUND_SERVICE (125) instead of
+abstract class ForegroundCtsTestCase {
+    // If the context is initialized in the setup method the importance of our foreground
+    // service will be IMPORTANCE_FOREGROUND_SERVICE (125) instead of
     // IMPORTANCE_FOREGROUND (100) on some platforms only.
-    // This class is indirectly extending AdServicesCtsTestCase - which sets sContext outside any
-    // JUnit @Before / @BeforeClass method - so the process has the proper importance.
-
-    private static boolean sSimpleActivityStarted;
+    // See http://ag/c/platform/packages/modules/AdServices/+/19607471/comments/e6767fdc_971415d0
+    protected static final Context sContext = ApplicationProvider.getApplicationContext();
+    private static boolean sSimpleActivityStarted = false;
 
     /**
      * Starts a foreground activity to make the test process a foreground one to pass PPAPI and SDK
@@ -48,22 +45,15 @@ abstract class ForegroundCtsTestCase extends CtsAdServicesDeviceTestCase {
     protected static void makeTestProcessForeground() throws TimeoutException {
         // PPAPI foreground checks are not done on S-, so no need for the SimpleActivity
         if (SdkLevel.isAtLeastT()) {
-            Log.d(TAG, "Starting activity on T+ (and waiting for 2s)");
             SimpleActivity.startAndWait(sContext, Duration.ofSeconds(2));
-            Log.d(TAG, "Activity started");
             sSimpleActivityStarted = true;
-        } else {
-            Log.d(TAG, "Not starting activity on device running " + Build.VERSION.SDK_INT);
         }
     }
 
     /** Terminates the SimpleActivity */
     protected static void shutdownForegroundActivity() {
         if (SdkLevel.isAtLeastT()) {
-            Log.d(TAG, "Stopping activity on T+");
             SimpleActivity.stop(sContext);
-        } else {
-            Log.d(TAG, "Not stopping activity on device running " + Build.VERSION.SDK_INT);
         }
     }
 
@@ -77,9 +67,7 @@ abstract class ForegroundCtsTestCase extends CtsAdServicesDeviceTestCase {
         shutdownForegroundActivity();
     }
 
-    protected static void assertForegroundActivityStarted() {
-        assertWithMessage("Foreground activity started successfully")
-                .that(sSimpleActivityStarted)
-                .isTrue();
+    protected void assertForegroundActivityStarted() {
+        assertTrue("Foreground activity didn't start successfully", sSimpleActivityStarted);
     }
 }

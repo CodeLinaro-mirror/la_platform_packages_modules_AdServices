@@ -15,7 +15,11 @@
  */
 package com.android.adservices.service.measurement;
 
+import static com.android.adservices.service.Flags.MEASUREMENT_EVENT_NOISE_PROBABILITY;
+import static com.android.adservices.service.Flags.MEASUREMENT_INSTALL_ATTR_EVENT_NOISE_PROBABILITY;
+import static com.android.adservices.service.Flags.MEASUREMENT_INSTALL_ATTR_NAVIGATION_NOISE_PROBABILITY;
 import static com.android.adservices.service.Flags.MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS;
+import static com.android.adservices.service.Flags.MEASUREMENT_NAVIGATION_NOISE_PROBABILITY;
 import static com.android.adservices.service.measurement.PrivacyParams.INSTALL_ATTR_NAVIGATION_EARLY_REPORTING_WINDOW_MILLISECONDS;
 import static com.android.adservices.service.measurement.PrivacyParams.NAVIGATION_EARLY_REPORTING_WINDOW_MILLISECONDS;
 import static com.android.adservices.service.measurement.SourceFixture.ValidSourceParams;
@@ -62,11 +66,6 @@ public final class EventReportTest {
     @Rule
     public final TestableDeviceConfig.TestableDeviceConfigRule mDeviceConfigRule =
             new TestableDeviceConfig.TestableDeviceConfigRule();
-
-    private static final double EVENT_NOISE_PROBABILITY = 0.0000025D;
-    private static final double INSTALL_ATTR_EVENT_NOISE_PROBABILITY = 0.0000125D;
-    private static final double INSTALL_ATTR_NAVIGATION_NOISE_PROBABILITY = 0.0024263D;
-    private static final double NAVIGATION_NOISE_PROBABILITY = 0.0024263D;
 
     private static final double DOUBLE_MAX_DELTA = 0.0000001D;
     private static final long TRIGGER_PRIORITY = 345678L;
@@ -289,7 +288,7 @@ public final class EventReportTest {
         assertEquals(source.getEventReportWindow() + MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS,
                 report.getReportTime());
         assertEquals(source.getSourceType(), report.getSourceType());
-        assertEquals(EVENT_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
+        assertEquals(MEASUREMENT_EVENT_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
         assertEquals(SOURCE_ID, report.getSourceId());
         assertEquals(TRIGGER_ID, report.getTriggerId());
         assertEquals(REGISTRATION_ORIGIN, report.getRegistrationOrigin());
@@ -298,6 +297,7 @@ public final class EventReportTest {
     @Test
     public void populate_eventSourceAppDestWithoutInstallConfigured() throws JSONException {
         long baseTime = System.currentTimeMillis();
+        doReturn(true).when(mFlags).getMeasurementEnableConfigurableEventReportingWindows();
         String earlyReportingWindows1h1d =
                 String.join(
                         ",",
@@ -306,6 +306,7 @@ public final class EventReportTest {
         doReturn(earlyReportingWindows1h1d)
                 .when(mFlags)
                 .getMeasurementEventReportsVtcEarlyReportingWindows();
+        doReturn(true).when(mFlags).getMeasurementEnableVtcConfigurableMaxEventReports();
         doReturn(3).when(mFlags).getMeasurementVtcConfigurableMaxEventReportsCount();
         Source source =
                 createSourceForTest(
@@ -389,7 +390,7 @@ public final class EventReportTest {
                 report.getReportTime());
         assertEquals(Source.SourceType.NAVIGATION, report.getSourceType());
         assertEquals(
-                NAVIGATION_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
+                MEASUREMENT_NAVIGATION_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
         assertEquals(SOURCE_ID, report.getSourceId());
         assertEquals(TRIGGER_ID, report.getTriggerId());
         assertEquals(REGISTRATION_ORIGIN, report.getRegistrationOrigin());
@@ -429,7 +430,7 @@ public final class EventReportTest {
         assertEquals(source.getEventReportWindow() + MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS,
                 report.getReportTime());
         assertEquals(Source.SourceType.EVENT, report.getSourceType());
-        assertEquals(EVENT_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
+        assertEquals(MEASUREMENT_EVENT_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
         assertEquals(SOURCE_ID, report.getSourceId());
         assertEquals(TRIGGER_ID, report.getTriggerId());
         assertEquals(REGISTRATION_ORIGIN, report.getRegistrationOrigin());
@@ -467,7 +468,7 @@ public final class EventReportTest {
                 report.getReportTime());
         assertEquals(Source.SourceType.EVENT, report.getSourceType());
         assertEquals(
-                INSTALL_ATTR_EVENT_NOISE_PROBABILITY,
+                MEASUREMENT_INSTALL_ATTR_EVENT_NOISE_PROBABILITY,
                 report.getRandomizedTriggerRate(),
                 DOUBLE_MAX_DELTA);
         assertEquals(SOURCE_ID, report.getSourceId());
@@ -506,7 +507,7 @@ public final class EventReportTest {
         assertEquals(source.getEventReportWindow() + MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS,
                 report.getReportTime());
         assertEquals(Source.SourceType.EVENT, report.getSourceType());
-        assertEquals(EVENT_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
+        assertEquals(MEASUREMENT_EVENT_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
         assertEquals(SOURCE_ID, report.getSourceId());
         assertEquals(TRIGGER_ID, report.getTriggerId());
         assertEquals(REGISTRATION_ORIGIN, report.getRegistrationOrigin());
@@ -547,7 +548,7 @@ public final class EventReportTest {
                 report.getReportTime());
         assertEquals(Source.SourceType.NAVIGATION, report.getSourceType());
         assertEquals(
-                NAVIGATION_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
+                MEASUREMENT_NAVIGATION_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
         assertEquals(SOURCE_ID, report.getSourceId());
         assertEquals(TRIGGER_ID, report.getTriggerId());
         assertEquals(REGISTRATION_ORIGIN, report.getRegistrationOrigin());
@@ -588,7 +589,7 @@ public final class EventReportTest {
                 report.getReportTime());
         assertEquals(source.getSourceType(), report.getSourceType());
         assertEquals(
-                NAVIGATION_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
+                MEASUREMENT_NAVIGATION_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
         assertEquals(SOURCE_ID, report.getSourceId());
         assertEquals(TRIGGER_ID, report.getTriggerId());
         assertEquals(REGISTRATION_ORIGIN, report.getRegistrationOrigin());
@@ -632,7 +633,7 @@ public final class EventReportTest {
                 report.getReportTime());
         assertEquals(Source.SourceType.NAVIGATION, report.getSourceType());
         assertEquals(
-                INSTALL_ATTR_NAVIGATION_NOISE_PROBABILITY,
+                MEASUREMENT_INSTALL_ATTR_NAVIGATION_NOISE_PROBABILITY,
                 report.getRandomizedTriggerRate(),
                 DOUBLE_MAX_DELTA);
         assertEquals(SOURCE_ID, report.getSourceId());
@@ -678,7 +679,7 @@ public final class EventReportTest {
                 report.getReportTime());
         assertEquals(source.getSourceType(), report.getSourceType());
         assertEquals(
-                NAVIGATION_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
+                MEASUREMENT_NAVIGATION_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
         assertEquals(SOURCE_ID, report.getSourceId());
         assertEquals(TRIGGER_ID, report.getTriggerId());
         assertEquals(REGISTRATION_ORIGIN, report.getRegistrationOrigin());
@@ -697,7 +698,6 @@ public final class EventReportTest {
                         .setEnrollmentId("enrollment-id")
                         .setAppDestinations(Collections.singletonList(APP_DESTINATION))
                         .setWebDestinations(Collections.singletonList(WEB_DESTINATION))
-                        .setExpiryTime(baseTime + TimeUnit.DAYS.toMillis(30))
                         .setEventReportWindow(baseTime + TimeUnit.DAYS.toMillis(10))
                         .setCoarseEventReportDestinations(true)
                         .build();
@@ -738,7 +738,7 @@ public final class EventReportTest {
         assertEquals(source.getEventReportWindow() + MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS,
                 report.getReportTime());
         assertEquals(Source.SourceType.EVENT, report.getSourceType());
-        assertEquals(EVENT_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
+        assertEquals(MEASUREMENT_EVENT_NOISE_PROBABILITY, report.getRandomizedTriggerRate(), DOUBLE_MAX_DELTA);
         assertEquals(SOURCE_ID, report.getSourceId());
         assertEquals(TRIGGER_ID, report.getTriggerId());
         assertEquals(REGISTRATION_ORIGIN, report.getRegistrationOrigin());
@@ -855,7 +855,6 @@ public final class EventReportTest {
                 .setEnrollmentId("enrollment-id")
                 .setAppDestinations(getNullableUriList(appDestination))
                 .setWebDestinations(getNullableUriList(webDestination))
-                .setExpiryTime(eventTime + TimeUnit.DAYS.toMillis(30))
                 .setEventReportWindow(eventTime + TimeUnit.DAYS.toMillis(10))
                 .build();
     }

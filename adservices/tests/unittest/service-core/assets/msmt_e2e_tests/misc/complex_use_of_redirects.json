@@ -50,7 +50,9 @@
             "Attribution-Reporting-Register-Source": {
               "source_event_id": "3",
               "destination": "android-app://example.2d1.test",
-              "priority": "100"
+              "priority": "100",
+              "expiry": "800172800002"
+
             },
             "Location": "https://www.unenrolled-non-registering2.test",
             "Attribution-Reporting-Redirect": [
@@ -64,7 +66,9 @@
             "Attribution-Reporting-Register-Source": {
               "source_event_id": "4",
               "destination": "android-app://example.2d1.test",
-              "priority": "100"
+              "priority": "100",
+              "expiry": "800172800002"
+
             },
             "Location": null,
             "Attribution-Reporting-Redirect": null
@@ -76,7 +80,9 @@
             "Attribution-Reporting-Register-Source": {
               "source_event_id": "6",
               "destination": "android-app://example.2d1.test",
-              "priority": "100"
+              "priority": "100",
+              "expiry": "800172800002"
+
             },
             "Attribution-Reporting-Redirect": [
               "https://www.ad-tech5.test"
@@ -90,7 +96,9 @@
             "Attribution-Reporting-Register-Source": {
               "source_event_id": "5",
               "destination": "android-app://example.2d1.test",
-              "priority": "100"
+              "priority": "100",
+              "expiry": "800172800002"
+
             },
             "Location": null,
             "Attribution-Reporting-Redirect": null
@@ -223,7 +231,7 @@
           "source_event_id": "1",
           "trigger_data": "1",
           "source_type": "navigation",
-          "randomized_trigger_rate": 0.0008051
+          "randomized_trigger_rate": 0.0024263
         }
       },
       {
@@ -235,7 +243,7 @@
           "source_event_id": "2",
           "trigger_data": "2",
           "source_type": "navigation",
-          "randomized_trigger_rate": 0.0008051
+          "randomized_trigger_rate": 0.0024263
         }
       },
       {
