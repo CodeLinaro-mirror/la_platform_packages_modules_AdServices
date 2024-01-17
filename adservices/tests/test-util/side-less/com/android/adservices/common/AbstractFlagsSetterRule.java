@@ -358,6 +358,12 @@ abstract class AbstractFlagsSetterRule<T extends AbstractFlagsSetterRule<T>> imp
         return getThis();
     }
 
+    /** Gets the value of the given flag. */
+    @Nullable
+    public final String getFlag(String flag) {
+        return mDeviceConfig.get(flag);
+    }
+
     // TODO(295007931): abstract SDK-related methods in a new SdkLevelHelper and reuse them on
     // SdkLevelSupportRule
     /** Gets the device's SDK level. */
@@ -451,15 +457,15 @@ abstract class AbstractFlagsSetterRule<T extends AbstractFlagsSetterRule<T>> imp
         mDeviceConfig.reset();
     }
 
-    public T setOrCacheDebugSystemProperty(String name, boolean value) {
-        return setOrCacheDebugSystemProperty(name, Boolean.toString(value));
+    public T setSystemProperty(String name, boolean value) {
+        return setSystemProperty(name, Boolean.toString(value));
     }
 
-    protected final T setOrCacheDebugSystemProperty(String name, long value) {
-        return setOrCacheDebugSystemProperty(name, Long.toString(value));
+    protected final T setSystemProperty(String name, long value) {
+        return setSystemProperty(name, Long.toString(value));
     }
 
-    private T setOrCacheDebugSystemProperty(String name, String value) {
+    private T setSystemProperty(String name, String value) {
         return setOrCacheSystemProperty(mSystemPropertiesPrefix + name, value);
     }
 
@@ -538,7 +544,7 @@ abstract class AbstractFlagsSetterRule<T extends AbstractFlagsSetterRule<T>> imp
 
     // Single SetFlagEnabled annotations present
     private void setAnnotatedFlag(SetFlagEnabled annotation) {
-        setFlag(annotation.name(), true);
+        setFlag(annotation.value(), true);
     }
 
     // Multiple SetFlagEnabled annotations present
@@ -550,7 +556,7 @@ abstract class AbstractFlagsSetterRule<T extends AbstractFlagsSetterRule<T>> imp
 
     // Single SetFlagDisabled annotations present
     private void setAnnotatedFlag(SetFlagDisabled annotation) {
-        setFlag(annotation.name(), false);
+        setFlag(annotation.value(), false);
     }
 
     // Multiple SetFlagDisabled annotations present

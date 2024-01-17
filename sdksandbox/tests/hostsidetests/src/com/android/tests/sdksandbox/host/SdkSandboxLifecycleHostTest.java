@@ -141,12 +141,11 @@ public final class SdkSandboxLifecycleHostTest extends BaseHostJUnit4Test {
     public void testSandboxIsCreatedPerUser() throws Exception {
         assumeTrue(getDevice().isMultiUserSupported());
 
-        int initialUserId = getDevice().getCurrentUser();
         int secondaryUserId = mUserUtils.createAndStartSecondaryUser();
         installPackageAsUser(APP_APK, false, secondaryUserId);
 
         // Start app for the primary user
-        startActivityAsUser(APP_PACKAGE, APP_ACTIVITY, initialUserId);
+        startActivity(APP_PACKAGE, APP_ACTIVITY);
         String processDump = getDevice().executeAdbCommand("shell", "ps", "-A");
         assertThat(processDump).contains(APP_PACKAGE + '\n');
         assertThat(processDump).contains(SANDBOX_1_PROCESS_NAME);
@@ -159,7 +158,7 @@ public final class SdkSandboxLifecycleHostTest extends BaseHostJUnit4Test {
         assertThat(processDump).contains(SANDBOX_1_PROCESS_NAME);
 
         // Start the app for the secondary user.
-        startActivityAsUser(APP_PACKAGE, APP_ACTIVITY, secondaryUserId);
+        startActivity(APP_PACKAGE, APP_ACTIVITY);
         // There should be two instances of app and sandbox processes - one for each user.
         assertThat(getProcessOccurrenceCount(APP_PACKAGE + '\n')).isEqualTo(2);
         assertThat(getProcessOccurrenceCount(SANDBOX_1_PROCESS_NAME)).isEqualTo(2);
@@ -345,7 +344,10 @@ public final class SdkSandboxLifecycleHostTest extends BaseHostJUnit4Test {
         assertThat(processDump).contains(APP_PACKAGE + '\n');
         assertThat(processDump).contains(SANDBOX_1_PROCESS_NAME);
 
-        int initialSandboxOomScoreAdj = getOomScoreAdj(SANDBOX_1_PROCESS_NAME);
+        int sandboxOomScoreAdj1 = getOomScoreAdj(SANDBOX_1_PROCESS_NAME);
+        int appOomScoreAdj1 = getOomScoreAdj(APP_PACKAGE);
+        // Verify that the sandbox process has lower priority than the app process.
+        assertThat(sandboxOomScoreAdj1).isAtLeast(appOomScoreAdj1);
 
         // Navigate to home screen to send both apps to the background.
         getDevice().executeShellCommand("input keyevent KEYCODE_HOME");
@@ -358,9 +360,30 @@ public final class SdkSandboxLifecycleHostTest extends BaseHostJUnit4Test {
         assertThat(processDump).contains(APP_PACKAGE + '\n');
         assertThat(processDump).contains(SANDBOX_1_PROCESS_NAME);
 
-        int finalSandboxOomScoreAdj = getOomScoreAdj(SANDBOX_1_PROCESS_NAME);
+        int sandboxOomScoreAdj2 = getOomScoreAdj(SANDBOX_1_PROCESS_NAME);
+        int appOomScoreAdj2 = getOomScoreAdj(APP_PACKAGE);
         // The higher the oom adj score, the lower the priority of the process.
-        assertThat(finalSandboxOomScoreAdj).isGreaterThan(initialSandboxOomScoreAdj);
+        assertThat(sandboxOomScoreAdj2).isGreaterThan(sandboxOomScoreAdj1);
+        assertThat(appOomScoreAdj2).isGreaterThan(appOomScoreAdj1);
+
+        if (mDeviceSdkLevel.isDeviceAtLeastV()) {
+            assertThat(sandboxOomScoreAdj2).isAtLeast(appOomScoreAdj2);
+
+            // Start other apps to try to reduce the priority of the app.
+            startActivity(APP_2_PACKAGE, APP_2_ACTIVITY);
+            startActivity(APP_SHARED_PACKAGE, APP_SHARED_ACTIVITY);
+            Thread.sleep(2000);
+
+            processDump = getDevice().executeAdbCommand("shell", "ps", "-A");
+            assertThat(processDump).contains(APP_PACKAGE + '\n');
+            assertThat(processDump).contains(SANDBOX_1_PROCESS_NAME);
+
+            int sandboxOomScoreAdj3 = getOomScoreAdj(SANDBOX_1_PROCESS_NAME);
+            int appOomScoreAdj3 = getOomScoreAdj(APP_PACKAGE);
+            assertThat(appOomScoreAdj3).isAtLeast(appOomScoreAdj2);
+            assertThat(sandboxOomScoreAdj3).isAtLeast(sandboxOomScoreAdj2);
+            assertThat(sandboxOomScoreAdj3).isAtLeast(appOomScoreAdj3);
+        }
     }
 
     @Test
@@ -409,14 +432,44 @@ public final class SdkSandboxLifecycleHostTest extends BaseHostJUnit4Test {
         }
     }
 
-    private void startActivity(String pkg, String activity) throws Exception {
-        getDevice().executeShellCommand(String.format("am start -W -n %s/.%s", pkg, activity));
+    @Ignore("b/310160187")
+    @Test
+    public void testSdkSandboxProcessNameForSecondaryUser() throws Exception {
+        assumeTrue(getDevice().isMultiUserSupported());
+        String appApk2 = "SdkSandboxTestApp2.apk";
+
+        int secondaryUserId = mUserUtils.createAndStartSecondaryUser();
+        mUserUtils.switchToSecondaryUser();
+        installPackageAsUser(appApk2, false, secondaryUserId);
+        startActivity(APP_2_PACKAGE, APP_2_ACTIVITY);
+        String processDump = getDevice().executeAdbCommand("shell", "ps", "-A");
+        assertThat(processDump).contains(APP_2_PROCESS_NAME + '\n');
+        assertThat(processDump).contains(SANDBOX_2_PROCESS_NAME);
     }
 
-    private void startActivityAsUser(String pkg, String activity, int userId) throws Exception {
+    private void startActivity(String pkg, String activity) throws Exception {
         getDevice()
                 .executeShellCommand(
-                        String.format("am start -W -n %s/.%s --user %d", pkg, activity, userId));
+                        String.format(
+                                "am start -W -n %s/.%s --user %d",
+                                pkg, activity, getDevice().getCurrentUser()));
+
+        // Check that the activity has started correctly by checking that its process has started.
+        // Depending on the test package configuration, the package may differ from the process
+        // name.
+        String expectedProcessName = pkg;
+        if (pkg.equals(APP_2_PACKAGE)) {
+            if (activity.equals(APP_2_ACTIVITY)) {
+                expectedProcessName = APP_2_PROCESS_NAME;
+            } else {
+                expectedProcessName = APP_2_PROCESS_NAME_2;
+            }
+        }
+        assertThat(
+                        getDevice()
+                                .executeShellCommand(
+                                        String.format("ps -A | grep %s", expectedProcessName)))
+                .isNotEmpty();
     }
 
     private void killApp(String pkg) throws Exception {

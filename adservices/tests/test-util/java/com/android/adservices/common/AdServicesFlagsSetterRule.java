@@ -16,9 +16,8 @@
 package com.android.adservices.common;
 
 import static com.android.adservices.common.DeviceSideDeviceConfigHelper.callWithDeviceConfigPermissions;
-import static com.android.adservices.service.FlagsConstants.KEY_ADID_REQUEST_PERMITS_PER_SECOND;
-import static com.android.adservices.service.FlagsConstants.KEY_CLASSIFIER_FORCE_USE_BUNDLED_FILES;
-import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_ENROLLMENT_TEST_SEED;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_CUSTOM_AUDIENCE_SERVICE_KILL_SWITCH;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SELECT_ADS_KILL_SWITCH;
 import static com.android.adservices.service.FlagsConstants.KEY_GLOBAL_KILL_SWITCH;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_API_DELETE_REGISTRATIONS_KILL_SWITCH;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_API_REGISTER_SOURCE_KILL_SWITCH;
@@ -26,6 +25,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_API_
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_API_REGISTER_WEB_SOURCE_KILL_SWITCH;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_API_REGISTER_WEB_TRIGGER_KILL_SWITCH;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_API_STATUS_KILL_SWITCH;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_SESSION_STABLE_KILL_SWITCHES;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_KILL_SWITCH;
 
 import android.os.Build;
@@ -46,13 +46,30 @@ public final class AdServicesFlagsSetterRule
                 DeviceSideSystemPropertiesHelper.getInstance());
     }
 
-    private static AdServicesFlagsSetterRule withDefaultLogcatTags() {
+    /** Factory method that only {@link #setDefaultLogcatTags() sets the default logcat tags}. */
+    public static AdServicesFlagsSetterRule withDefaultLogcatTags() {
         return new AdServicesFlagsSetterRule().setDefaultLogcatTags();
+    }
+
+    /** Factory method that only {@link #setAllLogcatTags() sets all relevant logcat tags}. */
+    public static AdServicesFlagsSetterRule withAllLogcatTags() {
+        return new AdServicesFlagsSetterRule().setAllLogcatTags();
     }
 
     /** Factory method that only disables the global kill switch. */
     public static AdServicesFlagsSetterRule forGlobalKillSwitchDisabledTests() {
         return withDefaultLogcatTags().setGlobalKillSwitch(false);
+    }
+
+    /** Factory method that disables all major API kill switches. */
+    public static AdServicesFlagsSetterRule forAllApisEnabledTests() {
+        return withAllLogcatTags()
+                .setGlobalKillSwitch(false)
+                .setTopicsKillSwitch(false)
+                .setAdIdKillSwitchForTests(false)
+                .setSystemProperty(KEY_MEASUREMENT_KILL_SWITCH, false)
+                .setSystemProperty(KEY_FLEDGE_CUSTOM_AUDIENCE_SERVICE_KILL_SWITCH, false)
+                .setSystemProperty(KEY_FLEDGE_SELECT_ADS_KILL_SWITCH, false);
     }
 
     // TODO(b/297085722): pass clearFlags() on forGlobalKillSwitchDisabledTests() by default?
@@ -61,48 +78,24 @@ public final class AdServicesFlagsSetterRule
         return withDefaultLogcatTags().clearFlags().setGlobalKillSwitch(false);
     }
 
-    /** Factory method for Topics end-to-end CTS tests. */
-    public static AdServicesFlagsSetterRule forTopicsE2ETests() {
-        return forGlobalKillSwitchDisabledOnClearSlateTests()
-                .setLogcatTag(LOGCAT_TAG_TOPICS, LOGCAT_LEVEL_VERBOSE)
-                .setTopicsKillSwitch(false)
-                .setTopicsOnDeviceClassifierKillSwitch(false)
-                .setFlag(KEY_CLASSIFIER_FORCE_USE_BUNDLED_FILES, true)
-                .setFlag(KEY_ENABLE_ENROLLMENT_TEST_SEED, true)
-                .setDisableTopicsEnrollmentCheckForTests(true)
-                .setConsentManagerDebugMode(true)
-                .setCompatModeFlags();
-    }
-
-    /** Factory method for AdId end-to-end CTS tests. */
-    public static AdServicesFlagsSetterRule forAdidE2ETests(String packageName) {
-        return forGlobalKillSwitchDisabledTests()
-                .setAdIdKillSwitchForTests(false)
-                .setFlag(KEY_ADID_REQUEST_PERMITS_PER_SECOND, 25.0)
-                .setPpapiAppAllowList(packageName)
-                .setCompatModeFlags();
-    }
-
     /** Factory method for Measurement E2E CTS tests */
     public static AdServicesFlagsSetterRule forMeasurementE2ETests(String packageName) {
         return forGlobalKillSwitchDisabledTests()
+                .setLogcatTag(LOGCAT_TAG_MEASUREMENT, LOGCAT_LEVEL_VERBOSE)
                 .setCompatModeFlags()
                 .setMsmtApiAppAllowList(packageName)
                 .setMsmtWebContextClientAllowList(packageName)
                 .setConsentManagerDebugMode(true)
-                .setOrCacheDebugSystemProperty(KEY_GLOBAL_KILL_SWITCH, false)
-                .setOrCacheDebugSystemProperty(KEY_MEASUREMENT_KILL_SWITCH, false)
-                .setOrCacheDebugSystemProperty(
-                        KEY_MEASUREMENT_API_REGISTER_SOURCE_KILL_SWITCH, false)
-                .setOrCacheDebugSystemProperty(
-                        KEY_MEASUREMENT_API_REGISTER_TRIGGER_KILL_SWITCH, false)
-                .setOrCacheDebugSystemProperty(
-                        KEY_MEASUREMENT_API_REGISTER_WEB_SOURCE_KILL_SWITCH, false)
-                .setOrCacheDebugSystemProperty(
-                        KEY_MEASUREMENT_API_REGISTER_WEB_TRIGGER_KILL_SWITCH, false)
-                .setOrCacheDebugSystemProperty(
-                        KEY_MEASUREMENT_API_DELETE_REGISTRATIONS_KILL_SWITCH, false)
-                .setOrCacheDebugSystemProperty(KEY_MEASUREMENT_API_STATUS_KILL_SWITCH, false)
+                .setConsentNotifiedDebugMode(true)
+                .setSystemProperty(KEY_GLOBAL_KILL_SWITCH, false)
+                .setSystemProperty(KEY_MEASUREMENT_KILL_SWITCH, false)
+                .setSystemProperty(KEY_MEASUREMENT_API_REGISTER_SOURCE_KILL_SWITCH, false)
+                .setSystemProperty(KEY_MEASUREMENT_API_REGISTER_TRIGGER_KILL_SWITCH, false)
+                .setSystemProperty(KEY_MEASUREMENT_API_REGISTER_WEB_SOURCE_KILL_SWITCH, false)
+                .setSystemProperty(KEY_MEASUREMENT_API_REGISTER_WEB_TRIGGER_KILL_SWITCH, false)
+                .setSystemProperty(KEY_MEASUREMENT_API_DELETE_REGISTRATIONS_KILL_SWITCH, false)
+                .setSystemProperty(KEY_MEASUREMENT_API_STATUS_KILL_SWITCH, false)
+                .setFlag(KEY_MEASUREMENT_ENABLE_SESSION_STABLE_KILL_SWITCHES, false)
                 .setAdIdKillSwitchForTests(false);
     }
 
@@ -117,11 +110,6 @@ public final class AdServicesFlagsSetterRule
                 .setTopicsEpochJobPeriodMsForTests(epochPeriodMs)
                 .setTopicsPercentageForRandomTopicForTests(pctRandomTopic)
                 .setCompatModeFlags();
-    }
-
-    /** Factory method for AdservicesCommonManager end-to-end CTS tests. */
-    public static AdServicesFlagsSetterRule forCommonManagerE2ETests(String packageName) {
-        return withDefaultLogcatTags().setCompatModeFlags().setPpapiAppAllowList(packageName);
     }
 
     // NOTE: add more factory methods as needed

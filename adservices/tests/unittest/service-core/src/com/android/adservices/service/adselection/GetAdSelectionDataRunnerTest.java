@@ -28,9 +28,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -38,11 +36,11 @@ import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import android.adservices.adselection.AdSelectionConfigFixture;
-import android.adservices.adselection.AssetFileDescriptorUtil;
 import android.adservices.adselection.GetAdSelectionDataCallback;
 import android.adservices.adselection.GetAdSelectionDataInput;
 import android.adservices.adselection.GetAdSelectionDataResponse;
 import android.adservices.common.AdTechIdentifier;
+import android.adservices.common.AssetFileDescriptorUtil;
 import android.adservices.common.CommonFixture;
 import android.adservices.common.FledgeErrorResponse;
 import android.content.Context;
@@ -79,7 +77,6 @@ import com.android.dx.mockito.inline.extended.ExtendedMockito;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FluentFuture;
-import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.ByteString;
 
 import org.junit.After;
@@ -108,6 +105,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 public class GetAdSelectionDataRunnerTest {
     private static final int CALLER_UID = Process.myUid();
     private static final String CALLER_PACKAGE_NAME = CommonFixture.TEST_PACKAGE_NAME;
+    private static final ExecutorService BLOCKING_EXECUTOR =
+            AdServicesExecutors.getBlockingExecutor();
     private static final AdTechIdentifier SELLER = AdSelectionConfigFixture.SELLER_1;
     private static final AdTechIdentifier BUYER_1 = AdSelectionConfigFixture.BUYER_1;
     private static final AdTechIdentifier BUYER_2 = AdSelectionConfigFixture.BUYER_2;
@@ -129,7 +128,7 @@ public class GetAdSelectionDataRunnerTest {
     @Spy private AdFilterer mAdFiltererSpy = new AdFiltererNoOpImpl();
     @Mock private Clock mClockMock;
 
-    @Mock private AdIdFetcher mAdIdFetcher;
+    @Mock private AuctionServerDebugReporting mAuctionServerDebugReporting;
     private GetAdSelectionDataRunner mGetAdSelectionDataRunner;
     private MockitoSession mStaticMockSession = null;
 
@@ -179,8 +178,7 @@ public class GetAdSelectionDataRunnerTest {
                         Throttler.ApiKey.FLEDGE_API_SELECT_ADS,
                         DevContext.createForDevOptionsDisabled());
         when(mClockMock.instant()).thenReturn(AD_SELECTION_INITIALIZATION_INSTANT);
-        when(mAdIdFetcher.isLimitedAdTrackingEnabled(anyString(), anyInt()))
-                .thenReturn(Futures.immediateFuture(false));
+        when(mAuctionServerDebugReporting.isEnabled()).thenReturn(false);
         mGetAdSelectionDataRunner = initRunner(mFlags);
     }
 
@@ -258,15 +256,10 @@ public class GetAdSelectionDataRunnerTest {
         // Make sure AssetFile descriptor is not null
         Assert.assertNotNull(callback.mGetAdSelectionDataResponse.getAssetFileDescriptor());
 
-        byte[] result =
-                new byte
-                        [(int)
-                                callback.mGetAdSelectionDataResponse
-                                        .getAssetFileDescriptor()
-                                        .getLength()];
         // Read result into buffer
-        AssetFileDescriptorUtil.readAssetFileDescriptorIntoBuffer(
-                result, callback.mGetAdSelectionDataResponse.getAssetFileDescriptor());
+        byte[] result =
+                AssetFileDescriptorUtil.readAssetFileDescriptorIntoBuffer(
+                        callback.mGetAdSelectionDataResponse.getAssetFileDescriptor());
 
         // Assert result is expected
         Assert.assertArrayEquals(CIPHER_TEXT_BYTES, result);
@@ -288,7 +281,7 @@ public class GetAdSelectionDataRunnerTest {
         mFlags = new GetAdSelectionDataRunnerTestFlagsWithExcessiveSizeFormatter();
         mGetAdSelectionDataRunner = initRunner(mFlags);
         doThrow(new IOException())
-                .when(() -> AssetFileDescriptorUtil.setupAssetFileDescriptorResponse(any()));
+                .when(() -> AssetFileDescriptorUtil.setupAssetFileDescriptorResponse(any(), any()));
 
         doReturn(mFlags).when(FlagsFactory::getFlags);
 
@@ -407,18 +400,16 @@ public class GetAdSelectionDataRunnerTest {
                         ByteString.copyFrom(buyer2data));
         Assert.assertEquals(result.getBuyerInput(), expectedBuyerInput);
         Assert.assertEquals(result.getPublisherName(), CALLER_PACKAGE_NAME);
-        Assert.assertEquals(
-                result.getEnableDebugReporting(),
-                mFlags.getFledgeAuctionServerEnableDebugReporting());
+        Assert.assertFalse(result.getEnableDebugReporting());
         Assert.assertEquals(result.getGenerationId(), String.valueOf(adSelectionId));
     }
 
     @Test
     public void test_composeProtectedAudienceInput_DebugReportingEnabled() {
-        boolean isDebugReportingEnabled = false;
+        boolean isDebugReportingEnabled = true;
         long adSelectionId = 234L;
-        Flags flags = new GetAdSelectionDataRunnerTestFlagsDebugReportingEnabled();
-        GetAdSelectionDataRunner getAdSelectionDataRunner = initRunner(flags);
+        doReturn(mFlags).when(FlagsFactory::getFlags);
+        GetAdSelectionDataRunner getAdSelectionDataRunner = initRunner(mFlags);
 
         ProtectedAudienceInput result =
                 getAdSelectionDataRunner.composeProtectedAudienceInputBytes(
@@ -427,7 +418,7 @@ public class GetAdSelectionDataRunnerTest {
                         adSelectionId,
                         isDebugReportingEnabled);
 
-        Assert.assertEquals(false, result.getEnableDebugReporting());
+        Assert.assertEquals(true, result.getEnableDebugReporting());
     }
 
     @Test
@@ -459,11 +450,12 @@ public class GetAdSelectionDataRunnerTest {
                         mAdFiltererSpy,
                         mBackgroundExecutorService,
                         mLightweightExecutorService,
+                        BLOCKING_EXECUTOR,
                         mScheduledExecutor,
                         shortTimeoutFlags,
                         CALLER_UID,
                         DevContext.createForDevOptionsDisabled(),
-                        mAdIdFetcher);
+                        mAuctionServerDebugReporting);
 
         createAndPersistDBCustomAudiencesWithAdRenderId();
         GetAdSelectionDataInput inputParams =
@@ -501,12 +493,13 @@ public class GetAdSelectionDataRunnerTest {
                 mAdFiltererSpy,
                 mBackgroundExecutorService,
                 mLightweightExecutorService,
+                BLOCKING_EXECUTOR,
                 mScheduledExecutor,
                 flags,
                 CALLER_UID,
                 DevContext.createForDevOptionsDisabled(),
                 mClockMock,
-                mAdIdFetcher);
+                mAuctionServerDebugReporting);
     }
 
     private void createAndPersistDBCustomAudiencesWithAdRenderId() {
@@ -522,7 +515,8 @@ public class GetAdSelectionDataRunnerTest {
             DBCustomAudience thisCustomAudience =
                     DBCustomAudienceFixture.getValidBuilderByBuyerWithAdRenderId(buyer, name)
                             .build();
-            mCustomAudienceDao.insertOrOverwriteCustomAudience(thisCustomAudience, Uri.EMPTY);
+            mCustomAudienceDao.insertOrOverwriteCustomAudience(
+                    thisCustomAudience, Uri.EMPTY, /*debuggable=*/ false);
         }
     }
 
@@ -552,19 +546,6 @@ public class GetAdSelectionDataRunnerTest {
 
         @Override
         public boolean getDisableFledgeEnrollmentCheck() {
-            return true;
-        }
-
-        @Override
-        public boolean getFledgeAuctionServerEnableDebugReporting() {
-            return false;
-        }
-    }
-
-    static class GetAdSelectionDataRunnerTestFlagsDebugReportingEnabled
-            extends GetAdSelectionDataRunnerTestFlags {
-        @Override
-        public boolean getFledgeAuctionServerEnableDebugReporting() {
             return true;
         }
     }
