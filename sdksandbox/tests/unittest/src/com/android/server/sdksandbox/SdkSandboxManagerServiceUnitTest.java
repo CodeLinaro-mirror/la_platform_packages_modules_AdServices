@@ -260,12 +260,12 @@ public class SdkSandboxManagerServiceUnitTest {
                                 sSdkSandboxPulledAtoms));
 
         mService = new SdkSandboxManagerService(mSpyContext, mInjector);
-        mService.forceEnableSandbox();
         sSdkSandboxManagerLocal = mService.getLocalManager();
         assertThat(sSdkSandboxManagerLocal).isNotNull();
 
         sSdkSandboxSettingsListener = mService.getSdkSandboxSettingsListener();
         assertThat(sSdkSandboxSettingsListener).isNotNull();
+        setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "false");
 
         mClientAppUid = Process.myUid();
         mSandboxLatencyInfo = new SandboxLatencyInfo();
@@ -2474,10 +2474,8 @@ public class SdkSandboxManagerServiceUnitTest {
         final FileDescriptor err = FileDescriptor.err;
 
         final SdkSandboxShellCommand command = Mockito.mock(SdkSandboxShellCommand.class);
-        Mockito.when(
-                        mInjector.createShellCommand(
-                                mService, mSpyContext, /* supportsAdServicesShellCmd= */ true))
-                .thenReturn(command);
+        Mockito.when(mInjector.createShellCommand(mService, mSpyContext)).thenReturn(command);
+
         final String[] args = new String[] {"start"};
 
         mService.handleShellCommand(
@@ -2486,14 +2484,13 @@ public class SdkSandboxManagerServiceUnitTest {
                 new ParcelFileDescriptor(err),
                 args);
 
-        Mockito.verify(mInjector)
-                .createShellCommand(mService, mSpyContext, /* supportsAdServicesShellCmd= */ true);
+        Mockito.verify(mInjector).createShellCommand(mService, mSpyContext);
         Mockito.verify(command).exec(mService, in, out, err, args);
     }
 
     @Test
     public void testIsDisabled() {
-        mService.forceEnableSandbox();
+        setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "false");
         assertThat(mService.isSdkSandboxDisabled()).isFalse();
     }
 
@@ -2502,13 +2499,13 @@ public class SdkSandboxManagerServiceUnitTest {
         // SDK sandbox is enabled for an emulator, even if the killswitch is turned on provided
         // AdServices APK is present.
         Mockito.when(mInjector.isEmulator()).thenReturn(true);
-        sSdkSandboxSettingsListener.setKillSwitchState(true);
+        setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "true");
         assertThat(mService.isSdkSandboxDisabled()).isFalse();
 
         // SDK sandbox is disabled when the killswitch is enabled if the device is not an emulator.
         mService.clearSdkSandboxState();
         Mockito.when(mInjector.isEmulator()).thenReturn(false);
-        sSdkSandboxSettingsListener.setKillSwitchState(true);
+        setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "true");
         assertThat(mService.isSdkSandboxDisabled()).isTrue();
     }
 
@@ -2517,18 +2514,18 @@ public class SdkSandboxManagerServiceUnitTest {
         // SDK sandbox is disabled for an emulator, if AdServices APK is not present.
         Mockito.doReturn(false).when(mInjector).isAdServiceApkPresent();
         Mockito.when(mInjector.isEmulator()).thenReturn(true);
-        sSdkSandboxSettingsListener.setKillSwitchState(true);
+        setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "true");
         assertThat(mService.isSdkSandboxDisabled()).isTrue();
     }
 
     @Test
     public void testSdkSandboxDisabledForAdServiceApkMissing() {
         Mockito.doReturn(true).when(mInjector).isAdServiceApkPresent();
-        sSdkSandboxSettingsListener.setKillSwitchState(false);
+        setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "false");
         assertThat(mService.isSdkSandboxDisabled()).isFalse();
 
         Mockito.doReturn(false).when(mInjector).isAdServiceApkPresent();
-        sSdkSandboxSettingsListener.setKillSwitchState(false);
+        setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "false");
         assertThat(mService.isSdkSandboxDisabled()).isTrue();
     }
 
@@ -2536,7 +2533,6 @@ public class SdkSandboxManagerServiceUnitTest {
     public void testKillswitchStopsSandbox() throws Exception {
         disableKillUid();
         setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "false");
-        sSdkSandboxSettingsListener.setKillSwitchState(false);
         loadSdk(SDK_NAME);
         setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "true");
         int callingUid = Binder.getCallingUid();
@@ -2549,7 +2545,7 @@ public class SdkSandboxManagerServiceUnitTest {
         disableNetworkPermissionChecks();
         disableForegroundCheck();
 
-        sSdkSandboxSettingsListener.setKillSwitchState(true);
+        setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "true");
         FakeLoadSdkCallbackBinder callback = new FakeLoadSdkCallbackBinder();
         mService.loadSdk(
                 TEST_PACKAGE,
