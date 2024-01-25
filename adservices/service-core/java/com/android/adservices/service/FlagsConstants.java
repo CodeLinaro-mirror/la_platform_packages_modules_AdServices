@@ -930,6 +930,8 @@ public final class FlagsConstants {
             "enable_update_trigger_registration_header_limit";
 
     // UI keys
+    public static final String KEY_PAS_UX_ENABLED = "pas_ux_enabled";
+
     public static final String KEY_UI_FEATURE_TYPE_LOGGING_ENABLED =
             "ui_feature_type_logging_enabled";
 
@@ -1190,4 +1192,7 @@ public final class FlagsConstants {
 
     public static final String KEY_BACKGROUND_JOB_SAMPLING_LOGGING_RATE =
             "key_background_job_sampling_logging_rate";
+
+    public static final String KEY_IS_GET_AD_SERVICES_COMMON_STATES_ENABLED =
+            "is_get_ad_services_common_states_enabled";
 }

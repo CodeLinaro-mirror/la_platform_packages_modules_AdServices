@@ -3613,6 +3613,7 @@ public final class PhFlags extends CommonPhFlags implements Flags {
     public void dump(@NonNull PrintWriter writer, @Nullable String[] args) {
         super.dump(writer, args); // common flags
 
+        writer.println("\t" + FlagsConstants.KEY_PAS_UX_ENABLED + " = " + getPasUxEnabled());
         writer.println(
                 "\t"
                         + FlagsConstants.KEY_IS_U18_UX_DETENTION_CHANNEL_ENABLED
@@ -5474,6 +5475,11 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                         + getMeasurementEnableSessionStableKillSwitches());
         writer.println("\t" + KEY_APPSEARCH_WRITE_TIMEOUT_MS + " = " + getAppSearchWriteTimeout());
         writer.println("\t" + KEY_APPSEARCH_READ_TIMEOUT_MS + " = " + getAppSearchReadTimeout());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_IS_GET_AD_SERVICES_COMMON_STATES_ENABLED
+                        + " = "
+                        + isGetAdServicesCommonStatesEnabled());
     }
 
     @VisibleForTesting
@@ -5684,6 +5690,14 @@ public final class PhFlags extends CommonPhFlags implements Flags {
     }
 
     @Override
+    public boolean getPasUxEnabled() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants.KEY_PAS_UX_ENABLED,
+                /* defaultValue */ DEFAULT_PAS_UX_ENABLED);
+    }
+
+    @Override
     public Map<String, Boolean> getUxFlags() {
         Map<String, Boolean> uxMap = new HashMap<>();
         uxMap.put(FlagsConstants.KEY_UI_DIALOGS_FEATURE_ENABLED, getUIDialogsFeatureEnabled());
@@ -5723,6 +5737,10 @@ public final class PhFlags extends CommonPhFlags implements Flags {
         uxMap.put(
                 FlagsConstants.KEY_CONSENT_ALREADY_INTERACTED_FIX_ENABLE,
                 getConsentAlreadyInteractedEnableMode());
+        uxMap.put(
+                FlagsConstants.KEY_IS_GET_AD_SERVICES_COMMON_STATES_ENABLED,
+                isGetAdServicesCommonStatesEnabled());
+        uxMap.put(FlagsConstants.KEY_PAS_UX_ENABLED, getPasUxEnabled());
         return uxMap;
     }
 
@@ -6441,5 +6459,13 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                 FlagsConstants.NAMESPACE_ADSERVICES,
                 /* name= */ FlagsConstants.KEY_APPSEARCH_READ_TIMEOUT_MS,
                 /* defaultValue= */ DEFAULT_APPSEARCH_READ_TIMEOUT_MS);
+    }
+
+    @Override
+    public boolean isGetAdServicesCommonStatesEnabled() {
+        return DeviceConfig.getBoolean(
+                FlagsConstants.NAMESPACE_ADSERVICES,
+                /* flagName */ FlagsConstants.KEY_IS_GET_AD_SERVICES_COMMON_STATES_ENABLED,
+                /* defaultValue */ DEFAULT_IS_GET_AD_SERVICES_COMMON_STATES_ENABLED);
     }
 }
