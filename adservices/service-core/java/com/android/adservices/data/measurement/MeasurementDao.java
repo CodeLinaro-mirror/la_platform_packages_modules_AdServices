@@ -147,6 +147,10 @@ class MeasurementDao implements IMeasurementDao {
         values.put(
                 MeasurementTables.TriggerContract.AGGREGATION_COORDINATOR_ORIGIN,
                 getNullableUriString(trigger.getAggregationCoordinatorOrigin()));
+        values.put(
+                MeasurementTables.TriggerContract.AGGREGATABLE_SOURCE_REGISTRATION_TIME_CONFIG,
+                trigger.getAggregatableSourceRegistrationTimeConfig().name());
+
         long rowId =
                 mSQLTransaction
                         .getDatabase()
@@ -2761,6 +2765,9 @@ class MeasurementDao implements IMeasurementDao {
         values.put(
                 MeasurementTables.AsyncRegistrationContract.REQUEST_POST_BODY,
                 asyncRegistration.getPostBody());
+        values.put(
+                MeasurementTables.AsyncRegistrationContract.REDIRECT_BEHAVIOR,
+                asyncRegistration.getRedirectBehavior().name());
         long rowId =
                 mSQLTransaction
                         .getDatabase()

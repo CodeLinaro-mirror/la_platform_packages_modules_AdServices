@@ -17,12 +17,14 @@ package android.adservices.adselection;
 
 import android.adservices.common.AdSelectionSignals;
 import android.adservices.common.AdTechIdentifier;
+import android.annotation.FlaggedApi;
 import android.annotation.NonNull;
 import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.android.adservices.AdServicesParcelableUtil;
+import com.android.adservices.flags.Flags;
 
 import java.util.Collections;
 import java.util.List;
@@ -239,8 +241,8 @@ public final class AdSelectionConfig implements Parcelable {
     /**
      * @return a Map of buyers and corresponding Contextual Ads, these ads are expected to be
      *     pre-downloaded from the contextual path and injected into Ad Selection.
-     * @hide
      */
+    @FlaggedApi(Flags.FLAG_FLEDGE_AD_SELECTION_FILTERING_ENABLED)
     @NonNull
     public Map<AdTechIdentifier, SignedContextualAds> getBuyerSignedContextualAds() {
         return mBuyerSignedContextualAds;
@@ -385,9 +387,8 @@ public final class AdSelectionConfig implements Parcelable {
          * <p>If not set, defaults to an empty map.
          *
          * <p>See {@link #getBuyerSignedContextualAds()} ()} for more details.
-         *
-         * @hide
          */
+        @FlaggedApi(Flags.FLAG_FLEDGE_AD_SELECTION_FILTERING_ENABLED)
         @NonNull
         public AdSelectionConfig.Builder setBuyerSignedContextualAds(
                 @NonNull Map<AdTechIdentifier, SignedContextualAds> buyerSignedContextualAds) {
@@ -422,14 +423,22 @@ public final class AdSelectionConfig implements Parcelable {
          */
         @NonNull
         public AdSelectionConfig build() {
-            Objects.requireNonNull(mSeller);
-            Objects.requireNonNull(mDecisionLogicUri);
-            Objects.requireNonNull(mCustomAudienceBuyers);
-            Objects.requireNonNull(mAdSelectionSignals);
-            Objects.requireNonNull(mSellerSignals);
-            Objects.requireNonNull(mPerBuyerSignals);
-            Objects.requireNonNull(mBuyerSignedContextualAds);
-            Objects.requireNonNull(mTrustedScoringSignalsUri);
+            Objects.requireNonNull(mSeller, "The seller has not been provided");
+            Objects.requireNonNull(
+                mDecisionLogicUri, "The decision logic URI has not been provided");
+            Objects.requireNonNull(
+                mCustomAudienceBuyers, "The custom audience buyers have not been provided");
+            Objects.requireNonNull(
+                mAdSelectionSignals, "The ad selection signals have not been provided");
+            Objects.requireNonNull(mSellerSignals, "The seller signals have not been provided");
+            Objects.requireNonNull(
+                mPerBuyerSignals, "The per buyer signals have not been provided");
+            Objects.requireNonNull(
+                mBuyerSignedContextualAds,
+                "The buyer signed contextual ads have not been provided");
+            Objects.requireNonNull(
+                mTrustedScoringSignalsUri,
+                "The trusted scoring signals URI have not been provided");
             return new AdSelectionConfig(
                     mSeller,
                     mDecisionLogicUri,

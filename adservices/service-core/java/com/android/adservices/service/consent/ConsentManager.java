@@ -39,6 +39,7 @@ import android.app.job.JobScheduler;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.os.Trace;
 
 import androidx.annotation.RequiresApi;
 
@@ -206,6 +207,7 @@ public class ConsentManager {
     public static ConsentManager getInstance(@NonNull Context context) {
         Objects.requireNonNull(context);
 
+        Trace.beginSection("ConsentManager#Initialization");
         if (sConsentManager == null) {
             synchronized (LOCK) {
                 if (sConsentManager == null) {
@@ -253,7 +255,8 @@ public class ConsentManager {
                                     context,
                                     datastore,
                                     appSearchConsentManager,
-                                    adServicesExtDataManager);
+                                    adServicesExtDataManager,
+                                    statsdAdServicesLogger);
                         }
                     }
 
@@ -288,6 +291,7 @@ public class ConsentManager {
                 }
             }
         }
+        Trace.endSection();
         return sConsentManager;
     }
 
@@ -2075,7 +2079,26 @@ public class ConsentManager {
                 () -> mUxStatesDao.getUx(),
                 () -> convertUxString(mAdServicesManager.getUx()),
                 () -> mAppSearchConsentManager.getUx(),
-                () -> mUxStatesDao.getUx(),
+                () -> {
+                    PrivacySandboxUxCollection ux = mUxStatesDao.getUx();
+
+                    // Workaround to make getUx() rollback safe on R. Rollback could change
+                    // ux enum to UNSUPPORTED_UX after daily ping and before the
+                    // notification is displayed.
+
+                    if (ux == PrivacySandboxUxCollection.UNSUPPORTED_UX) {
+                        // Use getIsU18Account to infer ux enum since getIsU18Account is
+                        // rollback safe
+                        if (mFlags.getU18UxEnabled() && mAdExtDataManager.getIsU18Account()) {
+                            ux = PrivacySandboxUxCollection.U18_UX;
+                        } else if (mAdExtDataManager.getIsAdultAccount()) {
+                            // Use getIsAdultAccount to infer ux enum since getIsAdultAccount is
+                            // rollback safe
+                            ux = PrivacySandboxUxCollection.RVC_UX;
+                        }
+                    }
+                    return ux;
+                },
                 /* errorLogger= */ null);
     }
 
@@ -2154,6 +2177,7 @@ public class ConsentManager {
             for back compat. */
             ThrowableSetter ppapiAndAdExtDataServiceSetter,
             ErrorLogger errorLogger) {
+        Trace.beginSection("ConsentManager#WriteOperation");
         mReadWriteLock.writeLock().lock();
         try {
             switch (mConsentSourceOfTruth) {
@@ -2185,11 +2209,12 @@ public class ConsentManager {
             if (errorLogger != null) {
                 errorLogger.apply(e);
             }
-            throw new RuntimeException(getClass().getSimpleName() + " failed. " + e.getMessage());
+            throw new RuntimeException(
+                    getClass().getSimpleName() + " failed. " + e.getMessage(), e);
         } finally {
             mReadWriteLock.writeLock().unlock();
+            Trace.endSection();
         }
-
     }
 
     @FunctionalInterface
@@ -2218,6 +2243,7 @@ public class ConsentManager {
              for back compat. */
             ThrowableGetter<T> ppapiAndAdExtDataServiceGetter,
             ErrorLogger errorLogger) {
+        Trace.beginSection("ConsentManager#ReadOperation");
         mReadWriteLock.readLock().lock();
         try {
             switch (mConsentSourceOfTruth) {
@@ -2248,6 +2274,7 @@ public class ConsentManager {
             LogUtil.e(getClass().getSimpleName() + " failed. " + e.getMessage());
         } finally {
             mReadWriteLock.readLock().unlock();
+            Trace.endSection();
         }
 
         return defaultReturn;
@@ -2260,8 +2287,20 @@ public class ConsentManager {
                 : AD_SERVICES_SETTINGS_USAGE_REPORTED__REGION__ROW;
     }
 
-    /* Returns an object of ConsentMigrationStats */
-    private static ConsentMigrationStats getConsentManagerStatsForLogging(
+    /***
+     * Returns an object of ConsentMigrationStats for logging
+     *
+     * @param appConsents AppConsents consents per API (fledge, msmt, topics, default)
+     * @param migrationStatus Status of migration ( FAILURE, SUCCESS_WITH_SHARED_PREF_UPDATED,
+     *                        SUCCESS_WITH_SHARED_PREF_NOT_UPDATED)
+     * @param migrationType Type of migration ( PPAPI_TO_SYSTEM_SERVICE,
+     *                      APPSEARCH_TO_SYSTEM_SERVICE,
+     *                      ADEXT_SERVICE_TO_SYSTEM_SERVICE,
+     *                      ADEXT_SERVICE_TO_APPSEARCH)
+     * @param context Context of the application
+     * @return consentMigrationStats returns ConsentMigrationStats for logging
+     */
+    public static ConsentMigrationStats getConsentManagerStatsForLogging(
             AppConsents appConsents,
             ConsentMigrationStats.MigrationStatus migrationStatus,
             ConsentMigrationStats.MigrationType migrationType,
@@ -2269,7 +2308,6 @@ public class ConsentManager {
         ConsentMigrationStats consentMigrationStats =
                 ConsentMigrationStats.builder()
                         .setMigrationType(migrationType)
-                        .setMigrationStatus(migrationStatus)
                         // When appConsents is null we log it as a failure
                         .setMigrationStatus(
                                 appConsents != null

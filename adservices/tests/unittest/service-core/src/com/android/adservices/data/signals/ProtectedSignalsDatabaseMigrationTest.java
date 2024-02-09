@@ -49,7 +49,7 @@ public class ProtectedSignalsDatabaseMigrationTest {
             new MigrationTestHelper(INSTRUMENTATION, ProtectedSignalsDatabase.class);
 
     @Test
-    public void testMigrate1To2() throws IOException {
+    public void testMigration1To2() throws IOException {
         try (SupportSQLiteDatabase db = helper.createDatabase(TEST_DB, 1)) {
             List<String> tables = listTables(db);
             assertTrue(tables.contains(DBProtectedSignal.TABLE_NAME));
@@ -57,7 +57,7 @@ public class ProtectedSignalsDatabaseMigrationTest {
             assertFalse(tables.contains(DBEncodedPayload.TABLE_NAME));
             assertFalse(tables.contains(DBEncoderEndpoint.TABLE_NAME));
         }
-        // Re-open the database with version 3.
+        // Re-open the database with version 2.
         try (SupportSQLiteDatabase db = helper.runMigrationsAndValidate(TEST_DB, 2, true)) {
             List<String> tables = listTables(db);
             assertTrue(tables.contains(DBProtectedSignal.TABLE_NAME));
@@ -78,7 +78,7 @@ public class ProtectedSignalsDatabaseMigrationTest {
     }
 
     @Test
-    public void testMigrate2To3() throws IOException {
+    public void testMigration2To3() throws IOException {
         final String encoderLogicMetadataTable = "encoder_logics";
         final int version = 2;
         final int failedEncodingCount = 3;
@@ -117,6 +117,27 @@ public class ProtectedSignalsDatabaseMigrationTest {
             assertEquals(3, c.getInt(c.getColumnIndex("failed_encoding_count")));
             assertEquals(
                     CommonFixture.VALID_BUYER_2.toString(), c.getString(c.getColumnIndex("buyer")));
+        }
+    }
+
+    @Test
+    public void testMigration3To4() throws IOException {
+        try (SupportSQLiteDatabase db = helper.createDatabase(TEST_DB, 3)) {
+            List<String> tables = listTables(db);
+            assertTrue(tables.contains(DBProtectedSignal.TABLE_NAME));
+            assertTrue(tables.contains(DBEncoderLogicMetadata.TABLE_NAME));
+            assertTrue(tables.contains(DBEncodedPayload.TABLE_NAME));
+            assertTrue(tables.contains(DBEncoderEndpoint.TABLE_NAME));
+            assertFalse(tables.contains(DBSignalsUpdateMetadata.TABLE_NAME));
+        }
+        // Re-open the database with version 4.
+        try (SupportSQLiteDatabase db = helper.runMigrationsAndValidate(TEST_DB, 4, true)) {
+            List<String> tables = listTables(db);
+            assertTrue(tables.contains(DBProtectedSignal.TABLE_NAME));
+            assertTrue(tables.contains(DBEncoderLogicMetadata.TABLE_NAME));
+            assertTrue(tables.contains(DBEncodedPayload.TABLE_NAME));
+            assertTrue(tables.contains(DBEncoderEndpoint.TABLE_NAME));
+            assertTrue(tables.contains(DBSignalsUpdateMetadata.TABLE_NAME));
         }
     }
 }

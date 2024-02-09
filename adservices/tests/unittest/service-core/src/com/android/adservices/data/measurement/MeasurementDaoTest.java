@@ -399,6 +399,9 @@ public class MeasurementDaoTest {
             assertEquals(
                     validTrigger.getAggregationCoordinatorOrigin(),
                     trigger.getAggregationCoordinatorOrigin());
+            assertEquals(
+                    validTrigger.getAggregatableSourceRegistrationTimeConfig(),
+                    trigger.getAggregatableSourceRegistrationTimeConfig());
         }
     }
 
@@ -4439,7 +4442,34 @@ public class MeasurementDaoTest {
             AggregateReport aggregateReport = SqliteObjectMapper.constructAggregateReport(cursor);
             assertNotNull(aggregateReport);
             assertNotNull(aggregateReport.getId());
-            assertTrue(Objects.equals(validAggregateReport, aggregateReport));
+            assertEquals(validAggregateReport, aggregateReport);
+        }
+    }
+
+    @Test
+    public void testInsertAggregateReport_withNullSourceRegistrationTime() {
+        AggregateReport.Builder builder = AggregateReportFixture.getValidAggregateReportBuilder();
+        builder.setSourceRegistrationTime(null);
+        AggregateReport aggregateReportWithNullSourceRegistrationTime = builder.build();
+        mDatastoreManager.runInTransaction(
+                (dao) -> dao.insertAggregateReport(aggregateReportWithNullSourceRegistrationTime));
+
+        try (Cursor cursor =
+                MeasurementDbHelper.getInstance(sContext)
+                        .getReadableDatabase()
+                        .query(
+                                MeasurementTables.AggregateReport.TABLE,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null)) {
+            assertTrue(cursor.moveToNext());
+            AggregateReport aggregateReport = SqliteObjectMapper.constructAggregateReport(cursor);
+            assertNotNull(aggregateReport);
+            assertNotNull(aggregateReport.getId());
+            assertEquals(aggregateReportWithNullSourceRegistrationTime, aggregateReport);
         }
     }
 
@@ -4885,44 +4915,6 @@ public class MeasurementDaoTest {
                                 null,
                                 null)
                         .getCount());
-    }
-
-    private static AsyncRegistration buildAsyncRegistration(String id) {
-
-        return new AsyncRegistration.Builder()
-                .setId(id)
-                .setOsDestination(Uri.parse("android-app://installed-app-destination"))
-                .setRegistrant(INSTALLED_REGISTRANT)
-                .setTopOrigin(INSTALLED_REGISTRANT)
-                .setAdIdPermission(false)
-                .setType(AsyncRegistration.RegistrationType.APP_SOURCE)
-                .setRegistrationId(UUID.randomUUID().toString())
-                .build();
-    }
-
-    private static AsyncRegistration buildAsyncRegistrationWithNotDestination(String id) {
-        return new AsyncRegistration.Builder()
-                .setId(id)
-                .setOsDestination(Uri.parse("android-app://not-installed-app-destination"))
-                .setRegistrant(INSTALLED_REGISTRANT)
-                .setTopOrigin(INSTALLED_REGISTRANT)
-                .setAdIdPermission(false)
-                .setType(AsyncRegistration.RegistrationType.APP_SOURCE)
-                .setRequestTime(Long.MAX_VALUE)
-                .setRegistrationId(UUID.randomUUID().toString())
-                .build();
-    }
-
-    private static AsyncRegistration buildAsyncRegistrationWithNotRegistrant(String id) {
-        return new AsyncRegistration.Builder()
-                .setId(id)
-                .setOsDestination(Uri.parse("android-app://installed-app-destination"))
-                .setRegistrant(NOT_INSTALLED_REGISTRANT)
-                .setTopOrigin(NOT_INSTALLED_REGISTRANT)
-                .setAdIdPermission(false)
-                .setType(AsyncRegistration.RegistrationType.APP_SOURCE)
-                .setRegistrationId(UUID.randomUUID().toString())
-                .build();
     }
 
     @Test
@@ -6163,6 +6155,9 @@ public class MeasurementDaoTest {
             assertEquals(
                     asyncRegistration.getPlatformAdId(), validAsyncRegistration.getPlatformAdId());
             assertEquals(asyncRegistration.getPostBody(), validAsyncRegistration.getPostBody());
+            assertEquals(
+                    asyncRegistration.getRedirectBehavior(),
+                    validAsyncRegistration.getRedirectBehavior());
         }
     }
 
@@ -8015,7 +8010,9 @@ public class MeasurementDaoTest {
                                 TriggerFixture.ValidTriggerParams.ATTRIBUTION_DESTINATION)
                         .setRegistrant(TriggerFixture.ValidTriggerParams.REGISTRANT)
                         .setRegistrationOrigin(
-                                TriggerFixture.ValidTriggerParams.REGISTRATION_ORIGIN);
+                                TriggerFixture.ValidTriggerParams.REGISTRATION_ORIGIN)
+                        .setAggregatableSourceRegistrationTimeConfig(
+                                Trigger.SourceRegistrationTimeConfig.INCLUDE);
         Trigger t1 =
                 triggerBuilder
                         .setId("t1")
@@ -8069,7 +8066,9 @@ public class MeasurementDaoTest {
                                 TriggerFixture.ValidTriggerParams.ATTRIBUTION_DESTINATION)
                         .setRegistrant(TriggerFixture.ValidTriggerParams.REGISTRANT)
                         .setRegistrationOrigin(
-                                TriggerFixture.ValidTriggerParams.REGISTRATION_ORIGIN);
+                                TriggerFixture.ValidTriggerParams.REGISTRATION_ORIGIN)
+                        .setAggregatableSourceRegistrationTimeConfig(
+                                Trigger.SourceRegistrationTimeConfig.INCLUDE);
         // Trigger with debug AdId present
         Trigger t1 =
                 triggerBuilder
@@ -8140,7 +8139,9 @@ public class MeasurementDaoTest {
                                 TriggerFixture.ValidTriggerParams.ATTRIBUTION_DESTINATION)
                         .setRegistrant(TriggerFixture.ValidTriggerParams.REGISTRANT)
                         .setRegistrationOrigin(
-                                TriggerFixture.ValidTriggerParams.REGISTRATION_ORIGIN);
+                                TriggerFixture.ValidTriggerParams.REGISTRATION_ORIGIN)
+                        .setAggregatableSourceRegistrationTimeConfig(
+                                Trigger.SourceRegistrationTimeConfig.INCLUDE);
         // Multiple triggers with same AdId
         Trigger t1 =
                 triggerBuilder
@@ -8219,7 +8220,9 @@ public class MeasurementDaoTest {
                                 TriggerFixture.ValidTriggerParams.ATTRIBUTION_DESTINATION)
                         .setRegistrant(TriggerFixture.ValidTriggerParams.REGISTRANT)
                         .setRegistrationOrigin(
-                                TriggerFixture.ValidTriggerParams.REGISTRATION_ORIGIN);
+                                TriggerFixture.ValidTriggerParams.REGISTRATION_ORIGIN)
+                        .setAggregatableSourceRegistrationTimeConfig(
+                                Trigger.SourceRegistrationTimeConfig.INCLUDE);
         // Multiple triggers with different AdIds but the same enrollmentId
         Trigger t1 =
                 triggerBuilder
@@ -8298,7 +8301,9 @@ public class MeasurementDaoTest {
                                 TriggerFixture.ValidTriggerParams.ATTRIBUTION_DESTINATION)
                         .setRegistrant(TriggerFixture.ValidTriggerParams.REGISTRANT)
                         .setRegistrationOrigin(
-                                TriggerFixture.ValidTriggerParams.REGISTRATION_ORIGIN);
+                                TriggerFixture.ValidTriggerParams.REGISTRATION_ORIGIN)
+                        .setAggregatableSourceRegistrationTimeConfig(
+                                Trigger.SourceRegistrationTimeConfig.INCLUDE);
         // Multiple triggers with different AdIds and differing enrollmentIds
         Trigger t1 =
                 triggerBuilder

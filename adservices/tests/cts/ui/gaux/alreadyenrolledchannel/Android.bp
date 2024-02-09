@@ -19,7 +19,7 @@ package {
 android_test {
     name: "AdServicesGaUxAlreadyEnrolledChannelTest",
     srcs: [
-        "src/**/*.java",
+        "src/com/android/adservices/tests/ui/gaux/alreadyenrolledchannel/GaUxAlreadyEnrolledChannelTest.java",
     ],
     static_libs: [
         "adservices-assets",

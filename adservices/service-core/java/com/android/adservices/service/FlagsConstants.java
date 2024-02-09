@@ -94,6 +94,8 @@ public final class FlagsConstants {
     public static final String KEY_TOPICS_ENCRYPTION_ENABLED = "topics_encryption_enabled";
     public static final String KEY_TOPICS_DISABLE_PLAINTEXT_RESPONSE =
             "topics_disable_plaintext_response";
+    public static final String KEY_TOPICS_TEST_ENCRYPTION_PUBLIC_KEY =
+            "topics_test_encryption_public_key";
 
     // Topics classifier keys
     public static final String KEY_CLASSIFIER_TYPE = "classifier_type";
@@ -147,6 +149,12 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_NULL_AGG_REPORT_RATE_INCL_SOURCE_REGISTRATION_TIME =
             "measurement_null_agg_report_rate_incl_source_registration_time";
 
+    public static final String KEY_MEASUREMENT_NULL_AGG_REPORT_RATE_EXCL_SOURCE_REGISTRATION_TIME =
+            "measurement_null_agg_report_rate_excl_source_registration_time";
+
+    public static final String
+            KEY_MEASUREMENT_SOURCE_REGISTRATION_TIME_OPTIONAL_FOR_AGG_REPORTS_ENABLED =
+                    "measurement_source_registration_time_optional_for_agg_reports_enabled";
     public static final String KEY_MEASUREMENT_NETWORK_CONNECT_TIMEOUT_MS =
             "measurement_network_connect_timeout_ms";
     public static final String KEY_MEASUREMENT_NETWORK_READ_TIMEOUT_MS =
@@ -283,9 +291,6 @@ public final class FlagsConstants {
 
     public static final String KEY_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS =
             "measurement_enable_coarse_event_report_destinations";
-
-    public static final String KEY_MEASUREMENT_ENABLE_VTC_CONFIGURABLE_MAX_EVENT_REPORTS =
-            "measurement_enable_vtc_configurable_max_event_reports_count";
 
     public static final String KEY_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT =
             "measurement_vtc_configurable_max_event_reports_count";
@@ -811,6 +816,8 @@ public final class FlagsConstants {
     public static final String KEY_PPAPI_APP_SIGNATURE_ALLOW_LIST =
             "ppapi_app_signature_allow_list";
 
+    public static final String KEY_APPSEARCH_WRITE_TIMEOUT_MS = "appsearch_write_timeout_ms";
+    public static final String KEY_APPSEARCH_READ_TIMEOUT_MS = "appsearch_read_timeout_ms";
     public static final String KEY_APPSEARCH_WRITER_ALLOW_LIST_OVERRIDE =
             "appsearch_writer_allow_list_override";
 
@@ -916,6 +923,11 @@ public final class FlagsConstants {
     // Max response payload size allowed per source/trigger registration
     public static final String KEY_MAX_RESPONSE_BASED_REGISTRATION_SIZE_BYTES =
             "max_response_based_registration_size_bytes";
+    public static final String KEY_MAX_TRIGGER_REGISTRATION_HEADER_SIZE_BYTES =
+            "max_trigger_registration_header_size_bytes";
+
+    public static final String KEY_MEASUREMENT_ENABLE_UPDATE_TRIGGER_REGISTRATION_HEADER_LIMIT =
+            "enable_update_trigger_registration_header_limit";
 
     // UI keys
     public static final String KEY_UI_FEATURE_TYPE_LOGGING_ENABLED =
@@ -1069,9 +1081,6 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS =
             "measurement_min_event_report_delay_millis";
 
-    public static final String KEY_MEASUREMENT_ENABLE_CONFIGURABLE_EVENT_REPORTING_WINDOWS =
-            "measurement_enable_configurable_event_reporting_windows";
-
     public static final String KEY_MEASUREMENT_EVENT_REPORTS_VTC_EARLY_REPORTING_WINDOWS =
             "measurement_event_reports_vtc_early_reporting_windows";
 
@@ -1134,39 +1143,14 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_ENABLE_API_STATUS_ALLOW_LIST_CHECK =
             "measurement_enable_api_status_allow_list_check";
 
-    public static final String
-            KEY_MEASUREMENT_INSTALL_ATTR_DUAL_DESTINATION_EVENT_NOISE_PROBABILITY =
-                    "measurement_install_attr_dual_destination_event_noise_probability";
-
-    public static final String KEY_MEASUREMENT_DUAL_DESTINATION_NAVIGATION_NOISE_PROBABILITY =
-            "measurement_dual_destination_navigation_noise_probability";
-
-    public static final String
-            KEY_MEASUREMENT_INSTALL_ATTR_DUAL_DESTINATION_NAVIGATION_NOISE_PROBABILITY =
-                    "measurement_install_attr_dual_destination_navigation_noise_probability";
-
-    public static final String KEY_MEASUREMENT_DUAL_DESTINATION_EVENT_NOISE_PROBABILITY =
-            "measurement_dual_destination_event_noise_probability";
-
-    public static final String KEY_MEASUREMENT_INSTALL_ATTR_EVENT_NOISE_PROBABILITY =
-            "measurement_install_attr_event_noise_probability";
-
-    public static final String KEY_MEASUREMENT_INSTALL_ATTR_NAVIGATION_NOISE_PROBABILITY =
-            "measurement_install_attr_navigation_noise_probability";
-
-    public static final String KEY_MEASUREMENT_EVENT_NOISE_PROBABILITY =
-            "measurement_event_noise_probability";
-
-    public static final String KEY_MEASUREMENT_NAVIGATION_NOISE_PROBABILITY =
-            "measurement_navigation_noise_probability";
+    public static final String KEY_MEASUREMENT_ENABLE_REDIRECT_TO_WELL_KNOWN_PATH =
+            "measurement_enable_redirect_to_well_known_path";
 
     // Database Schema Version Flags
     public static final String KEY_ENABLE_DATABASE_SCHEMA_VERSION_8 =
             "enable_database_schema_version_8";
     public static final String KEY_ENABLE_DATABASE_SCHEMA_VERSION_9 =
             "enable_database_schema_version_9";
-
-    public static final String KEY_EU_NOTIF_FLOW_CHANGE_ENABLED = "eu_notif_flow_change_enabled";
 
     public static final String KEY_NOTIFICATION_DISMISSED_ON_CLICK =
             "notification_dmsmissed_on_click";
@@ -1175,7 +1159,8 @@ public final class FlagsConstants {
 
     public static final String KEY_RVC_UX_ENABLED = "rvc_ux_enabled";
 
-    public static final String KEY_RVC_NOTIFICATION_ENABLED = "rvc_notification_enabled";
+    public static final String KEY_RVC_POST_OTA_NOTIFICATION_ENABLED =
+            "rvc_post_ota_notification_enabled";
 
     public static final String KEY_ENABLE_AD_SERVICES_SYSTEM_API = "enable_ad_services_system_api";
 

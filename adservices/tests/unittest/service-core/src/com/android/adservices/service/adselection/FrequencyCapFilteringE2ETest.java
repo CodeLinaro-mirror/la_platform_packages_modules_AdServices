@@ -377,7 +377,7 @@ public final class FrequencyCapFilteringE2ETest extends AdServicesExtendedMockit
         // Bypass the permission check since it's enforced before the package name check
         doNothing()
                 .when(mFledgeAuthorizationFilterSpy)
-                .assertAppDeclaredCustomAudiencePermission(
+                .assertAppDeclaredPermission(
                         mContextSpy,
                         CommonFixture.TEST_PACKAGE_NAME_1,
                         AD_SERVICES_API_CALLED__API_NAME__UPDATE_AD_COUNTER_HISTOGRAM);
@@ -401,7 +401,7 @@ public final class FrequencyCapFilteringE2ETest extends AdServicesExtendedMockit
         verifyNoMoreInteractions(mFrequencyCapDaoSpy);
 
         verify(mFledgeAuthorizationFilterSpy)
-                .assertAppDeclaredCustomAudiencePermission(
+                .assertAppDeclaredPermission(
                         mContextSpy,
                         CommonFixture.TEST_PACKAGE_NAME_1,
                         AD_SERVICES_API_CALLED__API_NAME__UPDATE_AD_COUNTER_HISTOGRAM);
@@ -543,7 +543,7 @@ public final class FrequencyCapFilteringE2ETest extends AdServicesExtendedMockit
                         .setAds(Collections.singletonList(AD_WITH_FILTER))
                         .build(),
                 CommonFixture.getUri(CommonFixture.VALID_BUYER_1, "/update"),
-                /*debuggable=*/ false);
+                false);
 
         AdSelectionTestCallback adSelectionCallback = callSelectAds();
 
@@ -577,7 +577,7 @@ public final class FrequencyCapFilteringE2ETest extends AdServicesExtendedMockit
                         .setAds(Arrays.asList(AD_WITH_FILTER))
                         .build(),
                 CommonFixture.getUri(CommonFixture.VALID_BUYER_1, "/update"),
-                /*debuggable=*/ false);
+                false);
 
         AdSelectionTestCallback callback = callSelectAds();
 
@@ -611,7 +611,7 @@ public final class FrequencyCapFilteringE2ETest extends AdServicesExtendedMockit
                         .setAds(Arrays.asList(AD_WITH_FILTER))
                         .build(),
                 CommonFixture.getUri(CommonFixture.VALID_BUYER_1, "/update"),
-                /*debuggable=*/ false);
+                false);
 
         AdSelectionTestCallback adSelectionCallback = callSelectAds();
 
@@ -657,7 +657,7 @@ public final class FrequencyCapFilteringE2ETest extends AdServicesExtendedMockit
                         .setAds(Arrays.asList(AD_WITH_FILTER))
                         .build(),
                 CommonFixture.getUri(CommonFixture.VALID_BUYER_1, "/update"),
-                /*debuggable=*/ false);
+                false);
 
         AdSelectionTestCallback adSelectionCallback = callSelectAds();
 
@@ -693,7 +693,7 @@ public final class FrequencyCapFilteringE2ETest extends AdServicesExtendedMockit
                         .setAds(Arrays.asList(AD_WITH_FILTER))
                         .build(),
                 CommonFixture.getUri(CommonFixture.VALID_BUYER_2, "/update"),
-                /*debuggable=*/ false);
+                false);
 
         AdSelectionTestCallback adSelectionCallback = callSelectAds();
 
@@ -781,7 +781,7 @@ public final class FrequencyCapFilteringE2ETest extends AdServicesExtendedMockit
                         .setAds(Arrays.asList(AD_WITH_FILTER))
                         .build(),
                 CommonFixture.getUri(CommonFixture.VALID_BUYER_1, "/update"),
-                /*debuggable=*/ false);
+                false);
 
         AdSelectionTestCallback adSelectionCallback = callSelectAds();
 
@@ -897,7 +897,7 @@ public final class FrequencyCapFilteringE2ETest extends AdServicesExtendedMockit
                         .setAds(Arrays.asList(AD_WITH_FILTER))
                         .build(),
                 CommonFixture.getUri(CommonFixture.VALID_BUYER_1, "/update"),
-                /*debuggable=*/ false);
+                false);
 
         AdSelectionTestCallback adSelectionCallback = callSelectAds();
 
