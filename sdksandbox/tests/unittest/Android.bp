@@ -13,6 +13,7 @@
 // limitations under the License.
 
 package {
+    default_team: "trendy_team_rubidium_sdk_runtime",
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
@@ -91,6 +92,7 @@ android_test {
         ":SampleCodeProviderApp",
         ":SampleApp",
         ":CodeProviderWithResources",
+        ":CtsSdkProviderAppWithoutSdkProviderClassNameProperty",
     ],
     java_resources: [
         "verification/corrupt_allowlist.binarypb",

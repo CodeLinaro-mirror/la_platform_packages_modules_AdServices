@@ -109,8 +109,12 @@ public final class FlagsConstants {
     public static final String KEY_CLASSIFIER_FORCE_USE_BUNDLED_FILES =
             "classifier_force_use_bundled_files";
 
-    // Topics Cobalt keys
+    // Cobalt keys
     public static final String KEY_TOPICS_COBALT_LOGGING_ENABLED = "topics_cobalt_logging_enabled";
+    public static final String KEY_APP_NAME_API_ERROR_COBALT_LOGGING_ENABLED =
+            "app_name_api_error_cobalt_logging_enabled";
+    public static final String KEY_APP_NAME_API_ERROR_COBALT_LOGGING_SAMPLING_RATE =
+            "app_name_api_error_cobalt_logging_sampling_rate";
     public static final String KEY_COBALT_ADSERVICES_API_KEY_HEX = "cobalt_adservices_api_key_hex";
     public static final String KEY_ADSERVICES_RELEASE_STAGE_FOR_COBALT =
             "adservices_release_stage_for_cobalt";
@@ -452,16 +456,22 @@ public final class FlagsConstants {
     public static final String KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_OWNER_COUNT =
             "fledge_custom_audience_max_owner_count";
     public static final String KEY_FLEDGE_CUSTOM_AUDIENCE_DEFAULT_EXPIRE_IN_MS =
+            // Flag key is in days, but the flag is used functionally as milliseconds; DO NOT FIX
             "fledge_custom_audience_default_expire_in_days";
     public static final String KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_ACTIVATION_DELAY_IN_MS =
+            // Flag key is in days, but the flag is used functionally as milliseconds; DO NOT FIX
             "fledge_custom_audience_max_activate_in_days";
     public static final String KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_EXPIRE_IN_MS =
+            // Flag key is in days, but the flag is used functionally as milliseconds; DO NOT FIX
             "fledge_custom_audience_max_expire_in_days";
     public static final String KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_NAME_SIZE_B =
+            // Flag key is prefixed `key_`; DO NOT FIX
             "key_fledge_custom_audience_max_name_size_b";
     public static final String KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_DAILY_UPDATE_URI_SIZE_B =
+            // Flag key is prefixed `key_`; DO NOT FIX
             "key_fledge_custom_audience_max_daily_update_uri_size_b";
     public static final String KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_BIDDING_LOGIC_URI_SIZE_B =
+            // Flag key is prefixed `key_`; DO NOT FIX
             "key_fledge_custom_audience_max_bidding_logic_uri_size_b";
     public static final String KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_USER_BIDDING_SIGNALS_SIZE_B =
             "fledge_custom_audience_max_user_bidding_signals_size_b";
@@ -1043,11 +1053,13 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_FLEX_API_MAX_INFORMATION_GAIN_NAVIGATION =
             "measurement_flex_api_max_information_gain_navigation";
 
-    public static final String KEY_MEASUREMENT_FLEX_API_MAX_INFORMATION_GAIN_DUAL_DESTINATION_EVENT =
-            "measurement_flex_api_max_information_gain_dual_destination_event";
+    public static final String
+            KEY_MEASUREMENT_FLEX_API_MAX_INFORMATION_GAIN_DUAL_DESTINATION_EVENT =
+                    "measurement_flex_api_max_information_gain_dual_destination_event";
 
-    public static final String KEY_MEASUREMENT_FLEX_API_MAX_INFORMATION_GAIN_DUAL_DESTINATION_NAVIGATION =
-            "measurement_flex_api_max_information_gain_dual_destination_navigation";
+    public static final String
+            KEY_MEASUREMENT_FLEX_API_MAX_INFORMATION_GAIN_DUAL_DESTINATION_NAVIGATION =
+                    "measurement_flex_api_max_information_gain_dual_destination_navigation";
 
     public static final String KEY_MEASUREMENT_FLEX_API_MAX_EVENT_REPORTS =
             "measurement_flex_api_max_event_reports";
@@ -1203,4 +1215,44 @@ public final class FlagsConstants {
 
     public static final String KEY_IS_GET_AD_SERVICES_COMMON_STATES_ENABLED =
             "is_get_ad_services_common_states_enabled";
+
+    /** Key for kanon sign join feature flag */
+    public static final String KEY_FLEDGE_ENABLE_KANON_SIGN_JOIN_FEATURE =
+            "fledge_kanon_sign_join_enabled";
+
+    /** Key for kanon fetch parameters url. */
+    public static final String KEY_KANON_FETCH_PARAMETERS_URL = "kanon_fetch_parameters_url";
+
+    /** Key for kanon register client parameters url. */
+    public static final String KEY_FLEDGE_KANON_REGISTER_CLIENT_PARAMETERS_URL =
+            "fledge_kanon_register_client_parameters_url";
+
+    /** Key for kanon get tokens url. */
+    public static final String KEY_FLEDGE_KANON_GET_TOKENS_URL = "fledge_kanon_get_tokens_url";
+
+    /** Key for kanon join url. */
+    public static final String KEY_FLEDGE_KANON_JOIN_URL = "fledge_kanon_join_url";
+
+    /** Key for kanon sign batch size. */
+    public static final String KEY_FLEDGE_KANON_SIGN_BATCH_SIZE = "fledge_kanon_sign_batch_size";
+
+    /** Key for kanon percentage immediate sign/join calls. */
+    public static final String KEY_FLEDGE_KANON_PERCENTAGE_IMMEDIATE_SIGN_JOIN_CALLS =
+            "fledge_kanon_percentage_immediate_sign_join_calls";
+
+    /** Key for KAnon Message ttl in seconds. */
+    public static final String KEY_FLEDGE_KANON_MESSAGE_TTL_SECONDS =
+            "fledge_kanon_message_ttl_seconds";
+
+    /** Key for kanon background job frequency per day. */
+    public static final String KEY_FLEDGE_KANON_BACKGROUND_FREQUENCY_PER_DAY =
+            "fledge_kanon_background_frequency_per_day";
+
+    /** Key for number of messages processes in a single background process. */
+    public static final String KEY_FLEDGE_KANON_NUMBER_OF_MESSAGES_PER_BACKGROUND_PROCESS =
+            "fledge_kanon_number_of_messages_per_background_process";
+
+    /** key for allow list of get adservices common states. */
+    public static final String KEY_GET_ADSERVICES_COMMON_STATES_ALLOW_LIST =
+            "get_adservices_common_states_allow_list";
 }
