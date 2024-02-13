@@ -375,10 +375,11 @@ public final class FrequencyCapFilteringE2ETest extends AdServicesExtendedMockit
         // Bypass the permission check since it's enforced before the package name check
         doNothing()
                 .when(mFledgeAuthorizationFilterSpy)
-                .assertAppDeclaredPermission(
+                .assertAppDeclaredAnyPermission(
                         mSpyContext,
                         CommonFixture.TEST_PACKAGE_NAME_1,
-                        AD_SERVICES_API_CALLED__API_NAME__UPDATE_AD_COUNTER_HISTOGRAM);
+                        AD_SERVICES_API_CALLED__API_NAME__UPDATE_AD_COUNTER_HISTOGRAM,
+                        AdSelectionServiceImpl.PERMISSIONS_SET);
 
         mAdSelectionEntryDao.persistAdSelection(EXISTING_PREVIOUS_AD_SELECTION_BUYER_1);
 
@@ -399,10 +400,11 @@ public final class FrequencyCapFilteringE2ETest extends AdServicesExtendedMockit
         verifyNoMoreInteractions(mFrequencyCapDaoSpy);
 
         verify(mFledgeAuthorizationFilterSpy)
-                .assertAppDeclaredPermission(
+                .assertAppDeclaredAnyPermission(
                         mSpyContext,
                         CommonFixture.TEST_PACKAGE_NAME_1,
-                        AD_SERVICES_API_CALLED__API_NAME__UPDATE_AD_COUNTER_HISTOGRAM);
+                        AD_SERVICES_API_CALLED__API_NAME__UPDATE_AD_COUNTER_HISTOGRAM,
+                        AdSelectionServiceImpl.PERMISSIONS_SET);
     }
 
     @Test
