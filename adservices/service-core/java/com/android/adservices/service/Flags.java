@@ -24,6 +24,7 @@ import android.app.job.JobInfo;
 import android.os.Build;
 
 import com.android.adservices.cobalt.CobaltConstants;
+import com.android.adservices.shared.common.flags.ModuleSharedFlags;
 import com.android.modules.utils.build.SdkLevel;
 
 import com.google.common.collect.ImmutableList;
@@ -42,7 +43,7 @@ import java.util.concurrent.TimeUnit;
  *
  * <p><b>NOTE: </b>cannot have any dependency on Android or other AdServices code.
  */
-public interface Flags extends CommonFlags {
+public interface Flags extends CommonFlags, ModuleSharedFlags {
     /** Topics Epoch Job Period. */
     long TOPICS_EPOCH_JOB_PERIOD_MS = 7 * 86_400_000; // 7 days.
 
@@ -1323,6 +1324,31 @@ public interface Flags extends CommonFlags {
         return FLEDGE_FETCH_CUSTOM_AUDIENCE_ENABLED;
     }
 
+    /** Flags related to Delayed Custom Audience Updates */
+
+    // Enable scheduleCustomAudienceUpdateApi()
+    boolean FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ENABLED = false;
+
+    long FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_JOB_PERIOD_MS = 1L * 60L * 60L * 1000L; // 1 hour
+    long FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_JOB_FLEX_MS = 5L * 60L * 1000L; // 5 minutes
+    int FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_MIN_DELAY_MINS_OVERRIDE = 30;
+
+    default boolean getFledgeScheduleCustomAudienceUpdateEnabled() {
+        return !getGlobalKillSwitch() && FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ENABLED;
+    }
+
+    default long getFledgeScheduleCustomAudienceUpdateJobPeriodMs() {
+        return FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_JOB_PERIOD_MS;
+    }
+
+    default long getFledgeScheduleCustomAudienceUpdateJobFlexMs() {
+        return FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_JOB_FLEX_MS;
+    }
+
+    default int getFledgeScheduleCustomAudienceMinDelayMinsOverride() {
+        return FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_MIN_DELAY_MINS_OVERRIDE;
+    }
+
     boolean FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED = false;
 
     /** Returns whether to call trusted servers for off device ad selection. */
@@ -1504,7 +1530,7 @@ public interface Flags extends CommonFlags {
     }
 
     String FLEDGE_AUCTION_SERVER_JOIN_KEY_FETCH_URI =
-            "https://chromekanonymity-pa.googleapis.com/v1/proxy/keys";
+            "https://staging-chromekanonymity-pa.sandbox.googleapis.com/v1/proxy/keys";
 
     /** Returns Uri to fetch join encryption key for fledge ad selection. */
     default String getFledgeAuctionServerJoinKeyFetchUri() {
@@ -1676,6 +1702,13 @@ public interface Flags extends CommonFlags {
     /** Returns the max length of Ad Render Id. */
     default long getFledgeAuctionServerAdRenderIdMaxLength() {
         return FLEDGE_AUCTION_SERVER_AD_RENDER_ID_MAX_LENGTH;
+    }
+
+    boolean FLEDGE_AUCTION_SERVER_REQUEST_FLAGS_ENABLED = false;
+
+    /** Returns whether the server auction request flags are enabled */
+    default boolean getFledgeAuctionServerRequestFlagsEnabled() {
+        return FLEDGE_AUCTION_SERVER_REQUEST_FLAGS_ENABLED;
     }
 
     boolean FLEDGE_AUCTION_SERVER_OMIT_ADS_ENABLED = false;
@@ -1943,7 +1976,7 @@ public interface Flags extends CommonFlags {
      * the Global Kill Switch or the Measurement Kill Switch value is true.
      */
     default boolean getMeasurementKillSwitch() {
-        return MEASUREMENT_KILL_SWITCH;
+        return getGlobalKillSwitch() || MEASUREMENT_KILL_SWITCH;
     }
 
     /**
@@ -2666,6 +2699,13 @@ public interface Flags extends CommonFlags {
         return PPAPI_APP_ALLOW_LIST;
     }
 
+    String AD_ID_API_APP_BLOCK_LIST = "";
+
+    /** Get the app allow list for the AD ID API. */
+    default String getAdIdApiAppBlockList() {
+        return AD_ID_API_APP_BLOCK_LIST;
+    }
+
     /*
      * The allow-list for Measurement APIs. This list has the list of app package names that we
      * allow using Measurement APIs. Overridden by Block List
@@ -3155,7 +3195,7 @@ public interface Flags extends CommonFlags {
     boolean UI_DIALOGS_FEATURE_ENABLED = false;
 
     /** Returns if the UI Dialogs feature is enabled. */
-    default boolean getUIDialogsFeatureEnabled() {
+    default boolean getUiDialogsFeatureEnabled() {
         return UI_DIALOGS_FEATURE_ENABLED;
     }
 
@@ -3413,7 +3453,10 @@ public interface Flags extends CommonFlags {
     // New fledge beacon reporting metrics flag.
     boolean FLEDGE_BEACON_REPORTING_METRICS_ENABLED = false;
 
-    /** Returns whether the fledge beacon reporting metrics is enabled. */
+    /**
+     * Returns whether the fledge beacon reporting metrics is enabled.
+     * This flag should not be ramped on S- prior to M-2024-04.
+     */
     default boolean getFledgeBeaconReportingMetricsEnabled() {
         return getFledgeRegisterAdBeaconEnabled() && FLEDGE_BEACON_REPORTING_METRICS_ENABLED;
     }
@@ -4550,11 +4593,11 @@ public interface Flags extends CommonFlags {
     }
 
     /** default value for get adservices common states enabled */
-    boolean DEFAULT_IS_GET_AD_SERVICES_COMMON_STATES_ENABLED = false;
+    boolean DEFAULT_IS_GET_ADSERVICES_COMMON_STATES_API_ENABLED = false;
 
     /** Returns if the get adservices common states service enabled. */
-    default boolean isGetAdServicesCommonStatesEnabled() {
-        return DEFAULT_IS_GET_AD_SERVICES_COMMON_STATES_ENABLED;
+    default boolean isGetAdServicesCommonStatesApiEnabled() {
+        return DEFAULT_IS_GET_ADSERVICES_COMMON_STATES_API_ENABLED;
     }
 
     /** Default value to determine whether ux related to the PAS Ux are enabled. */
@@ -4570,7 +4613,7 @@ public interface Flags extends CommonFlags {
 
     /** Default value of k-anon fetch server parameters url. */
     String FLEDGE_DEFAULT_KANON_FETCH_SERVER_PARAMS_URL =
-            "https://staging-chromekanonymityauth-pa.sandbox.googleapis.com/v2/getServerPublicParams";
+            "https://staging-chromekanonymityauth-pa.sandbox.googleapis.com/v2/getServerPublicParams/act_v0_32_2048_05_2023";
 
     /** Default value of k-anon register client parameters url. */
     String FLEDGE_DEFAULT_KANON_REGISTER_CLIENT_PARAMETERS_URL =
