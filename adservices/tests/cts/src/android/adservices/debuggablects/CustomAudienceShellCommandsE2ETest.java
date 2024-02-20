@@ -120,14 +120,14 @@ public class CustomAudienceShellCommandsE2ETest extends ForegroundDebuggableCtsT
 
         JSONArray customAudiences =
                 runAndParseShellCommand(
-                                "cmd adservices_manager %s --owner %s --buyer %s",
-                                "list-custom-audiences", OWNER, BUYER.toString())
+                                "cmd adservices_manager %s %s --owner %s --buyer %s",
+                                "custom-audience", "list", OWNER, BUYER.toString())
                         .getJSONArray("custom_audiences");
         mCustomAudienceTestFixture.leaveCustomAudience(mShirtsCustomAudience);
         JSONArray customAudiencesAfterLeaving =
                 runAndParseShellCommand(
-                                "cmd adservices_manager %s --owner %s --buyer %s",
-                                "list-custom-audiences", OWNER, BUYER.toString())
+                                "cmd adservices_manager %s %s --owner %s --buyer %s",
+                                "custom-audience", "list", OWNER, BUYER.toString())
                         .getJSONArray("custom_audiences");
 
         assertThat(
@@ -148,8 +148,9 @@ public class CustomAudienceShellCommandsE2ETest extends ForegroundDebuggableCtsT
 
         JSONObject customAudience =
                 runAndParseShellCommand(
-                        "cmd adservices_manager %s --owner %s --buyer %s --name %s",
-                        "view-custom-audience",
+                        "cmd adservices_manager %s %s --owner %s --buyer %s --name %s",
+                        "custom-audience",
+                        "view",
                         OWNER,
                         BUYER.toString(),
                         mShirtsCustomAudience.getName());
@@ -171,6 +172,8 @@ public class CustomAudienceShellCommandsE2ETest extends ForegroundDebuggableCtsT
         private static final String BIDDING_LOGIC_URI = "bidding_logic_uri";
         private static final String USER_BIDDING_SIGNALS = "user_bidding_signals";
         private static final String TRUSTED_BIDDING_DATA = "trusted_bidding_data";
+        private static final String DAILY_UPDATE = "daily_update";
+        private static final String DAILY_UPDATE_URI = "uri";
         private static final String ADS = "ads";
         private static final String ADS_URI = "uri";
         private static final String ADS_KEYS = "keys";
@@ -179,9 +182,13 @@ public class CustomAudienceShellCommandsE2ETest extends ForegroundDebuggableCtsT
         private static final String AD_AD_RENDER_URI = "render_uri";
         private static final String AD_METADATA = "metadata";
         private static final String AD_AD_RENDER_ID = "ad_render_id";
+        private static final String ELIGIBLE_UPDATE_TIME = "eligible_update_time";
+        private static final String NUM_VALIDATION_FAILURES = "num_validation_failures";
+        private static final String NUM_TIMEOUT_FAILURES = "num_timeout_failures";
 
         static CustomAudience fromJson(@NonNull JSONObject jsonObject) throws JSONException {
             verifyActivationTime(jsonObject); // This is here as activation time is inconsistent.
+            verifyBackgroundFetchData(jsonObject.getJSONObject(DAILY_UPDATE));
             return new CustomAudience.Builder()
                     .setName(jsonObject.getString(NAME))
                     .setBuyer(AdTechIdentifier.fromString(jsonObject.getString(BUYER)))
@@ -194,15 +201,27 @@ public class CustomAudienceShellCommandsE2ETest extends ForegroundDebuggableCtsT
                             AdSelectionSignals.fromString(
                                     jsonObject.getString(USER_BIDDING_SIGNALS)))
                     .setAds(getAdsFromJsonArray(jsonObject.getJSONArray(ADS)))
-                    // TODO(b/322976190): Remove hardcoded uri after adding background fetch data.
                     .setDailyUpdateUri(
-                            CustomAudienceFixture.getValidDailyUpdateUriByBuyer(
-                                    CustomAudienceShellCommandsE2ETest.BUYER))
+                            Uri.parse(
+                                    jsonObject
+                                            .getJSONObject(DAILY_UPDATE)
+                                            .getString(DAILY_UPDATE_URI)))
                     .build();
         }
 
         private static void verifyActivationTime(JSONObject customAudience) throws JSONException {
             Instant.parse(customAudience.getString(ACTIVATION_TIME));
+        }
+
+        // Background fetch data is not part of the public API except as exposed via CLI commands,
+        // therefore specific assertions cannot be made as to the expected state beyond expecting a
+        // certain format (valid date and integers).
+        private static void verifyBackgroundFetchData(JSONObject customAudienceBackgroundFetchData)
+                throws JSONException {
+            Instant.parse(customAudienceBackgroundFetchData.getString(ELIGIBLE_UPDATE_TIME));
+            assertThat(customAudienceBackgroundFetchData.getInt(NUM_TIMEOUT_FAILURES)).isEqualTo(0);
+            assertThat(customAudienceBackgroundFetchData.getInt(NUM_VALIDATION_FAILURES))
+                    .isEqualTo(0);
         }
 
         private static TrustedBiddingData getTrustedBiddingDataFromJson(JSONObject jsonObject)

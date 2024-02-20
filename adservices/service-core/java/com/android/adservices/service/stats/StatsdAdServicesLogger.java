@@ -45,7 +45,6 @@ import static com.android.adservices.service.stats.AdServicesStatsLog.RUN_AD_SCO
 import static com.android.adservices.service.stats.AdServicesStatsLog.RUN_AD_SELECTION_PROCESS_REPORTED;
 import static com.android.adservices.service.stats.AdServicesStatsLog.UPDATE_CUSTOM_AUDIENCE_PROCESS_REPORTED;
 
-import android.adservices.common.AdServicesStatusUtils;
 import android.annotation.NonNull;
 import android.util.proto.ProtoOutputStream;
 
@@ -124,8 +123,7 @@ public class StatsdAdServicesLogger implements AdServicesLogger {
                 apiCallStats.getAppPackageName(),
                 apiCallStats.getSdkPackageName(),
                 apiCallStats.getLatencyMillisecond(),
-                apiCallStats.getResult().getResultCode(),
-                apiCallStats.getResult().getFailureReason());
+                apiCallStats.getResultCode());
     }
 
     /** log method for UI stats. */
@@ -150,8 +148,7 @@ public class StatsdAdServicesLogger implements AdServicesLogger {
                 "",
                 "",
                 latencyMs,
-                resultCode,
-                AdServicesStatusUtils.FAILURE_REASON_UNSET);
+                resultCode);
     }
 
     @Override
@@ -163,8 +160,7 @@ public class StatsdAdServicesLogger implements AdServicesLogger {
                 "",
                 "",
                 latencyMs,
-                result.getResultCode(),
-                result.getFailureReason());
+                result.getResultCode());
     }
 
     @Override
@@ -532,13 +528,16 @@ public class StatsdAdServicesLogger implements AdServicesLogger {
                             .InteractionKeySizeRangeType::getValue)
                     .toArray();
         }
-        AdServicesStatsLog.write(
-                DESTINATION_REGISTERED_BEACONS,
-                stats.getBeaconReportingDestinationType(),
-                stats.getAttemptedRegisteredBeacons(),
-                attemptedKeySizesRangeType,
-                stats.getTableNumRows(),
-                stats.getAdServicesStatusCode());
+        // TODO: b/325098723 - Add support for DestinationRegisteredBeacons for S- devices
+        if (SdkLevel.isAtLeastT()) {
+            AdServicesStatsLog.write(
+                    DESTINATION_REGISTERED_BEACONS,
+                    stats.getBeaconReportingDestinationType(),
+                    stats.getAttemptedRegisteredBeacons(),
+                    attemptedKeySizesRangeType,
+                    stats.getTableNumRows(),
+                    stats.getAdServicesStatusCode());
+        }
     }
 
     /** Logs beacon level reporting for ReportInteraction API called stats. */

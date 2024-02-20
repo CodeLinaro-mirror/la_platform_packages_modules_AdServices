@@ -17,6 +17,7 @@
 package com.android.adservices.data.customaudience;
 
 import android.adservices.common.AdTechIdentifier;
+import android.adservices.customaudience.PartialCustomAudience;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 
@@ -24,6 +25,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.room.ColumnInfo;
 import androidx.room.Dao;
+import androidx.room.Delete;
 import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
@@ -44,6 +46,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * DAO abstract class used to access Custom Audience persistent storage.
@@ -340,7 +343,6 @@ public abstract class CustomAudienceDao {
             "SELECT * FROM custom_audience_background_fetch_data WHERE owner = :owner AND buyer ="
                     + " :buyer AND name = :name AND is_debuggable = 1")
     @Nullable
-    @VisibleForTesting
     public abstract DBCustomAudienceBackgroundFetchData
             getDebuggableCustomAudienceBackgroundFetchDataByPrimaryKey(
                     @NonNull String owner, @NonNull AdTechIdentifier buyer, @NonNull String name);
@@ -354,7 +356,6 @@ public abstract class CustomAudienceDao {
             "SELECT * FROM custom_audience_background_fetch_data "
                     + "WHERE owner = :owner AND buyer = :buyer AND is_debuggable = 1")
     @Nullable
-    @VisibleForTesting
     public abstract List<DBCustomAudienceBackgroundFetchData>
             listDebuggableCustomAudienceBackgroundFetchData(
                     @NonNull String owner, @NonNull AdTechIdentifier buyer);
@@ -785,6 +786,66 @@ public abstract class CustomAudienceDao {
                     + "AND :currentTime < ca.expiration_time")
     public abstract int getNumActiveEligibleCustomAudienceBackgroundFetchData(
             @NonNull Instant currentTime);
+
+    /**
+     * Persists a delayed Custom Audience Update along with the overrides
+     *
+     * @param update delayed update
+     * @param partialCustomAudienceList overrides for incoming custom audiences
+     */
+    // TODO(b/324478492) Refactor Update queries in a separate Dao
+    @Transaction
+    public void insertScheduledUpdateAndPartialCustomAudienceList(
+            @NonNull DBScheduledCustomAudienceUpdate update,
+            @NonNull List<PartialCustomAudience> partialCustomAudienceList) {
+        long updateId = insertScheduledCustomAudienceUpdate(update);
+
+        List<DBPartialCustomAudience> dbPartialCustomAudienceList =
+                partialCustomAudienceList.stream()
+                        .map(
+                                partialCa ->
+                                        DBPartialCustomAudience.builder()
+                                                .setUpdateId(updateId)
+                                                .setName(partialCa.getName())
+                                                .setActivationTime(partialCa.getActivationTime())
+                                                .setExpirationTime(partialCa.getExpirationTime())
+                                                .setUserBiddingSignals(
+                                                        partialCa.getUserBiddingSignals())
+                                                .build())
+                        .collect(Collectors.toList());
+        insertPartialCustomAudiencesForUpdate(dbPartialCustomAudienceList);
+    }
+
+    /** Persists a delayed Custom Audience Update and generated a unique update_id */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    public abstract long insertScheduledCustomAudienceUpdate(
+            @NonNull DBScheduledCustomAudienceUpdate update);
+
+    /** Persists Custom Audience Overrides associated with a delayed update */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    public abstract void insertPartialCustomAudiencesForUpdate(
+            @NonNull List<DBPartialCustomAudience> partialCustomAudienceList);
+
+    /** Gets Custom Audience Overrides associated with a delayed update */
+    @Query("SELECT * FROM partial_custom_audience WHERE update_id = :updateId")
+    public abstract List<DBPartialCustomAudience> getPartialAudienceListForUpdateId(Long updateId);
+
+    /** Gets list of delayed Custom Audience Updates scheduled before the given time */
+    @Query("SELECT * FROM scheduled_custom_audience_update WHERE scheduled_time <= :timestamp")
+    public abstract List<DBScheduledCustomAudienceUpdate>
+            getCustomAudienceUpdatesScheduledBeforeTime(Instant timestamp);
+
+    /** Gets list of delayed Custom Audience Updates created before the given time */
+    @Query("DELETE FROM scheduled_custom_audience_update WHERE creation_time <= :timestamp")
+    public abstract void deleteScheduledCustomAudienceUpdatesCreatedBeforeTime(Instant timestamp);
+
+    /**
+     * Removes a Custom Audience Update from storage and cascades the deletion to associated Partial
+     * Custom Audiences for overrides
+     */
+    @Delete
+    public abstract void deleteScheduledCustomAudienceUpdate(
+            @NonNull DBScheduledCustomAudienceUpdate update);
 
     @VisibleForTesting
     static class BiddingLogicJsWithVersion {
