@@ -270,20 +270,24 @@ public class AsyncSourceFetcher {
                     return false;
                 }
                 if (!FetcherUtil.areValidAttributionFilters(
-                        maybeFilterData, mFlags, /* canIncludeLookbackWindow= */ false)) {
+                        maybeFilterData,
+                        mFlags,
+                        /* canIncludeLookbackWindow= */ false,
+                        /* shouldCheckFilterSize= */ true)) {
                     LoggerFactory.getMeasurementLogger().d("Source filter-data is invalid.");
                     return false;
                 }
-                builder.setFilterData(maybeFilterData.toString());
+                builder.setFilterDataString(maybeFilterData.toString());
             } else {
                 if (!FetcherUtil.areValidAttributionFilters(
                         json.optJSONObject(SourceHeaderContract.FILTER_DATA),
                         mFlags,
-                        /* canIncludeLookbackWindow= */ false)) {
+                        /* canIncludeLookbackWindow= */ false,
+                        /* shouldCheckFilterSize= */ true)) {
                     LoggerFactory.getMeasurementLogger().d("Source filter-data is invalid.");
                     return false;
                 }
-                builder.setFilterData(
+                builder.setFilterDataString(
                         json.getJSONObject(SourceHeaderContract.FILTER_DATA).toString());
             }
         }
@@ -941,7 +945,8 @@ public class AsyncSourceFetcher {
 
     private static long roundSecondsToWholeDays(long seconds) {
         long remainder = seconds % ONE_DAY_IN_SECONDS;
-        boolean roundUp = remainder >= ONE_DAY_IN_SECONDS / 2L;
+        // Return value should be at least one whole day.
+        boolean roundUp = (remainder >= ONE_DAY_IN_SECONDS / 2L) || (seconds == remainder);
         return seconds - remainder + (roundUp ? ONE_DAY_IN_SECONDS : 0);
     }
 
