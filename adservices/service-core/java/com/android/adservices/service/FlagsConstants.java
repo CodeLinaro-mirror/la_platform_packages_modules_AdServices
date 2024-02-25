@@ -448,6 +448,9 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_ENABLE_SESSION_STABLE_KILL_SWITCHES =
             "key_measurement_enable_session_stable_kill_switches";
 
+    public static final String KEY_FLEDGE_APP_PACKAGE_NAME_LOGGING_ENABLED =
+            "fledge_app_package_name_logging_enabled";
+
     // FLEDGE Custom Audience keys
     public static final String KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_COUNT =
             "fledge_custom_audience_max_count";
@@ -702,6 +705,12 @@ public final class FlagsConstants {
             "fledge_auction_server_omit_ads_enabled";
     public static final String KEY_FLEDGE_AUCTION_SERVER_REQUEST_FLAGS_ENABLED =
             "fledge_auction_server_request_flags_enabled";
+
+    public static final String KEY_FLEDGE_AUCTION_SERVER_MULTI_CLOUD_ENABLED =
+            "fledge_auction_server_multi_cloud_enabled";
+
+    public static final String KEY_FLEDGE_AUCTION_SERVER_COORDINATOR_URL_ALLOWLIST =
+            "fledge_auction_server_coordinator_url_allowlist";
 
     // Fledge invoking app status keys
     public static final String KEY_ENFORCE_FOREGROUND_STATUS_FLEDGE_RUN_AD_SELECTION =
@@ -1013,8 +1022,15 @@ public final class FlagsConstants {
     public static final String KEY_ENABLE_ADEXT_SERVICE_CONSENT_DATA =
             "enable_adext_service_consent_data";
 
-    public static final String KEY_ENABLE_ADEXT_SERVICE_TO_APPSEARCH_MIGRATION =
-            "enable_adext_service_to_appsearch_migration";
+    public static final String KEY_ENABLE_U18_APPSEARCH_MIGRATION =
+            "enable_u18_appsearch_migration";
+
+    // NOTE: To disable migration from AdExtService to AppSearch on 2024 M03- build, use the
+    // deprecated flag enable_adext_service_to_appsearch_migration. This flag is introduced to
+    // unify flag-guarding from AdExtData service to AppSearch and System Server based on SDK
+    // version.
+    public static final String KEY_ENABLE_MIGRATION_FROM_ADEXT_SERVICE =
+            "enable_migration_from_adext_service";
 
     // Whether to call trusted servers for off device ad selection.
     public static final String KEY_OFF_DEVICE_AD_SELECTION_ENABLED =
@@ -1039,6 +1055,10 @@ public final class FlagsConstants {
     // New fledge beacon reporting metrics flag
     public static final String KEY_FLEDGE_BEACON_REPORTING_METRICS_ENABLED =
             "fledge_beacon_reporting_metrics_enabled";
+
+    // Fledge auction server API usage metrics flag
+    public static final String KEY_FLEDGE_AUCTION_SERVER_API_USAGE_METRICS_ENABLED =
+            "fledge_auction_server_api_usage_metrics_enabled";
 
     public static final String KEY_MEASUREMENT_DEBUG_JOIN_KEY_HASH_LIMIT =
             "measurement_debug_join_key_hash_limit";
@@ -1269,6 +1289,10 @@ public final class FlagsConstants {
     public static final String KEY_FLEDGE_KANON_BACKGROUND_PROCESS_ENABLED =
             "fledge_kanon_background_process_enabled";
 
+    /** Key for kanon set type to join for sign join process. */
+    public static final String KEY_FLEDGE_KANON_SET_TYPE_TO_SIGN_JOIN =
+            "fledge_kanon_set_type_to_sign_join";
+
     /** key for allow list of get adservices common states. */
     public static final String KEY_GET_ADSERVICES_COMMON_STATES_ALLOW_LIST =
             "get_adservices_common_states_allow_list";
@@ -1276,4 +1300,7 @@ public final class FlagsConstants {
     /** Key for feature flagging custom audiences CLI. */
     public static final String KEY_FLEDGE_IS_CUSTOM_AUDIENCE_CLI_ENABLED =
             "fledge_is_custom_audience_cli_enabled";
+
+    /** Key for AdServices' module job policy. */
+    public static final String KEY_AD_SERVICES_MODULE_JOB_POLICY = "ad_services_module_job_policy";
 }
