@@ -24,6 +24,10 @@ import static com.android.adservices.service.adselection.PrebuiltLogicGenerator.
 import static com.android.adservices.service.adselection.PrebuiltLogicGenerator.AD_SELECTION_HIGHEST_BID_WINS;
 import static com.android.adservices.service.adselection.PrebuiltLogicGenerator.AD_SELECTION_PREBUILT_SCHEMA;
 import static com.android.adservices.service.adselection.PrebuiltLogicGenerator.AD_SELECTION_USE_CASE;
+import static com.android.adservices.common.CommonFlagsValues.DEFAULT_API_RATE_LIMIT_SLEEP_MS;
+import static com.android.adservices.common.CommonFlagsValues.EXTENDED_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_CA_MS;
+import static com.android.adservices.common.CommonFlagsValues.EXTENDED_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS;
+import static com.android.adservices.common.CommonFlagsValues.EXTENDED_FLEDGE_AD_SELECTION_SCORING_TIMEOUT_MS;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -439,13 +443,15 @@ public final class FledgeCtsDebuggableTest extends ForegroundDebuggableCtsTest {
         PhFlagsFixture.overrideFledgeAdSelectionPrebuiltUriEnabled(false);
 
         PhFlagsFixture.overrideFledgeOnDeviceAdSelectionTimeouts(
-                PhFlagsFixture.EXTENDED_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_CA_MS,
-                PhFlagsFixture.EXTENDED_FLEDGE_AD_SELECTION_SCORING_TIMEOUT_MS,
-                PhFlagsFixture.EXTENDED_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS);
+                EXTENDED_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_CA_MS,
+                EXTENDED_FLEDGE_AD_SELECTION_SCORING_TIMEOUT_MS,
+                EXTENDED_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS);
 
         // Clear the buyer list with an empty call to setAppInstallAdvertisers
         mAdSelectionClient.setAppInstallAdvertisers(
-                new SetAppInstallAdvertisersRequest(Collections.EMPTY_SET));
+                new SetAppInstallAdvertisersRequest.Builder()
+                        .setAdvertisers(Collections.EMPTY_SET)
+                        .build());
 
         // Make sure the flags are picked up cold
         AdservicesTestHelper.killAdservicesProcess(sContext);
@@ -461,7 +467,9 @@ public final class FledgeCtsDebuggableTest extends ForegroundDebuggableCtsTest {
         mTestCustomAudienceClient.resetAllCustomAudienceOverrides();
         // Clear the buyer list with an empty call to setAppInstallAdvertisers
         mAdSelectionClient.setAppInstallAdvertisers(
-                new SetAppInstallAdvertisersRequest(Collections.EMPTY_SET));
+                new SetAppInstallAdvertisersRequest.Builder()
+                        .setAdvertisers(Collections.EMPTY_SET)
+                        .build());
         mCustomAudienceTestFixture.leaveJoinedCustomAudiences();
 
         // Reset the filtering flag
@@ -2036,7 +2044,7 @@ public final class FledgeCtsDebuggableTest extends ForegroundDebuggableCtsTest {
         PhFlagsFixture.overrideFledgeOnDeviceAdSelectionTimeouts(
                 biddingScoringTimeoutMs,
                 biddingScoringTimeoutMs,
-                PhFlagsFixture.EXTENDED_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS);
+                EXTENDED_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS);
         AdservicesTestHelper.killAdservicesProcess(sContext);
 
         try {
@@ -2123,9 +2131,9 @@ public final class FledgeCtsDebuggableTest extends ForegroundDebuggableCtsTest {
                     .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } finally {
             PhFlagsFixture.overrideFledgeOnDeviceAdSelectionTimeouts(
-                    PhFlagsFixture.EXTENDED_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_CA_MS,
-                    PhFlagsFixture.EXTENDED_FLEDGE_AD_SELECTION_SCORING_TIMEOUT_MS,
-                    PhFlagsFixture.EXTENDED_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS);
+                    EXTENDED_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_CA_MS,
+                    EXTENDED_FLEDGE_AD_SELECTION_SCORING_TIMEOUT_MS,
+                    EXTENDED_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS);
             AdservicesTestHelper.killAdservicesProcess(sContext);
         }
     }
@@ -2229,9 +2237,9 @@ public final class FledgeCtsDebuggableTest extends ForegroundDebuggableCtsTest {
             assertThat(selectAdsException.getCause()).isInstanceOf(TimeoutException.class);
         } finally {
             PhFlagsFixture.overrideFledgeOnDeviceAdSelectionTimeouts(
-                    PhFlagsFixture.EXTENDED_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_CA_MS,
-                    PhFlagsFixture.EXTENDED_FLEDGE_AD_SELECTION_SCORING_TIMEOUT_MS,
-                    PhFlagsFixture.EXTENDED_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS);
+                    EXTENDED_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_CA_MS,
+                    EXTENDED_FLEDGE_AD_SELECTION_SCORING_TIMEOUT_MS,
+                    EXTENDED_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS);
             AdservicesTestHelper.killAdservicesProcess(sContext);
         }
     }
@@ -2600,7 +2608,9 @@ public final class FledgeCtsDebuggableTest extends ForegroundDebuggableCtsTest {
 
         // Allow BUYER_2 to filter on the test package
         SetAppInstallAdvertisersRequest request =
-                new SetAppInstallAdvertisersRequest(new HashSet<>(Arrays.asList(BUYER_2)));
+                new SetAppInstallAdvertisersRequest.Builder()
+                        .setAdvertisers(new HashSet<>(Arrays.asList(BUYER_2)))
+                        .build();
         ListenableFuture<Void> appInstallFuture =
                 mAdSelectionClient.setAppInstallAdvertisers(request);
         assertNull(appInstallFuture.get());
@@ -2738,8 +2748,9 @@ public final class FledgeCtsDebuggableTest extends ForegroundDebuggableCtsTest {
 
         // Allow BUYER_2 to filter on the test package
         SetAppInstallAdvertisersRequest request =
-                new SetAppInstallAdvertisersRequest(
-                        new HashSet<>(Arrays.asList(BUYER_2, INVALID_EMPTY_BUYER)));
+                new SetAppInstallAdvertisersRequest.Builder()
+                        .setAdvertisers(new HashSet<>(Arrays.asList(BUYER_2, INVALID_EMPTY_BUYER)))
+                        .build();
         mAdSelectionClient.setAppInstallAdvertisers(request);
         ListenableFuture<Void> appInstallFuture =
                 mAdSelectionClient.setAppInstallAdvertisers(request);
@@ -4483,7 +4494,7 @@ public final class FledgeCtsDebuggableTest extends ForegroundDebuggableCtsTest {
         assertThat(outcome1.getAdSelectionData()).isNotNull();
 
         // TODO(b/266725238): Remove/modify once the API rate limit has been adjusted for FLEDGE
-        CommonFixture.doSleep(PhFlagsFixture.DEFAULT_API_RATE_LIMIT_SLEEP_MS);
+        CommonFixture.doSleep(DEFAULT_API_RATE_LIMIT_SLEEP_MS);
 
         String base64ServerResponse =
                 "6fKmaBsiN0bnJZ+7Z4rSc7rkRS1RtzJjO+M9pfbcxum2A4iPcSEK4sRHhTQf4EUDd82HImUxGYrik6UEF6"
@@ -4594,7 +4605,8 @@ public final class FledgeCtsDebuggableTest extends ForegroundDebuggableCtsTest {
             AdTechIdentifier buyer = buyersBundle.getKey();
             SignedContextualAds ads = buyersBundle.getValue();
             unauthenticatedContextualAds.put(
-                    buyer, ads.cloneToBuilder().setSignature(invalidSignatures).build());
+                    buyer,
+                    new SignedContextualAds.Builder(ads).setSignature(invalidSignatures).build());
         }
         return unauthenticatedContextualAds;
     }
