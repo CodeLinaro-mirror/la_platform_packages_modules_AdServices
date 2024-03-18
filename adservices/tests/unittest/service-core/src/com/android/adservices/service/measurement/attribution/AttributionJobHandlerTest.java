@@ -16,8 +16,10 @@
 
 package com.android.adservices.service.measurement.attribution;
 
+import static com.android.adservices.service.Flags.MEASUREMENT_MAX_AGGREGATE_REPORTS_PER_DESTINATION;
 import static com.android.adservices.service.Flags.MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS;
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS;
+import static com.android.adservices.service.measurement.util.Time.roundDownToDay;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -90,6 +92,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -214,7 +217,7 @@ public class AttributionJobHandlerTest {
         when(mFlags.getMeasurementMaxEventReportsPerDestination())
                 .thenReturn(Flags.MEASUREMENT_MAX_EVENT_REPORTS_PER_DESTINATION);
         when(mFlags.getMeasurementMaxAggregateReportsPerDestination())
-                .thenReturn(Flags.MEASUREMENT_MAX_AGGREGATE_REPORTS_PER_DESTINATION);
+                .thenReturn(MEASUREMENT_MAX_AGGREGATE_REPORTS_PER_DESTINATION);
         when(mFlags.getMeasurementNullAggReportRateInclSourceRegistrationTime()).thenReturn(0f);
         when(mFlags.getMeasurementMinEventReportDelayMillis())
                 .thenReturn(Flags.MEASUREMENT_MIN_EVENT_REPORT_DELAY_MILLIS);
@@ -875,13 +878,16 @@ public class AttributionJobHandlerTest {
 
     @Test
     public void shouldIgnoreIfNoSourcesFound_excludeSourceRegistrationTime_triggerNullReports()
-            throws DatastoreException {
+            throws DatastoreException, JSONException {
+        JSONArray triggerData = getAggregateTriggerData();
         Trigger trigger =
                 TriggerFixture.getValidTriggerBuilder()
                         .setId(TRIGGER_ID)
                         .setTriggerTime(TRIGGER_TIME)
                         .setStatus(Trigger.Status.PENDING)
                         .setEventTriggers(EVENT_TRIGGERS)
+                        .setAggregateTriggerData(triggerData.toString())
+                        .setAggregateValues("{\"campaignCounts\":32768,\"geoValue\":1644}")
                         .setAggregatableSourceRegistrationTimeConfig(
                                 Trigger.SourceRegistrationTimeConfig.EXCLUDE)
                         .build();
@@ -901,17 +907,13 @@ public class AttributionJobHandlerTest {
         verify(mTransaction, times(2)).begin();
         verify(mTransaction, times(2)).end();
 
-        ArgumentCaptor<AggregateReport> aggregateReportCaptor =
-                ArgumentCaptor.forClass(AggregateReport.class);
-        verify(mMeasurementDao, times(1)).insertAggregateReport(aggregateReportCaptor.capture());
-        AggregateReport report = aggregateReportCaptor.getValue();
-        assertNullAggregateReport(report, trigger, null);
+        captureAndAssertNullAggregateReport(trigger);
     }
 
     @Test
     public void performPendingAttributions_generatesAggregateReport_excludeSourceRegistrationTime()
             throws JSONException, DatastoreException {
-        JSONArray triggerDatas = getAggregateTriggerData();
+        JSONArray triggerData = getAggregateTriggerData();
 
         Trigger trigger =
                 TriggerFixture.getValidTriggerBuilder()
@@ -926,7 +928,7 @@ public class AttributionJobHandlerTest {
                                         + "  \"deduplication_key\": \"1\"\n"
                                         + "}"
                                         + "]\n")
-                        .setAggregateTriggerData(triggerDatas.toString())
+                        .setAggregateTriggerData(triggerData.toString())
                         .setAggregateValues("{\"campaignCounts\":32768,\"geoValue\":1644}")
                         .setRegistrationOrigin(WebUtil.validUri("https://trigger.example.test"))
                         .setAggregatableSourceRegistrationTimeConfig(
@@ -942,7 +944,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData("{\"product\":[\"1234\",\"2345\"]}")
+                        .setFilterDataString("{\"product\":[\"1234\",\"2345\"]}")
                         .setRegistrationOrigin(WebUtil.validUri("https://source.example.test"))
                         .build();
 
@@ -998,7 +1000,7 @@ public class AttributionJobHandlerTest {
     @Test
     public void shouldDoSimpleAttributionWithNullReports_includeSourceRegistrationTime()
             throws DatastoreException, JSONException {
-        JSONArray triggerDatas = getAggregateTriggerData();
+        JSONArray triggerData = getAggregateTriggerData();
 
         Trigger trigger =
                 TriggerFixture.getValidTriggerBuilder()
@@ -1013,7 +1015,7 @@ public class AttributionJobHandlerTest {
                                         + "  \"deduplication_key\": \"1\"\n"
                                         + "}"
                                         + "]\n")
-                        .setAggregateTriggerData(triggerDatas.toString())
+                        .setAggregateTriggerData(triggerData.toString())
                         .setAggregateValues("{\"campaignCounts\":32768,\"geoValue\":1644}")
                         .setAggregatableSourceRegistrationTimeConfig(
                                 Trigger.SourceRegistrationTimeConfig.INCLUDE)
@@ -1078,7 +1080,7 @@ public class AttributionJobHandlerTest {
     @Test
     public void shouldDoSimpleAttribution_excludeSourceRegistrationTime_noNullReports()
             throws DatastoreException, JSONException {
-        JSONArray triggerDatas = getAggregateTriggerData();
+        JSONArray triggerData = getAggregateTriggerData();
 
         Trigger trigger =
                 TriggerFixture.getValidTriggerBuilder()
@@ -1093,7 +1095,7 @@ public class AttributionJobHandlerTest {
                                         + "  \"deduplication_key\": \"1\"\n"
                                         + "}"
                                         + "]\n")
-                        .setAggregateTriggerData(triggerDatas.toString())
+                        .setAggregateTriggerData(triggerData.toString())
                         .setAggregateValues("{\"campaignCounts\":32768,\"geoValue\":1644}")
                         .setAggregatableSourceRegistrationTimeConfig(
                                 Trigger.SourceRegistrationTimeConfig.EXCLUDE)
@@ -1166,7 +1168,7 @@ public class AttributionJobHandlerTest {
     @Test
     public void shouldDoSimpleAttributionWithNullReports()
             throws DatastoreException, JSONException {
-        JSONArray triggerDatas = getAggregateTriggerData();
+        JSONArray triggerData = getAggregateTriggerData();
 
         Trigger trigger =
                 TriggerFixture.getValidTriggerBuilder()
@@ -1181,7 +1183,7 @@ public class AttributionJobHandlerTest {
                                         + "  \"deduplication_key\": \"1\"\n"
                                         + "}"
                                         + "]\n")
-                        .setAggregateTriggerData(triggerDatas.toString())
+                        .setAggregateTriggerData(triggerData.toString())
                         .setAggregateValues("{\"campaignCounts\":32768,\"geoValue\":1644}")
                         .build();
 
@@ -1242,7 +1244,7 @@ public class AttributionJobHandlerTest {
     @Test
     public void shouldDoSimpleAttributionWithNullReports_triggerOnLastPossibleDay()
             throws DatastoreException, JSONException {
-        JSONArray triggerDatas = getAggregateTriggerData();
+        JSONArray triggerData = getAggregateTriggerData();
 
         // Add one day because attribution is eligible from 0 to max days, inclusive.
         long maxDays =
@@ -1262,7 +1264,7 @@ public class AttributionJobHandlerTest {
                                         + "  \"deduplication_key\": \"1\"\n"
                                         + "}"
                                         + "]\n")
-                        .setAggregateTriggerData(triggerDatas.toString())
+                        .setAggregateTriggerData(triggerData.toString())
                         .setAggregateValues("{\"campaignCounts\":32768,\"geoValue\":1644}")
                         .build();
 
@@ -1275,7 +1277,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData("{\"product\":[\"1234\",\"2345\"]}")
+                        .setFilterDataString("{\"product\":[\"1234\",\"2345\"]}")
                         .build();
 
         AggregateReport expectedAggregateReport =
@@ -1510,7 +1512,7 @@ public class AttributionJobHandlerTest {
                         .setExpiryTime(30)
                         // Filters match the trigger's event triggers but the Source is not matched
                         // since it has lower priority.
-                        .setFilterData("{\"key_1\":[\"1234\",\"value_1\"]}")
+                        .setFilterDataString("{\"key_1\":[\"1234\",\"value_1\"]}")
                         .build();
         Source source2 =
                 SourceFixture.getMinimalValidSourceBuilder()
@@ -1521,7 +1523,7 @@ public class AttributionJobHandlerTest {
                         .setExpiryTime(30)
                         // Filters do not match the trigger's event triggers so a report is not
                         // generated.
-                        .setFilterData("{\"key_1\":[\"no_match\"]}")
+                        .setFilterDataString("{\"key_1\":[\"no_match\"]}")
                         .build();
         when(mMeasurementDao.getPendingTriggerIds())
                 .thenReturn(Collections.singletonList(trigger.getId()));
@@ -1587,7 +1589,7 @@ public class AttributionJobHandlerTest {
                         .setEventTime(1L)
                         .setExpiryTime(30)
                         // Filters match but the Source is not matched since it has lower priority.
-                        .setFilterData("{\"key_1\":[\"1234\",\"value_1\"]}")
+                        .setFilterDataString("{\"key_1\":[\"1234\",\"value_1\"]}")
                         .build();
         Source source2 =
                 SourceFixture.getMinimalValidSourceBuilder()
@@ -1598,7 +1600,7 @@ public class AttributionJobHandlerTest {
                         .setExpiryTime(30)
                         // Filters do not match, attribution flow returns and does not ignore
                         // competing sources.
-                        .setFilterData("{\"key_1\":[\"1234\",\"no_match\"]}")
+                        .setFilterDataString("{\"key_1\":[\"1234\",\"no_match\"]}")
                         .build();
         when(mMeasurementDao.getPendingTriggerIds())
                 .thenReturn(Collections.singletonList(trigger.getId()));
@@ -2459,7 +2461,7 @@ public class AttributionJobHandlerTest {
     @Test
     public void shouldDoSimpleAttributionGenerateUnencryptedAggregateReport()
             throws DatastoreException, JSONException {
-        JSONArray triggerDatas = getAggregateTriggerData();
+        JSONArray triggerData = getAggregateTriggerData();
 
         Trigger trigger =
                 TriggerFixture.getValidTriggerBuilder()
@@ -2474,7 +2476,7 @@ public class AttributionJobHandlerTest {
                                         + "  \"deduplication_key\": \"1\"\n"
                                         + "}"
                                         + "]\n")
-                        .setAggregateTriggerData(triggerDatas.toString())
+                        .setAggregateTriggerData(triggerData.toString())
                         .setAggregateValues("{\"campaignCounts\":32768,\"geoValue\":1644}")
                         .build();
 
@@ -2534,9 +2536,104 @@ public class AttributionJobHandlerTest {
     }
 
     @Test
+    public void shouldDoSimpleAttribution_IncrementStatsEventReportCount()
+            throws DatastoreException {
+        Trigger trigger = createAPendingTriggerEventScopeOnly();
+        Source source =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setEventTime(SOURCE_TIME)
+                        .setExpiryTime(EXPIRY_TIME)
+                        .setAggregatableReportWindow(TRIGGER_TIME + 1L)
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .build();
+        when(mMeasurementDao.getPendingTriggerIds())
+                .thenReturn(Collections.singletonList(trigger.getId()));
+        when(mMeasurementDao.getTrigger(trigger.getId())).thenReturn(trigger);
+        List<Source> matchingSourceList = new ArrayList<>();
+        matchingSourceList.add(source);
+        when(mMeasurementDao.getMatchingActiveSources(trigger)).thenReturn(matchingSourceList);
+        when(mMeasurementDao.getAttributionsPerRateLimitWindow(anyInt(), any(), any()))
+                .thenReturn(5L);
+        when(mMeasurementDao.getSourceEventReports(any())).thenReturn(new ArrayList<>());
+        when(mMeasurementDao.getSourceDestinations(source.getId()))
+                .thenReturn(Pair.create(source.getAppDestinations(), source.getWebDestinations()));
+
+        mHandler.performPendingAttributions();
+        verify(mMeasurementDao)
+                .updateTriggerStatus(
+                        eq(Collections.singletonList(trigger.getId())),
+                        eq(Trigger.Status.ATTRIBUTED));
+        String expectedAttributionStatus =
+                getAttributionStatus(List.of(trigger.getId()), List.of("5"), List.of("2"));
+        verify(mMeasurementDao)
+                .updateSourceAttributedTriggers(eq(source.getId()), eq(expectedAttributionStatus));
+        verify(mMeasurementDao).insertEventReport(any());
+
+        // Verify event report registration origin.
+        ArgumentCaptor<EventReport> reportArg = ArgumentCaptor.forClass(EventReport.class);
+        verify(mMeasurementDao).insertEventReport(reportArg.capture());
+        EventReport eventReport = reportArg.getValue();
+        assertEquals(REGISTRATION_URI, eventReport.getRegistrationOrigin());
+
+        verify(mTransaction, times(2)).begin();
+        verify(mTransaction, times(2)).end();
+
+        MeasurementAttributionStats measurementAttributionStats = getMeasurementAttributionStats();
+        assertEquals(0, measurementAttributionStats.getAggregateReportCount());
+        assertEquals(0, measurementAttributionStats.getAggregateDebugReportCount());
+        assertEquals(1, measurementAttributionStats.getEventReportCount());
+        assertEquals(0, measurementAttributionStats.getEventDebugReportCount());
+    }
+
+    @Test
+    public void shouldDoSimpleAttribution_IncrementStatsAggregateAndEventReportCount()
+            throws DatastoreException, JSONException {
+        JSONArray triggerData = getAggregateTriggerData();
+        Trigger trigger =
+                TriggerFixture.getValidTriggerBuilder()
+                        .setId("triggerId1")
+                        .setTriggerTime(TRIGGER_TIME)
+                        .setStatus(Trigger.Status.PENDING)
+                        .setEventTriggers(
+                                "[\n"
+                                        + "{\n"
+                                        + "  \"trigger_data\": \"5\",\n"
+                                        + "  \"priority\": \"123\",\n"
+                                        + "  \"deduplication_key\": \"1\"\n"
+                                        + "}"
+                                        + "]\n")
+                        .setAggregateTriggerData(triggerData.toString())
+                        .setAggregateValues("{\"campaignCounts\":32768,\"geoValue\":1644}")
+                        .build();
+        Source source = getAggregateSource();
+
+        when(mMeasurementDao.getPendingTriggerIds())
+                .thenReturn(Collections.singletonList(trigger.getId()));
+        when(mMeasurementDao.getTrigger(trigger.getId())).thenReturn(trigger);
+        List<Source> matchingSourceList = new ArrayList<>();
+        matchingSourceList.add(source);
+        when(mMeasurementDao.getMatchingActiveSources(trigger)).thenReturn(matchingSourceList);
+        when(mMeasurementDao.getAttributionsPerRateLimitWindow(anyInt(), any(), any()))
+                .thenReturn(5L);
+        when(mMeasurementDao.getSourceDestinations(source.getId()))
+                .thenReturn(Pair.create(source.getAppDestinations(), source.getWebDestinations()));
+
+        mHandler.performPendingAttributions();
+
+        verify(mMeasurementDao).insertAggregateReport(any());
+        verify(mMeasurementDao).insertEventReport(any());
+
+        MeasurementAttributionStats measurementAttributionStats = getMeasurementAttributionStats();
+        assertEquals(1, measurementAttributionStats.getAggregateReportCount());
+        assertEquals(0, measurementAttributionStats.getAggregateDebugReportCount());
+        assertEquals(1, measurementAttributionStats.getEventReportCount());
+        assertEquals(0, measurementAttributionStats.getEventDebugReportCount());
+    }
+
+    @Test
     public void performPendingAttributions_GeneratesAggregateReport_WithReportingOriginOfTrigger()
             throws JSONException, DatastoreException {
-        JSONArray triggerDatas = getAggregateTriggerData();
+        JSONArray triggerData = getAggregateTriggerData();
 
         Trigger trigger =
                 TriggerFixture.getValidTriggerBuilder()
@@ -2551,7 +2648,7 @@ public class AttributionJobHandlerTest {
                                         + "  \"deduplication_key\": \"1\"\n"
                                         + "}"
                                         + "]\n")
-                        .setAggregateTriggerData(triggerDatas.toString())
+                        .setAggregateTriggerData(triggerData.toString())
                         .setAggregateValues("{\"campaignCounts\":32768,\"geoValue\":1644}")
                         .setRegistrationOrigin(WebUtil.validUri("https://trigger.example.test"))
                         .build();
@@ -2565,7 +2662,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData("{\"product\":[\"1234\",\"2345\"]}")
+                        .setFilterDataString("{\"product\":[\"1234\",\"2345\"]}")
                         .setRegistrationOrigin(WebUtil.validUri("https://source.example.test"))
                         .build();
 
@@ -2619,7 +2716,7 @@ public class AttributionJobHandlerTest {
     @Test
     public void shouldDoSimpleAttributionGenerateUnencryptedAggregateReportWithDedupKey()
             throws DatastoreException, JSONException {
-        JSONArray triggerDatas = getAggregateTriggerData();
+        JSONArray triggerData = getAggregateTriggerData();
 
         Trigger trigger =
                 TriggerFixture.getValidTriggerBuilder()
@@ -2634,7 +2731,7 @@ public class AttributionJobHandlerTest {
                                         + "  \"deduplication_key\": \"1\"\n"
                                         + "}"
                                         + "]\n")
-                        .setAggregateTriggerData(triggerDatas.toString())
+                        .setAggregateTriggerData(triggerData.toString())
                         .setAggregateValues("{\"campaignCounts\":32768,\"geoValue\":1644}")
                         .setAggregateDeduplicationKeys(AGGREGATE_DEDUPLICATION_KEYS_1)
                         .build();
@@ -2647,7 +2744,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData("{\"product\":[\"1234\",\"2345\"]}")
+                        .setFilterDataString("{\"product\":[\"1234\",\"2345\"]}")
                         .build();
         AggregateReport expectedAggregateReport =
                 new AggregateReport.Builder()
@@ -2711,13 +2808,13 @@ public class AttributionJobHandlerTest {
     @Test
     public void shouldNotGenerateAggregateReportWhenExceedingAggregateContributionsLimit()
             throws DatastoreException, JSONException {
-        JSONArray triggerDatas = getAggregateTriggerData();
+        JSONArray triggerData = getAggregateTriggerData();
 
         Trigger trigger =
                 TriggerFixture.getValidTriggerBuilder()
                         .setId("triggerId1")
                         .setStatus(Trigger.Status.PENDING)
-                        .setAggregateTriggerData(triggerDatas.toString())
+                        .setAggregateTriggerData(triggerData.toString())
                         .setAggregateValues("{\"campaignCounts\":32768,\"geoValue\":1644}")
                         .setEventTriggers(EVENT_TRIGGERS)
                         .build();
@@ -2727,7 +2824,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData("{\"product\":[\"1234\",\"2345\"]}")
+                        .setFilterDataString("{\"product\":[\"1234\",\"2345\"]}")
                         .setAggregateContributions(65536 - 32768 - 1644 + 1)
                         .build();
         when(mMeasurementDao.getPendingTriggerIds())
@@ -2784,7 +2881,7 @@ public class AttributionJobHandlerTest {
         Source source =
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1_x\", \"value_2_x\"],\n"
                                         + "  \"key_2\": [\"value_1_x\", \"value_2_x\"]\n"
@@ -2838,7 +2935,7 @@ public class AttributionJobHandlerTest {
         Source source =
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1_x\", \"value_2_x\"],\n"
                                         + "  \"key_2\": [\"value_1_x\", \"value_2_x\"]\n"
@@ -2892,7 +2989,7 @@ public class AttributionJobHandlerTest {
         Source source =
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2_x\"],\n"
                                         + "  \"key_2\": [\"value_1_x\", \"value_2\"]\n"
@@ -2946,7 +3043,7 @@ public class AttributionJobHandlerTest {
         Source source =
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2_x\"],\n"
                                         + "  \"key_2\": [\"value_1_x\", \"value_2\"]\n"
@@ -3004,7 +3101,7 @@ public class AttributionJobHandlerTest {
                         .setExpiryTime(EXPIRY_TIME)
                         .setAggregatableReportWindow(TRIGGER_TIME + 1L)
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_11\", \"value_12_x\"],\n"
                                         + "  \"key_2\": [\"value_21_x\", \"value_22\"]\n"
@@ -3075,7 +3172,7 @@ public class AttributionJobHandlerTest {
                         .setExpiryTime(EXPIRY_TIME)
                         .setAggregatableReportWindow(TRIGGER_TIME + 1L)
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_11\", \"value_12_x\"],\n"
                                         + "  \"key_2\": [\"value_21_x\", \"value_22\"]\n"
@@ -3145,7 +3242,7 @@ public class AttributionJobHandlerTest {
                         .setExpiryTime(EXPIRY_TIME)
                         .setAggregatableReportWindow(TRIGGER_TIME + 1L)
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_11\", \"value_12_x\"],\n"
                                         + "  \"key_2\": [\"value_21_x\", \"value_22\"]\n"
@@ -3215,7 +3312,7 @@ public class AttributionJobHandlerTest {
                         .setExpiryTime(EXPIRY_TIME)
                         .setAggregatableReportWindow(TRIGGER_TIME + 1L)
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_11\", \"value_12_x\"],\n"
                                         + "  \"key_2\": [\"value_21_x\", \"value_22\"]\n"
@@ -3286,7 +3383,7 @@ public class AttributionJobHandlerTest {
                         .setExpiryTime(EXPIRY_TIME)
                         .setAggregatableReportWindow(TRIGGER_TIME + 1L)
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_11\", \"value_12_x\"],\n"
                                         + "  \"key_2\": [\"value_21_x\", \"value_22\"]\n"
@@ -3358,7 +3455,7 @@ public class AttributionJobHandlerTest {
                         .setExpiryTime(EXPIRY_TIME)
                         .setAggregatableReportWindow(TRIGGER_TIME + 1L)
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_11\", \"value_12_x\"],\n"
                                         + "  \"key_2\": [\"value_21_x\", \"value_22\"]\n"
@@ -3431,7 +3528,7 @@ public class AttributionJobHandlerTest {
                         .setExpiryTime(EXPIRY_TIME)
                         .setAggregatableReportWindow(TRIGGER_TIME + 1L)
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_11\", \"value_12_x\"],\n"
                                         + "  \"key_2\": [\"value_21_x\", \"value_22\"]\n"
@@ -3502,7 +3599,7 @@ public class AttributionJobHandlerTest {
                         .setExpiryTime(EXPIRY_TIME)
                         .setAggregatableReportWindow(TRIGGER_TIME + 1L)
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1x\": [\"value_11_x\", \"value_12_x\"],\n"
                                         + "  \"key_2x\": [\"value_21_x\", \"value_22_x\"]\n"
@@ -3579,7 +3676,7 @@ public class AttributionJobHandlerTest {
         Source source =
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"matched\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -3675,7 +3772,7 @@ public class AttributionJobHandlerTest {
         Source source =
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -3773,7 +3870,7 @@ public class AttributionJobHandlerTest {
         Source source =
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -3869,7 +3966,7 @@ public class AttributionJobHandlerTest {
         Source source =
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -3967,7 +4064,7 @@ public class AttributionJobHandlerTest {
         Source source =
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -4070,7 +4167,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\"product\":[\"1234\", \"2345\"],"
                                         + "\"key_1\": [\"value_1_y\", \"value_2_y\"]}")
                         .setId("sourceId")
@@ -4142,7 +4239,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\"product\":[\"1234\",\"2345\"], \"key_1\": "
                                         + "[\"value_1_y\", \"value_2_y\"]}")
                         .setId("sourceId")
@@ -4205,7 +4302,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -4284,7 +4381,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -4362,7 +4459,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -4444,7 +4541,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -4515,7 +4612,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -4585,7 +4682,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -4674,7 +4771,7 @@ public class AttributionJobHandlerTest {
                         // Priority changes to 1 for derived source
                         .setPriority(100L)
                         .setAggregateSource(aggregatableSource)
-                        .setFilterData(null)
+                        .setFilterDataString(null)
                         .setSharedAggregationKeys(
                                 new JSONArray(Arrays.asList("campaignCounts", "geoValue"))
                                         .toString())
@@ -4684,7 +4781,7 @@ public class AttributionJobHandlerTest {
                 createXnaSourceBuilder()
                         .setEnrollmentId(trigger.getEnrollmentId())
                         .setPriority(2L)
-                        .setFilterData(null)
+                        .setFilterDataString(null)
                         .setAggregateSource(aggregatableSource)
                         .build();
 
@@ -4692,7 +4789,7 @@ public class AttributionJobHandlerTest {
                 createXnaSourceBuilder()
                         .setEnrollmentId(trigger.getEnrollmentId())
                         .setPriority(2L)
-                        .setFilterData(null)
+                        .setFilterDataString(null)
                         .setAggregateSource(aggregatableSource)
                         .setInstallAttributed(false)
                         .build();
@@ -4772,7 +4869,7 @@ public class AttributionJobHandlerTest {
                         // Priority changes to 50 for derived source
                         .setPriority(1L)
                         .setAggregateSource(aggregatableSource)
-                        .setFilterData(null)
+                        .setFilterDataString(null)
                         .setSharedAggregationKeys(
                                 new JSONArray(Arrays.asList("campaignCounts", "geoValue"))
                                         .toString())
@@ -4781,7 +4878,7 @@ public class AttributionJobHandlerTest {
                 createXnaSourceBuilder()
                         .setEnrollmentId(trigger.getEnrollmentId())
                         .setPriority(2L)
-                        .setFilterData(null)
+                        .setFilterDataString(null)
                         .setAggregateSource(aggregatableSource)
                         .build();
 
@@ -4789,7 +4886,7 @@ public class AttributionJobHandlerTest {
                 createXnaSourceBuilder()
                         .setEnrollmentId(trigger.getEnrollmentId())
                         .setPriority(2L)
-                        .setFilterData(null)
+                        .setFilterDataString(null)
                         .setAggregateSource(aggregatableSource)
                         .setInstallAttributed(false)
                         .build();
@@ -4868,7 +4965,7 @@ public class AttributionJobHandlerTest {
                         // Priority changes to 50 for derived source
                         .setPriority(1L)
                         .setAggregateSource(aggregatableSource)
-                        .setFilterData(null)
+                        .setFilterDataString(null)
                         .setSharedAggregationKeys(
                                 new JSONArray(Arrays.asList("campaignCounts", "geoValue"))
                                         .toString())
@@ -4877,7 +4974,7 @@ public class AttributionJobHandlerTest {
                 createXnaSourceBuilder()
                         .setEnrollmentId(trigger.getEnrollmentId())
                         .setPriority(2L)
-                        .setFilterData(null)
+                        .setFilterDataString(null)
                         .setAggregateSource(aggregatableSource)
                         .build();
 
@@ -4885,7 +4982,7 @@ public class AttributionJobHandlerTest {
                 createXnaSourceBuilder()
                         .setEnrollmentId(trigger.getEnrollmentId())
                         .setPriority(2L)
-                        .setFilterData(null)
+                        .setFilterDataString(null)
                         .setAggregateSource(aggregatableSource)
                         .setInstallAttributed(false)
                         .build();
@@ -4959,7 +5056,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -5048,7 +5145,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -5179,7 +5276,7 @@ public class AttributionJobHandlerTest {
                         .setEventTime(baseTime)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -5351,7 +5448,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]"
@@ -5541,7 +5638,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -5750,7 +5847,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -5923,7 +6020,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -6029,7 +6126,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -6133,7 +6230,7 @@ public class AttributionJobHandlerTest {
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                         .setAggregateSource(
                                 "{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n"
                                         + "  \"key_1\": [\"value_1\", \"value_2\"],\n"
                                         + "  \"key_2\": [\"value_1\", \"value_2\"]\n"
@@ -6233,7 +6330,7 @@ public class AttributionJobHandlerTest {
                         // Priority changes to 50 for derived source
                         .setPriority(1L)
                         .setAggregateSource(aggregatableSource)
-                        .setFilterData(null)
+                        .setFilterDataString(null)
                         .setSharedAggregationKeys(
                                 new JSONArray(Arrays.asList("campaignCounts", "geoValue"))
                                         .toString())
@@ -6242,7 +6339,7 @@ public class AttributionJobHandlerTest {
                 createXnaSourceBuilder()
                         .setEnrollmentId(trigger.getEnrollmentId())
                         .setPriority(2L)
-                        .setFilterData(null)
+                        .setFilterDataString(null)
                         .setAggregateSource(aggregatableSource)
                         .build();
 
@@ -6250,7 +6347,7 @@ public class AttributionJobHandlerTest {
                 createXnaSourceBuilder()
                         .setEnrollmentId(trigger.getEnrollmentId())
                         .setPriority(2L)
-                        .setFilterData(null)
+                        .setFilterDataString(null)
                         .setAggregateSource(aggregatableSource)
                         .setInstallAttributed(false)
                         .build();
@@ -6279,10 +6376,7 @@ public class AttributionJobHandlerTest {
                         eq(Collections.singletonList(trigger.getId())),
                         eq(Trigger.Status.ATTRIBUTED));
 
-        ArgumentCaptor<MeasurementAttributionStats> statusArg =
-                ArgumentCaptor.forClass(MeasurementAttributionStats.class);
-        verify(mLogger).logMeasurementAttributionStats(statusArg.capture());
-        MeasurementAttributionStats measurementAttributionStats = statusArg.getValue();
+        MeasurementAttributionStats measurementAttributionStats = getMeasurementAttributionStats();
         assertTrue(measurementAttributionStats.isSourceDerived());
     }
 
@@ -6317,10 +6411,7 @@ public class AttributionJobHandlerTest {
 
         // Assertion
         assertEquals(AttributionJobHandler.ProcessingResult.FAILURE, result);
-        ArgumentCaptor<MeasurementAttributionStats> statusArg =
-                ArgumentCaptor.forClass(MeasurementAttributionStats.class);
-        verify(mLogger).logMeasurementAttributionStats(statusArg.capture());
-        MeasurementAttributionStats measurementAttributionStats = statusArg.getValue();
+        MeasurementAttributionStats measurementAttributionStats = getMeasurementAttributionStats();
         assertEquals(
                 measurementAttributionStats.getSourceType(),
                 AttributionStatus.SourceType.UNKNOWN.getValue());
@@ -6333,6 +6424,418 @@ public class AttributionJobHandlerTest {
         assertEquals(
                 measurementAttributionStats.getFailureType(),
                 AttributionStatus.FailureType.TRIGGER_NOT_FOUND.getValue());
+    }
+
+    @Test
+    public void performAttributions_topLevelFiltersDontMatch_topLevelFilterMatchFailureLogged()
+            throws DatastoreException {
+        Trigger trigger = TriggerFixture.getValidTrigger();
+        List<Source> matchingSourceList = new ArrayList<>();
+        Source source =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .setFilterDataString(
+                                "[{\n"
+                                        + "  \"key_1\": [\"no_match\"],\n"
+                                        + "  \"key_2\": [\"no_match\"]\n"
+                                        + "}]\n")
+                        .build();
+        matchingSourceList.add(source);
+
+        when(mMeasurementDao.getPendingTriggerIds())
+                .thenReturn(Collections.singletonList(trigger.getId()));
+        when(mMeasurementDao.getTrigger(trigger.getId())).thenReturn(trigger);
+        when(mMeasurementDao.getMatchingActiveSources(trigger)).thenReturn(matchingSourceList);
+
+        // Execution
+        AttributionJobHandler.ProcessingResult result = mHandler.performPendingAttributions();
+
+        // Assertion
+        assertEquals(AttributionJobHandler.ProcessingResult.SUCCESS_ALL_RECORDS_PROCESSED, result);
+        MeasurementAttributionStats measurementAttributionStats = getMeasurementAttributionStats();
+        assertEquals(
+                AttributionStatus.SourceType.VIEW.getValue(),
+                measurementAttributionStats.getSourceType());
+        assertEquals(
+                AttributionStatus.AttributionSurface.APP_APP.getValue(),
+                measurementAttributionStats.getSurfaceType());
+        assertEquals(
+                AttributionStatus.AttributionResult.NOT_ATTRIBUTED.getValue(),
+                measurementAttributionStats.getResult());
+        assertEquals(
+                AttributionStatus.FailureType.TOP_LEVEL_FILTER_MATCH_FAILURE.getValue(),
+                measurementAttributionStats.getFailureType());
+    }
+
+    @Test
+    public void performAttributions_topLevelFiltersDontMatch_sendNullAggregateReport()
+            throws DatastoreException {
+        Trigger trigger =
+                TriggerFixture.getValidTriggerBuilder()
+                        .setId(UUID.randomUUID().toString())
+                        .setEventTriggers(
+                                "[\n"
+                                        + "{\n"
+                                        + "  \"trigger_data\": \"5\",\n"
+                                        + "  \"priority\": \"123\",\n"
+                                        + "  \"deduplication_key\": \"1\"\n"
+                                        + "}"
+                                        + "]\n")
+                        .setAggregateTriggerData(
+                                "["
+                                        + "{"
+                                        + "\"key_piece\":\"0xA80\","
+                                        + "\"source_keys\":[\"geoValue\",\"noMatch\"]"
+                                        + "}"
+                                        + "]")
+                        .setAggregateValues(
+                                "{" + "\"campaignCounts\":32768," + "\"geoValue\":1664" + "}")
+                        .setFilters(
+                                "[{\n"
+                                        + "  \"key_1\": [\"match\"],\n"
+                                        + "  \"key_2\": [\"match\"]\n"
+                                        + "}]\n")
+                        .setAggregatableSourceRegistrationTimeConfig(
+                                Trigger.SourceRegistrationTimeConfig.EXCLUDE)
+                        .build();
+        List<Source> matchingSourceList = new ArrayList<>();
+        Source source =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .setFilterDataString(
+                                "[{\n"
+                                        + "  \"key_1\": [\"no_match\"],\n"
+                                        + "  \"key_2\": [\"no_match\"]\n"
+                                        + "}]\n")
+                        .build();
+        matchingSourceList.add(source);
+
+        when(mMeasurementDao.getPendingTriggerIds())
+                .thenReturn(Collections.singletonList(trigger.getId()));
+        when(mMeasurementDao.getTrigger(trigger.getId())).thenReturn(trigger);
+        when(mMeasurementDao.getMatchingActiveSources(trigger)).thenReturn(matchingSourceList);
+        when(mFlags.getMeasurementNullAggregateReportEnabled()).thenReturn(true);
+        when(mFlags.getMeasurementNullAggReportRateExclSourceRegistrationTime()).thenReturn(1.0f);
+
+        // Execution
+        AttributionJobHandler.ProcessingResult result = mHandler.performPendingAttributions();
+
+        // Assertion
+        assertEquals(AttributionJobHandler.ProcessingResult.SUCCESS_ALL_RECORDS_PROCESSED, result);
+        MeasurementAttributionStats measurementAttributionStats = getMeasurementAttributionStats();
+        assertEquals(
+                AttributionStatus.SourceType.VIEW.getValue(),
+                measurementAttributionStats.getSourceType());
+        assertEquals(
+                AttributionStatus.AttributionSurface.APP_APP.getValue(),
+                measurementAttributionStats.getSurfaceType());
+        assertEquals(
+                AttributionStatus.AttributionResult.NOT_ATTRIBUTED.getValue(),
+                measurementAttributionStats.getResult());
+        assertEquals(
+                AttributionStatus.FailureType.TOP_LEVEL_FILTER_MATCH_FAILURE.getValue(),
+                measurementAttributionStats.getFailureType());
+
+        captureAndAssertNullAggregateReport(trigger);
+    }
+
+    @Test
+    public void
+            performAttributions_triggerTimePastAggregatableReportWindow_sendNullAggregateReport()
+                    throws DatastoreException {
+        Trigger trigger =
+                TriggerFixture.getValidTriggerBuilder()
+                        .setId(UUID.randomUUID().toString())
+                        .setEventTriggers(
+                                "[\n"
+                                        + "{\n"
+                                        + "  \"trigger_data\": \"5\",\n"
+                                        + "  \"priority\": \"123\",\n"
+                                        + "  \"deduplication_key\": \"1\"\n"
+                                        + "}"
+                                        + "]\n")
+                        .setAggregateTriggerData(
+                                "["
+                                        + "{"
+                                        + "\"key_piece\":\"0xA80\","
+                                        + "\"source_keys\":[\"geoValue\",\"noMatch\"]"
+                                        + "}"
+                                        + "]")
+                        .setAggregateValues(
+                                "{" + "\"campaignCounts\":32768," + "\"geoValue\":1664" + "}")
+                        .setAggregatableSourceRegistrationTimeConfig(
+                                Trigger.SourceRegistrationTimeConfig.EXCLUDE)
+                        .setTriggerTime(1L)
+                        .build();
+        List<Source> matchingSourceList = new ArrayList<>();
+        Source source =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .setAggregatableReportWindow(0L)
+                        .build();
+        matchingSourceList.add(source);
+
+        when(mMeasurementDao.getPendingTriggerIds())
+                .thenReturn(Collections.singletonList(trigger.getId()));
+        when(mMeasurementDao.getTrigger(trigger.getId())).thenReturn(trigger);
+        when(mMeasurementDao.getMatchingActiveSources(trigger)).thenReturn(matchingSourceList);
+        when(mFlags.getMeasurementNullAggregateReportEnabled()).thenReturn(true);
+        when(mFlags.getMeasurementNullAggReportRateExclSourceRegistrationTime()).thenReturn(1.0f);
+
+        // Execution
+        AttributionJobHandler.ProcessingResult result = mHandler.performPendingAttributions();
+
+        // Assertion
+        assertEquals(AttributionJobHandler.ProcessingResult.SUCCESS_ALL_RECORDS_PROCESSED, result);
+
+        MeasurementAttributionStats measurementAttributionStats = getMeasurementAttributionStats();
+        assertEquals(
+                AttributionStatus.AttributionResult.NOT_ATTRIBUTED.getValue(),
+                measurementAttributionStats.getResult());
+
+        captureAndAssertNullAggregateReport(trigger);
+    }
+
+    @Test
+    public void performAttributions_numReportsPerDestinationExceedsMax_sendNullAggregateReport()
+            throws DatastoreException {
+        Trigger trigger =
+                TriggerFixture.getValidTriggerBuilder()
+                        .setId(UUID.randomUUID().toString())
+                        .setEventTriggers(
+                                "[\n"
+                                        + "{\n"
+                                        + "  \"trigger_data\": \"5\",\n"
+                                        + "  \"priority\": \"123\",\n"
+                                        + "  \"deduplication_key\": \"1\"\n"
+                                        + "}"
+                                        + "]\n")
+                        .setAggregateTriggerData(
+                                "["
+                                        + "{"
+                                        + "\"key_piece\":\"0xA80\","
+                                        + "\"source_keys\":[\"geoValue\",\"noMatch\"]"
+                                        + "}"
+                                        + "]")
+                        .setAggregateValues(
+                                "{" + "\"campaignCounts\":32768," + "\"geoValue\":1664" + "}")
+                        .setAggregatableSourceRegistrationTimeConfig(
+                                Trigger.SourceRegistrationTimeConfig.EXCLUDE)
+                        .setTriggerTime(1L)
+                        .build();
+        List<Source> matchingSourceList = new ArrayList<>();
+        Source source =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .setAggregatableReportWindow(2L) // ensure trigger time is before window
+                        .build();
+        matchingSourceList.add(source);
+
+        when(mMeasurementDao.getPendingTriggerIds())
+                .thenReturn(Collections.singletonList(trigger.getId()));
+        when(mMeasurementDao.getTrigger(trigger.getId())).thenReturn(trigger);
+        when(mMeasurementDao.getMatchingActiveSources(trigger)).thenReturn(matchingSourceList);
+        int excessiveReportCount = MEASUREMENT_MAX_AGGREGATE_REPORTS_PER_DESTINATION + 1;
+        when(mMeasurementDao.getNumAggregateReportsPerDestination(
+                        trigger.getAttributionDestination(), trigger.getDestinationType()))
+                .thenReturn(excessiveReportCount);
+        when(mFlags.getMeasurementNullAggregateReportEnabled()).thenReturn(true);
+        when(mFlags.getMeasurementNullAggReportRateExclSourceRegistrationTime()).thenReturn(1.0f);
+
+        // Execution
+        AttributionJobHandler.ProcessingResult result = mHandler.performPendingAttributions();
+
+        // Assertion
+        assertEquals(AttributionJobHandler.ProcessingResult.SUCCESS_ALL_RECORDS_PROCESSED, result);
+
+        MeasurementAttributionStats measurementAttributionStats = getMeasurementAttributionStats();
+        assertEquals(
+                AttributionStatus.AttributionResult.NOT_ATTRIBUTED.getValue(),
+                measurementAttributionStats.getResult());
+
+        captureAndAssertNullAggregateReport(trigger);
+    }
+
+    @Test
+    public void performAttributions_triggerAggregateDeduplicated_sendNullAggregateReport()
+            throws DatastoreException {
+        Trigger trigger =
+                TriggerFixture.getValidTriggerBuilder()
+                        .setId(UUID.randomUUID().toString())
+                        .setEventTriggers(
+                                "[\n"
+                                        + "{\n"
+                                        + "  \"trigger_data\": \"5\",\n"
+                                        + "  \"priority\": \"123\",\n"
+                                        + "  \"deduplication_key\": \"1\"\n"
+                                        + "}"
+                                        + "]\n")
+                        .setAggregateTriggerData(
+                                "["
+                                        + "{"
+                                        + "\"key_piece\":\"0xA80\","
+                                        + "\"source_keys\":[\"geoValue\",\"noMatch\"]"
+                                        + "}"
+                                        + "]")
+                        .setAggregateValues("{\"campaignCounts\":32768," + "\"geoValue\":1664}")
+                        .setAggregateDeduplicationKeys(
+                                "[{\"deduplication_key\": \"0\","
+                                        + "\"filters\": [{\"x\": [\"y\"]}]}]")
+                        .setAggregatableSourceRegistrationTimeConfig(
+                                Trigger.SourceRegistrationTimeConfig.EXCLUDE)
+                        .setTriggerTime(1L)
+                        .build();
+        List<Source> matchingSourceList = new ArrayList<>();
+        Source source =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .setAggregateSource(
+                                "{\"campaignCounts\": \"0x159\", \"geoValue\": \"0x5\"}")
+                        .setFilterDataString("{\"x\": [\"y\", \"z\"]}")
+                        // Ensure key matches that of trigger's aggregate deduplication key
+                        .setAggregateReportDedupKeys(List.of(new UnsignedLong(0L)))
+                        .setAggregatableReportWindow(2L) // ensure trigger time is before window
+                        .build();
+        matchingSourceList.add(source);
+
+        when(mMeasurementDao.getPendingTriggerIds())
+                .thenReturn(Collections.singletonList(trigger.getId()));
+        when(mMeasurementDao.getTrigger(trigger.getId())).thenReturn(trigger);
+        when(mMeasurementDao.getMatchingActiveSources(trigger)).thenReturn(matchingSourceList);
+        when(mFlags.getMeasurementNullAggregateReportEnabled()).thenReturn(true);
+        when(mFlags.getMeasurementNullAggReportRateExclSourceRegistrationTime()).thenReturn(1.0f);
+
+        // Execution
+        AttributionJobHandler.ProcessingResult result = mHandler.performPendingAttributions();
+
+        // Assertion
+        assertEquals(AttributionJobHandler.ProcessingResult.SUCCESS_ALL_RECORDS_PROCESSED, result);
+
+        MeasurementAttributionStats measurementAttributionStats = getMeasurementAttributionStats();
+        assertEquals(
+                AttributionStatus.AttributionResult.NOT_ATTRIBUTED.getValue(),
+                measurementAttributionStats.getResult());
+
+        captureAndAssertNullAggregateReport(trigger);
+    }
+
+    @Test
+    public void performAttributions_triggerAggregateNoContributions_sendNullAggregateReport()
+            throws DatastoreException {
+        Trigger trigger =
+                TriggerFixture.getValidTriggerBuilder()
+                        .setId(UUID.randomUUID().toString())
+                        .setEventTriggers(
+                                "[\n"
+                                        + "{\n"
+                                        + "  \"trigger_data\": \"5\",\n"
+                                        + "  \"priority\": \"123\",\n"
+                                        + "  \"deduplication_key\": \"1\"\n"
+                                        + "}"
+                                        + "]\n")
+                        .setAggregateTriggerData(
+                                "["
+                                        + "{"
+                                        + "\"key_piece\":\"0xA80\","
+                                        + "\"source_keys\":[\"geoValue\"]"
+                                        + "}"
+                                        + "]")
+                        .setAggregateValues("{\"campaignCounts\":32768," + "\"geoValue\":1664}")
+                        .setAggregatableSourceRegistrationTimeConfig(
+                                Trigger.SourceRegistrationTimeConfig.EXCLUDE)
+                        .setTriggerTime(1L)
+                        .build();
+        List<Source> matchingSourceList = new ArrayList<>();
+        Source source =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .setAggregateSource("{\"noMatch\": \"0x159\", \"stillNoMatch\": \"0x5\"}")
+                        .setAggregatableReportWindow(2L) // ensure trigger time is before window
+                        .build();
+        matchingSourceList.add(source);
+
+        when(mMeasurementDao.getPendingTriggerIds())
+                .thenReturn(Collections.singletonList(trigger.getId()));
+        when(mMeasurementDao.getTrigger(trigger.getId())).thenReturn(trigger);
+        when(mMeasurementDao.getMatchingActiveSources(trigger)).thenReturn(matchingSourceList);
+        when(mFlags.getMeasurementNullAggregateReportEnabled()).thenReturn(true);
+        when(mFlags.getMeasurementNullAggReportRateExclSourceRegistrationTime()).thenReturn(1.0f);
+
+        // Execution
+        AttributionJobHandler.ProcessingResult result = mHandler.performPendingAttributions();
+
+        // Assertion
+        assertEquals(AttributionJobHandler.ProcessingResult.SUCCESS_ALL_RECORDS_PROCESSED, result);
+
+        MeasurementAttributionStats measurementAttributionStats = getMeasurementAttributionStats();
+        assertEquals(
+                AttributionStatus.AttributionResult.NOT_ATTRIBUTED.getValue(),
+                measurementAttributionStats.getResult());
+
+        captureAndAssertNullAggregateReport(trigger);
+    }
+
+    @Test
+    public void performAttributions_triggerAggregateInsufficientBudget_sendNullAggregateReport()
+            throws DatastoreException {
+        int excessiveAggregateValue = PrivacyParams.MAX_SUM_OF_AGGREGATE_VALUES_PER_SOURCE + 1;
+        String aggregateValuesStr =
+                String.format(
+                        Locale.ENGLISH,
+                        "{\"campaignCounts\":32768," + "\"geoValue\":%d}",
+                        excessiveAggregateValue);
+        Trigger trigger =
+                TriggerFixture.getValidTriggerBuilder()
+                        .setId(UUID.randomUUID().toString())
+                        .setEventTriggers(
+                                "[\n"
+                                        + "{\n"
+                                        + "  \"trigger_data\": \"5\",\n"
+                                        + "  \"priority\": \"123\",\n"
+                                        + "  \"deduplication_key\": \"1\"\n"
+                                        + "}"
+                                        + "]\n")
+                        .setAggregateTriggerData(
+                                "["
+                                        + "{"
+                                        + "\"key_piece\":\"0xA80\","
+                                        + "\"source_keys\":[\"geoValue\"]"
+                                        + "}"
+                                        + "]")
+                        .setAggregateValues(aggregateValuesStr)
+                        .setAggregatableSourceRegistrationTimeConfig(
+                                Trigger.SourceRegistrationTimeConfig.EXCLUDE)
+                        .setTriggerTime(1L)
+                        .build();
+        List<Source> matchingSourceList = new ArrayList<>();
+        Source source =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .setAggregateSource(
+                                "{\"campaignCounts\": \"0x159\", \"geoValue\": \"0x5\"}")
+                        .setAggregatableReportWindow(2L) // ensure trigger time is before window
+                        .build();
+        matchingSourceList.add(source);
+
+        when(mMeasurementDao.getPendingTriggerIds())
+                .thenReturn(Collections.singletonList(trigger.getId()));
+        when(mMeasurementDao.getTrigger(trigger.getId())).thenReturn(trigger);
+        when(mMeasurementDao.getMatchingActiveSources(trigger)).thenReturn(matchingSourceList);
+        when(mFlags.getMeasurementNullAggregateReportEnabled()).thenReturn(true);
+        when(mFlags.getMeasurementNullAggReportRateExclSourceRegistrationTime()).thenReturn(1.0f);
+
+        // Execution
+        AttributionJobHandler.ProcessingResult result = mHandler.performPendingAttributions();
+
+        // Assertion
+        assertEquals(AttributionJobHandler.ProcessingResult.SUCCESS_ALL_RECORDS_PROCESSED, result);
+
+        MeasurementAttributionStats measurementAttributionStats = getMeasurementAttributionStats();
+        assertEquals(
+                AttributionStatus.AttributionResult.NOT_ATTRIBUTED.getValue(),
+                measurementAttributionStats.getResult());
+
+        captureAndAssertNullAggregateReport(trigger);
     }
 
     @Test
@@ -6377,7 +6880,7 @@ public class AttributionJobHandlerTest {
         Source source =
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n" + "  \"key_1\": [\"value_11\", \"value_12\"]\n" + "}\n")
                         .setId("sourceId")
                         .setEventTime(TRIGGER_TIME - TimeUnit.SECONDS.toMillis(LOOKBACK_WINDOW - 1))
@@ -6477,7 +6980,7 @@ public class AttributionJobHandlerTest {
         Source source =
                 SourceFixture.getMinimalValidSourceBuilder()
                         .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
-                        .setFilterData(
+                        .setFilterDataString(
                                 "{\n" + "  \"key_1\": [\"value_11\", \"value_12\"]\n" + "}\n")
                         .setId("sourceId")
                         .setEventTime(TRIGGER_TIME - TimeUnit.SECONDS.toMillis(LOOKBACK_WINDOW + 1))
@@ -6551,6 +7054,22 @@ public class AttributionJobHandlerTest {
                                 .AGGREGATABLE_SOURCE_REGISTRATION_TIME_CONFIG);
     }
 
+    private void captureAndAssertNullAggregateReport(Trigger trigger) throws DatastoreException {
+        ArgumentCaptor<AggregateReport> aggregateReportCaptor =
+                ArgumentCaptor.forClass(AggregateReport.class);
+        verify(mMeasurementDao, times(1)).insertAggregateReport(aggregateReportCaptor.capture());
+        AggregateReport report = aggregateReportCaptor.getValue();
+        assertNullAggregateReport(report, trigger, null);
+    }
+
+    private MeasurementAttributionStats getMeasurementAttributionStats() {
+        ArgumentCaptor<MeasurementAttributionStats> statsArg =
+                ArgumentCaptor.forClass(MeasurementAttributionStats.class);
+        verify(mLogger).logMeasurementAttributionStats(statsArg.capture());
+        MeasurementAttributionStats measurementAttributionStats = statsArg.getValue();
+        return measurementAttributionStats;
+    }
+
     private Source.Builder createXnaSourceBuilder() {
         return new Source.Builder()
                 .setId(UUID.randomUUID().toString())
@@ -6569,7 +7088,7 @@ public class AttributionJobHandlerTest {
                 .setInstallCooldownWindow(SourceFixture.ValidSourceParams.INSTALL_COOLDOWN_WINDOW)
                 .setAttributionMode(SourceFixture.ValidSourceParams.ATTRIBUTION_MODE)
                 .setAggregateSource(SourceFixture.ValidSourceParams.buildAggregateSource())
-                .setFilterData(buildMatchingFilterData())
+                .setFilterDataString(buildMatchingFilterData())
                 .setIsDebugReporting(true)
                 .setRegistrationId(SourceFixture.ValidSourceParams.REGISTRATION_ID)
                 .setSharedAggregationKeys(SourceFixture.ValidSourceParams.SHARED_AGGREGATE_KEYS)
@@ -6593,7 +7112,7 @@ public class AttributionJobHandlerTest {
     }
 
     private JSONArray buildAggregateTriggerData() throws JSONException {
-        JSONArray triggerDatas = new JSONArray();
+        JSONArray triggerData = new JSONArray();
         JSONObject jsonObject1 = new JSONObject();
         jsonObject1.put("key_piece", "0x400");
         jsonObject1.put("source_keys", new JSONArray(Arrays.asList("campaignCounts")));
@@ -6602,9 +7121,9 @@ public class AttributionJobHandlerTest {
         JSONObject jsonObject2 = new JSONObject();
         jsonObject2.put("key_piece", "0xA80");
         jsonObject2.put("source_keys", new JSONArray(Arrays.asList("geoValue", "noMatch")));
-        triggerDatas.put(jsonObject1);
-        triggerDatas.put(jsonObject2);
-        return triggerDatas;
+        triggerData.put(jsonObject1);
+        triggerData.put(jsonObject2);
+        return triggerData;
     }
 
     private JSONArray createFilterJSONArray() throws JSONException {
@@ -6707,16 +7226,16 @@ public class AttributionJobHandlerTest {
     }
 
     private static JSONArray getAggregateTriggerData() throws JSONException {
-        JSONArray triggerDatas = new JSONArray();
+        JSONArray triggerData = new JSONArray();
         JSONObject jsonObject1 = new JSONObject();
         jsonObject1.put("key_piece", "0x400");
         jsonObject1.put("source_keys", new JSONArray(Arrays.asList("campaignCounts")));
         JSONObject jsonObject2 = new JSONObject();
         jsonObject2.put("key_piece", "0xA80");
         jsonObject2.put("source_keys", new JSONArray(Arrays.asList("geoValue", "noMatch")));
-        triggerDatas.put(jsonObject1);
-        triggerDatas.put(jsonObject2);
-        return triggerDatas;
+        triggerData.put(jsonObject1);
+        triggerData.put(jsonObject2);
+        return triggerData;
     }
 
     private static Trigger.Builder getTriggerBuilder() throws JSONException {
@@ -6728,10 +7247,10 @@ public class AttributionJobHandlerTest {
     }
 
     private static Trigger.Builder getAggregateTriggerBuilder() throws JSONException {
-        JSONArray triggerDatas = getAggregateTriggerData();
+        JSONArray triggerData = getAggregateTriggerData();
 
         return getTriggerBuilder()
-                .setAggregateTriggerData(triggerDatas.toString())
+                .setAggregateTriggerData(triggerData.toString())
                 .setAggregateValues("{\"campaignCounts\":32768,\"geoValue\":1644}");
     }
 
@@ -6753,7 +7272,7 @@ public class AttributionJobHandlerTest {
                 .setAggregatableReportWindow(TRIGGER_TIME + 1L)
                 .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
                 .setAggregateSource("{\"campaignCounts\" : \"0x159\", \"geoValue\" : \"0x5\"}")
-                .setFilterData("{\"product\":[\"1234\",\"2345\"]}")
+                .setFilterDataString("{\"product\":[\"1234\",\"2345\"]}")
                 .build();
     }
 
@@ -6788,9 +7307,5 @@ public class AttributionJobHandlerTest {
         } catch (JSONException ignored) {
             return null;
         }
-    }
-
-    private static long roundDownToDay(long timestamp) {
-        return Math.floorDiv(timestamp, TimeUnit.DAYS.toMillis(1)) * TimeUnit.DAYS.toMillis(1);
     }
 }

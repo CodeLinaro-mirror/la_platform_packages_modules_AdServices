@@ -34,6 +34,7 @@ import android.os.SystemClock;
 import androidx.annotation.NonNull;
 
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
+import com.android.adservices.common.RequiresSdkLevelAtLeastS;
 import com.android.adservices.data.DbTestUtil;
 import com.android.adservices.data.encryptionkey.EncryptionKeyDao;
 import com.android.adservices.data.enrollment.EnrollmentDao;
@@ -79,6 +80,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 /** Unit tests for {@link MobileDataDownloadFactory} */
+@RequiresSdkLevelAtLeastS
 @SpyStatic(MddLogger.class)
 @SpyStatic(FlagsFactory.class)
 @SpyStatic(MobileDataDownloadFactory.class)
@@ -138,7 +140,6 @@ public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestC
     private FileDownloader mFileDownloader;
     private SharedDbHelper mDbHelper;
     private MobileDataDownload mMdd;
-    private Context mContext;
 
     @Mock Flags mMockFlags;
     @Mock ConsentManager mConsentManager;
@@ -146,7 +147,6 @@ public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestC
 
     @Before
     public void setUp() throws Exception {
-        mContext = appContext.get();
         // Add latency to fix the boot up WIFI connection delay. We only need to wait once during
         // the whole test suite run.
         // Checking wifi connection using WifiManager isn't working on low-performance devices.
@@ -165,9 +165,8 @@ public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestC
 
         doReturn(AdServicesApiConsent.GIVEN).when(mConsentManager).getConsent();
         // Mock static method ConsentManager.getInstance() to return test ConsentManager
-        doReturn(mConsentManager).when(() -> ConsentManager.getInstance(any(Context.class)));
-        doReturn(mUxStatesManager).when(() -> UxStatesManager.getInstance(any(Context.class)));
-
+        doReturn(mConsentManager).when(() -> ConsentManager.getInstance());
+        doReturn(mUxStatesManager).when(() -> UxStatesManager.getInstance());
         overridingMddLoggingLevel("VERBOSE");
     }
 
@@ -498,17 +497,17 @@ public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestC
     }
 
     @Test
-    public void testMddLoggerKillSwitchIsOn() {
-        // Killswitch is on. MddLogger should be disabled.
-        doReturn(true).when(mMockFlags).getMddLoggerKillSwitch();
+    public void testMddLoggerFeatureFlagIsOff() {
+        // The feature flag is off. MddLogger should be disabled.
+        doReturn(false).when(mMockFlags).getMddLoggerEnabled();
         Optional<Logger> mddLogger = MobileDataDownloadFactory.getMddLogger(mMockFlags);
         assertThat(mddLogger).isAbsent();
     }
 
     @Test
-    public void testMddLoggerKillSwitchIsOff() {
-        // Killswitch is off. MddLogger should be enabled.
-        doReturn(false).when(mMockFlags).getMddLoggerKillSwitch();
+    public void testMddLoggerFeatureFlagIsOn() {
+        // The feature flag is on. MddLogger should be enabled.
+        doReturn(true).when(mMockFlags).getMddLoggerEnabled();
         Optional<Logger> mddLogger = MobileDataDownloadFactory.getMddLogger(mMockFlags);
         assertThat(mddLogger).isPresent();
     }

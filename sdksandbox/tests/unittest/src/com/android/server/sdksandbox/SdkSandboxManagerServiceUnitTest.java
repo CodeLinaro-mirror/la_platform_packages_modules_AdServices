@@ -68,8 +68,9 @@ import android.os.Process;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
-import android.provider.DeviceConfig;
-import android.util.ArrayMap;
+import android.platform.test.annotations.RequiresFlagsEnabled;
+import android.platform.test.flag.junit.CheckFlagsRule;
+import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -80,6 +81,7 @@ import com.android.dx.mockito.inline.extended.StaticMockitoSessionBuilder;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.sdksandbox.IComputeSdkStorageCallback;
 import com.android.sdksandbox.IUnloadSdkInSandboxCallback;
+import com.android.sdksandbox.flags.Flags;
 import com.android.server.LocalManagerRegistry;
 import com.android.server.SystemService.TargetUser;
 import com.android.server.am.ActivityManagerLocal;
@@ -107,7 +109,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -124,7 +125,6 @@ public class SdkSandboxManagerServiceUnitTest {
             "com.android.codeproviderresources";
     private static final String TEST_PACKAGE = "com.android.server.sdksandbox.tests";
     private static final String PROPERTY_DISABLE_SANDBOX = "disable_sdk_sandbox";
-    private static final long TIME_APP_CALLED_SYSTEM_SERVER = 1;
 
     private static final String TEST_KEY = "key";
     private static final String TEST_VALUE = "value";
@@ -157,9 +157,13 @@ public class SdkSandboxManagerServiceUnitTest {
     private SdkSandboxStorageManager mSdkSandboxStorageManager;
     private static SdkSandboxManagerLocal sSdkSandboxManagerLocal;
     private CallingInfo mCallingInfo;
+    private DeviceConfigUtil mDeviceConfigUtil;
 
     @Rule(order = 0)
     public final SdkSandboxDeviceSupportedRule supportedRule = new SdkSandboxDeviceSupportedRule();
+
+    @Rule(order = 1)
+    public final CheckFlagsRule mCheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule();
 
     @Before
     public void setup() {
@@ -230,7 +234,8 @@ public class SdkSandboxManagerServiceUnitTest {
                                 mSpyContext,
                                 mSdkSandboxStorageManager,
                                 sProvider,
-                                sSdkSandboxPulledAtoms));
+                                sSdkSandboxPulledAtoms,
+                                new SdkSandboxStatsdLogger()));
 
         mService = new SdkSandboxManagerService(mSpyContext, mInjector);
         mService.forceEnableSandbox();
@@ -239,6 +244,7 @@ public class SdkSandboxManagerServiceUnitTest {
 
         sSdkSandboxSettingsListener = mService.getSdkSandboxSettingsListener();
         assertThat(sSdkSandboxSettingsListener).isNotNull();
+        mDeviceConfigUtil = new DeviceConfigUtil(sSdkSandboxSettingsListener);
 
         mClientAppUid = Process.myUid();
         mSandboxLatencyInfo = new SandboxLatencyInfo();
@@ -380,7 +386,7 @@ public class SdkSandboxManagerServiceUnitTest {
 
         LoadSdkException thrown = callback.getLoadSdkException();
         assertEquals(LOAD_SDK_INTERNAL_ERROR, thrown.getLoadSdkErrorCode());
-        assertThat(thrown).hasMessageThat().contains("does.not.exist not found");
+        assertThat(thrown).hasMessageThat().contains("does.not.exist");
     }
 
     // Tests the failure of attempting to load an SDK when the calling package name and calling uid
@@ -416,7 +422,7 @@ public class SdkSandboxManagerServiceUnitTest {
         callback.assertLoadSdkIsUnsuccessful();
         assertThat(callback.getLoadSdkErrorCode())
                 .isEqualTo(SdkSandboxManager.LOAD_SDK_NOT_FOUND);
-        assertThat(callback.getLoadSdkErrorMsg()).contains("not found for loading");
+        assertThat(callback.getLoadSdkErrorMsg()).contains("does.not.exist");
     }
 
     @Test
@@ -1325,6 +1331,15 @@ public class SdkSandboxManagerServiceUnitTest {
     }
 
     @Test
+    @RequiresFlagsEnabled(Flags.FLAG_GET_EFFECTIVE_TARGET_SDK_VERSION_API)
+    public void testGetEffectiveTargetSdkVersion() throws Exception {
+        assertThat(
+                        sSdkSandboxManagerLocal.getEffectiveTargetSdkVersion(
+                                Process.toSdkSandboxUid(mClientAppUid)))
+                .isEqualTo(34);
+    }
+
+    @Test
     public void testGetSandboxedSdks_afterLoadSdkSuccess() throws Exception {
         loadSdk(SDK_NAME);
         assertThat(mService.getSandboxedSdks(TEST_PACKAGE, mSandboxLatencyInfo)).hasSize(1);
@@ -1431,7 +1446,7 @@ public class SdkSandboxManagerServiceUnitTest {
         mService.syncDataFromClient("does.not.exist", mSandboxLatencyInfo, TEST_UPDATE, callback);
 
         assertEquals(PREFERENCES_SYNC_INTERNAL_ERROR, callback.getErrorCode());
-        assertThat(callback.getErrorMsg()).contains("does.not.exist not found");
+        assertThat(callback.getErrorMsg()).contains("does.not.exist");
     }
 
     @Test
@@ -1617,24 +1632,30 @@ public class SdkSandboxManagerServiceUnitTest {
     }
 
     @Test
-    public void testHandleShellCommandExecutesCommand() {
-        final FileDescriptor in = FileDescriptor.in;
-        final FileDescriptor out = FileDescriptor.out;
-        final FileDescriptor err = FileDescriptor.err;
-
-        final SdkSandboxShellCommand command = Mockito.mock(SdkSandboxShellCommand.class);
-        Mockito.when(mInjector.createShellCommand(mService, mSpyContext)).thenReturn(command);
-
+    public void testHandleShellCommandExecutesCommand() throws Exception {
+        SdkSandboxShellCommand command = Mockito.mock(SdkSandboxShellCommand.class);
+        Mockito.when(
+                        mInjector.createShellCommand(
+                                mService, mSpyContext, /* supportsAdServicesShellCmd= */ true))
+                .thenReturn(command);
         final String[] args = new String[] {"start"};
+        try (ParcelFileDescriptor pfdIn = ParcelFileDescriptor.dup(FileDescriptor.in);
+                ParcelFileDescriptor pfdOut = ParcelFileDescriptor.dup(FileDescriptor.out);
+                ParcelFileDescriptor pfdErr = ParcelFileDescriptor.dup(FileDescriptor.err)) {
 
-        mService.handleShellCommand(
-                new ParcelFileDescriptor(in),
-                new ParcelFileDescriptor(out),
-                new ParcelFileDescriptor(err),
-                args);
+            mService.handleShellCommand(pfdIn, pfdOut, pfdErr, args);
 
-        Mockito.verify(mInjector).createShellCommand(mService, mSpyContext);
-        Mockito.verify(command).exec(mService, in, out, err, args);
+            Mockito.verify(mInjector)
+                    .createShellCommand(
+                            mService, mSpyContext, /* supportsAdServicesShellCmd= */ true);
+            Mockito.verify(command)
+                    .exec(
+                            mService,
+                            pfdIn.getFileDescriptor(),
+                            pfdOut.getFileDescriptor(),
+                            pfdErr.getFileDescriptor(),
+                            args);
+        }
     }
 
     @Test
@@ -1681,10 +1702,10 @@ public class SdkSandboxManagerServiceUnitTest {
     @Test
     public void testKillswitchStopsSandbox() throws Exception {
         disableKillUid();
-        setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "false");
+        mDeviceConfigUtil.setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "false");
         sSdkSandboxSettingsListener.setKillSwitchState(false);
         loadSdk(SDK_NAME);
-        setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "true");
+        mDeviceConfigUtil.setDeviceConfigProperty(PROPERTY_DISABLE_SANDBOX, "true");
         int callingUid = Binder.getCallingUid();
         final CallingInfo callingInfo = new CallingInfo(callingUid, TEST_PACKAGE);
         assertThat(sProvider.getSdkSandboxServiceForApp(callingInfo)).isEqualTo(null);
@@ -2054,21 +2075,6 @@ public class SdkSandboxManagerServiceUnitTest {
             assumeTrue("Device must be at least U", SdkLevel.isAtLeastU());
         } else {
             assumeFalse("Device must be less than U", SdkLevel.isAtLeastU());
-        }
-    }
-
-    private void setDeviceConfigProperty(String property, String value) {
-        // Explicitly calling the onPropertiesChanged method to avoid race conditions
-        if (value == null) {
-            // Map.of() does not handle null, so we need to use an ArrayMap to delete a property
-            ArrayMap<String, String> properties = new ArrayMap<>();
-            properties.put(property, null);
-            sSdkSandboxSettingsListener.onPropertiesChanged(
-                    new DeviceConfig.Properties(DeviceConfig.NAMESPACE_ADSERVICES, properties));
-        } else {
-            sSdkSandboxSettingsListener.onPropertiesChanged(
-                    new DeviceConfig.Properties(
-                            DeviceConfig.NAMESPACE_ADSERVICES, Map.of(property, value)));
         }
     }
 

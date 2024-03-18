@@ -37,6 +37,17 @@ public class AdServicesPermissions {
     public static final String ACCESS_ADSERVICES_CUSTOM_AUDIENCE =
             "android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE";
 
+    /** This permission needs to be declared by the caller of Protected Signals APIs. */
+    @FlaggedApi(Flags.FLAG_PROTECTED_SIGNALS_ENABLED)
+    public static final String ACCESS_ADSERVICES_PROTECTED_SIGNALS =
+            "android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS";
+
+    /** This permission needs to be declared by the caller of Protected Signals APIs. */
+    @SuppressWarnings("FlaggedApi") // aconfig not available on this branch
+    @FlaggedApi(Flags.FLAG_PROTECTED_SIGNALS_ENABLED)
+    public static final String ACCESS_ADSERVICES_AD_SELECTION =
+            "android.permission.ACCESS_ADSERVICES_AD_SELECTION";
+
     /** This permission needs to be declared by the caller of Advertising ID APIs. */
     public static final String ACCESS_ADSERVICES_AD_ID =
             "android.permission.ACCESS_ADSERVICES_AD_ID";

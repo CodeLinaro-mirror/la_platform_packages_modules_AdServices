@@ -16,6 +16,7 @@
 
 package com.android.adservices.ui;
 
+
 import android.content.Context;
 import android.os.Build;
 
@@ -39,10 +40,10 @@ public class UxUtil {
                 ? fragmentActivity
                         .getIntent()
                         .getBooleanExtra(
-                                "isEUDevice",
-                                /* default= */ UxStatesManager.getInstance(context).isEeaDevice())
-                : !ConsentManager.getInstance(context).isAdIdEnabled()
-                        || UxStatesManager.getInstance(context).isEeaDevice();
+                                  "isEUDevice",
+                                  UxStatesManager.getInstance().isEeaDevice())
+                : !ConsentManager.getInstance().isAdIdEnabled()
+                        || UxStatesManager.getInstance().isEeaDevice();
     }
 
     /** Returns if UXStates should be used. */
@@ -61,7 +62,12 @@ public class UxUtil {
                     .findFirst()
                     .orElse(PrivacySandboxUxCollection.UNSUPPORTED_UX);
         } else {
-            return UxStatesManager.getInstance(context).getUx();
+            return UxStatesManager.getInstance().getUx();
         }
+    }
+
+    /** Returns the specified UX flag. */
+    public static boolean getFlag(String uxFlagKey) {
+        return UxStatesManager.getInstance().getFlag(uxFlagKey);
     }
 }

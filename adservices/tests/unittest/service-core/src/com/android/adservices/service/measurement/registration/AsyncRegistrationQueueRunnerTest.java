@@ -15,7 +15,11 @@
  */
 package com.android.adservices.service.measurement.registration;
 
+import static com.android.adservices.mockito.ExtendedMockitoExpectations.doNothingOnErrorLogUtilError;
+import static com.android.adservices.mockito.ExtendedMockitoExpectations.verifyErrorLogUtilError;
 import static com.android.adservices.service.measurement.attribution.TriggerContentProvider.TRIGGER_URI;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__ENROLLMENT_INVALID;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__MEASUREMENT;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -37,15 +41,12 @@ import android.adservices.measurement.WebSourceParams;
 import android.adservices.measurement.WebSourceRegistrationRequest;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
-import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.RemoteException;
-
-import androidx.test.core.app.ApplicationProvider;
 
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
 import com.android.adservices.common.WebUtil;
@@ -57,6 +58,7 @@ import com.android.adservices.data.measurement.IMeasurementDao;
 import com.android.adservices.data.measurement.ITransaction;
 import com.android.adservices.data.measurement.MeasurementTables;
 import com.android.adservices.data.measurement.SQLDatastoreManager;
+import com.android.adservices.errorlogging.ErrorLogUtil;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.enrollment.EnrollmentData;
@@ -78,6 +80,7 @@ import com.android.adservices.service.measurement.reporting.DebugReportApi;
 import com.android.adservices.service.measurement.reporting.EventReportWindowCalcDelegate;
 import com.android.adservices.service.measurement.util.UnsignedLong;
 import com.android.adservices.service.stats.AdServicesLogger;
+import com.android.adservices.service.stats.MeasurementRegistrationResponseStats;
 import com.android.adservices.shared.errorlogging.AdServicesErrorLogger;
 import com.android.modules.utils.testing.ExtendedMockitoRule.SpyStatic;
 
@@ -111,7 +114,6 @@ import javax.net.ssl.HttpsURLConnection;
 @SpyStatic(FlagsFactory.class)
 public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMockitoTestCase {
 
-    private static final Context sDefaultContext = ApplicationProvider.getApplicationContext();
     private static final boolean DEFAULT_AD_ID_PERMISSION = false;
     private static final String DEFAULT_ENROLLMENT_ID = "enrollment_id";
     private static final Uri DEFAULT_REGISTRANT = Uri.parse("android-app://com.registrant");
@@ -119,7 +121,7 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
     private static final String DEFAULT_SOURCE_ID = UUID.randomUUID().toString();
     private static final String SDK_PACKAGE_NAME = "sdk.package.name";
     private static final Uri APP_TOP_ORIGIN =
-            Uri.parse("android-app://" + sDefaultContext.getPackageName());
+            Uri.parse("android-app://" + sContext.getPackageName());
     private static final Uri WEB_TOP_ORIGIN = WebUtil.validUri("https://example.test");
     private static final Uri REGISTRATION_URI = WebUtil.validUri("https://foo.test/bar?ad=134");
     private static final String LIST_TYPE_REDIRECT_URI_1 = WebUtil.validUrl("https://foo.test");
@@ -169,7 +171,6 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
     private AsyncSourceFetcher mAsyncSourceFetcher;
     private AsyncTriggerFetcher mAsyncTriggerFetcher;
     private Source mMockedSource;
-    private Context mContext;
 
     @Mock private IMeasurementDao mMeasurementDao;
     @Mock private Trigger mMockedTrigger;
@@ -221,8 +222,8 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
     public void before() throws Exception {
         extendedMockito.mockGetFlags(mFlags);
 
-        mAsyncSourceFetcher = spy(new AsyncSourceFetcher(sDefaultContext));
-        mAsyncTriggerFetcher = spy(new AsyncTriggerFetcher(sDefaultContext));
+        mAsyncSourceFetcher = spy(new AsyncSourceFetcher(sContext));
+        mAsyncTriggerFetcher = spy(new AsyncTriggerFetcher(sContext));
         mMockedSource = spy(SourceFixture.getValidSource());
 
         when(mEnrollmentDao.getEnrollmentDataFromMeasurementUrl(any()))
@@ -275,9 +276,11 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
                 .thenReturn(Flags.MEASUREMENT_EVENT_REPORTS_VTC_EARLY_REPORTING_WINDOWS);
         when(mFlags.getMeasurementEventReportsCtcEarlyReportingWindows())
                 .thenReturn(Flags.MEASUREMENT_EVENT_REPORTS_CTC_EARLY_REPORTING_WINDOWS);
+        when(mFlags.getMeasurementEnableUpdateTriggerHeaderLimit()).thenReturn(false);
+        when(mFlags.getMaxResponseBasedRegistrationPayloadSizeBytes())
+                .thenReturn(Flags.MAX_RESPONSE_BASED_REGISTRATION_SIZE_BYTES);
         when(mMeasurementDao.insertSource(any())).thenReturn(DEFAULT_SOURCE_ID);
-        mContext = spy(sDefaultContext);
-        when(mContext.getPackageManager()).thenReturn(mPackageManager);
+        when(mSpyContext.getPackageManager()).thenReturn(mPackageManager);
     }
 
     @Test
@@ -948,7 +951,7 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
         setUpApplicationStatus(List.of("com.destination", "com.destination2"), List.of());
         AsyncRegistrationQueueRunner asyncRegistrationQueueRunner =
                 new AsyncRegistrationQueueRunner(
-                        mContext,
+                        mSpyContext,
                         mContentResolver,
                         mAsyncSourceFetcher,
                         mAsyncTriggerFetcher,
@@ -1016,7 +1019,7 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
         setUpApplicationStatus(List.of(), List.of("com.destination", "com.destination2"));
         AsyncRegistrationQueueRunner asyncRegistrationQueueRunner =
                 new AsyncRegistrationQueueRunner(
-                        mContext,
+                        mSpyContext,
                         mContentResolver,
                         mAsyncSourceFetcher,
                         mAsyncTriggerFetcher,
@@ -1083,7 +1086,7 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
         setUpApplicationStatus(List.of("com.destination2"), List.of("com.destination"));
         AsyncRegistrationQueueRunner asyncRegistrationQueueRunner =
                 new AsyncRegistrationQueueRunner(
-                        mContext,
+                        mSpyContext,
                         mContentResolver,
                         mAsyncSourceFetcher,
                         mAsyncTriggerFetcher,
@@ -1151,7 +1154,7 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
         setUpApplicationStatus(List.of("com.destination"), List.of("com.destination2"));
         AsyncRegistrationQueueRunner asyncRegistrationQueueRunner =
                 new AsyncRegistrationQueueRunner(
-                        mContext,
+                        mSpyContext,
                         mContentResolver,
                         mAsyncSourceFetcher,
                         mAsyncTriggerFetcher,
@@ -1954,6 +1957,65 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
         verify(mMeasurementDao, times(1)).insertOrUpdateKeyValueData(redirectCountCaptor.capture());
         assertEquals(3, redirectCountCaptor.getValue().getRegistrationRedirectCount());
         verify(mMeasurementDao, times(1)).deleteAsyncRegistration(any(String.class));
+    }
+
+    @Test
+    public void test_runAsyncRegistrationQueueWorker_networkError_logRetryCount()
+            throws DatastoreException {
+        // Setup
+        AsyncRegistrationQueueRunner asyncRegistrationQueueRunner =
+                getSpyAsyncRegistrationQueueRunner();
+
+        AsyncRegistration validAsyncRegistration = createAsyncRegistrationForAppSource();
+        validAsyncRegistration.incrementRetryCount();
+
+        Answer<?> answerAsyncSourceFetcher =
+                invocation -> {
+                    AsyncFetchStatus asyncFetchStatus = invocation.getArgument(1);
+                    asyncFetchStatus.setResponseStatus(
+                            AsyncFetchStatus.ResponseStatus.NETWORK_ERROR);
+                    return Optional.empty();
+                };
+        doAnswer(answerAsyncSourceFetcher)
+                .when(mAsyncSourceFetcher)
+                .fetchSource(any(), any(), any());
+
+        Source.FakeReport sf =
+                new Source.FakeReport(
+                        new UnsignedLong(1L),
+                        1L,
+                        List.of(WebUtil.validUri("https://example.test/sF")));
+        List<Source.FakeReport> eventReportList = Collections.singletonList(sf);
+        when(mSourceNoiseHandler.assignAttributionModeAndGenerateFakeReports(mMockedSource))
+                .thenReturn(eventReportList);
+
+        when(mMeasurementDao.fetchNextQueuedAsyncRegistration(anyInt(), any()))
+                .thenReturn(validAsyncRegistration)
+                .thenReturn(null);
+
+        // Execution
+        ProcessingResult result = asyncRegistrationQueueRunner.runAsyncRegistrationQueueWorker();
+
+        // Assertions
+        MeasurementRegistrationResponseStats measurementRegistrationResponseStats =
+                getMeasurementRegistrationResponseStats();
+        assertEquals(ProcessingResult.SUCCESS_ALL_RECORDS_PROCESSED, result);
+        verify(mAsyncSourceFetcher, times(1))
+                .fetchSource(any(AsyncRegistration.class), any(), any());
+
+        ArgumentCaptor<AsyncRegistration> asyncRegistrationArgumentCaptor =
+                ArgumentCaptor.forClass(AsyncRegistration.class);
+        verify(mMeasurementDao, times(1))
+                .updateRetryCount(asyncRegistrationArgumentCaptor.capture());
+        Assert.assertEquals(1, asyncRegistrationArgumentCaptor.getAllValues().size());
+        Assert.assertEquals(
+                2, asyncRegistrationArgumentCaptor.getAllValues().get(0).getRetryCount());
+        Assert.assertEquals(2, measurementRegistrationResponseStats.getRetryCount());
+
+        verify(mMeasurementDao, never()).insertEventReport(any(EventReport.class));
+        verify(mMeasurementDao, never()).insertSource(any(Source.class));
+        verify(mMeasurementDao, never()).insertAsyncRegistration(any(AsyncRegistration.class));
+        verify(mMeasurementDao, never()).deleteAsyncRegistration(any(String.class));
     }
 
     @Test
@@ -3016,11 +3078,12 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
     }
 
     @Test
+    @SpyStatic(ErrorLogUtil.class)
     public void testRegisterWebSource_failsWebAndOsDestinationVerification()
             throws DatastoreException, IOException {
         // Setup
-        AsyncSourceFetcher mFetcher =
-                spy(new AsyncSourceFetcher(sDefaultContext, mEnrollmentDao, mFlags));
+        doNothingOnErrorLogUtilError();
+        AsyncSourceFetcher mFetcher = spy(new AsyncSourceFetcher(sContext, mEnrollmentDao, mFlags));
         WebSourceRegistrationRequest request =
                 buildWebSourceRegistrationRequest(
                         Collections.singletonList(DEFAULT_REGISTRATION_PARAM_LIST),
@@ -3052,7 +3115,7 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
         AsyncRegistrationQueueRunner asyncRegistrationQueueRunner =
                 spy(
                         new AsyncRegistrationQueueRunner(
-                                sDefaultContext,
+                                sContext,
                                 mContentResolver,
                                 mFetcher,
                                 mAsyncTriggerFetcher,
@@ -3092,6 +3155,9 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
                                 null)) {
             Assert.assertFalse(cursor.moveToNext());
         }
+        verifyErrorLogUtilError(
+                AD_SERVICES_ERROR_REPORTED__ERROR_CODE__ENROLLMENT_INVALID,
+                AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__MEASUREMENT);
     }
 
     @Test
@@ -3105,11 +3171,11 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
                         + "\"start_time\": \"0\", "
                         + String.format(
                                 "\"end_times\": [%s, %s, %s]}, ",
-                                TimeUnit.DAYS.toMillis(2),
-                                TimeUnit.DAYS.toMillis(7),
-                                TimeUnit.DAYS.toMillis(30))
+                                TimeUnit.DAYS.toSeconds(2),
+                                TimeUnit.DAYS.toSeconds(7),
+                                TimeUnit.DAYS.toSeconds(30))
                         + "\"summary_window_operator\": \"count\", "
-                        + "\"summary_buckets\": [1, 2, 3]}]\n";
+                        + "\"summary_buckets\": [1, 2]}]\n";
         TriggerSpec[] triggerSpecsArray = TriggerSpecsUtil.triggerSpecArrayFrom(triggerSpecsString);
         int maxEventLevelReports = 2;
         Source testSource =
@@ -3170,11 +3236,11 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
                         + "\"start_time\": \"0\", "
                         + String.format(
                                 "\"end_times\": [%s, %s, %s]}, ",
-                                TimeUnit.DAYS.toMillis(2),
-                                TimeUnit.DAYS.toMillis(7),
-                                TimeUnit.DAYS.toMillis(30))
+                                TimeUnit.DAYS.toSeconds(2),
+                                TimeUnit.DAYS.toSeconds(7),
+                                TimeUnit.DAYS.toSeconds(30))
                         + "\"summary_window_operator\": \"count\", "
-                        + "\"summary_buckets\": [1, 2, 3, 4]}]\n";
+                        + "\"summary_buckets\": [1, 2, 3]}]\n";
         TriggerSpec[] triggerSpecsArray = TriggerSpecsUtil.triggerSpecArrayFrom(triggerSpecsString);
         int maxEventLevelReports = 3;
         Source testSource =
@@ -3335,12 +3401,12 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
                         + "\"start_time\": \"0\", "
                         + String.format(
                                 "\"end_times\": [%s, %s, %s, %s]}, ",
-                                TimeUnit.DAYS.toMillis(2),
-                                TimeUnit.DAYS.toMillis(7),
-                                TimeUnit.DAYS.toMillis(14),
-                                TimeUnit.DAYS.toMillis(30))
+                                TimeUnit.DAYS.toSeconds(2),
+                                TimeUnit.DAYS.toSeconds(7),
+                                TimeUnit.DAYS.toSeconds(14),
+                                TimeUnit.DAYS.toSeconds(30))
                         + "\"summary_window_operator\": \"count\", "
-                        + "\"summary_buckets\": [1, 2, 3, 5, 6]}]\n";
+                        + "\"summary_buckets\": [1, 2, 3, 5]}]\n";
         TriggerSpec[] triggerSpecsArray = TriggerSpecsUtil.triggerSpecArrayFrom(triggerSpecsString);
         int maxEventLevelReports = 4;
         Source testSource =
@@ -3398,9 +3464,9 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
                         + "\"start_time\": \"0\", "
                         + String.format(
                                 "\"end_times\": [%s, %s, %s]}, ",
-                                TimeUnit.DAYS.toMillis(2),
-                                TimeUnit.DAYS.toMillis(7),
-                                TimeUnit.DAYS.toMillis(30))
+                                TimeUnit.DAYS.toSeconds(2),
+                                TimeUnit.DAYS.toSeconds(7),
+                                TimeUnit.DAYS.toSeconds(30))
                         + "\"summary_window_operator\": \"count\", "
                         + "\"summary_buckets\": [1, 2, 3]}]\n";
         TriggerSpec[] triggerSpecsArray = TriggerSpecsUtil.triggerSpecArrayFrom(triggerSpecsString);
@@ -3462,9 +3528,9 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
                         + "\"start_time\": \"0\", "
                         + String.format(
                                 "\"end_times\": [%s, %s, %s]}, ",
-                                TimeUnit.DAYS.toMillis(2),
-                                TimeUnit.DAYS.toMillis(7),
-                                TimeUnit.DAYS.toMillis(30))
+                                TimeUnit.DAYS.toSeconds(2),
+                                TimeUnit.DAYS.toSeconds(7),
+                                TimeUnit.DAYS.toSeconds(30))
                         + "\"summary_window_operator\": \"count\", "
                         + "\"summary_buckets\": [1, 2, 3]}]\n";
         TriggerSpec[] triggerSpecsArray = TriggerSpecsUtil.triggerSpecArrayFrom(triggerSpecsString);
@@ -3522,7 +3588,7 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
                 "[{\"trigger_data\": [1, 2],"
                         + "\"event_report_windows\": { "
                         + "\"start_time\": \"0\", "
-                        + String.format("\"end_times\": [%s]}, ", TimeUnit.DAYS.toMillis(7))
+                        + String.format("\"end_times\": [%s]}, ", TimeUnit.DAYS.toSeconds(7))
                         + "\"summary_window_operator\": \"count\", "
                         + "\"summary_buckets\": [1]}]\n";
         TriggerSpec[] triggerSpecsArray = TriggerSpecsUtil.triggerSpecArrayFrom(triggerSpecsString);
@@ -3731,7 +3797,7 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
     private AsyncRegistrationQueueRunner getSpyAsyncRegistrationQueueRunner() {
         return spy(
                 new AsyncRegistrationQueueRunner(
-                        sDefaultContext,
+                        sContext,
                         mContentResolver,
                         mAsyncSourceFetcher,
                         mAsyncTriggerFetcher,
@@ -3802,5 +3868,14 @@ public final class AsyncRegistrationQueueRunnerTest extends AdServicesExtendedMo
         db.delete("msmt_attribution", null, null);
         db.delete("msmt_aggregate_report", null, null);
         db.delete("msmt_async_registration_contract", null, null);
+    }
+
+    private MeasurementRegistrationResponseStats getMeasurementRegistrationResponseStats() {
+        ArgumentCaptor<MeasurementRegistrationResponseStats> statsArg =
+                ArgumentCaptor.forClass(MeasurementRegistrationResponseStats.class);
+        verify(mLogger).logMeasurementRegistrationsResponseSize(statsArg.capture());
+        MeasurementRegistrationResponseStats measurementRegistrationResponseStats =
+                statsArg.getValue();
+        return measurementRegistrationResponseStats;
     }
 }

@@ -26,7 +26,9 @@ import android.os.Parcelable;
 import com.android.adservices.AdServicesParcelableUtil;
 import com.android.adservices.flags.Flags;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -173,7 +175,7 @@ public final class AdSelectionConfig implements Parcelable {
     public AdSelectionConfig.Builder cloneToBuilder() {
         return new AdSelectionConfig.Builder()
                 .setSeller(this.getSeller())
-                .setBuyerSignedContextualAds(this.getBuyerSignedContextualAds())
+                .setPerBuyerSignedContextualAds(this.getPerBuyerSignedContextualAds())
                 .setAdSelectionSignals(this.getAdSelectionSignals())
                 .setCustomAudienceBuyers(this.getCustomAudienceBuyers())
                 .setDecisionLogicUri(this.getDecisionLogicUri())
@@ -203,8 +205,9 @@ public final class AdSelectionConfig implements Parcelable {
      */
     @NonNull
     public List<AdTechIdentifier> getCustomAudienceBuyers() {
-        return mCustomAudienceBuyers;
+        return new ArrayList<>(mCustomAudienceBuyers);
     }
+
 
     /**
      * @return JSON in an AdSelectionSignals object, fetched from the AdSelectionConfig and consumed
@@ -235,8 +238,9 @@ public final class AdSelectionConfig implements Parcelable {
      */
     @NonNull
     public Map<AdTechIdentifier, AdSelectionSignals> getPerBuyerSignals() {
-        return mPerBuyerSignals;
+        return new HashMap<>(mPerBuyerSignals);
     }
+
 
     /**
      * @return a Map of buyers and corresponding Contextual Ads, these ads are expected to be
@@ -244,8 +248,8 @@ public final class AdSelectionConfig implements Parcelable {
      */
     @FlaggedApi(Flags.FLAG_FLEDGE_AD_SELECTION_FILTERING_ENABLED)
     @NonNull
-    public Map<AdTechIdentifier, SignedContextualAds> getBuyerSignedContextualAds() {
-        return mBuyerSignedContextualAds;
+    public Map<AdTechIdentifier, SignedContextualAds> getPerBuyerSignedContextualAds() {
+        return new HashMap<>(mBuyerSignedContextualAds);
     }
 
     /**
@@ -386,11 +390,11 @@ public final class AdSelectionConfig implements Parcelable {
          *
          * <p>If not set, defaults to an empty map.
          *
-         * <p>See {@link #getBuyerSignedContextualAds()} ()} for more details.
+         * <p>See {@link #getPerBuyerSignedContextualAds()} for more details.
          */
         @FlaggedApi(Flags.FLAG_FLEDGE_AD_SELECTION_FILTERING_ENABLED)
         @NonNull
-        public AdSelectionConfig.Builder setBuyerSignedContextualAds(
+        public AdSelectionConfig.Builder setPerBuyerSignedContextualAds(
                 @NonNull Map<AdTechIdentifier, SignedContextualAds> buyerSignedContextualAds) {
             Objects.requireNonNull(buyerSignedContextualAds);
 

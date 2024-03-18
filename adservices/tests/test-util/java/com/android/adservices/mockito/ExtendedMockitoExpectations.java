@@ -15,6 +15,7 @@
  */
 package com.android.adservices.mockito;
 
+import static com.android.adservices.mockito.MockitoExpectations.getSpiedAdServicesJobServiceLogger;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doAnswer;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doNothing;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
@@ -25,7 +26,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.spy;
 
 import android.content.Context;
 import android.util.Log;
@@ -36,8 +36,6 @@ import com.android.adservices.common.SyncCallback;
 import com.android.adservices.errorlogging.ErrorLogUtil;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
-import com.android.adservices.service.stats.Clock;
-import com.android.adservices.service.stats.StatsdAdServicesLogger;
 import com.android.adservices.spe.AdServicesJobServiceLogger;
 import com.android.modules.utils.build.SdkLevel;
 
@@ -59,19 +57,25 @@ public final class ExtendedMockitoExpectations {
 
     private static final String TAG = ExtendedMockitoExpectations.class.getSimpleName();
 
-    /** Mocks a call to {@link SdkLevel#isAtLeastR()}, returning {@code isIt}. */
-    public static void mockIsAtLeastR(boolean isIt) {
-        Log.v(TAG, "mockIsAtLeastR(" + isIt + ")");
-        doReturn(isIt).when(SdkLevel::isAtLeastR);
-    }
-
-    /** Mocks a call to {@link SdkLevel#isAtLeastS()}, returning {@code isIt}. */
+    // TODO(b/314969513): remove once there is no more usage
+    /**
+     * Mocks a call to {@link SdkLevel#isAtLeastS()}, returning {@code isIt}.
+     *
+     * @deprecated - use {@link AdServicesExtendedMockitoRule#mockIsAtLeastS(boolean)} instead
+     */
+    @Deprecated
     public static void mockIsAtLeastS(boolean isIt) {
         Log.v(TAG, "mockIsAtLeastS(" + isIt + ")");
         doReturn(isIt).when(SdkLevel::isAtLeastS);
     }
 
-    /** Mocks a call to {@link SdkLevel#isAtLeastT()}, returning {@code isIt}. */
+    // TODO(b/314969513): remove once there is no more usage
+    /**
+     * Mocks a call to {@link SdkLevel#isAtLeastT()}, returning {@code isIt}.
+     *
+     * @deprecated - use {@link AdServicesExtendedMockitoRule#mockIsAtLeastT(boolean)} instead
+     */
+    @Deprecated
     public static void mockIsAtLeastT(boolean isIt) {
         Log.v(TAG, "mockIsAtLeastT(" + isIt + ")");
         doReturn(isIt).when(SdkLevel::isAtLeastT);
@@ -163,7 +167,7 @@ public final class ExtendedMockitoExpectations {
     /**
      * Mocks a call to a method that dumps something into a {@link PrintWriter}.
      *
-     * @param runnable invocation that will call dump passing a {@link PrintWriter}. Typically a
+     * @param invocation invocation that will call dump passing a {@link PrintWriter}. Typically a
      *     static method, using {@code any()} to represent the {@link PrintWriter} reference.
      * @param pwArgIndex index of the {@link PrintWriter}
      * @param dump value to be {@code println}'ed into the {@link PrintWriter}.
@@ -179,10 +183,9 @@ public final class ExtendedMockitoExpectations {
     }
 
     /** Mocks {@link AdServicesJobServiceLogger} to not actually log the stats to server. */
-    public static AdServicesJobServiceLogger mockAdservicesJobServiceLogger(
-            Context context, StatsdAdServicesLogger statsDLogger) {
-        AdServicesJobServiceLogger logger =
-                spy(new AdServicesJobServiceLogger(context, Clock.SYSTEM_CLOCK, statsDLogger));
+    public static AdServicesJobServiceLogger mockAdServicesJobServiceLogger(
+            Context context, Flags flags) {
+        AdServicesJobServiceLogger logger = getSpiedAdServicesJobServiceLogger(context, flags);
 
         mockGetAdServicesJobServiceLogger(logger);
         doNothing().when(logger).recordOnStartJob(anyInt());
