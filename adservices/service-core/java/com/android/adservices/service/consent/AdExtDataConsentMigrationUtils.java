@@ -47,8 +47,8 @@ import java.util.Objects;
  * Utility methods for consent migration from AdExtDataStorage (Android R) to AppSearch (Android S)
  * and System Server (Android T+).
  *
- * NOTE: Until Consent Migration V2 is fully launched, keep AdExtDataConsentMigrationUtilsV2 in
- * sync with this file.
+ * <p>IMPORTANT: Until ConsentManagerV2 is launched, keep in sync with
+ * AdExtDataConsentMigrationUtilsV2.
  */
 public final class AdExtDataConsentMigrationUtils {
     private AdExtDataConsentMigrationUtils() {
@@ -143,7 +143,7 @@ public final class AdExtDataConsentMigrationUtils {
         // There could be a case where we may need to ramp down enable_adext_service_consent_data
         // flag on S+, in which case we should gracefully handle consent migration by skipping.
         if (adExtDataManager == null) {
-            LogUtil.d("AdExtDataManager is null. Consent migration to AppSearch not needed");
+            LogUtil.d("AdExtDataManager is null. Consent migration from AdExtData not needed");
             return false;
         }
 
