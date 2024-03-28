@@ -108,6 +108,8 @@ import java.util.stream.Stream;
  *   <li>PPAPI_AND_SYSTEM_SERVER: Write consent to both PPAPI and system server. Read consent from
  *       system server only.
  * </ul>
+ *
+ * IMPORTANT: Until ConsentManagerV2 is launched, keep in sync with ConsentManagerV2
  */
 // TODO(b/259791134): Add a CTS/UI test to test the Consent Migration
 // TODO(b/269798827): Enable for R.
@@ -2220,6 +2222,10 @@ public class ConsentManager {
                 /* errorLogger= */ null);
     }
 
+    /**
+     * get pas conset for fledge, pasUxEnable flag has checked iseea, thus we don't need to check
+     * this again
+     */
     public boolean isPasFledgeConsentGiven() {
         if (mFlags.getConsentManagerDebugMode()) {
             return true;
@@ -2228,6 +2234,17 @@ public class ConsentManager {
         return mFlags.getPasUxEnabled()
                 && wasPasNotificationDisplayed()
                 && getConsent(AdServicesApiType.FLEDGE).isGiven();
+    }
+
+    /** get pas conset for measurement */
+    public boolean isPasMeasurementConsentGiven() {
+        if (mFlags.getConsentManagerDebugMode()) {
+            return true;
+        }
+
+        return mFlags.getPasUxEnabled()
+                && wasPasNotificationDisplayed()
+                && getConsent(AdServicesApiType.MEASUREMENTS).isGiven();
     }
 
     @FunctionalInterface
