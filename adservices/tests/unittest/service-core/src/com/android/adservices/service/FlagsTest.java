@@ -23,6 +23,7 @@ import static com.android.adservices.service.Flags.AD_SERVICES_MODULE_JOB_POLICY
 import static com.android.adservices.service.Flags.APPSEARCH_ONLY;
 import static com.android.adservices.service.Flags.DEFAULT_BLOCKED_TOPICS_SOURCE_OF_TRUTH;
 import static com.android.adservices.service.Flags.DEFAULT_CONSENT_SOURCE_OF_TRUTH;
+import static com.android.adservices.service.Flags.DEFAULT_JOB_SCHEDULING_LOGGING_SAMPLING_RATE;
 import static com.android.adservices.service.Flags.DEFAULT_RVC_UX_ENABLED;
 import static com.android.adservices.service.Flags.ENABLE_ADEXT_SERVICE_CONSENT_DATA;
 import static com.android.adservices.service.Flags.ENABLE_APPSEARCH_CONSENT_DATA;
@@ -331,6 +332,32 @@ public final class FlagsTest extends AdServicesUnitTestCase {
                 flags -> flags.getFledgeAuctionServerGetAdSelectionDataPayloadMetricsEnabled());
     }
 
+    @Test
+    public void testGetSpeOnPilotJobsEnabled() {
+        testFeatureFlag(
+                "DEFAULT_SPE_ON_PILOT_JOBS_ENABLED", flags -> flags.getSpeOnPilotJobsEnabled());
+    }
+
+    @Test
+    public void testGetEnrollmentApiBasedSchemaEnabled() {
+        testFeatureFlag(
+                "ENROLLMENT_API_BASED_SCHEMA_ENABLED",
+                flags -> flags.getEnrollmentApiBasedSchemaEnabled());
+    }
+
+    @Test
+    public void testGetSharedDatabaseSchemaVersion4Enabled() {
+        testFeatureFlag(
+                "SHARED_DATABASE_SCHEMA_VERSION_4_ENABLED",
+                flags -> flags.getSharedDatabaseSchemaVersion4Enabled());
+    }
+
+    @Test
+    public void testGetJobSchedulingLoggingEnabled() {
+        testFeatureFlag(
+                "DEFAULT_JOB_SCHEDULING_LOGGING_ENABLED", Flags::getJobSchedulingLoggingEnabled);
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////
     // Tests for (legacy) kill-switch flags that will be refactored as feature flag - they should //
     // move to the block above once refactored.                                                   //
@@ -380,6 +407,13 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetPasExtendedMetricsEnabled() {
+        testFeatureFlag(
+                "PAS_EXTENDED_METRICS_ENABLED",
+                flags -> flags.getPasExtendedMetricsEnabled());
+    }
+
+    @Test
     public void testGetMeasurementAttributionFallbackJobEnabled() {
         testMsmtFeatureFlagBackedByLegacyKillSwitchAndGuardedByMsmtEnabled(
                 "getMeasurementAttributionFallbackJobEnabled()",
@@ -407,6 +441,14 @@ public final class FlagsTest extends AdServicesUnitTestCase {
                 "getTopicsEpochJobFlexMs()",
                 TOPICS_EPOCH_JOB_FLEX_MS,
                 flags -> flags.getTopicsEpochJobFlexMs());
+    }
+
+    @Test
+    public void testGetJobSchedulingLoggingSamplingRate() {
+        testFlag(
+                "getJobSchedulingLoggingSamplingRate()",
+                DEFAULT_JOB_SCHEDULING_LOGGING_SAMPLING_RATE,
+                (Flaginator<Integer>) flags -> (int) flags.getJobSchedulingLoggingSamplingRate());
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -465,6 +507,12 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     private void testFlag(String getterName, long defaultValue, Flaginator<Long> flaginator) {
+        expect.withMessage("%s", getterName)
+                .that(flaginator.getFlagValue(mFlags))
+                .isEqualTo(defaultValue);
+    }
+
+    private void testFlag(String getterName, int defaultValue, Flaginator<Integer> flaginator) {
         expect.withMessage("%s", getterName)
                 .that(flaginator.getFlagValue(mFlags))
                 .isEqualTo(defaultValue);
