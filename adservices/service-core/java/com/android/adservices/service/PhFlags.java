@@ -16,6 +16,7 @@
 
 package com.android.adservices.service;
 
+import static com.android.adservices.service.DeviceConfigFlagsHelper.getDeviceConfigFlag;
 import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_JS_SCRIPT_ENGINE_MAX_RETRY_ATTEMPTS;
 import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_MODULE_JOB_POLICY;
 import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_RETRY_STRATEGY_ENABLED;
@@ -24,7 +25,9 @@ import static com.android.adservices.service.FlagsConstants.KEY_APPSEARCH_WRITE_
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_CONSENT_MANAGER_V2;
 import static com.android.adservices.service.FlagsConstants.KEY_ENCRYPTION_KEY_JOB_PERIOD_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_ENCRYPTION_KEY_JOB_REQUIRED_NETWORK_TYPE;
+import static com.android.adservices.service.FlagsConstants.KEY_ENROLLMENT_API_BASED_SCHEMA_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_ENABLE_KANON_SIGN_JOIN_FEATURE;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_IS_CONSENTED_DEBUGGING_CLI_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_IS_CUSTOM_AUDIENCE_CLI_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_KANON_BACKGROUND_PROCESS_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_KANON_BACKGROUND_TIME_PERIOD_IN_MS;
@@ -41,6 +44,8 @@ import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_KANON_SIG
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_KANON_SIGN_JOIN_LOGGING_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_FALLBACK_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_JOB_SCHEDULING_LOGGING_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_JOB_SCHEDULING_LOGGING_SAMPLING_RATE;
 import static com.android.adservices.service.FlagsConstants.KEY_KANON_FETCH_PARAMETERS_URL;
 import static com.android.adservices.service.FlagsConstants.KEY_MDD_LOGGER_KILL_SWITCH;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_AGGREGATE_FALLBACK_REPORTING_JOB_PERSISTED;
@@ -75,13 +80,15 @@ import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_EVEN
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_EVENT_REPORTING_JOB_REQUIRED_NETWORK_TYPE;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_VERBOSE_DEBUG_REPORTING_FALLBACK_JOB_PERSISTED;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_VERBOSE_DEBUG_REPORTING_JOB_REQUIRED_NETWORK_TYPE;
+import static com.android.adservices.service.FlagsConstants.KEY_PAS_EXTENDED_METRICS_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_SHARED_DATABASE_SCHEMA_VERSION_4_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_SPE_ON_PILOT_JOBS_ENABLED;
 import static com.android.adservices.service.FlagsConstants.MAX_PERCENTAGE;
 
 import static java.lang.Float.parseFloat;
 
 import android.annotation.NonNull;
 import android.os.SystemProperties;
-import android.provider.DeviceConfig;
 import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
@@ -1939,6 +1946,27 @@ public final class PhFlags extends CommonPhFlags implements Flags {
     }
 
     @Override
+    public String getUiOtaResourcesManifestFileUrl() {
+        return SystemProperties.get(
+                getSystemPropertyName(FlagsConstants.KEY_UI_OTA_RESOURCES_MANIFEST_FILE_URL),
+                getDeviceConfigFlag(
+                        FlagsConstants.KEY_UI_OTA_RESOURCES_MANIFEST_FILE_URL,
+                        UI_OTA_RESOURCES_MANIFEST_FILE_URL));
+    }
+
+    @Override
+    public boolean getUiOtaResourcesFeatureEnabled() {
+        if (getGlobalKillSwitch()) {
+            return false;
+        }
+        return SystemProperties.getBoolean(
+                getSystemPropertyName(FlagsConstants.KEY_UI_OTA_RESOURCES_FEATURE_ENABLED),
+                getDeviceConfigFlag(
+                        FlagsConstants.KEY_UI_OTA_RESOURCES_FEATURE_ENABLED,
+                        UI_OTA_RESOURCES_FEATURE_ENABLED));
+    }
+
+    @Override
     public long getUiOtaStringsDownloadDeadline() {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_UI_OTA_STRINGS_DOWNLOAD_DEADLINE,
@@ -1973,13 +2001,6 @@ public final class PhFlags extends CommonPhFlags implements Flags {
         }
 
         return numberOfEpochsToKeepInHistory;
-    }
-
-    @Override
-    public boolean getAdSelectionOffDeviceEnabled() {
-        return getDeviceConfigFlag(
-                FlagsConstants.KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED,
-                FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED);
     }
 
     @Override
@@ -2069,6 +2090,13 @@ public final class PhFlags extends CommonPhFlags implements Flags {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_URI,
                 FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_URI);
+    }
+
+    @Override
+    public boolean getFledgeAuctionServerRefreshExpiredKeysDuringAuction() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_REFRESH_EXPIRED_KEYS_DURING_AUCTION,
+                FLEDGE_AUCTION_SERVER_REFRESH_EXPIRED_KEYS_DURING_AUCTION);
     }
 
     @Override
@@ -2268,6 +2296,13 @@ public final class PhFlags extends CommonPhFlags implements Flags {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_MULTI_CLOUD_ENABLED,
                 FLEDGE_AUCTION_SERVER_MULTI_CLOUD_ENABLED);
+    }
+
+    @Override
+    public boolean getFledgeAuctionServerConsentedDebuggingEnabled() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_CONSENTED_DEBUGGING_ENABLED,
+                FLEDGE_AUCTION_SERVER_CONSENTED_DEBUGGING_ENABLED);
     }
 
     @Override
@@ -3179,6 +3214,16 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                         + FlagsConstants.KEY_UI_OTA_STRINGS_MANIFEST_FILE_URL
                         + " = "
                         + getUiOtaStringsManifestFileUrl());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_UI_OTA_RESOURCES_MANIFEST_FILE_URL
+                        + " = "
+                        + getUiOtaStringsManifestFileUrl());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_UI_OTA_RESOURCES_FEATURE_ENABLED
+                        + " = "
+                        + getUiOtaResourcesFeatureEnabled());
         writer.println(
                 "\t"
                         + FlagsConstants.KEY_DOWNLOADER_CONNECTION_TIMEOUT_MS
@@ -4259,6 +4304,11 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                         + getFledgeAuctionServerGetAdSelectionDataPayloadMetricsEnabled());
         writer.println(
                 "\t"
+                        + FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_CONSENTED_DEBUGGING_ENABLED
+                        + " = "
+                        + getFledgeAuctionServerConsentedDebuggingEnabled());
+        writer.println(
+                "\t"
                         + FlagsConstants.KEY_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS
                         + " = "
                         + getAdSelectionOverallTimeoutMs());
@@ -4458,11 +4508,6 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                         + FlagsConstants.KEY_FOREGROUND_STATUS_LEVEL
                         + " = "
                         + getForegroundStatuslLevelForValidation());
-        writer.println(
-                "\t"
-                        + FlagsConstants.KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED
-                        + " = "
-                        + getAdSelectionOffDeviceEnabled());
         writer.println(
                 "\t"
                         + FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_PAYLOAD_BUCKET_SIZES
@@ -5002,6 +5047,11 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                         + getFledgeCustomAudienceCLIEnabledStatus());
         writer.println(
                 "\t"
+                        + KEY_FLEDGE_IS_CONSENTED_DEBUGGING_CLI_ENABLED
+                        + " = "
+                        + getFledgeConsentedDebuggingCliEnabledStatus());
+        writer.println(
+                "\t"
                         + KEY_AD_SERVICES_RETRY_STRATEGY_ENABLED
                         + " = "
                         + getAdServicesRetryStrategyEnabled());
@@ -5216,6 +5266,9 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                 getEnableRvcPostOtaNotification());
         uxMap.put(
                 FlagsConstants.KEY_UI_OTA_STRINGS_FEATURE_ENABLED, getUiOtaStringsFeatureEnabled());
+        uxMap.put(
+                FlagsConstants.KEY_UI_OTA_RESOURCES_FEATURE_ENABLED,
+                getUiOtaResourcesFeatureEnabled());
         uxMap.put(
                 FlagsConstants.KEY_UI_FEATURE_TYPE_LOGGING_ENABLED,
                 isUiFeatureTypeLoggingEnabled());
@@ -5943,6 +5996,13 @@ public final class PhFlags extends CommonPhFlags implements Flags {
     }
 
     @Override
+    public boolean getFledgeConsentedDebuggingCliEnabledStatus() {
+        return getDeviceConfigFlag(
+                KEY_FLEDGE_IS_CONSENTED_DEBUGGING_CLI_ENABLED,
+                FLEDGE_DEFAULT_CONSENTED_DEBUGGING_CLI_ENABLED);
+    }
+
+    @Override
     public boolean getBackgroundJobsLoggingEnabled() {
         return !getBackgroundJobsLoggingKillSwitch();
     }
@@ -5966,33 +6026,44 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                 KEY_ENABLE_CONSENT_MANAGER_V2, DEFAULT_ENABLE_CONSENT_MANAGER_V2);
     }
 
+    @Override
+    public boolean getPasExtendedMetricsEnabled() {
+        return getDeviceConfigFlag(KEY_PAS_EXTENDED_METRICS_ENABLED, PAS_EXTENDED_METRICS_ENABLED);
+    }
+
+    @Override
+    public boolean getSpeOnPilotJobsEnabled() {
+        return getDeviceConfigFlag(
+                KEY_SPE_ON_PILOT_JOBS_ENABLED, DEFAULT_SPE_ON_PILOT_JOBS_ENABLED);
+    }
+
+    @Override
+    public boolean getEnrollmentApiBasedSchemaEnabled() {
+        return getDeviceConfigFlag(
+                KEY_ENROLLMENT_API_BASED_SCHEMA_ENABLED, ENROLLMENT_API_BASED_SCHEMA_ENABLED);
+    }
+
+    @Override
+    public boolean getSharedDatabaseSchemaVersion4Enabled() {
+        return getDeviceConfigFlag(
+                KEY_SHARED_DATABASE_SCHEMA_VERSION_4_ENABLED,
+                SHARED_DATABASE_SCHEMA_VERSION_4_ENABLED);
+    }
+
+    @Override
+    public boolean getJobSchedulingLoggingEnabled() {
+        return getDeviceConfigFlag(
+                KEY_JOB_SCHEDULING_LOGGING_ENABLED, DEFAULT_JOB_SCHEDULING_LOGGING_ENABLED);
+    }
+
+    @Override
+    public int getJobSchedulingLoggingSamplingRate() {
+        return getDeviceConfigFlag(
+                KEY_JOB_SCHEDULING_LOGGING_SAMPLING_RATE,
+                DEFAULT_JOB_SCHEDULING_LOGGING_SAMPLING_RATE);
+    }
+
     // Do NOT add Flag / @Override methods below - it should only contain helpers
-
-    @VisibleForTesting
-    static boolean getDeviceConfigFlag(String name, boolean defaultValue) {
-        return DeviceConfig.getBoolean(FlagsConstants.NAMESPACE_ADSERVICES, name, defaultValue);
-    }
-
-    @VisibleForTesting
-    static String getDeviceConfigFlag(String name, String defaultValue) {
-        return DeviceConfig.getString(FlagsConstants.NAMESPACE_ADSERVICES, name, defaultValue);
-    }
-
-    @VisibleForTesting
-    static int getDeviceConfigFlag(String name, int defaultValue) {
-        return DeviceConfig.getInt(FlagsConstants.NAMESPACE_ADSERVICES, name, defaultValue);
-    }
-
-    @VisibleForTesting
-    static long getDeviceConfigFlag(String name, long defaultValue) {
-        return DeviceConfig.getLong(FlagsConstants.NAMESPACE_ADSERVICES, name, defaultValue);
-    }
-
-    @VisibleForTesting
-    static float getDeviceConfigFlag(String name, float defaultValue) {
-        return DeviceConfig.getFloat(FlagsConstants.NAMESPACE_ADSERVICES, name, defaultValue);
-    }
-
     /**
      * @deprecated - reading a flag from {@link SystemProperties} first is deprecated - this method
      *     should only be used to refactor existing methods in this class, not on new ones.
@@ -6001,9 +6072,7 @@ public final class PhFlags extends CommonPhFlags implements Flags {
     private static boolean getFlagFromSystemPropertiesOrDeviceConfig(
             String name, boolean defaultValue) {
         return SystemProperties.getBoolean(
-                getSystemPropertyName(name),
-                /* def= */ DeviceConfig.getBoolean(
-                        FlagsConstants.NAMESPACE_ADSERVICES, name, defaultValue));
+                getSystemPropertyName(name), getDeviceConfigFlag(name, defaultValue));
     }
 
     @VisibleForTesting

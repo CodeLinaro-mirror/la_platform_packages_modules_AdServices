@@ -16,6 +16,7 @@
 
 package com.android.adservices.ui.notifications;
 
+import static com.android.adservices.common.ScreenSize.SMALL_SCREEN;
 import static com.android.adservices.service.FlagsConstants.KEY_GA_UX_FEATURE_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_NOTIFICATION_DISMISSED_ON_CLICK;
 import static com.android.adservices.service.FlagsConstants.KEY_PAS_UX_ENABLED;
@@ -69,6 +70,8 @@ import androidx.test.uiautomator.Until;
 import com.android.adservices.api.R;
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
 import com.android.adservices.common.AdservicesTestHelper;
+import com.android.adservices.common.RequiresScreenSizeDevice;
+import com.android.adservices.common.RequiresSdkLevelAtLeastT;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.consent.AdServicesApiConsent;
@@ -110,6 +113,7 @@ public final class ConsentNotificationTriggerTest extends AdServicesExtendedMock
 
     private static final String NOTIFICATION_CHANNEL_ID = "PRIVACY_SANDBOX_CHANNEL";
     private static final int LAUNCH_TIMEOUT = 5000;
+    private static final int BACK_COMPAT_SCROLLER_LAUNCH_TIMEOUT = 8000;
     private static UiDevice sDevice;
 
     private AdServicesManager mAdServicesManager;
@@ -464,6 +468,7 @@ public final class ConsentNotificationTriggerTest extends AdServicesExtendedMock
     }
 
     @Test
+    @RequiresScreenSizeDevice(SMALL_SCREEN)
     public void testRowNotification_rvcUxFlagEnabled()
             throws InterruptedException, UiObjectNotFoundException {
         testRvcUxNotification(false);
@@ -546,7 +551,7 @@ public final class ConsentNotificationTriggerTest extends AdServicesExtendedMock
                 Until.hasObject(
                         By.pkg("com.android.systemui")
                                 .res("com.android.systemui:id/notification_stack_scroller")),
-                LAUNCH_TIMEOUT);
+                BACK_COMPAT_SCROLLER_LAUNCH_TIMEOUT);
 
         UiObject scroller =
                 sDevice.findObject(
@@ -568,6 +573,7 @@ public final class ConsentNotificationTriggerTest extends AdServicesExtendedMock
     }
 
     @Test
+    @RequiresScreenSizeDevice(SMALL_SCREEN)
     public void testRvcPostOtaRowNotification()
             throws InterruptedException, UiObjectNotFoundException {
         testRvcPostOtaNotification(false);
@@ -673,7 +679,7 @@ public final class ConsentNotificationTriggerTest extends AdServicesExtendedMock
                 Until.hasObject(
                         By.pkg("com.android.systemui")
                                 .res("com.android.systemui:id/notification_stack_scroller")),
-                LAUNCH_TIMEOUT);
+                BACK_COMPAT_SCROLLER_LAUNCH_TIMEOUT);
 
         UiObject scroller =
                 sDevice.findObject(
@@ -699,8 +705,8 @@ public final class ConsentNotificationTriggerTest extends AdServicesExtendedMock
     }
 
     @Test
+    @RequiresSdkLevelAtLeastT(reason = "PAS UX is currently only available on T+ devices")
     public void testPasNotifications_PasUxEnabled_FirstNotice() throws InterruptedException {
-        Assume.assumeTrue(SdkLevel.isAtLeastT());
         doReturn(true).when(mMockFlags).getEnableAdServicesSystemApi();
         doReturn(true).when(mMockUxStatesManager).getFlag(KEY_PAS_UX_ENABLED);
         doReturn(true).when(mMockUxStatesManager).pasUxIsActive(anyBoolean());

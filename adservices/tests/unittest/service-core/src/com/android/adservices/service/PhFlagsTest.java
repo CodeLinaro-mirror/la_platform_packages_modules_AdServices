@@ -69,6 +69,8 @@ import static com.android.adservices.service.Flags.DEFAULT_ENABLE_AD_SERVICES_SY
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_CONSENT_MANAGER_V2;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_U18_APPSEARCH_MIGRATION;
 import static com.android.adservices.service.Flags.DEFAULT_IS_GET_ADSERVICES_COMMON_STATES_API_ENABLED;
+import static com.android.adservices.service.Flags.DEFAULT_JOB_SCHEDULING_LOGGING_ENABLED;
+import static com.android.adservices.service.Flags.DEFAULT_JOB_SCHEDULING_LOGGING_SAMPLING_RATE;
 import static com.android.adservices.service.Flags.DEFAULT_MAINLINE_TRAIN_VERSION;
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_ASYNC_REGISTRATION_JOB_TRIGGER_MAX_DELAY_MS;
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_ASYNC_REGISTRATION_JOB_TRIGGER_MIN_DELAY_MS;
@@ -94,6 +96,7 @@ import static com.android.adservices.service.Flags.DEFAULT_PAS_UX_ENABLED;
 import static com.android.adservices.service.Flags.DEFAULT_RVC_POST_OTA_NOTIFICATION_ENABLED;
 import static com.android.adservices.service.Flags.DEFAULT_RVC_POST_OTA_NOTIF_AGE_CHECK;
 import static com.android.adservices.service.Flags.DEFAULT_RVC_UX_ENABLED;
+import static com.android.adservices.service.Flags.DEFAULT_SPE_ON_PILOT_JOBS_ENABLED;
 import static com.android.adservices.service.Flags.DEFAULT_U18_UX_ENABLED;
 import static com.android.adservices.service.Flags.DISABLE_FLEDGE_ENROLLMENT_CHECK;
 import static com.android.adservices.service.Flags.DISABLE_MEASUREMENT_ENROLLMENT_CHECK;
@@ -122,6 +125,7 @@ import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_FLE
 import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_SIGNALS;
 import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_TOPICS;
 import static com.android.adservices.service.Flags.ENFORCE_ISOLATE_MAX_HEAP_SIZE;
+import static com.android.adservices.service.Flags.ENROLLMENT_API_BASED_SCHEMA_ENABLED;
 import static com.android.adservices.service.Flags.ENROLLMENT_ENABLE_LIMITED_LOGGING;
 import static com.android.adservices.service.Flags.ENROLLMENT_MDD_RECORD_DELETION_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_PER_BUYER_EVENT_COUNT;
@@ -136,7 +140,6 @@ import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_EXPIRATIO
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_FILTERING_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_FROM_OUTCOMES_OVERALL_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_MAX_CONCURRENT_BIDDING_COUNT;
-import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_OFF_DEVICE_OVERALL_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_OFF_DEVICE_REQUEST_COMPRESSION_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS;
@@ -160,6 +163,7 @@ import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGRO
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_CONNECT_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_NETWORK_READ_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_CONSENTED_DEBUGGING_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_COORDINATOR_URL_ALLOWLIST;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_ENABLED_FOR_REPORT_EVENT;
@@ -181,6 +185,7 @@ import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_OMIT_AD
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_OVERALL_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_PAYLOAD_BUCKET_SIZES;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION;
+import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_REFRESH_EXPIRED_KEYS_DURING_AUCTION;
 import static com.android.adservices.service.Flags.FLEDGE_AUCTION_SERVER_REQUEST_FLAGS_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_BACKGROUND_FETCH_ELIGIBLE_UPDATE_BASE_INTERVAL_S;
 import static com.android.adservices.service.Flags.FLEDGE_BACKGROUND_FETCH_ENABLED;
@@ -214,6 +219,7 @@ import static com.android.adservices.service.Flags.FLEDGE_DEBUG_REPORT_SENDER_JO
 import static com.android.adservices.service.Flags.FLEDGE_DEBUG_REPORT_SENDER_JOB_NETWORK_CONNECT_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_DEBUG_REPORT_SENDER_JOB_NETWORK_READ_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.FLEDGE_DEBUG_REPORT_SENDER_JOB_PERIOD_MS;
+import static com.android.adservices.service.Flags.FLEDGE_DEFAULT_CONSENTED_DEBUGGING_CLI_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_DEFAULT_CUSTOM_AUDIENCE_CLI_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_DEFAULT_KANON_AUTHORIY_URL_JOIN;
 import static com.android.adservices.service.Flags.FLEDGE_DEFAULT_KANON_BACKGROUND_JOB_TIME_PERIOD_MS;
@@ -444,6 +450,7 @@ import static com.android.adservices.service.Flags.MEASUREMENT_VERBOSE_DEBUG_REP
 import static com.android.adservices.service.Flags.MSMT_API_APP_ALLOW_LIST;
 import static com.android.adservices.service.Flags.MSMT_API_APP_BLOCK_LIST;
 import static com.android.adservices.service.Flags.NUMBER_OF_EPOCHS_TO_KEEP_IN_HISTORY;
+import static com.android.adservices.service.Flags.PAS_EXTENDED_METRICS_ENABLED;
 import static com.android.adservices.service.Flags.PPAPI_APP_ALLOW_LIST;
 import static com.android.adservices.service.Flags.PPAPI_APP_SIGNATURE_ALLOW_LIST;
 import static com.android.adservices.service.Flags.PRECOMPUTED_CLASSIFIER;
@@ -457,6 +464,7 @@ import static com.android.adservices.service.Flags.PROTECTED_SIGNALS_PERIODIC_EN
 import static com.android.adservices.service.Flags.PROTECTED_SIGNALS_PERIODIC_ENCODING_JOB_PERIOD_MS;
 import static com.android.adservices.service.Flags.RECORD_MANUAL_INTERACTION_ENABLED;
 import static com.android.adservices.service.Flags.SDK_REQUEST_PERMITS_PER_SECOND;
+import static com.android.adservices.service.Flags.SHARED_DATABASE_SCHEMA_VERSION_4_ENABLED;
 import static com.android.adservices.service.Flags.TOGGLE_SPEED_BUMP_ENABLED;
 import static com.android.adservices.service.Flags.TOPICS_API_APP_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.Flags.TOPICS_API_SDK_REQUEST_PERMITS_PER_SECOND;
@@ -477,6 +485,8 @@ import static com.android.adservices.service.Flags.TOPICS_TEST_ENCRYPTION_PUBLIC
 import static com.android.adservices.service.Flags.UI_DIALOG_FRAGMENT;
 import static com.android.adservices.service.Flags.UI_EEA_COUNTRIES;
 import static com.android.adservices.service.Flags.UI_FEATURE_TYPE_LOGGING_ENABLED;
+import static com.android.adservices.service.Flags.UI_OTA_RESOURCES_FEATURE_ENABLED;
+import static com.android.adservices.service.Flags.UI_OTA_RESOURCES_MANIFEST_FILE_URL;
 import static com.android.adservices.service.Flags.UI_OTA_STRINGS_MANIFEST_FILE_URL;
 import static com.android.adservices.service.FlagsConstants.ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_ADID_KILL_SWITCH;
@@ -548,6 +558,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_ENCRYPTION_KEY_P
 import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_SIGNALS;
 import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_TOPICS;
 import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_ISOLATE_MAX_HEAP_SIZE;
+import static com.android.adservices.service.FlagsConstants.KEY_ENROLLMENT_API_BASED_SCHEMA_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_ENROLLMENT_BLOCKLIST_IDS;
 import static com.android.adservices.service.FlagsConstants.KEY_ENROLLMENT_ENABLE_LIMITED_LOGGING;
 import static com.android.adservices.service.FlagsConstants.KEY_ENROLLMENT_MDD_RECORD_DELETION_ENABLED;
@@ -563,7 +574,6 @@ import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AD_SELECT
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AD_SELECTION_FILTERING_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AD_SELECTION_FROM_OUTCOMES_OVERALL_TIMEOUT_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AD_SELECTION_MAX_CONCURRENT_BIDDING_COUNT;
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_OVERALL_TIMEOUT_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_REQUEST_COMPRESSION_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS;
@@ -586,6 +596,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_S
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RESPONSE_SIZE_B;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_MAX_RUNTIME_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_CONSENTED_DEBUGGING_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_COORDINATOR_URL_ALLOWLIST;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_ENABLED_FOR_REPORT_EVENT;
@@ -607,6 +618,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_S
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_OVERALL_TIMEOUT_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_PAYLOAD_BUCKET_SIZES;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_REFRESH_EXPIRED_KEYS_DURING_AUCTION;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_REQUEST_FLAGS_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_BACKGROUND_FETCH_ELIGIBLE_UPDATE_BASE_INTERVAL_S;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_BACKGROUND_FETCH_ENABLED;
@@ -644,6 +656,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_HTTP_CACH
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_HTTP_CACHE_ENABLE;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_HTTP_CACHE_ENABLE_JS_CACHING;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_HTTP_CACHE_MAX_ENTRIES;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_IS_CONSENTED_DEBUGGING_CLI_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_IS_CUSTOM_AUDIENCE_CLI_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_KANON_BACKGROUND_PROCESS_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_KANON_BACKGROUND_TIME_PERIOD_IN_MS;
@@ -686,6 +699,8 @@ import static com.android.adservices.service.FlagsConstants.KEY_IS_EEA_DEVICE_FE
 import static com.android.adservices.service.FlagsConstants.KEY_IS_GET_ADSERVICES_COMMON_STATES_API_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_IS_U18_SUPERVISED_ACCOUNT_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_IS_U18_UX_DETENTION_CHANNEL_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_JOB_SCHEDULING_LOGGING_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_JOB_SCHEDULING_LOGGING_SAMPLING_RATE;
 import static com.android.adservices.service.FlagsConstants.KEY_KANON_FETCH_PARAMETERS_URL;
 import static com.android.adservices.service.FlagsConstants.KEY_MAINLINE_TRAIN_VERSION;
 import static com.android.adservices.service.FlagsConstants.KEY_MAINTENANCE_JOB_FLEX_MS;
@@ -881,6 +896,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_MSMT_API_APP_BLO
 import static com.android.adservices.service.FlagsConstants.KEY_NOTIFICATION_DISMISSED_ON_CLICK;
 import static com.android.adservices.service.FlagsConstants.KEY_NUMBER_OF_EPOCHS_TO_KEEP_IN_HISTORY;
 import static com.android.adservices.service.FlagsConstants.KEY_PAS_APP_ALLOW_LIST;
+import static com.android.adservices.service.FlagsConstants.KEY_PAS_EXTENDED_METRICS_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_PAS_UX_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_PPAPI_APP_ALLOW_LIST;
 import static com.android.adservices.service.FlagsConstants.KEY_PPAPI_APP_SIGNATURE_ALLOW_LIST;
@@ -896,6 +912,8 @@ import static com.android.adservices.service.FlagsConstants.KEY_RVC_POST_OTA_NOT
 import static com.android.adservices.service.FlagsConstants.KEY_RVC_POST_OTA_NOTIF_AGE_CHECK;
 import static com.android.adservices.service.FlagsConstants.KEY_RVC_UX_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_SDK_REQUEST_PERMITS_PER_SECOND;
+import static com.android.adservices.service.FlagsConstants.KEY_SHARED_DATABASE_SCHEMA_VERSION_4_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_SPE_ON_PILOT_JOBS_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_TOPICS_API_APP_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.FlagsConstants.KEY_TOPICS_API_SDK_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.FlagsConstants.KEY_TOPICS_COBALT_LOGGING_ENABLED;
@@ -916,6 +934,8 @@ import static com.android.adservices.service.FlagsConstants.KEY_U18_UX_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_UI_DIALOG_FRAGMENT_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_UI_EEA_COUNTRIES;
 import static com.android.adservices.service.FlagsConstants.KEY_UI_FEATURE_TYPE_LOGGING_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_UI_OTA_RESOURCES_FEATURE_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_UI_OTA_RESOURCES_MANIFEST_FILE_URL;
 import static com.android.adservices.service.FlagsConstants.KEY_UI_OTA_STRINGS_MANIFEST_FILE_URL;
 import static com.android.adservices.service.FlagsConstants.KEY_UI_TOGGLE_SPEED_BUMP_ENABLED;
 
@@ -6919,21 +6939,6 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
     }
 
     @Test
-    public void testGetOffDeviceAdSelectionEnabled() {
-        assertThat(mPhFlags.getAdSelectionOffDeviceEnabled())
-                .isEqualTo(FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED);
-
-        boolean phOverridingValue = !FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED;
-        DeviceConfig.setProperty(
-                DeviceConfig.NAMESPACE_ADSERVICES,
-                KEY_FLEDGE_AD_SELECTION_OFF_DEVICE_ENABLED,
-                Boolean.toString(phOverridingValue),
-                /* makeDefault */ false);
-
-        assertThat(mPhFlags.getAdSelectionOffDeviceEnabled()).isEqualTo(phOverridingValue);
-    }
-
-    @Test
     public void testGetAdSelectionPrebuiltUriEnabled() {
         assertThat(mPhFlags.getFledgeAdSelectionPrebuiltUriEnabled())
                 .isEqualTo(FLEDGE_AD_SELECTION_PREBUILT_URI_ENABLED);
@@ -7346,6 +7351,40 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
     }
 
     @Test
+    public void testGetUiOtaResourcesManifestFileUrl() {
+        assertThat(mPhFlags.getUiOtaResourcesManifestFileUrl())
+                .isEqualTo(UI_OTA_RESOURCES_MANIFEST_FILE_URL);
+
+        String phOverridingValue = UI_OTA_RESOURCES_MANIFEST_FILE_URL + "testFileUrl";
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_UI_OTA_RESOURCES_MANIFEST_FILE_URL,
+                phOverridingValue,
+                /* makeDefault */ false);
+
+        assertThat(mPhFlags.getUiOtaResourcesManifestFileUrl()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testUiOtaResourcesFeatureEnabled() {
+        // Disable global_kill_switch so that this flag can be tested.
+        disableGlobalKillSwitch();
+
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(mPhFlags.getUiOtaResourcesFeatureEnabled())
+                .isEqualTo(UI_OTA_RESOURCES_FEATURE_ENABLED);
+
+        boolean phOverridingValue = !UI_OTA_RESOURCES_FEATURE_ENABLED;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_UI_OTA_RESOURCES_FEATURE_ENABLED,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        assertThat(mPhFlags.getUiOtaResourcesFeatureEnabled()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
     public void testIsEeaDeviceFeatureEnabled() {
         assertThat(mPhFlags.isEeaDeviceFeatureEnabled()).isEqualTo(IS_EEA_DEVICE_FEATURE_ENABLED);
 
@@ -7628,8 +7667,7 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
                 KEY_ENABLE_BACK_COMPAT,
                 Boolean.toString(true),
                 /* makeDefault */ false);
-        extendedMockito.mockIsAtLeastT(false);
-        extendedMockito.mockIsAtLeastS(false);
+        extendedMockito.mockSdkLevelR();
 
         // Without any overriding, the value is the hard coded constant.
         assertThat(mPhFlags.getMeasurementRollbackDeletionREnabled())
@@ -9107,6 +9145,22 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
     }
 
     @Test
+    public void testFledgeAuctionServerRefreshExpiredKeysDuringAuction() {
+        assertThat(mPhFlags.getFledgeAuctionServerRefreshExpiredKeysDuringAuction())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_REFRESH_EXPIRED_KEYS_DURING_AUCTION);
+
+        boolean phOverride = !FLEDGE_AUCTION_SERVER_REFRESH_EXPIRED_KEYS_DURING_AUCTION;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_REFRESH_EXPIRED_KEYS_DURING_AUCTION,
+                Boolean.toString(phOverride),
+                /* makeDefault */ false);
+
+        assertThat(mPhFlags.getFledgeAuctionServerRefreshExpiredKeysDuringAuction())
+                .isEqualTo(true);
+    }
+
+    @Test
     public void testFledgeAuctionServerEnabled() {
         assertThat(mPhFlags.getFledgeAuctionServerEnabled())
                 .isEqualTo(FLEDGE_AUCTION_SERVER_ENABLED);
@@ -9153,6 +9207,24 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
                 /* makeDefault */ false);
 
         assertThat(mPhFlags.getFledgeAuctionServerMultiCloudEnabled()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testGetFledgeAuctionServerConsentedDebuggingEnabled() {
+        // Without any overriding, the value is the hard coded constant.
+        assertThat(mPhFlags.getFledgeAuctionServerConsentedDebuggingEnabled())
+                .isEqualTo(FLEDGE_AUCTION_SERVER_CONSENTED_DEBUGGING_ENABLED);
+
+        boolean phOverridingValue = !FLEDGE_AUCTION_SERVER_CONSENTED_DEBUGGING_ENABLED;
+
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_FLEDGE_AUCTION_SERVER_CONSENTED_DEBUGGING_ENABLED,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        assertThat(mPhFlags.getFledgeAuctionServerConsentedDebuggingEnabled())
+                .isEqualTo(phOverridingValue);
     }
 
     @Test
@@ -10588,15 +10660,28 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
     }
 
     @Test
-    public void testGetFledgeDebuggableCustomAudienceEnabledStatusFlag() {
+    public void testGetFledgeCustomAudienceCliEnabledStatusFlag() {
         assertThat(mPhFlags.getFledgeCustomAudienceCLIEnabledStatus())
                 .isEqualTo(FLEDGE_DEFAULT_CUSTOM_AUDIENCE_CLI_ENABLED);
 
-        boolean phOverridingValue = false;
+        boolean phOverridingValue = !FLEDGE_DEFAULT_CUSTOM_AUDIENCE_CLI_ENABLED;
         overrideKAnonFlags(
                 Boolean.toString(phOverridingValue), KEY_FLEDGE_IS_CUSTOM_AUDIENCE_CLI_ENABLED);
 
         assertThat(mPhFlags.getFledgeCustomAudienceCLIEnabledStatus()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testGetFledgConsentedDebuggingCliEnabledStatusFlag() {
+        assertThat(mPhFlags.getFledgeConsentedDebuggingCliEnabledStatus())
+                .isEqualTo(FLEDGE_DEFAULT_CONSENTED_DEBUGGING_CLI_ENABLED);
+
+        boolean phOverridingValue = !FLEDGE_DEFAULT_CONSENTED_DEBUGGING_CLI_ENABLED;
+        overrideKAnonFlags(
+                Boolean.toString(phOverridingValue), KEY_FLEDGE_IS_CONSENTED_DEBUGGING_CLI_ENABLED);
+
+        assertThat(mPhFlags.getFledgeConsentedDebuggingCliEnabledStatus())
+                .isEqualTo(phOverridingValue);
     }
 
     @Test
@@ -10757,6 +10842,95 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
                 .isFalse();
     }
 
+    @Test
+    public void testGetPasExtendedMetricsEnabled() {
+        assertThat(mPhFlags.getPasExtendedMetricsEnabled()).isEqualTo(PAS_EXTENDED_METRICS_ENABLED);
+
+        boolean phOverridingValue = !PAS_EXTENDED_METRICS_ENABLED;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_PAS_EXTENDED_METRICS_ENABLED,
+                String.valueOf(phOverridingValue),
+                /* makeDefault */ false);
+
+        assertThat(mPhFlags.getPasExtendedMetricsEnabled()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testSpeOnPilotJobsEnabled() {
+        boolean phOverrideValue = !DEFAULT_SPE_ON_PILOT_JOBS_ENABLED;
+
+        expect.withMessage("getSpeOnPilotJobsEnabled() by default")
+                .that(mPhFlags.getSpeOnPilotJobsEnabled())
+                .isEqualTo(DEFAULT_SPE_ON_PILOT_JOBS_ENABLED);
+
+        // Now overriding with the value from PH.
+        setSpeOnPilotJobsEnabled(phOverrideValue);
+        expect.withMessage("getSpeOnPilotJobsEnabled() when set by device config")
+                .that(mPhFlags.getSpeOnPilotJobsEnabled())
+                .isEqualTo(phOverrideValue);
+    }
+
+    @Test
+    public void testEnrollmentApiBasedSchemaEnabled() {
+        assertThat(mPhFlags.getEnrollmentApiBasedSchemaEnabled())
+                .isEqualTo(ENROLLMENT_API_BASED_SCHEMA_ENABLED);
+
+        boolean phOverridingValue = !ENROLLMENT_API_BASED_SCHEMA_ENABLED;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_ENROLLMENT_API_BASED_SCHEMA_ENABLED,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        assertThat(mPhFlags.getEnrollmentApiBasedSchemaEnabled()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testSharedDatabaseSchemaVersion4Enabled() {
+        assertThat(mPhFlags.getSharedDatabaseSchemaVersion4Enabled())
+                .isEqualTo(SHARED_DATABASE_SCHEMA_VERSION_4_ENABLED);
+
+        boolean phOverridingValue = !SHARED_DATABASE_SCHEMA_VERSION_4_ENABLED;
+        DeviceConfig.setProperty(
+                DeviceConfig.NAMESPACE_ADSERVICES,
+                KEY_SHARED_DATABASE_SCHEMA_VERSION_4_ENABLED,
+                Boolean.toString(phOverridingValue),
+                /* makeDefault */ false);
+
+        assertThat(mPhFlags.getSharedDatabaseSchemaVersion4Enabled()).isEqualTo(phOverridingValue);
+    }
+
+    @Test
+    public void testGetJobSchedulingLoggingEnabled() {
+        boolean phOverrideValue = !DEFAULT_JOB_SCHEDULING_LOGGING_ENABLED;
+
+        expect.withMessage("getJobSchedulingLoggingEnabled() by default")
+                .that(mPhFlags.getJobSchedulingLoggingEnabled())
+                .isEqualTo(DEFAULT_JOB_SCHEDULING_LOGGING_ENABLED);
+
+        // Now overriding with the value from PH.
+        setJobSchedulingLoggingEnabled(phOverrideValue);
+        expect.withMessage("getJobSchedulingLoggingEnabled() when set by device config")
+                .that(mPhFlags.getJobSchedulingLoggingEnabled())
+                .isEqualTo(phOverrideValue);
+    }
+
+    @Test
+    public void testGetJobSchedulingLoggingSamplingRate() {
+        int phOverrideValue = DEFAULT_JOB_SCHEDULING_LOGGING_SAMPLING_RATE + 1;
+
+        expect.withMessage("getJobSchedulingLoggingSamplingRate() by default")
+                .that(mPhFlags.getJobSchedulingLoggingSamplingRate())
+                .isEqualTo(DEFAULT_JOB_SCHEDULING_LOGGING_SAMPLING_RATE);
+
+        // Now overriding with the value from PH.
+        setJobSchedulingLoggingSamplingRate(phOverrideValue);
+        expect.withMessage("getJobSchedulingLoggingEnabled() when set by device config")
+                .that(mPhFlags.getJobSchedulingLoggingSamplingRate())
+                .isEqualTo(phOverrideValue);
+    }
+
     private void setMeasurementKillSwitch(boolean value) {
         setAdservicesFlag(KEY_MEASUREMENT_KILL_SWITCH, value);
     }
@@ -10771,6 +10945,18 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
 
     private void setEnableConsentManagerV2(boolean value) {
         setAdservicesFlag(KEY_ENABLE_CONSENT_MANAGER_V2, value);
+    }
+
+    private void setSpeOnPilotJobsEnabled(boolean value) {
+        setAdservicesFlag(KEY_SPE_ON_PILOT_JOBS_ENABLED, value);
+    }
+
+    private void setJobSchedulingLoggingEnabled(boolean value) {
+        setAdservicesFlag(KEY_JOB_SCHEDULING_LOGGING_ENABLED, value);
+    }
+
+    private void setJobSchedulingLoggingSamplingRate(int value) {
+        setAdservicesFlag(KEY_JOB_SCHEDULING_LOGGING_SAMPLING_RATE, value);
     }
 
     private void verifyGetBooleanNotCalled(String name) {
