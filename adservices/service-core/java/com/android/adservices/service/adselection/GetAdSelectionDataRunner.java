@@ -28,6 +28,7 @@ import android.adservices.common.AdTechIdentifier;
 import android.adservices.common.AssetFileDescriptorUtil;
 import android.adservices.common.FledgeErrorResponse;
 import android.adservices.exceptions.AdServicesException;
+import android.adservices.exceptions.UnsupportedPayloadSizeException;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
@@ -44,6 +45,7 @@ import com.android.adservices.data.adselection.datahandlers.AdSelectionInitializ
 import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.signals.EncodedPayloadDao;
 import com.android.adservices.service.Flags;
+import com.android.adservices.service.adselection.debug.ConsentedDebugConfigurationGenerator;
 import com.android.adservices.service.adselection.encryption.ObliviousHttpEncryptor;
 import com.android.adservices.service.common.AdSelectionServiceFilter;
 import com.android.adservices.service.common.CoordinatorOriginUriValidator;
@@ -53,9 +55,11 @@ import com.android.adservices.service.devapi.DevContext;
 import com.android.adservices.service.exception.FilterException;
 import com.android.adservices.service.profiling.Tracing;
 import com.android.adservices.service.proto.bidding_auction_servers.BiddingAuctionServers.ProtectedAuctionInput;
+import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.adservices.service.stats.AdServicesLoggerUtil;
 import com.android.adservices.service.stats.AdServicesStatsLog;
 import com.android.adservices.service.stats.AdsRelevanceExecutionLogger;
+import com.android.adservices.service.stats.GetAdSelectionDataApiCalledStats;
 import com.android.internal.annotations.VisibleForTesting;
 
 import com.google.common.util.concurrent.FluentFuture;
@@ -111,6 +115,11 @@ public class GetAdSelectionDataRunner {
 
     @NonNull private final CoordinatorOriginUriValidator mCoordinatorOriginUriValidator;
     @NonNull private final AdsRelevanceExecutionLogger mAdsRelevanceExecutionLogger;
+    @NonNull private final AdServicesLogger mAdServicesLogger;
+    @NonNull private final AuctionServerPayloadMetricsStrategy mAuctionServerPayloadMetricsStrategy;
+
+    @NonNull
+    private final ConsentedDebugConfigurationGenerator mConsentedDebugConfigurationGenerator;
 
     public GetAdSelectionDataRunner(
             @NonNull final Context context,
@@ -128,7 +137,12 @@ public class GetAdSelectionDataRunner {
             final int callerUid,
             @NonNull final DevContext devContext,
             @NonNull final AuctionServerDebugReporting auctionServerDebugReporting,
-            @NonNull final AdsRelevanceExecutionLogger adsRelevanceExecutionLogger) {
+            @NonNull final AdsRelevanceExecutionLogger adsRelevanceExecutionLogger,
+            @NonNull final AdServicesLogger adServicesLogger,
+            @NonNull AuctionServerPayloadMetricsStrategy auctionServerPayloadMetricsStrategy,
+            @NonNull
+                    final ConsentedDebugConfigurationGenerator
+                            consentedDebugConfigurationGenerator) {
         Objects.requireNonNull(multiCloudSupportStrategy);
         Objects.requireNonNull(adSelectionEntryDao);
         Objects.requireNonNull(customAudienceDao);
@@ -142,6 +156,8 @@ public class GetAdSelectionDataRunner {
         Objects.requireNonNull(devContext);
         Objects.requireNonNull(auctionServerDebugReporting);
         Objects.requireNonNull(adsRelevanceExecutionLogger);
+        Objects.requireNonNull(auctionServerPayloadMetricsStrategy);
+        Objects.requireNonNull(consentedDebugConfigurationGenerator);
 
         mObliviousHttpEncryptor =
                 multiCloudSupportStrategy.getObliviousHttpEncryptor(context, flags);
@@ -161,6 +177,7 @@ public class GetAdSelectionDataRunner {
         mClock = Clock.systemUTC();
 
         mAdSelectionIdGenerator = new AdSelectionIdGenerator();
+        mAuctionServerPayloadMetricsStrategy = auctionServerPayloadMetricsStrategy;
         mBuyerInputGenerator =
                 new BuyerInputGenerator(
                         mCustomAudienceDao,
@@ -173,7 +190,8 @@ public class GetAdSelectionDataRunner {
                         mFlags.getProtectedSignalsPeriodicEncodingEnabled(),
                         AuctionServerDataCompressorFactory.getDataCompressor(
                                 mFlags.getFledgeAuctionServerCompressionAlgorithmVersion()),
-                        mFlags.getFledgeAuctionServerOmitAdsEnabled());
+                        mFlags.getFledgeAuctionServerOmitAdsEnabled(),
+                        auctionServerPayloadMetricsStrategy);
         mDataCompressor =
                 AuctionServerDataCompressorFactory.getDataCompressor(
                         mFlags.getFledgeAuctionServerCompressionAlgorithmVersion());
@@ -184,6 +202,8 @@ public class GetAdSelectionDataRunner {
                         mFlags.getFledgeAuctionServerPayloadBucketSizes());
         mAuctionServerDebugReporting = auctionServerDebugReporting;
         mAdsRelevanceExecutionLogger = adsRelevanceExecutionLogger;
+        mAdServicesLogger = adServicesLogger;
+        mConsentedDebugConfigurationGenerator = consentedDebugConfigurationGenerator;
     }
 
     @VisibleForTesting
@@ -204,7 +224,10 @@ public class GetAdSelectionDataRunner {
             @NonNull final DevContext devContext,
             @NonNull Clock clock,
             @NonNull AuctionServerDebugReporting auctionServerDebugReporting,
-            @NonNull AdsRelevanceExecutionLogger adsRelevanceExecutionLogger) {
+            @NonNull AdsRelevanceExecutionLogger adsRelevanceExecutionLogger,
+            @NonNull AdServicesLogger adServicesLogger,
+            @NonNull AuctionServerPayloadMetricsStrategy auctionServerPayloadMetricsStrategy,
+            @NonNull ConsentedDebugConfigurationGenerator consentedDebugConfigurationGenerator) {
         Objects.requireNonNull(multiCloudSupportStrategy);
         Objects.requireNonNull(adSelectionEntryDao);
         Objects.requireNonNull(customAudienceDao);
@@ -219,6 +242,8 @@ public class GetAdSelectionDataRunner {
         Objects.requireNonNull(clock);
         Objects.requireNonNull(auctionServerDebugReporting);
         Objects.requireNonNull(adsRelevanceExecutionLogger);
+        Objects.requireNonNull(auctionServerPayloadMetricsStrategy);
+        Objects.requireNonNull(consentedDebugConfigurationGenerator);
 
         mObliviousHttpEncryptor =
                 multiCloudSupportStrategy.getObliviousHttpEncryptor(context, flags);
@@ -238,6 +263,7 @@ public class GetAdSelectionDataRunner {
         mClock = clock;
 
         mAdSelectionIdGenerator = new AdSelectionIdGenerator();
+        mAuctionServerPayloadMetricsStrategy = auctionServerPayloadMetricsStrategy;
         mBuyerInputGenerator =
                 new BuyerInputGenerator(
                         mCustomAudienceDao,
@@ -250,7 +276,8 @@ public class GetAdSelectionDataRunner {
                         mFlags.getProtectedSignalsPeriodicEncodingEnabled(),
                         AuctionServerDataCompressorFactory.getDataCompressor(
                                 mFlags.getFledgeAuctionServerCompressionAlgorithmVersion()),
-                        mFlags.getFledgeAuctionServerOmitAdsEnabled());
+                        mFlags.getFledgeAuctionServerOmitAdsEnabled(),
+                        auctionServerPayloadMetricsStrategy);
         mDataCompressor =
                 AuctionServerDataCompressorFactory.getDataCompressor(
                         mFlags.getFledgeAuctionServerCompressionAlgorithmVersion());
@@ -261,6 +288,8 @@ public class GetAdSelectionDataRunner {
                         mFlags.getFledgeAuctionServerPayloadBucketSizes());
         mAuctionServerDebugReporting = auctionServerDebugReporting;
         mAdsRelevanceExecutionLogger = adsRelevanceExecutionLogger;
+        mAdServicesLogger = adServicesLogger;
+        mConsentedDebugConfigurationGenerator = consentedDebugConfigurationGenerator;
     }
 
     /** Orchestrates GetAdSelectionData process. */
@@ -269,6 +298,9 @@ public class GetAdSelectionDataRunner {
             @NonNull GetAdSelectionDataCallback callback) {
         Objects.requireNonNull(inputParams);
         Objects.requireNonNull(callback);
+
+        GetAdSelectionDataApiCalledStats.Builder apiCalledStatsBuilder =
+                GetAdSelectionDataApiCalledStats.builder();
 
         int apiName = AdServicesStatsLog.AD_SERVICES_API_CALLED__API_NAME__GET_AD_SELECTION_DATA;
         long adSelectionId = mAdSelectionIdGenerator.generateId();
@@ -306,7 +338,8 @@ public class GetAdSelectionDataRunner {
                                                     inputParams.getSeller(),
                                                     adSelectionId,
                                                     inputParams.getCallerPackageName(),
-                                                    inputParams.getCoordinatorOriginUri()),
+                                                    inputParams.getCoordinatorOriginUri(),
+                                                    apiCalledStatsBuilder),
                                     mLightweightExecutorService);
 
             Futures.addCallback(
@@ -316,7 +349,8 @@ public class GetAdSelectionDataRunner {
                         public void onSuccess(byte[] result) {
                             Objects.requireNonNull(result);
 
-                            notifySuccessToCaller(result, adSelectionId, callback);
+                            notifySuccessToCaller(
+                                    result, adSelectionId, callback, apiCalledStatsBuilder);
                         }
 
                         @Override
@@ -334,6 +368,14 @@ public class GetAdSelectionDataRunner {
                                 if (t.getCause() instanceof AdServicesException) {
                                     notifyFailureToCaller(t.getCause(), callback);
                                 } else {
+                                    if (t instanceof UnsupportedPayloadSizeException) {
+                                        mAuctionServerPayloadMetricsStrategy
+                                                .logGetAdSelectionDataApiCalledStats(
+                                                        apiCalledStatsBuilder,
+                                                        ((UnsupportedPayloadSizeException) t)
+                                                                .getPayloadSizeKb(),
+                                                        STATUS_INTERNAL_ERROR);
+                                    }
                                     notifyFailureToCaller(t, callback);
                                 }
                             }
@@ -350,7 +392,8 @@ public class GetAdSelectionDataRunner {
             @NonNull AdTechIdentifier seller,
             long adSelectionId,
             @NonNull String packageName,
-            @Nullable Uri coordinatorUrl) {
+            @Nullable Uri coordinatorUrl,
+            GetAdSelectionDataApiCalledStats.Builder apiCalledStatsBuilder) {
         Objects.requireNonNull(seller);
         Objects.requireNonNull(packageName);
 
@@ -360,7 +403,11 @@ public class GetAdSelectionDataRunner {
                 .createCompressedBuyerInputs()
                 .transform(
                         compressedBuyerInputs ->
-                                createPayload(compressedBuyerInputs, packageName, adSelectionId),
+                                createPayload(
+                                        compressedBuyerInputs,
+                                        packageName,
+                                        adSelectionId,
+                                        apiCalledStatsBuilder),
                         mLightweightExecutorService)
                 .transformAsync(
                         formatted -> {
@@ -402,8 +449,13 @@ public class GetAdSelectionDataRunner {
             final Map<AdTechIdentifier, AuctionServerDataCompressor.CompressedData>
                     mCompressedBuyerInput,
             String packageName,
-            long adSelectionId) {
+            long adSelectionId,
+            GetAdSelectionDataApiCalledStats.Builder apiCalledStatsBuilder) {
         int traceCookie = Tracing.beginAsyncSection(Tracing.CREATE_GET_AD_SELECTION_DATA_PAYLOAD);
+
+        // Sets number of buyers
+        mAuctionServerPayloadMetricsStrategy.setNumBuyers(
+                apiCalledStatsBuilder, mCompressedBuyerInput.size());
 
         ProtectedAuctionInput protectedAudienceInput =
                 composeProtectedAuctionInputBytes(
@@ -413,7 +465,7 @@ public class GetAdSelectionDataRunner {
                         mAuctionServerDebugReporting.isEnabled());
         sLogger.v("ProtectedAuctionInput composed");
         AuctionServerPayloadFormattedData formattedData =
-                applyPayloadFormatter(protectedAudienceInput);
+                applyPayloadFormatter(protectedAudienceInput, apiCalledStatsBuilder);
 
         Tracing.endAsyncSection(Tracing.CREATE_GET_AD_SELECTION_DATA_PAYLOAD, traceCookie);
         return formattedData;
@@ -447,23 +499,30 @@ public class GetAdSelectionDataRunner {
             long adSelectionId,
             boolean isDebugReportingEnabled) {
         sLogger.v("Composing ProtectedAuctionInput with buyer inputs and publisher");
-        return ProtectedAuctionInput.newBuilder()
-                .putAllBuyerInput(
-                        compressedBuyerInputs.entrySet().parallelStream()
-                                .collect(
-                                        Collectors.toMap(
-                                                e -> e.getKey().toString(),
-                                                e -> ByteString.copyFrom(e.getValue().getData()))))
-                .setPublisherName(packageName)
-                .setEnableDebugReporting(isDebugReportingEnabled)
-                // TODO(b/288287435): Set generation ID as a UUID generated per request which is not
-                //  accessible in plaintext.
-                .setGenerationId(String.valueOf(adSelectionId))
-                .build();
+        ProtectedAuctionInput.Builder protectedAuctionInputBuilder =
+                ProtectedAuctionInput.newBuilder()
+                        .putAllBuyerInput(
+                                compressedBuyerInputs.entrySet().parallelStream()
+                                        .collect(
+                                                Collectors.toMap(
+                                                        e -> e.getKey().toString(),
+                                                        e ->
+                                                                ByteString.copyFrom(
+                                                                        e.getValue().getData()))))
+                        .setPublisherName(packageName)
+                        .setEnableDebugReporting(isDebugReportingEnabled)
+                        // TODO(b/288287435): Set generation ID as a UUID generated per request
+                        // which is not
+                        //  accessible in plaintext.
+                        .setGenerationId(String.valueOf(adSelectionId));
+        mConsentedDebugConfigurationGenerator.setConsentedDebugConfiguration(
+                protectedAuctionInputBuilder);
+        return protectedAuctionInputBuilder.build();
     }
 
     private AuctionServerPayloadFormattedData applyPayloadFormatter(
-            ProtectedAuctionInput protectedAudienceInput) {
+            ProtectedAuctionInput protectedAudienceInput,
+            GetAdSelectionDataApiCalledStats.Builder apiCalledStatsBuilder) {
         int version = mFlags.getFledgeAuctionServerCompressionAlgorithmVersion();
         sLogger.v("Applying formatter V" + version + " on protected audience input bytes");
         AuctionServerPayloadUnformattedData unformattedData =
@@ -472,7 +531,10 @@ public class GetAdSelectionDataRunner {
     }
 
     private void notifySuccessToCaller(
-            byte[] result, long adSelectionId, GetAdSelectionDataCallback callback) {
+            byte[] result,
+            long adSelectionId,
+            GetAdSelectionDataCallback callback,
+            GetAdSelectionDataApiCalledStats.Builder apiCalledStatsBuilder) {
         Objects.requireNonNull(result);
 
         int resultCode = STATUS_SUCCESS;
@@ -514,6 +576,8 @@ public class GetAdSelectionDataRunner {
             if (resultCode != STATUS_IO_ERROR) {
                 mAdsRelevanceExecutionLogger.endAdsRelevanceApi(resultCode);
             }
+            mAuctionServerPayloadMetricsStrategy.logGetAdSelectionDataApiCalledStats(
+                    apiCalledStatsBuilder, result.length / 1000, resultCode);
         }
     }
 

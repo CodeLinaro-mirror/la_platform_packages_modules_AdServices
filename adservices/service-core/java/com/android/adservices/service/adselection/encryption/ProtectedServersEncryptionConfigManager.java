@@ -42,6 +42,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -117,8 +118,11 @@ public class ProtectedServersEncryptionConfigManager
 
         return FluentFuture.from(
                         immediateFuture(
-                                getLatestKeyFromDatabase(
-                                        adSelectionEncryptionKeyType, fetchUri.toString())))
+                                mFlags.getFledgeAuctionServerRefreshExpiredKeysDuringAuction()
+                                        ? getLatestActiveKeyFromDatabase(
+                                                adSelectionEncryptionKeyType, fetchUri.toString())
+                                        : getLatestKeyFromDatabase(
+                                                adSelectionEncryptionKeyType, fetchUri.toString())))
                 .transformAsync(
                         encryptionKey ->
                                 encryptionKey == null
@@ -157,22 +161,50 @@ public class ProtectedServersEncryptionConfigManager
     public AdSelectionEncryptionKey getLatestKeyFromDatabase(
             @AdSelectionEncryptionKey.AdSelectionEncryptionKeyType int adSelectionEncryptionKeyType,
             @NonNull String coordinatorUrl) {
+        sLogger.d("Getting latest encryption key from database including expired keys");
+
         List<DBProtectedServersEncryptionConfig> keys =
                 mProtectedServersEncryptionConfigDao.getLatestExpiryNKeys(
                         EncryptionKeyConstants.from(adSelectionEncryptionKeyType),
                         coordinatorUrl,
                         getKeyCountForType(adSelectionEncryptionKeyType));
 
-        return keys.isEmpty() ? null : selectRandomDbKeyAndParse(keys);
+        return keys.isEmpty()
+                ? null
+                : selectRandomDbKeyAndParse(
+                        keys.stream()
+                                .map(object -> toDbEncryptionKey(object))
+                                .collect(Collectors.toList()));
+    }
+
+    @Nullable
+    private AdSelectionEncryptionKey getLatestActiveKeyFromDatabase(
+            @AdSelectionEncryptionKey.AdSelectionEncryptionKeyType int adSelectionEncryptionKeyType,
+            @NonNull String coordinatorUrl) {
+        sLogger.d("Getting latest encryption key from database excluding expired keys");
+        List<DBProtectedServersEncryptionConfig> keys =
+                mProtectedServersEncryptionConfigDao.getLatestExpiryNActiveKeys(
+                        EncryptionKeyConstants.from(adSelectionEncryptionKeyType),
+                        coordinatorUrl,
+                        mClock.instant(),
+                        getKeyCountForType(adSelectionEncryptionKeyType));
+
+        return keys.isEmpty()
+                ? null
+                : selectRandomDbKeyAndParse(
+                        keys.stream()
+                                .map(object -> toDbEncryptionKey(object))
+                                .collect(Collectors.toList()));
     }
 
     FluentFuture<AdSelectionEncryptionKey> fetchPersistAndGetActiveKey(
             @AdSelectionEncryptionKey.AdSelectionEncryptionKeyType int adSelectionKeyType,
             Uri coordinatorUrl,
             long timeoutMs) {
+        sLogger.d("Fetching keys");
         Instant fetchInstant = mClock.instant();
         return fetchAndPersistActiveKeysOfType(
-                        adSelectionKeyType, coordinatorUrl, fetchInstant, timeoutMs)
+                        adSelectionKeyType, fetchInstant, timeoutMs, coordinatorUrl)
                 .transform(keys -> selectRandomDbKeyAndParse(keys), mLightweightExecutor);
     }
 
@@ -182,11 +214,11 @@ public class ProtectedServersEncryptionConfigManager
      * db_encryption_key table. 3. Deletes the expired keys of given type and which expired at the
      * given instant.
      */
-    FluentFuture<List<DBProtectedServersEncryptionConfig>> fetchAndPersistActiveKeysOfType(
+    public FluentFuture<List<DBEncryptionKey>> fetchAndPersistActiveKeysOfType(
             @AdSelectionEncryptionKey.AdSelectionEncryptionKeyType int adSelectionKeyType,
-            Uri fetchUri,
             Instant keyExpiryInstant,
-            long timeoutMs) {
+            long timeoutMs,
+            Uri fetchUri) {
 
         return FluentFuture.from(fetchKeyPayload(adSelectionKeyType, fetchUri))
                 .transform(
@@ -206,10 +238,20 @@ public class ProtectedServersEncryptionConfigManager
                             mProtectedServersEncryptionConfigDao.insertKeys(encryptionConfigs);
                             mProtectedServersEncryptionConfigDao.deleteExpiredRows(
                                     adSelectionKeyType, fetchUri.toString(), keyExpiryInstant);
-                            return encryptionConfigs;
+                            return result;
                         },
                         mLightweightExecutor)
                 .withTimeout(timeoutMs, TimeUnit.MILLISECONDS, AdServicesExecutors.getScheduler());
+    }
+
+    /** Returns the AdSelectionEncryptionKeyType which are expired at the given instant. */
+    public Set<Integer> getExpiredAdSelectionEncryptionKeyTypes(Instant keyExpiryInstant) {
+        return mProtectedServersEncryptionConfigDao.getAllExpiredKeys(keyExpiryInstant).stream()
+                .map(
+                        key ->
+                                EncryptionKeyConstants.toAdSelectionEncryptionKeyType(
+                                        key.getEncryptionKeyType()))
+                .collect(Collectors.toSet());
     }
 
     // TODO(b/325260373) : Have EncryptionKeyParsers return an object from which both
@@ -237,10 +279,9 @@ public class ProtectedServersEncryptionConfigManager
                 .build();
     }
 
-    private AdSelectionEncryptionKey selectRandomDbKeyAndParse(
-            List<DBProtectedServersEncryptionConfig> keys) {
+    private AdSelectionEncryptionKey selectRandomDbKeyAndParse(List<DBEncryptionKey> keys) {
         Random random = new Random();
-        DBProtectedServersEncryptionConfig randomKey = keys.get(random.nextInt(keys.size()));
-        return parseDbEncryptionKey(toDbEncryptionKey(randomKey));
+        DBEncryptionKey randomKey = keys.get(random.nextInt(keys.size()));
+        return parseDbEncryptionKey(randomKey);
     }
 }

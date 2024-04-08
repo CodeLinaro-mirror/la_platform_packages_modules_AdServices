@@ -140,7 +140,11 @@ public class AdSelectionEncryptionKeyManager extends ProtectedServersEncryptionC
             @AdSelectionEncryptionKey.AdSelectionEncryptionKeyType int adSelectionEncryptionKeyType,
             long timeoutMs) {
         int traceCookie = Tracing.beginAsyncSection(Tracing.GET_LATEST_OHTTP_KEY_CONFIG);
-        return FluentFuture.from(immediateFuture(getLatestKeyOfType(adSelectionEncryptionKeyType)))
+        return FluentFuture.from(
+                        immediateFuture(
+                                mFlags.getFledgeAuctionServerRefreshExpiredKeysDuringAuction()
+                                        ? getLatestActiveKeyOfType(adSelectionEncryptionKeyType)
+                                        : getLatestKeyOfType(adSelectionEncryptionKeyType)))
                 .transformAsync(
                         encryptionKey ->
                                 encryptionKey == null
@@ -175,11 +179,14 @@ public class AdSelectionEncryptionKeyManager extends ProtectedServersEncryptionC
     public AdSelectionEncryptionKey getLatestActiveKeyOfType(
             @AdSelectionEncryptionKey.AdSelectionEncryptionKeyType
                     int adSelectionEncryptionKeyType) {
+        sLogger.d("Getting latest encryption key from database excluding expired keys");
+
         List<DBEncryptionKey> keys =
                 mEncryptionKeyDao.getLatestExpiryNActiveKeysOfType(
                         EncryptionKeyConstants.from(adSelectionEncryptionKeyType),
                         mClock.instant(),
                         getKeyCountForType(adSelectionEncryptionKeyType));
+
 
         return keys.isEmpty() ? null : selectRandomDbKeyAndParse(keys);
     }
@@ -196,6 +203,8 @@ public class AdSelectionEncryptionKeyManager extends ProtectedServersEncryptionC
     public AdSelectionEncryptionKey getLatestKeyOfType(
             @AdSelectionEncryptionKey.AdSelectionEncryptionKeyType
                     int adSelectionEncryptionKeyType) {
+        sLogger.d("Getting latest encryption key from database including expired keys");
+
         List<DBEncryptionKey> keys =
                 mEncryptionKeyDao.getLatestExpiryNKeysOfType(
                         EncryptionKeyConstants.from(adSelectionEncryptionKeyType),
@@ -214,7 +223,7 @@ public class AdSelectionEncryptionKeyManager extends ProtectedServersEncryptionC
             @AdSelectionEncryptionKey.AdSelectionEncryptionKeyType int adSelectionKeyType,
             long timeoutMs) {
         Instant fetchInstant = mClock.instant();
-        return fetchAndPersistActiveKeysOfType(adSelectionKeyType, fetchInstant, timeoutMs)
+        return fetchAndPersistActiveKeysOfType(adSelectionKeyType, fetchInstant, timeoutMs, null)
                 .transform(keys -> selectRandomDbKeyAndParse(keys), mLightweightExecutor);
     }
 
@@ -227,7 +236,8 @@ public class AdSelectionEncryptionKeyManager extends ProtectedServersEncryptionC
     public FluentFuture<List<DBEncryptionKey>> fetchAndPersistActiveKeysOfType(
             @AdSelectionEncryptionKey.AdSelectionEncryptionKeyType int adSelectionKeyType,
             Instant keyExpiryInstant,
-            long timeoutMs) {
+            long timeoutMs,
+            @Nullable Uri unusedCoordinatorUrl) {
         Uri fetchUri = getKeyFetchUriOfType(adSelectionKeyType, null, null);
         if (fetchUri == null) {
             throw new IllegalStateException(

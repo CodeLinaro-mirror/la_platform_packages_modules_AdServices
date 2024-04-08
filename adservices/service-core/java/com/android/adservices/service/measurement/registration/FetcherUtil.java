@@ -153,6 +153,7 @@ public class FetcherUtil {
      */
     static boolean isValidAggregateKeyId(String id) {
         return id != null
+                && !id.isEmpty()
                 && id.getBytes().length
                         <= FlagsFactory.getFlags()
                                 .getMeasurementMaxBytesPerAttributionAggregateKeyId();
@@ -160,7 +161,7 @@ public class FetcherUtil {
 
     /** Validate aggregate deduplication key. */
     static boolean isValidAggregateDeduplicationKey(String deduplicationKey) {
-        if (deduplicationKey == null) {
+        if (deduplicationKey == null || deduplicationKey.isEmpty()) {
             return false;
         }
         try {
@@ -175,29 +176,22 @@ public class FetcherUtil {
      * Validate aggregate key-piece.
      */
     static boolean isValidAggregateKeyPiece(String keyPiece, Flags flags) {
-        if (keyPiece == null) {
+        if (keyPiece == null || keyPiece.isEmpty()) {
             return false;
         }
         int length = keyPiece.getBytes().length;
-        if (flags.getMeasurementEnableAraParsingAlignmentV1()) {
-            if (!(keyPiece.startsWith("0x") || keyPiece.startsWith("0X"))) {
-                return false;
-            }
-            // Key-piece is restricted to a maximum of 128 bits and the hex strings therefore have
-            // at most 32 digits.
-            if (length < 3 || length > 34) {
-                return false;
-            }
-            if (!HEX_PATTERN.matcher(keyPiece.substring(2)).matches()) {
-                return false;
-            }
-            return true;
-        } else {
-            // Key-piece is restricted to a maximum of 128 bits and the hex strings therefore have
-            // at most 32 digits.
-            return (keyPiece.startsWith("0x") || keyPiece.startsWith("0X"))
-                    && 2 < length && length < 35;
+        if (!(keyPiece.startsWith("0x") || keyPiece.startsWith("0X"))) {
+            return false;
         }
+        // Key-piece is restricted to a maximum of 128 bits and the hex strings therefore have
+        // at most 32 digits.
+        if (length < 3 || length > 34) {
+            return false;
+        }
+        if (!HEX_PATTERN.matcher(keyPiece.substring(2)).matches()) {
+            return false;
+        }
+        return true;
     }
 
     /** Validate attribution filters JSONArray. */
@@ -205,7 +199,7 @@ public class FetcherUtil {
             @NonNull JSONArray filterSet,
             Flags flags,
             boolean canIncludeLookbackWindow,
-            boolean shouldCheckFilterSize) {
+            boolean shouldCheckFilterSize) throws JSONException {
         if (filterSet.length()
                 > FlagsFactory.getFlags().getMeasurementMaxFilterMapsPerFilterSet()) {
             return false;
@@ -227,7 +221,7 @@ public class FetcherUtil {
             JSONObject filtersObj,
             Flags flags,
             boolean canIncludeLookbackWindow,
-            boolean shouldCheckFilterSize) {
+            boolean shouldCheckFilterSize) throws JSONException {
         if (filtersObj == null
                 || filtersObj.length()
                         > FlagsFactory.getFlags().getMeasurementMaxAttributionFilters()) {
@@ -266,12 +260,12 @@ public class FetcherUtil {
                 return false;
             }
             for (int i = 0; i < values.length(); i++) {
-                String value = values.optString(i);
-                if (value == null) {
+                Object value = values.get(i);
+                if (!(value instanceof String)) {
                     return false;
                 }
                 if (shouldCheckFilterSize
-                        && value.getBytes().length
+                        && ((String) value).getBytes().length
                                 > FlagsFactory.getFlags()
                                         .getMeasurementMaxBytesPerAttributionFilterString()) {
                     return false;
@@ -412,13 +406,14 @@ public class FetcherUtil {
     }
 
     private static int getFailureType(AsyncFetchStatus asyncFetchStatus) {
-        if (asyncFetchStatus.getResponseStatus()
-                        == AsyncFetchStatus.ResponseStatus.SERVER_UNAVAILABLE
-                || asyncFetchStatus.getResponseStatus()
-                        == AsyncFetchStatus.ResponseStatus.NETWORK_ERROR
-                || asyncFetchStatus.getResponseStatus()
-                        == AsyncFetchStatus.ResponseStatus.INVALID_URL) {
+        if (asyncFetchStatus.getResponseStatus() == AsyncFetchStatus.ResponseStatus.NETWORK_ERROR) {
             return RegistrationEnumsValues.FAILURE_TYPE_NETWORK;
+        } else if (asyncFetchStatus.getResponseStatus()
+                == AsyncFetchStatus.ResponseStatus.INVALID_URL) {
+            return RegistrationEnumsValues.FAILURE_TYPE_INVALID_URL;
+        } else if (asyncFetchStatus.getResponseStatus()
+                == AsyncFetchStatus.ResponseStatus.SERVER_UNAVAILABLE) {
+            return RegistrationEnumsValues.FAILURE_TYPE_SERVER_UNAVAILABLE;
         } else if (asyncFetchStatus.getResponseStatus()
                 == AsyncFetchStatus.ResponseStatus.HEADER_SIZE_LIMIT_EXCEEDED) {
             return RegistrationEnumsValues.FAILURE_TYPE_HEADER_SIZE_LIMIT_EXCEEDED;
@@ -462,5 +457,7 @@ public class FetcherUtil {
         int FAILURE_TYPE_REDIRECT = 4;
         int FAILURE_TYPE_STORAGE = 5;
         int FAILURE_TYPE_HEADER_SIZE_LIMIT_EXCEEDED = 7;
+        int FAILURE_TYPE_SERVER_UNAVAILABLE = 8;
+        int FAILURE_TYPE_INVALID_URL = 9;
     }
 }

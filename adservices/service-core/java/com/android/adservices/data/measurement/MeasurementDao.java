@@ -475,7 +475,7 @@ class MeasurementDao implements IMeasurementDao {
                     source.getTriggerSpecs().encodeToJson());
             values.put(
                     MeasurementTables.SourceContract.PRIVACY_PARAMETERS,
-                    source.getTriggerSpecs().encodePrivacyParametersToJSONString());
+                    source.getTriggerSpecs().encodePrivacyParametersToJsonString());
         }
         values.put(
                 MeasurementTables.SourceContract.MAX_EVENT_LEVEL_REPORTS,
@@ -2149,6 +2149,7 @@ class MeasurementDao implements IMeasurementDao {
                                 MeasurementTables.SourceContract.ID + " IN source_ids",
                                 MeasurementTables.SourceContract.EVENT_TIME + " <= %1$d",
                                 MeasurementTables.SourceContract.EXPIRY_TIME + " > %1$d",
+                                MeasurementTables.SourceContract.INSTALL_COOLDOWN_WINDOW + " > 0",
                                 MeasurementTables.SourceContract.EVENT_TIME
                                         + " + "
                                         + MeasurementTables.SourceContract

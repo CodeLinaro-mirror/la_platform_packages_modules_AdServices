@@ -16,6 +16,7 @@
 package com.android.adservices.ui.notifications;
 
 import static com.android.adservices.service.FlagsConstants.KEY_CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE;
+import static com.android.adservices.service.FlagsConstants.KEY_CONSENT_NOTIFICATION_DEBUG_MODE;
 import static com.android.adservices.service.FlagsConstants.KEY_DEBUG_UX;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_AD_SERVICES_SYSTEM_API;
 import static com.android.adservices.service.FlagsConstants.KEY_GA_UX_FEATURE_ENABLED;
@@ -23,6 +24,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_IS_EEA_DEVICE;
 import static com.android.adservices.service.FlagsConstants.KEY_IS_EEA_DEVICE_FEATURE_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_PAS_UX_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_U18_UX_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_UI_TOGGLE_SPEED_BUMP_ENABLED;
 import static com.android.adservices.ui.util.NotificationActivityTestUtil.WINDOW_LAUNCH_TIMEOUT;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -34,6 +36,7 @@ import androidx.test.uiautomator.Until;
 
 import com.android.adservices.api.R;
 import com.android.adservices.common.AdServicesFlagsSetterRule;
+import com.android.adservices.common.RequiresSdkLevelAtLeastT;
 import com.android.adservices.ui.util.AdServicesUiTestCase;
 import com.android.adservices.ui.util.ApkTestUtil;
 import com.android.adservices.ui.util.NotificationActivityTestUtil;
@@ -46,6 +49,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+@RequiresSdkLevelAtLeastT(reason = "PAS UX is currently only available on T+ devices")
 @RunWith(AndroidJUnit4.class)
 public final class NotificationActivityPasUiAutomatorTest extends AdServicesUiTestCase {
 
@@ -60,10 +64,12 @@ public final class NotificationActivityPasUiAutomatorTest extends AdServicesUiTe
                     .setFlag(KEY_GA_UX_FEATURE_ENABLED, true)
                     .setFlag(KEY_U18_UX_ENABLED, true)
                     .setFlag(KEY_CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE, true)
+                    .setFlag(KEY_CONSENT_NOTIFICATION_DEBUG_MODE, true)
                     .setFlag(KEY_DEBUG_UX, "GA_UX")
                     .setFlag(KEY_PAS_UX_ENABLED, true)
                     .setFlag(KEY_IS_EEA_DEVICE_FEATURE_ENABLED, true)
-                    .setFlag(KEY_IS_EEA_DEVICE, false);
+                    .setFlag(KEY_IS_EEA_DEVICE, false)
+                    .setFlag(KEY_UI_TOGGLE_SPEED_BUMP_ENABLED, false);
 
     /**
      * Setup before notification tests.
@@ -72,6 +78,7 @@ public final class NotificationActivityPasUiAutomatorTest extends AdServicesUiTe
      */
     @BeforeClass
     public static void classSetup() throws Exception {
+
         NotificationActivityTestUtil.setupBeforeTests();
     }
 
@@ -84,6 +91,7 @@ public final class NotificationActivityPasUiAutomatorTest extends AdServicesUiTe
     public void renotifyClickSettingsTest() throws Exception {
         // enable at least one of Fledge or Mesurement API
         ApkTestUtil.launchSettingView(mDevice, LAUNCH_TIMEOUT);
+        mDevice.waitForIdle();
         ApkTestUtil.scrollToAndClick(mDevice, R.string.settingsUI_apps_ga_title);
         UiObject2 appsToggle =
                 mDevice.wait(
@@ -125,6 +133,7 @@ public final class NotificationActivityPasUiAutomatorTest extends AdServicesUiTe
     public void firstTimeRowCombinedTextShownTest() throws Exception {
         // disable both Fledge and Measurement
         ApkTestUtil.launchSettingView(mDevice, LAUNCH_TIMEOUT);
+        mDevice.waitForIdle();
         ApkTestUtil.scrollToAndClick(mDevice, R.string.settingsUI_apps_ga_title);
         UiObject2 appsToggle =
                 mDevice.wait(
@@ -135,6 +144,7 @@ public final class NotificationActivityPasUiAutomatorTest extends AdServicesUiTe
         }
         mDevice.waitForIdle();
         mDevice.pressBack();
+        mDevice.waitForIdle();
         ApkTestUtil.scrollToAndClick(mDevice, R.string.settingsUI_measurement_ga_title);
         UiObject2 measurementToggle =
                 mDevice.wait(

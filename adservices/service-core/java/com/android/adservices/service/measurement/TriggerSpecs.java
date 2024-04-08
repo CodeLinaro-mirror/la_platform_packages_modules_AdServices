@@ -283,7 +283,7 @@ public class TriggerSpecs {
         for (EventReport eventReport : sourceEventReports) {
             // Delete pending reports since we may have different ones based on new trigger priority
             // ordering.
-            if (eventReport.getReportTime() >= triggerTime) {
+            if (eventReport.getReportTime() > triggerTime) {
                 reportsToDelete.add(eventReport);
                 continue;
             }
@@ -422,7 +422,7 @@ public class TriggerSpecs {
      *
      * @return String encoded the privacy parameters
      */
-    public String encodePrivacyParametersToJSONString() {
+    public String encodePrivacyParametersToJsonString() {
         JSONObject json = new JSONObject();
         try {
             json.put(
@@ -431,7 +431,7 @@ public class TriggerSpecs {
         } catch (JSONException e) {
             LoggerFactory.getMeasurementLogger()
                     .e(
-                            "TriggerSpecs::encodePrivacyParametersToJSONString is unable to encode"
+                            "TriggerSpecs::encodePrivacyParametersToJsonString is unable to encode"
                                     + " PrivacyParams to JSON");
             return null;
         }
