@@ -69,8 +69,6 @@ import androidx.room.Room;
 import androidx.test.core.app.ApplicationProvider;
 
 import com.android.adservices.common.AdServicesUnitTestCase;
-import com.android.adservices.common.NoFailureSyncCallback;
-import com.android.adservices.common.SdkLevelSupportRule;
 import com.android.adservices.concurrency.AdServicesExecutors;
 import com.android.adservices.customaudience.DBCustomAudienceFixture;
 import com.android.adservices.data.adselection.AdSelectionDatabase;
@@ -102,10 +100,12 @@ import com.android.adservices.service.proto.bidding_auction_servers.BiddingAucti
 import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.adservices.service.stats.AdServicesLoggerImpl;
 import com.android.adservices.service.stats.AdServicesStatsLog;
-import com.android.adservices.service.stats.ApiCallStats;
-import com.android.adservices.service.stats.DestinationRegisteredBeaconsReportedStats;
 import com.android.adservices.service.stats.AdsRelevanceExecutionLogger;
 import com.android.adservices.service.stats.AdsRelevanceExecutionLoggerFactory;
+import com.android.adservices.service.stats.ApiCallStats;
+import com.android.adservices.service.stats.DestinationRegisteredBeaconsReportedStats;
+import com.android.adservices.shared.testing.NoFailureSyncCallback;
+import com.android.adservices.shared.testing.SdkLevelSupportRule;
 import com.android.adservices.shared.util.Clock;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 
@@ -347,7 +347,7 @@ public class PersistAdSelectionResultRunnerTest extends AdServicesUnitTestCase {
                     CUSTOM_AUDIENCE_WITH_WIN_AD_1,
                     CUSTOM_AUDIENCE_WITH_WIN_AD_2);
     private static final byte[] CIPHER_TEXT_BYTES =
-            "encrypted-cipher-for-auction-result".getBytes();
+            "encrypted-cipher-for-auction-result".getBytes(StandardCharsets.UTF_8);
     private static final long AD_SELECTION_ID = 12345L;
     private static final AdSelectionInitialization INITIALIZATION_DATA =
             getAdSelectionInitialization(SELLER, CALLER_PACKAGE_NAME);
@@ -1981,6 +1981,11 @@ public class PersistAdSelectionResultRunnerTest extends AdServicesUnitTestCase {
         @Override
         public int getFledgeKAnonPercentageImmediateSignJoinCalls() {
             return mPercentageImmediateJoinValue;
+        }
+
+        @Override
+        public boolean getFledgeKAnonSignJoinFeatureAuctionServerEnabled() {
+            return mKAnonFeatureFlagEnabled;
         }
     }
 

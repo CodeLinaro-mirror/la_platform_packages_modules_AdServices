@@ -41,8 +41,8 @@ import android.util.Log;
 import androidx.test.filters.FlakyTest;
 
 import com.android.adservices.common.AdServicesOutcomeReceiverForTests;
-import com.android.adservices.common.annotations.SetFlagDisabled;
-import com.android.adservices.common.annotations.SetFlagEnabled;
+import com.android.adservices.shared.testing.annotations.SetFlagDisabled;
+import com.android.adservices.shared.testing.annotations.SetFlagEnabled;
 import com.android.compatibility.common.util.ShellUtils;
 
 import com.google.common.util.concurrent.MoreExecutors;
@@ -398,6 +398,39 @@ public class AdSelectionTest extends FledgeScenarioTest {
                                             .selectAds(config)
                                             .get(TIMEOUT, TimeUnit.SECONDS));
             assertThat(selectAdsException.getCause()).isInstanceOf(TimeoutException.class);
+        } finally {
+            leaveCustomAudience(SHIRTS_CA);
+        }
+
+        assertThat(dispatcher.getCalledPaths())
+                .containsAtLeastElementsIn(dispatcher.getVerifyCalledPaths());
+    }
+
+    @Test
+    public void testAdSelection_withInvalidScoringUrl_doesNotWinAuction() throws Exception {
+        // ScenarioDispatcher returns 404 for all paths which are not setup from the json file and
+        // we didn't configure a scoring logic url.
+        ScenarioDispatcher dispatcher =
+                ScenarioDispatcher.fromScenario(
+                        "scenarios/remarketing-cuj-invalid-scoring-logic-url.json",
+                        getCacheBusterPrefix());
+        setupDefaultMockWebServer(dispatcher);
+        AdSelectionConfig config = makeAdSelectionConfig();
+
+        try {
+            joinCustomAudience(SHIRTS_CA);
+            Exception selectAdsException =
+                    assertThrows(
+                            ExecutionException.class,
+                            () ->
+                                    mAdSelectionClient
+                                            .selectAds(config)
+                                            .get(TIMEOUT, TimeUnit.SECONDS));
+            assertThat(
+                            selectAdsException.getCause() instanceof TimeoutException
+                                    || selectAdsException.getCause()
+                                            instanceof IllegalStateException)
+                    .isTrue();
         } finally {
             leaveCustomAudience(SHIRTS_CA);
         }
