@@ -34,6 +34,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -87,7 +88,7 @@ public class FetcherUtil {
             return Optional.of(new UnsignedLong((String) maybeValue));
         } catch (JSONException | NumberFormatException e) {
             LoggerFactory.getMeasurementLogger()
-                    .d(e, "extractUnsignedLong: caught exception. Key: %s", key);
+                    .e(e, "extractUnsignedLong: caught exception. Key: %s", key);
             return Optional.empty();
         }
     }
@@ -102,7 +103,7 @@ public class FetcherUtil {
             return Optional.of(Long.parseLong((String) maybeValue));
         } catch (JSONException | NumberFormatException e) {
             LoggerFactory.getMeasurementLogger()
-                    .d(e, "extractLongString: caught exception. Key: %s", key);
+                    .e(e, "extractLongString: caught exception. Key: %s", key);
             return Optional.empty();
         }
     }
@@ -122,7 +123,7 @@ public class FetcherUtil {
             return Optional.of(Long.parseLong(String.valueOf(maybeValue)));
         } catch (JSONException | NumberFormatException e) {
             LoggerFactory.getMeasurementLogger()
-                    .d(e, "extractLong: caught exception. Key: %s", key);
+                    .e(e, "extractLong: caught exception. Key: %s", key);
             return Optional.empty();
         }
     }
@@ -132,7 +133,7 @@ public class FetcherUtil {
             long lookbackWindow = Long.parseLong(obj.optString(FilterMap.LOOKBACK_WINDOW));
             if (lookbackWindow <= 0) {
                 LoggerFactory.getMeasurementLogger()
-                        .d(
+                        .e(
                                 "extractLookbackWindow: non positive lookback window found: %d",
                                 lookbackWindow);
                 return Optional.empty();
@@ -140,12 +141,27 @@ public class FetcherUtil {
             return Optional.of(lookbackWindow);
         } catch (NumberFormatException e) {
             LoggerFactory.getMeasurementLogger()
-                    .d(
+                    .e(
                             e,
                             "extractLookbackWindow: caught exception. Key: %s",
                             FilterMap.LOOKBACK_WINDOW);
             return Optional.empty();
         }
+    }
+
+    /** Extract non-empty string from an obj. */
+    public static Optional<String> extractString(Object obj, int maxLength) {
+        if (!(obj instanceof String)) {
+            LoggerFactory.getMeasurementLogger().e("obj should be a string.");
+            return Optional.empty();
+        }
+        String stringValue = (String) obj;
+        if (stringValue.length() > maxLength) {
+            LoggerFactory.getMeasurementLogger()
+                    .e("Length of string value should be non-empty and smaller than " + maxLength);
+            return Optional.empty();
+        }
+        return Optional.of(stringValue);
     }
 
     /**
@@ -154,7 +170,7 @@ public class FetcherUtil {
     static boolean isValidAggregateKeyId(String id) {
         return id != null
                 && !id.isEmpty()
-                && id.getBytes().length
+                && id.getBytes(StandardCharsets.UTF_8).length
                         <= FlagsFactory.getFlags()
                                 .getMeasurementMaxBytesPerAttributionAggregateKeyId();
     }
@@ -179,7 +195,7 @@ public class FetcherUtil {
         if (keyPiece == null || keyPiece.isEmpty()) {
             return false;
         }
-        int length = keyPiece.getBytes().length;
+        int length = keyPiece.getBytes(StandardCharsets.UTF_8).length;
         if (!(keyPiece.startsWith("0x") || keyPiece.startsWith("0X"))) {
             return false;
         }
@@ -231,7 +247,7 @@ public class FetcherUtil {
         while (keys.hasNext()) {
             String key = keys.next();
             if (shouldCheckFilterSize
-                    && key.getBytes().length
+                    && key.getBytes(StandardCharsets.UTF_8).length
                             > FlagsFactory.getFlags()
                                     .getMeasurementMaxBytesPerAttributionFilterString()) {
                 return false;
@@ -265,7 +281,7 @@ public class FetcherUtil {
                     return false;
                 }
                 if (shouldCheckFilterSize
-                        && ((String) value).getBytes().length
+                        && ((String) value).getBytes(StandardCharsets.UTF_8).length
                                 > FlagsFactory.getFlags()
                                         .getMeasurementMaxBytesPerAttributionFilterString()) {
                     return false;
@@ -334,7 +350,7 @@ public class FetcherUtil {
             redirects.add(Uri.parse(field.get(0)));
             if (field.size() > 1) {
                 LoggerFactory.getMeasurementLogger()
-                        .d("Expected one Location redirect only, others ignored!");
+                        .e("Expected one Location redirect only, others ignored!");
             }
         }
         return redirects;
