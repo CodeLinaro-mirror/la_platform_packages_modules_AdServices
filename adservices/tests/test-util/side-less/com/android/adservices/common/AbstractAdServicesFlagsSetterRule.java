@@ -19,9 +19,12 @@ import static com.android.adservices.common.AbstractAdServicesSystemPropertiesDu
 import static com.android.adservices.service.FlagsConstants.ARRAY_SPLITTER_COMMA;
 import static com.android.adservices.service.FlagsConstants.NAMESPACE_ADSERVICES;
 
-import com.android.adservices.common.Logger.RealLogger;
-import com.android.adservices.common.NameValuePair.Matcher;
 import com.android.adservices.service.FlagsConstants;
+import com.android.adservices.shared.testing.AbstractFlagsSetterRule;
+import com.android.adservices.shared.testing.DeviceConfigHelper;
+import com.android.adservices.shared.testing.Logger.RealLogger;
+import com.android.adservices.shared.testing.NameValuePair.Matcher;
+import com.android.adservices.shared.testing.SystemPropertiesHelper;
 
 import java.util.Objects;
 
@@ -31,16 +34,14 @@ import java.util.Objects;
  * Rule used to properly set AdService flags - it will take care of permissions, restoring values at
  * the end, setting {@link android.provider.DeviceConfig} or {@link android.os.SystemProperties},
  * etc...
- *
- * <p>Most methods set {@link android.provider.DeviceConfig} flags, although some sets {@link
- * android.os.SystemProperties} instead - those are typically suffixed with {@code forTests}
  */
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NOTE: DO NOT add new setXyz() methods, unless they need non-trivial logic. Instead, let your   //
 // test call setFlags(flagName) (statically import FlagsConstant.flagName), which will make it    //
 // easier to transition the test to an annotated-base approach.                                   //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-abstract class AbstractAdServicesFlagsSetterRule<T extends AbstractAdServicesFlagsSetterRule<T>>
+public abstract class AbstractAdServicesFlagsSetterRule<
+                T extends AbstractAdServicesFlagsSetterRule<T>>
         extends AbstractFlagsSetterRule<T> {
 
     private static final String ALLOWLIST_SEPARATOR = ARRAY_SPLITTER_COMMA;
@@ -109,26 +110,6 @@ abstract class AbstractAdServicesFlagsSetterRule<T extends AbstractAdServicesFla
         return setFlag(FlagsConstants.KEY_TOPICS_ON_DEVICE_CLASSIFIER_KILL_SWITCH, value);
     }
 
-    /** Overrides the system property that defines the percentage for random topic. */
-    public T setTopicsPercentageForRandomTopicForTests(long value) {
-        return setSystemProperty(FlagsConstants.KEY_TOPICS_PERCENTAGE_FOR_RANDOM_TOPIC, value);
-    }
-
-    /** Overrides the system property used to disable topics enrollment check. */
-    public T setDisableTopicsEnrollmentCheckForTests(boolean value) {
-        return setSystemProperty(FlagsConstants.KEY_DISABLE_TOPICS_ENROLLMENT_CHECK, value);
-    }
-
-    /** Overrides the system property used to set ConsentManager notification debug mode keys. */
-    public T setConsentNotifiedDebugMode(boolean value) {
-        return setSystemProperty(FlagsConstants.KEY_CONSENT_NOTIFIED_DEBUG_MODE, value);
-    }
-
-    /** Overrides the system property used to set ConsentManager debug mode keys. */
-    public T setConsentManagerDebugMode(boolean value) {
-        return setSystemProperty(FlagsConstants.KEY_CONSENT_MANAGER_DEBUG_MODE, value);
-    }
-
     /**
      * Overrides flag used by {@link com.android.adservices.service.PhFlags#getEnableBackCompat()}.
      */
@@ -183,20 +164,11 @@ abstract class AbstractAdServicesFlagsSetterRule<T extends AbstractAdServicesFla
 
     /**
      * Overrides flag used by {@link
-     * com.android.adservices.service.PhFlags#getAdIdKillSwitchForTests()}.
-     */
-    public T setAdIdKillSwitchForTests(boolean value) {
-        return setSystemProperty(FlagsConstants.KEY_ADID_KILL_SWITCH, value);
-    }
-
-    /**
-     * Overrides flag used by {@link
      * com.android.adservices.service.PhFlags#getMddBackgroundTaskKillSwitch()}.
      */
     public T setMddBackgroundTaskKillSwitch(boolean value) {
         return setFlag(FlagsConstants.KEY_MDD_BACKGROUND_TASK_KILL_SWITCH, value);
     }
-
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -246,7 +218,8 @@ abstract class AbstractAdServicesFlagsSetterRule<T extends AbstractAdServicesFla
                 "setDebugUxFlagsForRvcUx()",
                 () -> {
                     if (!isAtLeastS() && isAtLeastR()) {
-                        setFlag(FlagsConstants.KEY_CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE, true);
+                        setSystemProperty(
+                                FlagsConstants.KEY_CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE, true);
                         setFlag(FlagsConstants.KEY_DEBUG_UX, "RVC_UX");
                         return;
                     }
