@@ -16,7 +16,6 @@
 
 package com.android.adservices.service.measurement.registration;
 
-import static com.android.adservices.common.JobServiceTestHelper.createJobFinishedCallback;
 import static com.android.adservices.mockito.ExtendedMockitoExpectations.mockGetAdServicesJobServiceLogger;
 import static com.android.adservices.mockito.ExtendedMockitoExpectations.mockGetFlags;
 import static com.android.adservices.mockito.MockitoExpectations.getSpiedAdServicesJobServiceLogger;
@@ -121,6 +120,8 @@ public class AsyncRegistrationQueueJobServiceTest {
                 .thenReturn(JOB_TRIGGER_MIN_DELAY_MS);
         when(mMockFlags.getMeasurementAsyncRegistrationJobTriggerMaxDelayMs())
                 .thenReturn(JOB_TRIGGER_MAX_DELAY_MS);
+        when(mMockFlags.getMeasurementPrivacyEpsilon())
+                .thenReturn(Flags.DEFAULT_MEASUREMENT_PRIVACY_EPSILON);
     }
 
     @Test
@@ -614,7 +615,7 @@ public class AsyncRegistrationQueueJobServiceTest {
                                 ServiceCompatUtils.shouldDisableExtServicesJobOnTPlus(
                                         any(Context.class)));
 
-        JobServiceCallback callback = createJobFinishedCallback(mSpyService);
+        JobServiceCallback callback = new JobServiceCallback().expectJobFinished(mSpyService);
 
         // Execute
         boolean result = mSpyService.onStartJob(mock(JobParameters.class));
