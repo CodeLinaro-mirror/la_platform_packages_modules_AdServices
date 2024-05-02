@@ -92,6 +92,8 @@ public final class FlagsConstants {
     public static final String KEY_TOPICS_DISABLE_DIRECT_APP_CALLS =
             "topics_disable_direct_app_calls";
     public static final String KEY_TOPICS_ENCRYPTION_ENABLED = "topics_encryption_enabled";
+    public static final String KEY_TOPICS_ENCRYPTION_METRICS_ENABLED =
+            "topics_encryption_metrics_enabled";
     public static final String KEY_TOPICS_DISABLE_PLAINTEXT_RESPONSE =
             "topics_disable_plaintext_response";
     public static final String KEY_TOPICS_TEST_ENCRYPTION_PUBLIC_KEY =
@@ -159,6 +161,13 @@ public final class FlagsConstants {
     public static final String
             KEY_MEASUREMENT_SOURCE_REGISTRATION_TIME_OPTIONAL_FOR_AGG_REPORTS_ENABLED =
                     "measurement_source_registration_time_optional_for_agg_reports_enabled";
+
+    public static final String KEY_MEASUREMENT_ENABLE_TRIGGER_CONTEXT_ID =
+            "measurement_enable_trigger_context_id";
+
+    public static final String KEY_MEASUREMENT_MAX_LENGTH_OF_TRIGGER_CONTEXT_ID =
+            "measurement_max_length_of_trigger_context_id";
+
     public static final String KEY_MEASUREMENT_NETWORK_CONNECT_TIMEOUT_MS =
             "measurement_network_connect_timeout_ms";
     public static final String KEY_MEASUREMENT_NETWORK_READ_TIMEOUT_MS =
@@ -439,6 +448,17 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_AGGREGATE_FALLBACK_REPORTING_JOB_PERSISTED =
             "measurement_aggregate_fallback_reporting_job_persisted";
 
+    public static final String
+            KEY_MEASUREMENT_IMMEDIATE_AGGREGATE_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW =
+                    "measurement_immediate_aggregate_reporting_job_required_battery_not_low";
+
+    public static final String
+            KEY_MEASUREMENT_IMMEDIATE_AGGREGATE_REPORTING_JOB_REQUIRED_NETWORK_TYPE =
+                    "measurement_immediate_aggregate_reporting_job_required_network_type";
+
+    public static final String KEY_MEASUREMENT_IMMEDIATE_AGGREGATE_REPORTING_JOB_PERSISTED =
+            "measurement_immediate_aggregate_reporting_job_persisted";
+
     public static final String KEY_MEASUREMENT_ENABLE_AGGREGATABLE_REPORT_PAYLOAD_PADDING =
             "measurement_enable_aggregatable_report_payload_padding";
 
@@ -447,6 +467,9 @@ public final class FlagsConstants {
 
     public static final String KEY_FLEDGE_APP_PACKAGE_NAME_LOGGING_ENABLED =
             "fledge_app_package_name_logging_enabled";
+
+    public static final String KEY_MEASUREMENT_ENABLE_ODP_WEB_TRIGGER_REGISTRATION =
+            "measurement_enable_odp_web_trigger_registration";
 
     // FLEDGE Custom Audience keys
     public static final String KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_COUNT =
@@ -547,8 +570,18 @@ public final class FlagsConstants {
             "fledge_ad_selection_from_outcomes_overall_timeout_ms";
     public static final String KEY_FLEDGE_AD_SELECTION_EXPIRATION_WINDOW_S =
             "fledge_ad_selection_expiration_window_s";
-    public static final String KEY_FLEDGE_AD_SELECTION_FILTERING_ENABLED =
-            "fledge_ad_selection_filtering_enabled";
+    public static final String KEY_FLEDGE_APP_INSTALL_FILTERING_ENABLED =
+            "fledge_app_install_filtering_enabled";
+    public static final String KEY_FLEDGE_APP_INSTALL_FILTERING_METRICS_ENABLED =
+            "fledge_app_install_filtering_metrics_enabled";
+    public static final String KEY_FLEDGE_FREQUENCY_CAP_FILTERING_ENABLED =
+            "fledge_frequency_cap_filtering_enabled";
+    public static final String KEY_FLEDGE_FREQUENCY_CAP_FILTERING_METRICS_ENABLED =
+            "fledge_frequency_cap_filtering_metrics_enabled";
+    public static final String KEY_FLEDGE_AD_SELECTION_CONTEXTUAL_ADS_ENABLED =
+            "fledge_ad_selection_contextual_ads_enabled";
+    public static final String KEY_FLEDGE_AD_SELECTION_CONTEXTUAL_ADS_METRICS_ENABLED =
+            "fledge_ad_selection_contextual_ads_metrics_enabled";
     public static final String KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_ENABLED =
             "fledge_fetch_custom_audience_enabled";
     public static final String KEY_FLEDGE_REPORT_IMPRESSION_OVERALL_TIMEOUT_MS =
@@ -638,6 +671,8 @@ public final class FlagsConstants {
             "fledge_auction_server_enabled_for_select_ads_mediation";
     public static final String KEY_FLEDGE_AUCTION_SERVER_ENABLE_AD_FILTER_IN_GET_AD_SELECTION_DATA =
             "fledge_auction_server_enable_ad_filter_in_get_ad_selection_data";
+    public static final String KEY_FLEDGE_AUCTION_SERVER_MEDIA_TYPE_CHANGE_ENABLED =
+            "fledge_auction_server_media_type_change_enabled";
     public static final String KEY_FLEDGE_AUCTION_SERVER_PAYLOAD_BUCKET_SIZES =
             "fledge_auction_server_payload_bucket_sizes";
     public static final String KEY_FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_URI =
@@ -685,6 +720,13 @@ public final class FlagsConstants {
 
     public static final String KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_JOB_FLEX_MS =
             "fledge_auction_server_background_key_fetch_job_flex_ms";
+
+    public static final String
+            KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_ON_EMPTY_DB_AND_IN_ADVANCE_ENABLED =
+                    "fledge_auction_server_background_key_fetch_on_empty_db_and_in_advance_enabled";
+    public static final String
+            KEY_FLEDGE_AUCTION_SERVER_BACKGROUND_KEY_FETCH_IN_ADVANCE_INTERVAL_MS =
+                    "fledge_auction_server_background_key_fetch_in_advance_interval_ms";
     public static final String KEY_FLEDGE_AUCTION_SERVER_COMPRESSION_ALGORITHM_VERSION =
             "fledge_auction_server_compression_algorithm_version";
     public static final String KEY_FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION =
@@ -693,6 +735,8 @@ public final class FlagsConstants {
             "fledge_auction_server_enable_debug_reporting";
     public static final String KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS =
             "fledge_auction_server_ad_id_fetcher_timeout_ms";
+    public static final String KEY_FLEDGE_AUCTION_SERVER_ENABLE_PAS_UNLIMITED_EGRESS =
+            "fledge_auction_server_enable_pas_unlimited_egress";
     public static final String KEY_FLEDGE_AUCTION_SERVER_AD_RENDER_ID_MAX_LENGTH =
             "fledge_auction_server_ad_render_id_max_length";
     public static final String KEY_FLEDGE_AUCTION_SERVER_AD_RENDER_ID_ENABLED =
@@ -782,6 +826,8 @@ public final class FlagsConstants {
             "measurement_job_aggregate_fallback_reporting_kill_switch";
     public static final String KEY_MEASUREMENT_JOB_AGGREGATE_REPORTING_KILL_SWITCH =
             "measurement_job_aggregate_reporting_kill_switch";
+    public static final String KEY_MEASUREMENT_JOB_IMMEDIATE_AGGREGATE_REPORTING_KILL_SWITCH =
+            "measurement_job_immediate_aggregate_reporting_kill_switch";
     public static final String KEY_MEASUREMENT_JOB_ATTRIBUTION_KILL_SWITCH =
             "measurement_job_attribution_kill_switch";
     public static final String KEY_MEASUREMENT_JOB_DELETE_EXPIRED_KILL_SWITCH =
@@ -845,6 +891,9 @@ public final class FlagsConstants {
             "encryption_key_job_required_network_type";
 
     public static final String KEY_ENCRYPTION_KEY_JOB_PERIOD_MS = "encryption_key_job_period_ms";
+    public static final String KEY_ENABLE_MDD_ENCRYPTION_KEYS = "enable_mdd_encryption_keys";
+    public static final String KEY_MDD_ENCRYPTION_KEYS_MANIFEST_FILE_URL =
+            "mdd_encryption_keys_manifest_file_url";
 
     // App/SDK AllowList/DenyList keys
     public static final String KEY_PPAPI_APP_ALLOW_LIST = "ppapi_app_allow_list";
@@ -1025,6 +1074,8 @@ public final class FlagsConstants {
 
     public static final String KEY_ENABLE_BACK_COMPAT = "enable_back_compat";
 
+    public static final String KEY_ENABLE_BACK_COMPAT_INIT = "enable_back_compat_init";
+
     public static final String KEY_ENABLE_APPSEARCH_CONSENT_DATA = "enable_appsearch_consent_data";
 
     public static final String KEY_ENABLE_ADEXT_SERVICE_CONSENT_DATA =
@@ -1070,6 +1121,10 @@ public final class FlagsConstants {
     public static final String KEY_FLEDGE_AUCTION_SERVER_API_USAGE_METRICS_ENABLED =
             "fledge_auction_server_api_usage_metrics_enabled";
 
+    // Fledge auction server key fetch metrics flag
+    public static final String KEY_FLEDGE_AUCTION_SERVER_KEY_FETCH_METRICS_ENABLED =
+            "fledge_auction_server_key_fetch_metrics_enabled";
+
     public static final String KEY_MEASUREMENT_DEBUG_JOIN_KEY_HASH_LIMIT =
             "measurement_debug_join_key_hash_limit";
 
@@ -1103,6 +1158,9 @@ public final class FlagsConstants {
     public static final String
             KEY_MEASUREMENT_FLEX_API_MAX_INFORMATION_GAIN_DUAL_DESTINATION_NAVIGATION =
                     "measurement_flex_api_max_information_gain_dual_destination_navigation";
+
+    public static final String KEY_MEASUREMENT_MAX_REPORT_STATES_PER_SOURCE_REGISTRATION =
+            "measurement_max_report_states_per_source_registration";
 
     public static final String KEY_MEASUREMENT_FLEX_API_MAX_EVENT_REPORTS =
             "measurement_flex_api_max_event_reports";
@@ -1211,6 +1269,18 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_ENABLE_ATTRIBUTION_SCOPE =
             "measurement_enable_attribution_scope";
 
+    public static final String KEY_MEASUREMENT_ENABLE_NAVIGATION_REPORTING_ORIGIN_CHECK =
+            "measurement_enable_navigation_reporting_origin_check";
+
+    public static final String KEY_MEASUREMENT_MAX_ATTRIBUTION_SCOPES_PER_SOURCE =
+            "measurement_max_attribution_scopes_per_source";
+
+    public static final String KEY_MEASUREMENT_MAX_ATTRIBUTION_SCOPE_LENGTH =
+            "measurement_max_attribution_scope_length";
+
+    public static final String KEY_MEASUREMENT_EVENT_API_DEFAULT_EPSILON =
+            "measurement_event_api_default_epsilon";
+
     // Database Schema Version Flags
     public static final String KEY_ENABLE_DATABASE_SCHEMA_VERSION_8 =
             "enable_database_schema_version_8";
@@ -1241,8 +1311,10 @@ public final class FlagsConstants {
 
     public static final String KEY_AD_ID_FETCHER_TIMEOUT_MS = "ad_id_fetcher_timeout_ms";
 
-    public static final String KEY_APP_CONFIG_RETURNS_ENABLED_BY_DEFAULT =
-            "app_config_returns_enabled_by_detault";
+    // NOTE: retired (it's on by default) - constant is here to keep track (for example, if we move
+    // to a metadata-driven flag management, we could still list this one as "retired").
+    //    public static final String KEY_APP_CONFIG_RETURNS_ENABLED_BY_DEFAULT =
+    //            "app_config_returns_enabled_by_detault";
 
     public static final String KEY_ENABLE_ADEXT_DATA_SERVICE_APIS =
             "adext_data_service_apis_enabled";
@@ -1264,6 +1336,14 @@ public final class FlagsConstants {
     /** Key for kanon sign join feature flag */
     public static final String KEY_FLEDGE_ENABLE_KANON_SIGN_JOIN_FEATURE =
             "fledge_kanon_sign_join_enabled";
+
+    /** Key for kanon sign join on device feature flag */
+    public static final String KEY_FLEDGE_ENABLE_KANON_ON_DEVICE_AUCTION_FEATURE =
+            "fledge_kanon_sign_join_on_device_auction_enabled";
+
+    /** Key for kanon sign join on device feature flag */
+    public static final String KEY_FLEDGE_ENABLE_KANON_AUCTION_SERVER_FEATURE =
+            "fledge_kanon_sign_join_auction_server_enabled";
 
     /** Key for kanon fetch parameters url. */
     public static final String KEY_KANON_FETCH_PARAMETERS_URL = "kanon_fetch_parameters_url";
@@ -1316,6 +1396,18 @@ public final class FlagsConstants {
     public static final String KEY_FLEDGE_KANON_SET_TYPE_TO_SIGN_JOIN =
             "fledge_kanon_set_type_to_sign_join";
 
+    public static final String KEY_FLEDGE_KANON_BACKGROUND_JOB_REQUIRES_DEVICE_IDLE =
+            "fledge_kanon_background_job_requires_device_idle";
+
+    public static final String KEY_FLEDGE_KANON_BACKGROUND_JOB_REQUIRES_BATTERY_NOT_LOW =
+            "fledge_kanon_background_job_requires_battery_not_low";
+
+    public static final String KEY_FLEDGE_KANON_BACKGROUND_JOB_TYPE_OF_CONNECTION =
+            "fledge_kanon_background_job_type_of_meter_connection";
+
+    public static final String KEY_FLEDGE_KANON_HTTP_CLIENT_TIMEOUT =
+            "fledge_kanon_http_client_timeout";
+
     /** Key for kanon join url authoriy. */
     public static final String KEY_FLEDGE_KANON_JOIN_URL_AUTHORIY =
             "fledge_kanon_join_url_authoriy";
@@ -1362,4 +1454,38 @@ public final class FlagsConstants {
     /** Key for the sampling rate of job scheduling logging. */
     public static final String KEY_JOB_SCHEDULING_LOGGING_SAMPLING_RATE =
             "job_scheduling_logging_sampling_rate";
+
+    /** Key for enabling tablet region fix. */
+    public static final String KEY_ENABLE_TABLET_REGION_FIX = "enable_tablet_region_fix";
+
+    /**
+     * Key for getting base64 encoded String which describes a map of sampling interval to a list of
+     * error codes.
+     */
+    public static final String KEY_ENCODED_ERROR_CODE_LIST_PER_SAMPLE_INTERVAL =
+            "encoded_error_code_list_per_sample_interval";
+
+    /** Key for enabling custom error code sampling. */
+    public static final String KEY_CUSTOM_ERROR_CODE_SAMPLING_ENABLED =
+            "custom_error_code_sampling_enabled";
+
+    /** Key for PAS script download read timeout flag */
+    public static final String KEY_PAS_SCRIPT_DOWNLOAD_READ_TIMEOUT_MS =
+            "pas_script_download_read_timeout_ms";
+
+    /** Key for PAS script download connection timeout flag */
+    public static final String KEY_PAS_SCRIPT_DOWNLOAD_CONNECTION_TIMEOUT_MS =
+            "pas_script_download_connection_timeout_ms";
+
+    /** Key for PAS signals download read timeout flag */
+    public static final String KEY_PAS_SIGNALS_DOWNLOAD_READ_TIMEOUT_MS =
+            "pas_signals_download_read_timeout_ms";
+
+    /** Key for PAS signals download connection timeout flag */
+    public static final String KEY_PAS_SIGNALS_DOWNLOAD_CONNECTION_TIMEOUT_MS =
+            "pas_signals_download_connection_timeout_ms";
+
+    /** Key for PAS script execution timeout flag */
+    public static final String KEY_PAS_SCRIPT_EXECUTION_TIMEOUT_MS =
+            "pas_script_execution_timeout_ms";
 }

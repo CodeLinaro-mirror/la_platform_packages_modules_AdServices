@@ -18,6 +18,7 @@ package com.android.adservices.service.measurement.registration;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__ENROLLMENT_INVALID;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__MEASUREMENT;
 
+import android.adservices.ondevicepersonalization.OnDevicePersonalizationSystemEventManager;
 import android.annotation.NonNull;
 import android.content.Context;
 import android.net.Uri;
@@ -35,11 +36,15 @@ import com.android.adservices.service.measurement.MeasurementHttpClient;
 import com.android.adservices.service.measurement.Trigger;
 import com.android.adservices.service.measurement.TriggerSpecs;
 import com.android.adservices.service.measurement.XNetworkData;
+import com.android.adservices.service.measurement.ondevicepersonalization.IOdpDelegationWrapper;
+import com.android.adservices.service.measurement.ondevicepersonalization.NoOdpDelegationWrapper;
+import com.android.adservices.service.measurement.ondevicepersonalization.OdpDelegationWrapperImpl;
 import com.android.adservices.service.measurement.util.BaseUriExtractor;
 import com.android.adservices.service.measurement.util.Enrollment;
 import com.android.adservices.service.measurement.util.Filter;
 import com.android.adservices.service.measurement.util.UnsignedLong;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.modules.utils.build.SdkLevel;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -69,20 +74,27 @@ public class AsyncTriggerFetcher {
     private final EnrollmentDao mEnrollmentDao;
     private final Flags mFlags;
     private final Context mContext;
+    private final IOdpDelegationWrapper mOdpWrapper;
 
     public AsyncTriggerFetcher(Context context) {
         this(
                 context,
                 EnrollmentDao.getInstance(context),
-                FlagsFactory.getFlags());
+                FlagsFactory.getFlags(),
+                getOdpDelegationManager(context, FlagsFactory.getFlags()));
     }
 
     @VisibleForTesting
-    public AsyncTriggerFetcher(Context context, EnrollmentDao enrollmentDao, Flags flags) {
+    public AsyncTriggerFetcher(
+            Context context,
+            EnrollmentDao enrollmentDao,
+            Flags flags,
+            IOdpDelegationWrapper odpWrapper) {
         mContext = context;
         mEnrollmentDao = enrollmentDao;
         mFlags = flags;
         mNetworkConnection = new MeasurementHttpClient(context);
+        mOdpWrapper = odpWrapper;
     }
 
     /**
@@ -275,10 +287,51 @@ public class AsyncTriggerFetcher {
                 builder.setDebugJoinKey(json.optString(TriggerHeaderContract.DEBUG_JOIN_KEY));
             }
 
-            builder.setAggregatableSourceRegistrationTimeConfig(
-                    getSourceRegistrationTimeConfig(json));
-            asyncFetchStatus.setEntityStatus(AsyncFetchStatus.EntityStatus.SUCCESS);
+            Trigger.SourceRegistrationTimeConfig sourceRegistrationTimeConfig =
+                    getSourceRegistrationTimeConfig(json);
 
+            builder.setAggregatableSourceRegistrationTimeConfig(sourceRegistrationTimeConfig);
+
+            if (mFlags.getMeasurementEnableTriggerContextId()
+                    && !json.isNull(TriggerHeaderContract.TRIGGER_CONTEXT_ID)) {
+                if (Trigger.SourceRegistrationTimeConfig.INCLUDE.equals(
+                        sourceRegistrationTimeConfig)) {
+                    LoggerFactory.getMeasurementLogger()
+                            .d(
+                                    "parseTrigger: %s cannot be set when %s has a value of %s",
+                                    TriggerHeaderContract.TRIGGER_CONTEXT_ID,
+                                    TriggerHeaderContract.AGGREGATABLE_SOURCE_REGISTRATION_TIME,
+                                    Trigger.SourceRegistrationTimeConfig.INCLUDE.name());
+                    asyncFetchStatus.setEntityStatus(
+                            AsyncFetchStatus.EntityStatus.VALIDATION_ERROR);
+                    return Optional.empty();
+                }
+
+                Optional<String> contextIdOpt = getValidTriggerContextId(json);
+                if (contextIdOpt.isEmpty()) {
+                    asyncFetchStatus.setEntityStatus(
+                            AsyncFetchStatus.EntityStatus.VALIDATION_ERROR);
+                    return Optional.empty();
+                }
+
+                builder.setTriggerContextId(contextIdOpt.get());
+            }
+
+            if (mFlags.getMeasurementEnableAttributionScope()
+                    && !json.isNull(TriggerHeaderContract.ATTRIBUTION_SCOPE)) {
+                Optional<String> attributionScope =
+                        FetcherUtil.extractString(
+                                json.get(TriggerHeaderContract.ATTRIBUTION_SCOPE),
+                                mFlags.getMeasurementMaxAttributionScopeLength());
+                if (attributionScope.isEmpty()) {
+                    asyncFetchStatus.setEntityStatus(
+                            AsyncFetchStatus.EntityStatus.VALIDATION_ERROR);
+                    return Optional.empty();
+                }
+                builder.setAttributionScope(attributionScope.get());
+            }
+
+            asyncFetchStatus.setEntityStatus(AsyncFetchStatus.EntityStatus.SUCCESS);
             return Optional.of(builder.build());
         } catch (JSONException e) {
             LoggerFactory.getMeasurementLogger().e(e, "Trigger Parsing failed");
@@ -290,6 +343,31 @@ public class AsyncTriggerFetcher {
             asyncFetchStatus.setEntityStatus(AsyncFetchStatus.EntityStatus.VALIDATION_ERROR);
             return Optional.empty();
         }
+    }
+
+    private Optional<String> getValidTriggerContextId(JSONObject json) throws JSONException {
+        Object triggerContextIdObj = json.get(TriggerHeaderContract.TRIGGER_CONTEXT_ID);
+        if (!(triggerContextIdObj instanceof String)) {
+            LoggerFactory.getMeasurementLogger()
+                    .d(
+                            "%s: %s, is not a String",
+                            TriggerHeaderContract.TRIGGER_CONTEXT_ID,
+                            json.get(TriggerHeaderContract.TRIGGER_CONTEXT_ID).toString());
+            return Optional.empty();
+        }
+
+        String contextId = triggerContextIdObj.toString();
+        if (contextId.length() > mFlags.getMeasurementMaxLengthOfTriggerContextId()) {
+            LoggerFactory.getMeasurementLogger()
+                    .d(
+                            "Length of %s: \"%s\", exceeds max length of %d",
+                            TriggerHeaderContract.TRIGGER_CONTEXT_ID,
+                            contextId,
+                            mFlags.getMeasurementMaxLengthOfTriggerContextId());
+            return Optional.empty();
+        }
+
+        return Optional.of(contextId);
     }
 
     private Trigger.SourceRegistrationTimeConfig getSourceRegistrationTimeConfig(JSONObject json) {
@@ -424,7 +502,18 @@ public class AsyncTriggerFetcher {
             return Optional.empty();
         }
 
-        return parseTrigger(asyncRegistration, enrollmentId.get(), headers, asyncFetchStatus);
+        Optional<Trigger> parsedTrigger =
+                parseTrigger(asyncRegistration, enrollmentId.get(), headers, asyncFetchStatus);
+
+        // parse & forward registration to ODP if available
+        mOdpWrapper.registerOdpTrigger(asyncRegistration, headers);
+
+        return parsedTrigger;
+    }
+
+    /** Return instance of IOdpDelegationWrapper. */
+    public IOdpDelegationWrapper getOdpWrapper() {
+        return mOdpWrapper;
     }
 
     private boolean isTriggerHeaderPresent(Map<String, List<String>> headers) {
@@ -718,6 +807,24 @@ public class AsyncTriggerFetcher {
                 : destination;
     }
 
+    private static IOdpDelegationWrapper getOdpDelegationManager(Context context, Flags flags) {
+        if (!SdkLevel.isAtLeastT() || !flags.getMeasurementEnableOdpWebTriggerRegistration()) {
+            return new NoOdpDelegationWrapper();
+        }
+
+        OnDevicePersonalizationSystemEventManager odpSystemEventManager = null;
+        try {
+            odpSystemEventManager =
+                    context.getSystemService(OnDevicePersonalizationSystemEventManager.class);
+        } catch (Exception e) {
+            // TODO Add CEL logging for exceptions (b/330784221)
+            LoggerFactory.getMeasurementLogger().d(e, "getOdpDelegationManager: Unknown Exception");
+        }
+        return (odpSystemEventManager != null)
+                ? new OdpDelegationWrapperImpl(odpSystemEventManager)
+                : new NoOdpDelegationWrapper();
+    }
+
     private interface TriggerHeaderContract {
         String HEADER_ATTRIBUTION_REPORTING_REGISTER_TRIGGER =
                 "Attribution-Reporting-Register-Trigger";
@@ -735,5 +842,7 @@ public class AsyncTriggerFetcher {
         String DEBUG_AD_ID = "debug_ad_id";
         String AGGREGATION_COORDINATOR_ORIGIN = "aggregation_coordinator_origin";
         String AGGREGATABLE_SOURCE_REGISTRATION_TIME = "aggregatable_source_registration_time";
+        String TRIGGER_CONTEXT_ID = "trigger_context_id";
+        String ATTRIBUTION_SCOPE = "attribution_scope";
     }
 }
