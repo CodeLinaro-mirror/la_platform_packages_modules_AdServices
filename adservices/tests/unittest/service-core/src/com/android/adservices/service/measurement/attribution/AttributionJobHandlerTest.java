@@ -22,6 +22,7 @@ import static com.android.adservices.service.Flags.MEASUREMENT_MAX_REPORTING_REG
 import static com.android.adservices.service.measurement.util.Time.roundDownToDay;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -93,6 +94,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -4660,14 +4662,30 @@ public class AttributionJobHandlerTest {
                 .updateTriggerStatus(
                         eq(Collections.singletonList(trigger.getId())),
                         eq(Trigger.Status.ATTRIBUTED));
-        verify(mMeasurementDao).insertAggregateReport(any());
         // Verify event report registration origin.
-        ArgumentCaptor<EventReport> reportArg = ArgumentCaptor.forClass(EventReport.class);
-        verify(mMeasurementDao).insertEventReport(reportArg.capture());
-        EventReport eventReport = reportArg.getValue();
+        ArgumentCaptor<EventReport> eventReportArg = ArgumentCaptor.forClass(EventReport.class);
+        verify(mMeasurementDao).insertEventReport(eventReportArg.capture());
+        ArgumentCaptor<AggregateReport> aggReportArg =
+                ArgumentCaptor.forClass(AggregateReport.class);
+        verify(mMeasurementDao).insertAggregateReport(aggReportArg.capture());
+        assertNotNull(aggReportArg.getValue().getId());
+
+        EventReport eventReport = eventReportArg.getValue();
+        assertNotNull(eventReport.getId());
         assertEquals(REGISTRATION_URI, eventReport.getRegistrationOrigin());
         verify(mTransaction, times(2)).begin();
         verify(mTransaction, times(2)).end();
+
+        Set<String> expectedAttributionReportIds =
+                Set.of(eventReport.getId(), aggReportArg.getValue().getId());
+
+        ArgumentCaptor<Attribution> attributionArg = ArgumentCaptor.forClass(Attribution.class);
+        verify(mMeasurementDao, times(2)).insertAttribution(attributionArg.capture());
+        List<Attribution> attributions = attributionArg.getAllValues();
+        assertEquals(2, attributions.size());
+        Set<String> actualAttributionReportIds =
+                Set.of(attributions.get(0).getReportId(), attributions.get(1).getReportId());
+        assertEquals(expectedAttributionReportIds, actualAttributionReportIds);
     }
 
     @Test
@@ -7267,7 +7285,7 @@ public class AttributionJobHandlerTest {
                         .setTriggerTime(TRIGGER_TIME)
                         .setStatus(Trigger.Status.PENDING)
                         .setEventTriggers(EVENT_TRIGGERS)
-                        .setAttributionScope("1")
+                        .setAttributionScopesString("[\"1\"]")
                         .build();
 
         when(mMeasurementDao.getPendingTriggerIds())
@@ -7343,7 +7361,7 @@ public class AttributionJobHandlerTest {
                         .setTriggerTime(TRIGGER_TIME)
                         .setStatus(Trigger.Status.PENDING)
                         .setEventTriggers(EVENT_TRIGGERS)
-                        .setAttributionScope("1")
+                        .setAttributionScopesString("[\"1\"]")
                         .build();
 
         when(mMeasurementDao.getPendingTriggerIds())
@@ -7372,6 +7390,122 @@ public class AttributionJobHandlerTest {
                         eq(Trigger.Status.IGNORED));
         verify(mMeasurementDao, never()).updateSourceAttributedTriggers(any(), any());
         verify(mMeasurementDao, never()).updateSourceStatus(any(), anyInt());
+
+        verify(mTransaction, times(2)).begin();
+        verify(mTransaction, times(2)).end();
+    }
+
+    @Test
+    public void performAttributions_multipleTriggerAttributionScopes_selectsAllMatchingScopes()
+            throws DatastoreException {
+        when(mFlags.getMeasurementEnableAttributionScope()).thenReturn(true);
+        Source olderSourceWithMatchingAttributionScope =
+                SourceFixture.getMinimalValidSourceWithAttributionScope()
+                        .setId("olderSourceWithMatchingAttributionScopeId")
+                        .setEventTime(SOURCE_TIME - 1)
+                        .setExpiryTime(EXPIRY_TIME)
+                        .setPriority(100)
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .build();
+
+        Source sourceWithMatchingAttributionScope1 =
+                SourceFixture.getMinimalValidSourceWithAttributionScope()
+                        .setId("sourceWithMatchingAttributionScope1Id")
+                        .setEventTime(SOURCE_TIME)
+                        .setExpiryTime(EXPIRY_TIME)
+                        .setAttributionScopes(List.of("1"))
+                        .setPriority(100)
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .build();
+
+        Source sourceWithMatchingAttributionScope2 =
+                SourceFixture.getMinimalValidSourceWithAttributionScope()
+                        .setId("sourceWithMatchingAttributionScope2Id")
+                        .setEventTime(SOURCE_TIME + 1)
+                        .setExpiryTime(EXPIRY_TIME)
+                        .setAttributionScopes(List.of("2"))
+                        .setPriority(100)
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .build();
+
+        Source sourceWithMatchingAttributionScopeLowerPriority =
+                SourceFixture.getMinimalValidSourceWithAttributionScope()
+                        .setId("sourceWithMatchingAttributionScopeLowerPriorityId")
+                        .setEventTime(SOURCE_TIME + 2)
+                        .setExpiryTime(EXPIRY_TIME)
+                        .setPriority(99)
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .build();
+
+        Source sourceWithoutAttributionScope =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setId("sourceWithoutAttributionScopeId")
+                        .setEventTime(SOURCE_TIME + 3)
+                        .setExpiryTime(EXPIRY_TIME)
+                        .setPriority(101)
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .build();
+
+        Source sourceWithMismatchAttributionScope =
+                SourceFixture.getMinimalValidSourceWithAttributionScope()
+                        .setId("sourceWithMismatchAttributionScopeId")
+                        .setEventTime(SOURCE_TIME + 4)
+                        .setExpiryTime(EXPIRY_TIME)
+                        .setAttributionScopes(List.of("4", "5", "6"))
+                        .setPriority(102)
+                        .setAttributionMode(Source.AttributionMode.TRUTHFULLY)
+                        .build();
+
+        Trigger triggerWithAttributionScope =
+                TriggerFixture.getValidTriggerBuilder()
+                        .setId("triggerId1")
+                        .setTriggerTime(TRIGGER_TIME)
+                        .setStatus(Trigger.Status.PENDING)
+                        .setEventTriggers(EVENT_TRIGGERS)
+                        .setAttributionScopesString("[\"1\", \"2\"]")
+                        .build();
+
+        when(mMeasurementDao.getPendingTriggerIds())
+                .thenReturn(Collections.singletonList(triggerWithAttributionScope.getId()));
+        when(mMeasurementDao.getTrigger(triggerWithAttributionScope.getId()))
+                .thenReturn(triggerWithAttributionScope);
+        when(mMeasurementDao.getMatchingActiveSources(triggerWithAttributionScope))
+                .thenReturn(
+                        new ArrayList<>(
+                                List.of(
+                                        sourceWithMatchingAttributionScope1,
+                                        sourceWithMatchingAttributionScope2,
+                                        sourceWithoutAttributionScope,
+                                        sourceWithMismatchAttributionScope,
+                                        olderSourceWithMatchingAttributionScope,
+                                        sourceWithMatchingAttributionScopeLowerPriority)));
+        when(mMeasurementDao.getAttributionsPerRateLimitWindow(anyInt(), any(), any()))
+                .thenReturn(5L);
+        when(mMeasurementDao.getSourceEventReports(any())).thenReturn(new ArrayList<>());
+        when(mMeasurementDao.getSourceDestinations(any()))
+                .thenReturn(
+                        Pair.create(
+                                sourceWithMatchingAttributionScope1.getAppDestinations(),
+                                sourceWithMatchingAttributionScope1.getWebDestinations()));
+
+        mHandler.performPendingAttributions();
+        verify(mMeasurementDao)
+                .updateTriggerStatus(
+                        eq(List.of(triggerWithAttributionScope.getId())),
+                        eq(Trigger.Status.ATTRIBUTED));
+        verify(mMeasurementDao)
+                .updateSourceAttributedTriggers(
+                        eq(sourceWithMatchingAttributionScope2.getId()), any());
+        verify(mMeasurementDao)
+                .updateSourceStatus(
+                        eq(
+                                List.of(
+                                        sourceWithMatchingAttributionScope1.getId(),
+                                        olderSourceWithMatchingAttributionScope.getId(),
+                                        sourceWithMatchingAttributionScopeLowerPriority.getId(),
+                                        sourceWithMismatchAttributionScope.getId(),
+                                        sourceWithoutAttributionScope.getId())),
+                        eq(Source.Status.IGNORED));
 
         verify(mTransaction, times(2)).begin();
         verify(mTransaction, times(2)).end();
