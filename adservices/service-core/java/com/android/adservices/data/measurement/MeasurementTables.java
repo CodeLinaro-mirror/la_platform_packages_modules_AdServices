@@ -191,7 +191,7 @@ public final class MeasurementTables {
         String AGGREGATABLE_SOURCE_REGISTRATION_TIME_CONFIG =
                 "aggregatable_source_registration_time_config";
         String TRIGGER_CONTEXT_ID = "trigger_context_id";
-        String ATTRIBUTION_SCOPE = "attribution_scope";
+        String ATTRIBUTION_SCOPES = "attribution_scope";
     }
 
     /** Contract for EventReport. */
@@ -235,6 +235,7 @@ public final class MeasurementTables {
         String TRIGGER_ID = "trigger_id";
         String REGISTRATION_ORIGIN = "registration_origin";
         String SCOPE = "scope";
+        String REPORT_ID = "report_id";
     }
 
     /** Contract for Unencrypted aggregate payload. */
@@ -679,7 +680,7 @@ public final class MeasurementTables {
                     + " TEXT, "
                     + TriggerContract.TRIGGER_CONTEXT_ID
                     + " TEXT, "
-                    + TriggerContract.ATTRIBUTION_SCOPE
+                    + TriggerContract.ATTRIBUTION_SCOPES
                     + " TEXT"
                     + ")";
 
@@ -866,6 +867,8 @@ public final class MeasurementTables {
                     + " TEXT, "
                     + AttributionContract.SCOPE
                     + " INTEGER, "
+                    + AttributionContract.REPORT_ID
+                    + " TEXT, "
                     + "FOREIGN KEY ("
                     + AttributionContract.SOURCE_ID
                     + ") REFERENCES "
