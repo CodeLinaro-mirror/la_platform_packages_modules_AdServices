@@ -18,6 +18,8 @@ package com.android.adservices.service;
 
 import static com.android.adservices.service.Flags.AD_SERVICES_MODULE_JOB_POLICY;
 import static com.android.adservices.service.Flags.APPSEARCH_ONLY;
+import static com.android.adservices.service.Flags.DEFAULT_ADEXT_READ_TIMEOUT_MS;
+import static com.android.adservices.service.Flags.DEFAULT_ADEXT_WRITE_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.DEFAULT_BLOCKED_TOPICS_SOURCE_OF_TRUTH;
 import static com.android.adservices.service.Flags.DEFAULT_CONSENT_SOURCE_OF_TRUTH;
 import static com.android.adservices.service.Flags.DEFAULT_JOB_SCHEDULING_LOGGING_SAMPLING_RATE;
@@ -342,6 +344,33 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetFledgeSelectAdsFromOutcomesApiMetricsEnabled() {
+        testFeatureFlag(
+                "FLEDGE_SELECT_ADS_FROM_OUTCOMES_API_METRICS_ENABLED",
+                Flags::getFledgeSelectAdsFromOutcomesApiMetricsEnabled);
+    }
+
+    @Test
+    public void testGetFledgeCpcBillingMetricsEnabled() {
+        testFeatureFlag(
+                "FLEDGE_CPC_BILLING_METRICS_ENABLED", Flags::getFledgeCpcBillingMetricsEnabled);
+    }
+
+    @Test
+    public void testGetFledgeDataVersionHeaderMetricsEnabled() {
+        testFeatureFlag(
+                "FLEDGE_DATA_VERSION_HEADER_METRICS_ENABLED",
+                Flags::getFledgeDataVersionHeaderMetricsEnabled);
+    }
+
+    @Test
+    public void testGetFledgeReportImpressionApiMetricsEnabled() {
+        testFeatureFlag(
+                "FLEDGE_REPORT_IMPRESSION_API_METRICS_ENABLED",
+                Flags::getFledgeReportImpressionApiMetricsEnabled);
+    }
+
+    @Test
     public void testGetSpeOnPilotJobsEnabled() {
         testFeatureFlag("DEFAULT_SPE_ON_PILOT_JOBS_ENABLED", Flags::getSpeOnPilotJobsEnabled);
     }
@@ -516,6 +545,22 @@ public final class FlagsTest extends AdServicesUnitTestCase {
                 "getPasScriptExecutionTimeoutMs()",
                 DEFAULT_PAS_SCRIPT_EXECUTION_TIMEOUT_MS,
                 Flags::getPasScriptExecutionTimeoutMs);
+    }
+
+    @Test
+    public void testGetAdExtWriteTimeoutMs() {
+        testFlag(
+                "getAdExtWriteTimeoutMs()",
+                DEFAULT_ADEXT_WRITE_TIMEOUT_MS,
+                Flags::getAdExtWriteTimeoutMs);
+    }
+
+    @Test
+    public void testGetAdExtReadTimeoutMs() {
+        testFlag(
+                "getAdExtReadTimeoutMs()",
+                DEFAULT_ADEXT_READ_TIMEOUT_MS,
+                Flags::getAdExtReadTimeoutMs);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////

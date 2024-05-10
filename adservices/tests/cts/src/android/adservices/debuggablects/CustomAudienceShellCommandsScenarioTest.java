@@ -26,9 +26,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.adservices.common.AdData;
 import android.adservices.common.AdSelectionSignals;
+import android.adservices.common.AdTechIdentifier;
 import android.adservices.customaudience.CustomAudience;
 import android.adservices.utils.FledgeScenarioTest;
 import android.adservices.utils.ScenarioDispatcher;
+import android.adservices.utils.ScenarioDispatcherFactory;
 import android.adservices.utils.Scenarios;
 import android.net.Uri;
 
@@ -39,13 +41,13 @@ import com.android.adservices.shared.testing.annotations.SetIntegerFlag;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.List;
 
 @SetFlagEnabled(KEY_DISABLE_FLEDGE_ENROLLMENT_CHECK)
 @SetIntegerFlag(name = KEY_CONSENT_SOURCE_OF_TRUTH, value = PPAPI_AND_SYSTEM_SERVER)
-@SetFlagEnabled(KEY_ADSERVICES_SHELL_COMMAND_ENABLED)
 @SetFlagEnabled(KEY_FLEDGE_IS_CUSTOM_AUDIENCE_CLI_ENABLED)
 @RequiresSdkLevelAtLeastS(reason = "Custom Audience is enabled for S+")
 public final class CustomAudienceShellCommandsScenarioTest extends FledgeScenarioTest {
@@ -54,43 +56,53 @@ public final class CustomAudienceShellCommandsScenarioTest extends FledgeScenari
     private final AdServicesShellCommandHelper mShellCommandHelper =
             new AdServicesShellCommandHelper();
 
+    @Before
+    public void setDebugFlag() {
+        flags.setDebugFlag(KEY_ADSERVICES_SHELL_COMMAND_ENABLED, true);
+    }
+
     @Test
     public void testRun_refreshCustomAudiences_verifyCustomAudienceChanged() throws Exception {
         ScenarioDispatcher dispatcher =
-                ScenarioDispatcher.fromScenario(
-                        "scenarios/remarketing-cuj-refresh-ca.json", getCacheBusterPrefix());
-        setupDefaultMockWebServer(dispatcher);
+                setupDispatcher(
+                        ScenarioDispatcherFactory.fromScenarioWithPrefix(
+                                "scenarios/remarketing-cuj-refresh-ca.json",
+                                getCacheBusterPrefix()));
         joinCustomAudience(SHOES_CA);
+        AdTechIdentifier adTechIdentifier =
+                AdTechIdentifier.fromString(dispatcher.getBaseAddressWithPrefix().getHost());
+        String baseAddressWithPrefix = dispatcher.getBaseAddressWithPrefix().toString();
 
-        CustomAudience customAudienceBefore = getCustomAudience();
+        CustomAudience customAudienceBefore = getCustomAudience(adTechIdentifier);
         mShellCommandHelper.runCommand(
                 "custom-audience refresh --owner %s --buyer %s --name %s",
-                OWNER, mAdTechIdentifier, SHOES_CA);
-        CustomAudience customAudienceAfter = getCustomAudience();
+                OWNER, adTechIdentifier, SHOES_CA);
+        CustomAudience customAudienceAfter = getCustomAudience(adTechIdentifier);
 
         assertThat(customAudienceBefore).isNotEqualTo(customAudienceAfter);
         assertThat(customAudienceAfter.getTrustedBiddingData().getTrustedBiddingUri())
-                .isEqualTo(Uri.parse(getServerBaseAddress() + Scenarios.BIDDING_SIGNALS_PATH));
+                .isEqualTo(Uri.parse(baseAddressWithPrefix + Scenarios.BIDDING_SIGNALS_PATH));
         assertThat(customAudienceAfter.getTrustedBiddingData().getTrustedBiddingKeys())
                 .isEqualTo(List.of("key1", "key2"));
         assertThat(customAudienceAfter.getUserBiddingSignals())
                 .isEqualTo(
                         AdSelectionSignals.fromString(
                                 "{\"valid\":true,\"arbitrary\":\"yes\"}", true));
+
         assertThat(customAudienceAfter.getAds())
                 .isEqualTo(
                         List.of(
                                 new AdData.Builder()
                                         .setRenderUri(
                                                 Uri.parse(
-                                                        getServerBaseAddress()
+                                                        baseAddressWithPrefix
                                                                 + Scenarios.AD_RENDER_1))
                                         .setMetadata("{\"valid\":1}")
                                         .build(),
                                 new AdData.Builder()
                                         .setRenderUri(
                                                 Uri.parse(
-                                                        getServerBaseAddress()
+                                                        baseAddressWithPrefix
                                                                 + Scenarios.AD_RENDER_2))
                                         .setMetadata("{\"valid\":2}")
                                         .build()));
@@ -99,11 +111,12 @@ public final class CustomAudienceShellCommandsScenarioTest extends FledgeScenari
         leaveCustomAudience(SHOES_CA);
     }
 
-    private CustomAudience getCustomAudience() throws JSONException {
+    private CustomAudience getCustomAudience(AdTechIdentifier adTechIdentifier)
+            throws JSONException {
         return CustomAudienceShellCommandHelper.fromJson(
                 new JSONObject(
                         mShellCommandHelper.runCommand(
                                 "custom-audience view --owner %s --buyer %s --name %s",
-                                OWNER, mAdTechIdentifier, SHOES_CA)));
+                                OWNER, adTechIdentifier, SHOES_CA)));
     }
 }

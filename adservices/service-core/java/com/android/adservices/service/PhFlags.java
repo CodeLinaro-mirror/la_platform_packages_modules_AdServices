@@ -17,6 +17,8 @@
 package com.android.adservices.service;
 
 import static com.android.adservices.service.DeviceConfigFlagsHelper.getDeviceConfigFlag;
+import static com.android.adservices.service.FlagsConstants.KEY_ADEXT_READ_TIMEOUT_MS;
+import static com.android.adservices.service.FlagsConstants.KEY_ADEXT_WRITE_TIMEOUT_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_JS_SCRIPT_ENGINE_MAX_RETRY_ATTEMPTS;
 import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_MODULE_JOB_POLICY;
 import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_RETRY_STRATEGY_ENABLED;
@@ -135,7 +137,7 @@ import java.util.stream.Collectors;
 
 /** Flags Implementation that delegates to DeviceConfig. */
 // TODO(b/228037065): Add validation logics for Feature flags read from PH.
-public final class PhFlags extends CommonPhFlags implements Flags {
+public final class PhFlags implements Flags {
 
     private static final PhFlags sSingleton = new PhFlags();
 
@@ -2646,6 +2648,34 @@ public final class PhFlags extends CommonPhFlags implements Flags {
     }
 
     @Override
+    public boolean getFledgeSelectAdsFromOutcomesApiMetricsEnabled() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_FLEDGE_SELECT_ADS_FROM_OUTCOMES_API_METRICS_ENABLED,
+                FLEDGE_SELECT_ADS_FROM_OUTCOMES_API_METRICS_ENABLED);
+    }
+
+    @Override
+    public boolean getFledgeCpcBillingMetricsEnabled() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_FLEDGE_CPC_BILLING_METRICS_ENABLED,
+                FLEDGE_CPC_BILLING_METRICS_ENABLED);
+    }
+
+    @Override
+    public boolean getFledgeDataVersionHeaderMetricsEnabled() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_FLEDGE_DATA_VERSION_HEADER_METRICS_ENABLED,
+                FLEDGE_DATA_VERSION_HEADER_METRICS_ENABLED);
+    }
+
+    @Override
+    public boolean getFledgeReportImpressionApiMetricsEnabled() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_FLEDGE_REPORT_IMPRESSION_API_METRICS_ENABLED,
+                FLEDGE_REPORT_IMPRESSION_API_METRICS_ENABLED);
+    }
+
+    @Override
     public boolean getEnforceForegroundStatusForMeasurementDeleteRegistrations() {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_MEASUREMENT_ENFORCE_FOREGROUND_STATUS_DELETE_REGISTRATIONS,
@@ -2793,6 +2823,13 @@ public final class PhFlags extends CommonPhFlags implements Flags {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_MAX_TRIGGER_REGISTRATION_HEADER_SIZE_BYTES,
                 MAX_TRIGGER_REGISTRATION_HEADER_SIZE_BYTES);
+    }
+
+    @Override
+    public long getMaxOdpTriggerRegistrationHeaderSizeBytes() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_MAX_ODP_TRIGGER_REGISTRATION_HEADER_SIZE_BYTES,
+                MAX_ODP_TRIGGER_REGISTRATION_HEADER_SIZE_BYTES);
     }
 
     @Override
@@ -3168,8 +3205,6 @@ public final class PhFlags extends CommonPhFlags implements Flags {
 
     @Override
     public void dump(@NonNull PrintWriter writer, @Nullable String[] args) {
-        super.dump(writer, args); // common flags
-
         writer.println("\t" + FlagsConstants.KEY_PAS_UX_ENABLED + " = " + getPasUxEnabled());
         writer.println(
                 "\t"
@@ -5213,6 +5248,8 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                         + getMeasurementMaxAttributionScopesPerSource());
         writer.println("\t" + KEY_APPSEARCH_WRITE_TIMEOUT_MS + " = " + getAppSearchWriteTimeout());
         writer.println("\t" + KEY_APPSEARCH_READ_TIMEOUT_MS + " = " + getAppSearchReadTimeout());
+        writer.println("\t" + KEY_ADEXT_WRITE_TIMEOUT_MS + " = " + getAdExtWriteTimeoutMs());
+        writer.println("\t" + KEY_ADEXT_READ_TIMEOUT_MS + " = " + getAdExtReadTimeoutMs());
         writer.println(
                 "\t"
                         + FlagsConstants.KEY_IS_GET_ADSERVICES_COMMON_STATES_API_ENABLED
@@ -5364,6 +5401,26 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                         + KEY_PAS_SCRIPT_EXECUTION_TIMEOUT_MS
                         + " = "
                         + getPasScriptExecutionTimeoutMs());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_FLEDGE_SELECT_ADS_FROM_OUTCOMES_API_METRICS_ENABLED
+                        + " = "
+                        + getFledgeSelectAdsFromOutcomesApiMetricsEnabled());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_FLEDGE_CPC_BILLING_METRICS_ENABLED
+                        + " = "
+                        + getFledgeCpcBillingMetricsEnabled());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_FLEDGE_DATA_VERSION_HEADER_ENABLED
+                        + " = "
+                        + getFledgeDataVersionHeaderMetricsEnabled());
+        writer.println(
+                "\t"
+                        + FlagsConstants.KEY_FLEDGE_REPORT_IMPRESSION_API_METRICS_ENABLED
+                        + " = "
+                        + getFledgeReportImpressionApiMetricsEnabled());
     }
 
     @VisibleForTesting
@@ -6226,6 +6283,16 @@ public final class PhFlags extends CommonPhFlags implements Flags {
     public int getAppSearchReadTimeout() {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_APPSEARCH_READ_TIMEOUT_MS, DEFAULT_APPSEARCH_READ_TIMEOUT_MS);
+    }
+
+    @Override
+    public int getAdExtWriteTimeoutMs() {
+        return getDeviceConfigFlag(KEY_ADEXT_WRITE_TIMEOUT_MS, DEFAULT_ADEXT_WRITE_TIMEOUT_MS);
+    }
+
+    @Override
+    public int getAdExtReadTimeoutMs() {
+        return getDeviceConfigFlag(KEY_ADEXT_READ_TIMEOUT_MS, DEFAULT_ADEXT_READ_TIMEOUT_MS);
     }
 
     @Override

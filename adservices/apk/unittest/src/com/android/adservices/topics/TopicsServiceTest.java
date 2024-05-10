@@ -50,7 +50,7 @@ import com.android.adservices.service.consent.AdServicesApiType;
 import com.android.adservices.service.consent.ConsentManager;
 import com.android.adservices.service.encryptionkey.EncryptionKeyJobService;
 import com.android.adservices.service.stats.AdServicesLoggerImpl;
-import com.android.adservices.service.topics.EpochJobService;
+import com.android.adservices.service.topics.EpochJob;
 import com.android.adservices.service.topics.TopicsWorker;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.modules.utils.testing.ExtendedMockitoRule.SpyStatic;
@@ -67,7 +67,7 @@ import java.util.function.Supplier;
 @SpyStatic(AdServicesLoggerImpl.class)
 @SpyStatic(MaintenanceJobService.class)
 @SpyStatic(EncryptionKeyJobService.class)
-@SpyStatic(EpochJobService.class)
+@SpyStatic(EpochJob.class)
 @SpyStatic(MddJob.class)
 @SpyStatic(EnrollmentDao.class)
 @SpyStatic(AppImportanceFilter.class)
@@ -86,7 +86,7 @@ public final class TopicsServiceTest extends AdServicesExtendedMockitoTestCase {
             // Killswitch is off.
             doReturn(false).when(mMockFlags).getTopicsKillSwitch();
 
-            extendedMockito.mockGetFlags(mMockFlags);
+        mocker.mockGetFlags(mMockFlags);
 
             ExtendedMockito.doReturn(mMockTopicsWorker)
                     .when(() -> TopicsWorker.getInstance(any(Context.class)));
@@ -107,8 +107,7 @@ public final class TopicsServiceTest extends AdServicesExtendedMockitoTestCase {
                         () ->
                                 EncryptionKeyJobService.scheduleIfNeeded(
                                         any(Context.class), eq(false)));
-        ExtendedMockito.doReturn(true)
-                .when(() -> EpochJobService.scheduleIfNeeded(any(Context.class), eq(false)));
+        ExtendedMockito.doNothing().when(EpochJob::schedule);
         ExtendedMockito.doNothing().when(MddJob::scheduleAllMddJobs);
 
         ExtendedMockito.doReturn(mMockEnrollmentDao)
@@ -131,7 +130,7 @@ public final class TopicsServiceTest extends AdServicesExtendedMockitoTestCase {
         doReturn(true).when(mMockFlags).getTopicsKillSwitch();
         doNothingOnErrorLogUtilError();
 
-        extendedMockito.mockGetFlags(mMockFlags);
+        mocker.mockGetFlags(mMockFlags);
 
         TopicsService topicsService = new TopicsService();
         topicsService.onCreate();
@@ -152,7 +151,7 @@ public final class TopicsServiceTest extends AdServicesExtendedMockitoTestCase {
             // Killswitch is off.
             doReturn(false).when(mMockFlags).getTopicsKillSwitch();
 
-            extendedMockito.mockGetFlags(mMockFlags);
+        mocker.mockGetFlags(mMockFlags);
 
             ExtendedMockito.doReturn(mMockTopicsWorker)
                     .when(() -> TopicsWorker.getInstance(any(Context.class)));
@@ -173,8 +172,7 @@ public final class TopicsServiceTest extends AdServicesExtendedMockitoTestCase {
                         () ->
                                 EncryptionKeyJobService.scheduleIfNeeded(
                                         any(Context.class), eq(false)));
-        ExtendedMockito.doReturn(true)
-                .when(() -> EpochJobService.scheduleIfNeeded(any(Context.class), eq(false)));
+        ExtendedMockito.doNothing().when(EpochJob::schedule);
         ExtendedMockito.doNothing().when(MddJob::scheduleAllMddJobs);
 
         ExtendedMockito.doReturn(mMockEnrollmentDao)
@@ -202,8 +200,7 @@ public final class TopicsServiceTest extends AdServicesExtendedMockitoTestCase {
                 () -> MaintenanceJobService.scheduleIfNeeded(any(Context.class), eq(false)));
         ExtendedMockito.verify(
                 () -> EncryptionKeyJobService.scheduleIfNeeded(any(Context.class), eq(false)));
-        ExtendedMockito.verify(
-                () -> EpochJobService.scheduleIfNeeded(any(Context.class), eq(false)));
+        ExtendedMockito.verify(EpochJob::schedule);
         ExtendedMockito.verify(MddJob::scheduleAllMddJobs);
     }
 }

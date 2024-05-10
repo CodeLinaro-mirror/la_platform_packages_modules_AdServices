@@ -19,16 +19,20 @@ import static com.android.adservices.mockito.ExtendedMockitoInlineCleanerRule.Mo
 
 import android.content.Context;
 
+import com.android.adservices.mockito.AdServicesExtendedMockitoMocker;
+import com.android.adservices.mockito.AdServicesExtendedMockitoMockerImpl;
+import com.android.adservices.mockito.AdServicesExtendedMockitoMockerImpl.StaticClassChecker;
 import com.android.adservices.mockito.AdServicesExtendedMockitoRule;
 import com.android.adservices.mockito.ExtendedMockitoInlineCleanerRule;
 import com.android.adservices.mockito.ExtendedMockitoInlineCleanerRule.ClearInlineMocksMode;
+
+import com.google.common.collect.ImmutableSet;
 
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.quality.Strictness;
-
 
 /**
  * Base class for all unit tests that use {@code ExtendedMockito} - for "regular Mockito" use {@link
@@ -58,6 +62,26 @@ public abstract class AdServicesExtendedMockitoTestCase extends AdServicesUnitTe
 
     @Rule(order = 10)
     public final AdServicesExtendedMockitoRule extendedMockito = getAdServicesExtendedMockitoRule();
+
+    /** Provides common expectations. */
+    public final AdServicesExtendedMockitoMocker mocker =
+            new AdServicesExtendedMockitoMockerImpl(
+                    new StaticClassChecker() {
+                        @Override
+                        public boolean isSpiedOrMocked(Class<?> clazz) {
+                            return getSpiedOrMockedClasses().contains(clazz);
+                        }
+
+                        @Override
+                        public ImmutableSet<Class<?>> getSpiedOrMockedClasses() {
+                            return extendedMockito.getSpiedOrMockedClasses();
+                        }
+
+                        @Override
+                        public String getTestName() {
+                            return extendedMockito.getTestName();
+                        }
+                    });
 
     /**
      * Gets the {@link AdServicesExtendedMockitoRule} that will be set as the {@code
