@@ -914,6 +914,8 @@ public final class FlagsConstants {
 
     public static final String KEY_APPSEARCH_WRITE_TIMEOUT_MS = "appsearch_write_timeout_ms";
     public static final String KEY_APPSEARCH_READ_TIMEOUT_MS = "appsearch_read_timeout_ms";
+    public static final String KEY_ADEXT_WRITE_TIMEOUT_MS = "adext_write_timeout_ms";
+    public static final String KEY_ADEXT_READ_TIMEOUT_MS = "adext_read_timeout_ms";
     public static final String KEY_APPSEARCH_WRITER_ALLOW_LIST_OVERRIDE =
             "appsearch_writer_allow_list_override";
 
@@ -1017,6 +1019,8 @@ public final class FlagsConstants {
             "max_response_based_registration_size_bytes";
     public static final String KEY_MAX_TRIGGER_REGISTRATION_HEADER_SIZE_BYTES =
             "max_trigger_registration_header_size_bytes";
+    public static final String KEY_MAX_ODP_TRIGGER_REGISTRATION_HEADER_SIZE_BYTES =
+            "max_odp_trigger_registration_header_size_bytes";
 
     public static final String KEY_MEASUREMENT_ENABLE_UPDATE_TRIGGER_REGISTRATION_HEADER_LIMIT =
             "enable_update_trigger_registration_header_limit";
@@ -1127,6 +1131,22 @@ public final class FlagsConstants {
     // Fledge auction server key fetch metrics flag
     public static final String KEY_FLEDGE_AUCTION_SERVER_KEY_FETCH_METRICS_ENABLED =
             "fledge_auction_server_key_fetch_metrics_enabled";
+
+    // Fledge select ads from outcomes API metrics flag
+    public static final String KEY_FLEDGE_SELECT_ADS_FROM_OUTCOMES_API_METRICS_ENABLED =
+            "fledge_select_ads_from_outcomes_api_metrics_enabled";
+
+    // FledgeCPC billing metrics key.
+    public static final String KEY_FLEDGE_CPC_BILLING_METRICS_ENABLED =
+            "fledge_cpc_billing_metrics_enabled";
+
+    // Fledge data version header metrics key.
+    public static final String KEY_FLEDGE_DATA_VERSION_HEADER_METRICS_ENABLED =
+            "fledge_data_version_header_metrics_enabled";
+
+    // Fledge report impression API metrics key.
+    public static final String KEY_FLEDGE_REPORT_IMPRESSION_API_METRICS_ENABLED =
+            "fledge_report_impression_api_metrics_enabled";
 
     public static final String KEY_MEASUREMENT_DEBUG_JOIN_KEY_HASH_LIMIT =
             "measurement_debug_join_key_hash_limit";

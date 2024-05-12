@@ -52,7 +52,6 @@ import com.android.compatibility.common.util.ShellUtils;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.mockwebserver.MockWebServer;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -60,7 +59,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 
-import java.net.URL;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
@@ -89,9 +87,9 @@ public abstract class FledgeScenarioTest {
     protected AdvertisingCustomAudienceClient mCustomAudienceClient;
     protected AdSelectionClient mAdSelectionClient;
 
-    protected AdTechIdentifier mAdTechIdentifier;
+    private AdTechIdentifier mBuyer;
+    private AdTechIdentifier mSeller;
     private String mServerBaseAddress;
-    private MockWebServer mMockWebServer;
 
     // Prefix added to all requests to bust cache.
     private int mCacheBuster;
@@ -159,10 +157,6 @@ public abstract class FledgeScenarioTest {
 
     @After
     public final void tearDown() throws Exception {
-        if (mMockWebServer != null) {
-            mMockWebServer.shutdown();
-        }
-
         try {
             leaveCustomAudience(SHOES_CA);
             leaveCustomAudience(SHIRTS_CA);
@@ -234,12 +228,6 @@ public abstract class FledgeScenarioTest {
         Log.d(TAG, "Scheduled Custom Audience Update: " + request);
     }
 
-    protected String getServerBaseAddress() {
-        return String.format(
-                "https://%s:%s%s/",
-                mMockWebServer.getHostName(), mMockWebServer.getPort(), getCacheBusterPrefix());
-    }
-
     protected void overrideCpcBillingEnabled(boolean enabled) {
         ShellUtils.runShellCommand(
                 String.format(
@@ -280,11 +268,12 @@ public abstract class FledgeScenarioTest {
 
     protected AdSelectionConfig makeAdSelectionConfig() {
         AdSelectionSignals signals = FledgeScenarioTest.makeAdSelectionSignals();
-        Log.d(TAG, "Ad tech: " + mAdTechIdentifier.toString());
+        Log.d(TAG, "Ad tech buyer: " + mBuyer);
+        Log.d(TAG, "Ad tech seller: " + mSeller);
         return new AdSelectionConfig.Builder()
-                .setSeller(mAdTechIdentifier)
-                .setPerBuyerSignals(ImmutableMap.of(mAdTechIdentifier, signals))
-                .setCustomAudienceBuyers(ImmutableList.of(mAdTechIdentifier))
+                .setSeller(mSeller)
+                .setPerBuyerSignals(ImmutableMap.of(mBuyer, signals))
+                .setCustomAudienceBuyers(ImmutableList.of(mBuyer))
                 .setAdSelectionSignals(signals)
                 .setSellerSignals(signals)
                 .setDecisionLogicUri(Uri.parse(mServerBaseAddress + Scenarios.SCORING_LOGIC_PATH))
@@ -293,15 +282,19 @@ public abstract class FledgeScenarioTest {
                 .build();
     }
 
-    protected void setupDefaultMockWebServer(ScenarioDispatcher dispatcher) throws Exception {
-        if (mMockWebServer != null) {
-            mMockWebServer.shutdown();
-        }
-        mMockWebServer = mMockWebServerRule.startMockWebServer(dispatcher);
-        mServerBaseAddress = getServerBaseAddress();
-        mAdTechIdentifier = AdTechIdentifier.fromString(mMockWebServer.getHostName());
-        dispatcher.setServerBaseURL(new URL(mServerBaseAddress));
+    protected ScenarioDispatcher setupDispatcher(
+            ScenarioDispatcherFactory scenarioDispatcherFactory) throws Exception {
+        ScenarioDispatcher scenarioDispatcher =
+                mMockWebServerRule.startMockWebServer(scenarioDispatcherFactory);
+        mServerBaseAddress = scenarioDispatcher.getBaseAddressWithPrefix().toString();
+        mBuyer =
+                AdTechIdentifier.fromString(
+                        scenarioDispatcher.getBaseAddressWithPrefix().getHost());
+        mSeller =
+                AdTechIdentifier.fromString(
+                        scenarioDispatcher.getBaseAddressWithPrefix().getHost());
         Log.d(TAG, "Started default MockWebServer.");
+        return scenarioDispatcher;
     }
 
     protected String getCacheBusterPrefix() {
@@ -330,7 +323,7 @@ public abstract class FledgeScenarioTest {
                 .setAds(makeAds(customAudienceName))
                 .setBiddingLogicUri(
                         Uri.parse(String.format(mServerBaseAddress + Scenarios.BIDDING_LOGIC_PATH)))
-                .setBuyer(mAdTechIdentifier)
+                .setBuyer(mBuyer)
                 .setActivationTime(Instant.now())
                 .setExpirationTime(Instant.now().plus(5, ChronoUnit.DAYS));
     }
@@ -354,7 +347,7 @@ public abstract class FledgeScenarioTest {
                 .setRenderUri(
                         Uri.parse(
                                 String.format(
-                                        "%srender/%s/%s",
+                                        "%s/render/%s/%s",
                                         mServerBaseAddress, customAudienceName, adNumber)))
                 .build();
     }

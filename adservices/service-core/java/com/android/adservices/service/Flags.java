@@ -28,6 +28,8 @@ import android.annotation.IntDef;
 import android.app.job.JobInfo;
 import android.os.Build;
 
+import androidx.annotation.Nullable;
+
 import com.android.adservices.cobalt.CobaltConstants;
 import com.android.adservices.shared.common.flags.ConfigFlag;
 import com.android.adservices.shared.common.flags.FeatureFlag;
@@ -37,6 +39,7 @@ import com.android.modules.utils.build.SdkLevel;
 
 import com.google.common.collect.ImmutableList;
 
+import java.io.PrintWriter;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.HashMap;
@@ -51,7 +54,7 @@ import java.util.concurrent.TimeUnit;
  *
  * <p><b>NOTE: </b>cannot have any dependency on Android or other AdServices code.
  */
-public interface Flags extends CommonFlags, ModuleSharedFlags {
+public interface Flags extends ModuleSharedFlags {
     /** Topics Epoch Job Period. */
     long TOPICS_EPOCH_JOB_PERIOD_MS = 7 * 86_400_000; // 7 days.
 
@@ -3265,10 +3268,16 @@ public interface Flags extends CommonFlags, ModuleSharedFlags {
     long ISOLATE_MAX_HEAP_SIZE_BYTES = 10 * 1024 * 1024L; // 10 MB
     long MAX_RESPONSE_BASED_REGISTRATION_SIZE_BYTES = 16 * 1024; // 16 kB
     long MAX_TRIGGER_REGISTRATION_HEADER_SIZE_BYTES = 250 * 1024; // 250 kB
+    long MAX_ODP_TRIGGER_REGISTRATION_HEADER_SIZE_BYTES = 16 * 1024; // 16 kB
 
     /** Returns max allowed size in bytes for trigger registrations header. */
     default long getMaxTriggerRegistrationHeaderSizeBytes() {
         return MAX_TRIGGER_REGISTRATION_HEADER_SIZE_BYTES;
+    }
+
+    /** Returns max allowed size in bytes for ODP trigger registrations header. */
+    default long getMaxOdpTriggerRegistrationHeaderSizeBytes() {
+        return MAX_ODP_TRIGGER_REGISTRATION_HEADER_SIZE_BYTES;
     }
 
     boolean MEASUREMENT_ENABLE_UPDATE_TRIGGER_REGISTRATION_HEADER_LIMIT = false;
@@ -3627,6 +3636,38 @@ public interface Flags extends CommonFlags, ModuleSharedFlags {
     /** Returns whether the fledge auction server key fetch metrics feature is enabled */
     default boolean getFledgeAuctionServerKeyFetchMetricsEnabled() {
         return getFledgeAuctionServerEnabled() && FLEDGE_AUCTION_SERVER_KEY_FETCH_METRICS_ENABLED;
+    }
+
+    // Fledge select ads from outcomes API metrics flag.
+    @FeatureFlag boolean FLEDGE_SELECT_ADS_FROM_OUTCOMES_API_METRICS_ENABLED = false;
+
+    /** Returns whether the fledge select ads from outcomes API metrics feature is enabled */
+    default boolean getFledgeSelectAdsFromOutcomesApiMetricsEnabled() {
+        return FLEDGE_SELECT_ADS_FROM_OUTCOMES_API_METRICS_ENABLED;
+    }
+
+    // Fledge CPC billing metrics flag.
+    @FeatureFlag boolean FLEDGE_CPC_BILLING_METRICS_ENABLED = false;
+
+    /** Returns whether the FLEDGE CPC billing metrics feature is enabled. */
+    default boolean getFledgeCpcBillingMetricsEnabled() {
+        return FLEDGE_CPC_BILLING_METRICS_ENABLED;
+    }
+
+    // Fledge data version header metrics flag.
+    @FeatureFlag boolean FLEDGE_DATA_VERSION_HEADER_METRICS_ENABLED = false;
+
+    /** Returns whether the FLEDGE data version header metrics feature is enabled. */
+    default boolean getFledgeDataVersionHeaderMetricsEnabled() {
+        return FLEDGE_DATA_VERSION_HEADER_METRICS_ENABLED;
+    }
+
+    // Fledge report impression API metrics flag.
+    @FeatureFlag boolean FLEDGE_REPORT_IMPRESSION_API_METRICS_ENABLED = false;
+
+    /** Returns whether the FLEDGE report impression API metrics feature is enabled. */
+    default boolean getFledgeReportImpressionApiMetricsEnabled() {
+        return FLEDGE_REPORT_IMPRESSION_API_METRICS_ENABLED;
     }
 
     /**
@@ -4827,6 +4868,36 @@ public interface Flags extends CommonFlags, ModuleSharedFlags {
         return DEFAULT_APPSEARCH_READ_TIMEOUT_MS;
     }
 
+    /** Default value of the timeout for AdExtDataStorageService write operations */
+    @ConfigFlag int DEFAULT_ADEXT_WRITE_TIMEOUT_MS = 3000;
+
+    /**
+     * Gets the value of the timeout for AdExtDataStorageService write operations, in milliseconds.
+     * Note that this is the platform side timeout which awaits for the operation to be completed by
+     * the chimera service, which does not reside in AdServices. Ensure timeout on platform side is
+     * greater with ~100 ms buffer to take into account binder communication latency.
+     *
+     * @return the timeout, in milliseconds, for AdExtDataStorageService write operations
+     */
+    default int getAdExtWriteTimeoutMs() {
+        return DEFAULT_ADEXT_WRITE_TIMEOUT_MS;
+    }
+
+    /** Default value of the timeout for AdExtDataStorageService read operations */
+    @ConfigFlag int DEFAULT_ADEXT_READ_TIMEOUT_MS = 1000;
+
+    /**
+     * Gets the value of the timeout for AdExtDataStorageService read operations, in milliseconds.
+     * Note that this is the platform side timeout which awaits for the operation to be completed by
+     * the chimera service, which does not reside in AdServices. Ensure timeout on platform side is
+     * greater with ~100 ms buffer to take into account binder communication latency.
+     *
+     * @return the timeout, in milliseconds, for AdExtDataStoreageService read operations
+     */
+    default int getAdExtReadTimeoutMs() {
+        return DEFAULT_ADEXT_READ_TIMEOUT_MS;
+    }
+
     /** default value for get adservices common states enabled */
     boolean DEFAULT_IS_GET_ADSERVICES_COMMON_STATES_API_ENABLED = false;
 
@@ -5312,4 +5383,7 @@ public interface Flags extends CommonFlags, ModuleSharedFlags {
     default boolean getSpeOnPilotJobsBatch2Enabled() {
         return DEFAULT_SPE_ON_PILOT_JOBS_BATCH_2_ENABLED;
     }
+
+    /** Dump some debug info for the flags */
+    default void dump(PrintWriter writer, @Nullable String[] args) {}
 }

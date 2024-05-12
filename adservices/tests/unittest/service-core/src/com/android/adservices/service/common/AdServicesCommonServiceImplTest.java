@@ -16,7 +16,6 @@
 
 package com.android.adservices.service.common;
 
-import static android.adservices.common.AdServicesStatusUtils.FAILURE_REASON_UNSET;
 import static android.adservices.common.AdServicesStatusUtils.STATUS_ADSERVICES_ACTIVITY_DISABLED;
 import static android.adservices.common.AdServicesStatusUtils.STATUS_CALLER_NOT_ALLOWED_PACKAGE_NOT_IN_ALLOWLIST;
 import static android.adservices.common.AdServicesStatusUtils.STATUS_KILLSWITCH_ENABLED;
@@ -144,7 +143,7 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
                         mAdServicesLogger,
                         mClock);
         mLogApiCallStatsCallback = mockLogApiCallStats(mAdServicesLogger);
-        extendedMockito.mockGetFlags(mFlags);
+        mocker.mockGetFlags(mFlags);
         doReturn(true).when(mFlags).getAdServicesEnabled();
 
         ExtendedMockito.doNothing()
@@ -833,7 +832,6 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
         assertThat(apiCallStats.getAppPackageName()).isEqualTo(TEST_APP_PACKAGE_NAME);
         assertThat(apiCallStats.getSdkPackageName()).isEqualTo(SOME_SDK_NAME);
         assertThat(apiCallStats.getResultCode()).isEqualTo(STATUS_UNAUTHORIZED);
-        assertThat(apiCallStats.getFailureReason()).isEqualTo(FAILURE_REASON_UNSET);
         assertThat(apiCallStats.getLatencyMillisecond()).isEqualTo(350);
     }
 
@@ -863,7 +861,6 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
         ApiCallStats apiCallStats = logApiCallStatsCallback.assertResultReceived();
         assertThat(apiCallStats.getResultCode())
                 .isEqualTo(STATUS_CALLER_NOT_ALLOWED_PACKAGE_NOT_IN_ALLOWLIST);
-        assertThat(apiCallStats.getFailureReason()).isEqualTo(FAILURE_REASON_UNSET);
         assertThat(apiCallStats.getAppPackageName()).isEqualTo(TEST_APP_PACKAGE_NAME);
         assertThat(apiCallStats.getSdkPackageName()).isEqualTo(SOME_SDK_NAME);
     }
@@ -905,7 +902,6 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
         assertThat(apiCallStats.getAppPackageName()).isEqualTo(TEST_APP_PACKAGE_NAME);
         assertThat(apiCallStats.getSdkPackageName()).isEqualTo(SOME_SDK_NAME);
         assertThat(apiCallStats.getResultCode()).isEqualTo(STATUS_SUCCESS);
-        assertThat(apiCallStats.getFailureReason()).isEqualTo(FAILURE_REASON_UNSET);
         assertThat(apiCallStats.getLatencyMillisecond()).isEqualTo(350);
     }
 
@@ -946,7 +942,6 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
         assertThat(apiCallStats.getAppPackageName()).isEqualTo(TEST_APP_PACKAGE_NAME);
         assertThat(apiCallStats.getSdkPackageName()).isEqualTo(SOME_SDK_NAME);
         assertThat(apiCallStats.getResultCode()).isEqualTo(STATUS_SUCCESS);
-        assertThat(apiCallStats.getFailureReason()).isEqualTo(FAILURE_REASON_UNSET);
         assertThat(apiCallStats.getLatencyMillisecond()).isEqualTo(350);
     }
 
@@ -984,7 +979,6 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
         assertThat(apiCallStats.getAppPackageName()).isEqualTo(TEST_APP_PACKAGE_NAME);
         assertThat(apiCallStats.getSdkPackageName()).isEqualTo(SOME_SDK_NAME);
         assertThat(apiCallStats.getResultCode()).isEqualTo(STATUS_SUCCESS);
-        assertThat(apiCallStats.getFailureReason()).isEqualTo(FAILURE_REASON_UNSET);
         assertThat(apiCallStats.getLatencyMillisecond()).isEqualTo(350);
     }
 
@@ -1007,14 +1001,14 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
     private static final class SyncIAdServicesCommonCallback
             extends IntFailureSyncCallback<IsAdServicesEnabledResult>
             implements IAdServicesCommonCallback {
-        private SyncIAdServicesCommonCallback(int timeoutMs) {
+        private SyncIAdServicesCommonCallback(long timeoutMs) {
             super(timeoutMs);
         }
     }
 
     private static final class SyncIUpdateAdIdCallback extends IntFailureSyncCallback<String>
             implements IUpdateAdIdCallback {
-        private SyncIUpdateAdIdCallback(int timeoutMs) {
+        private SyncIUpdateAdIdCallback(long timeoutMs) {
             super(timeoutMs);
         }
     }
@@ -1022,7 +1016,7 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
     private static final class SyncIEnableAdServicesCallback
             extends IntFailureSyncCallback<EnableAdServicesResponse>
             implements IEnableAdServicesCallback {
-        private SyncIEnableAdServicesCallback(int timeoutMs) {
+        private SyncIEnableAdServicesCallback(long timeoutMs) {
             super(timeoutMs);
         }
     }
@@ -1030,7 +1024,7 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
     private static final class SyncIAdServicesCommonStatesCallback
             extends IntFailureSyncCallback<AdServicesCommonStatesResponse>
             implements IAdServicesCommonStatesCallback {
-        private SyncIAdServicesCommonStatesCallback(int timeoutMs) {
+        private SyncIAdServicesCommonStatesCallback(long timeoutMs) {
             super(timeoutMs);
         }
     }
