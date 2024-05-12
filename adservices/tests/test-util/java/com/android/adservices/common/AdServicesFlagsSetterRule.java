@@ -21,6 +21,13 @@ import static com.android.adservices.service.FlagsConstants.KEY_CONSENT_MANAGER_
 import static com.android.adservices.service.FlagsConstants.KEY_CONSENT_NOTIFIED_DEBUG_MODE;
 import static com.android.adservices.service.FlagsConstants.KEY_DISABLE_TOPICS_ENROLLMENT_CHECK;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_CUSTOM_AUDIENCE_SERVICE_KILL_SWITCH;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_ENABLE_KANON_AUCTION_SERVER_FEATURE;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_ENABLE_KANON_SIGN_JOIN_FEATURE;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_KANON_HTTP_CLIENT_TIMEOUT;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_KANON_KEY_ATTESTATION_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_KANON_PERCENTAGE_IMMEDIATE_SIGN_JOIN_CALLS;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_KANON_SET_TYPE_TO_SIGN_JOIN;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_KANON_SIGN_JOIN_LOGGING_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SELECT_ADS_KILL_SWITCH;
 import static com.android.adservices.service.FlagsConstants.KEY_GLOBAL_KILL_SWITCH;
@@ -48,16 +55,41 @@ import com.android.modules.utils.build.SdkLevel;
 public final class AdServicesFlagsSetterRule
         extends AbstractAdServicesFlagsSetterRule<AdServicesFlagsSetterRule> {
 
+    private final boolean mAdoptShelPermissions;
+
     private AdServicesFlagsSetterRule() {
+        this(/* adoptShelPermissions= */ true);
+    }
+
+    private AdServicesFlagsSetterRule(boolean adoptShelPermissions) {
         super(
                 AndroidLogger.getInstance(),
-                DeviceSideDeviceConfigHelper::new,
+                namespace -> new DeviceSideDeviceConfigHelper(namespace, adoptShelPermissions),
                 DeviceSideSystemPropertiesHelper.getInstance());
+        mAdoptShelPermissions = adoptShelPermissions;
+    }
+
+    /** Returns a rule that won't adopt shell permissions - typically used on unit tests. */
+    public static AdServicesFlagsSetterRule withoutAdoptingShellPermissions() {
+        return new AdServicesFlagsSetterRule(/* adoptShelPermissions= */ false);
     }
 
     /** Factory method that only {@link #setDefaultLogcatTags() sets the default logcat tags}. */
     public static AdServicesFlagsSetterRule withDefaultLogcatTags() {
         return new AdServicesFlagsSetterRule().setDefaultLogcatTags();
+    }
+
+    /** Factory method that sets default flags required to enable K-Anon functionality. */
+    public static AdServicesFlagsSetterRule forKAnonEnabledTests() {
+        return new AdServicesFlagsSetterRule()
+                .setLogcatTag(LOGCAT_TAG_KANON, LOGCAT_LEVEL_VERBOSE)
+                .setFlag(KEY_FLEDGE_ENABLE_KANON_SIGN_JOIN_FEATURE, true)
+                .setFlag(KEY_FLEDGE_ENABLE_KANON_AUCTION_SERVER_FEATURE, true)
+                .setFlag(KEY_FLEDGE_KANON_SET_TYPE_TO_SIGN_JOIN, "android")
+                .setFlag(KEY_FLEDGE_KANON_PERCENTAGE_IMMEDIATE_SIGN_JOIN_CALLS, 100)
+                .setFlag(KEY_FLEDGE_KANON_HTTP_CLIENT_TIMEOUT, 10000)
+                .setFlag(KEY_FLEDGE_KANON_SIGN_JOIN_LOGGING_ENABLED, true)
+                .setFlag(KEY_FLEDGE_KANON_KEY_ATTESTATION_ENABLED, true);
     }
 
     /** Factory method that only {@link #setAllLogcatTags() sets all relevant logcat tags}. */
@@ -95,8 +127,8 @@ public final class AdServicesFlagsSetterRule
                 .setCompatModeFlags()
                 .setMsmtApiAppAllowList(packageName)
                 .setMsmtWebContextClientAllowList(packageName)
-                .setSystemProperty(KEY_CONSENT_MANAGER_DEBUG_MODE, true)
-                .setSystemProperty(KEY_CONSENT_NOTIFIED_DEBUG_MODE, true)
+                .setDebugFlag(KEY_CONSENT_MANAGER_DEBUG_MODE, true)
+                .setDebugFlag(KEY_CONSENT_NOTIFIED_DEBUG_MODE, true)
                 .setFlag(KEY_GLOBAL_KILL_SWITCH, false)
                 .setFlag(KEY_MEASUREMENT_KILL_SWITCH, false)
                 .setFlag(KEY_MEASUREMENT_API_REGISTER_SOURCE_KILL_SWITCH, false)
@@ -115,7 +147,7 @@ public final class AdServicesFlagsSetterRule
         return forGlobalKillSwitchDisabledTests()
                 .setLogcatTag(LOGCAT_TAG_TOPICS, LOGCAT_LEVEL_VERBOSE)
                 .setTopicsKillSwitch(false)
-                .setSystemProperty(KEY_CONSENT_MANAGER_DEBUG_MODE, true)
+                .setDebugFlag(KEY_CONSENT_MANAGER_DEBUG_MODE, true)
                 .setFlag(KEY_DISABLE_TOPICS_ENROLLMENT_CHECK, true)
                 .setFlag(KEY_TOPICS_EPOCH_JOB_PERIOD_MS, epochPeriodMs)
                 .setFlag(KEY_TOPICS_PERCENTAGE_FOR_RANDOM_TOPIC, pctRandomTopic)
@@ -158,6 +190,7 @@ public final class AdServicesFlagsSetterRule
     public float getAdIdRequestPerSecond() {
         try {
             return callWithDeviceConfigPermissions(
+                    mAdoptShelPermissions,
                     () -> FlagsFactory.getFlags().getAdIdRequestPermitsPerSecond());
         } catch (Throwable t) {
             float defaultValue = Flags.ADID_REQUEST_PERMITS_PER_SECOND;
