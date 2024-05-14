@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 The Android Open Source Project
+ * Copyright (C) 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,19 @@
  * limitations under the License.
  */
 
-package android.adservices.test.scenario.adservices;
+package com.android.adservices.service;
 
-import android.platform.test.microbenchmark.Microbenchmark;
-import android.platform.test.rule.DropCachesRule;
+/**
+ * Defines constants used by {@code DebugFlags}.
+ *
+ * <p><b>NOTE: </b>cannot have any dependency on Android or other AdServices code.
+ */
+public final class DebugFlagsConstants {
+    private DebugFlagsConstants() {
+        throw new UnsupportedOperationException("Contains only static constants");
+    }
 
-import org.junit.Rule;
-import org.junit.rules.RuleChain;
-import org.junit.runner.RunWith;
-
-@RunWith(Microbenchmark.class)
-// TODO(b/333900177): Remove this test once the new Ad ID CB test is stable.
-public class GetAdIdMicrobenchmark extends GetAdId {
-    @Rule public RuleChain rules = RuleChain.outerRule(new DropCachesRule());
+    // Consent Manager ota debug mode keys.
+    public static final String KEY_CONSENT_MANAGER_OTA_DEBUG_MODE =
+            "consent_manager_ota_debug_mode";
 }

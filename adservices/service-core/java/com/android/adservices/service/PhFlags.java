@@ -105,6 +105,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_PAS_SCRIPT_EXECU
 import static com.android.adservices.service.FlagsConstants.KEY_PAS_SIGNALS_DOWNLOAD_CONNECTION_TIMEOUT_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_PAS_SIGNALS_DOWNLOAD_READ_TIMEOUT_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_SHARED_DATABASE_SCHEMA_VERSION_4_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_SPE_ON_PILOT_JOBS_BATCH_2_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_SPE_ON_PILOT_JOBS_ENABLED;
 import static com.android.adservices.service.FlagsConstants.MAX_PERCENTAGE;
 
@@ -2761,41 +2762,6 @@ public final class PhFlags extends CommonPhFlags implements Flags {
     }
 
     @Override
-    public boolean getConsentNotificationDebugMode() {
-        return SystemProperties.getBoolean(
-                getSystemPropertyName(FlagsConstants.KEY_CONSENT_NOTIFICATION_DEBUG_MODE),
-                CONSENT_NOTIFICATION_DEBUG_MODE);
-    }
-
-    @Override
-    public boolean getConsentNotificationActivityDebugMode() {
-        return SystemProperties.getBoolean(
-                getSystemPropertyName(FlagsConstants.KEY_CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE),
-                CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE);
-    }
-
-    @Override
-    public boolean getConsentNotifiedDebugMode() {
-        return SystemProperties.getBoolean(
-                getSystemPropertyName(FlagsConstants.KEY_CONSENT_NOTIFIED_DEBUG_MODE),
-                CONSENT_NOTIFIED_DEBUG_MODE);
-    }
-
-    @Override
-    public boolean getConsentManagerDebugMode() {
-        return SystemProperties.getBoolean(
-                getSystemPropertyName(FlagsConstants.KEY_CONSENT_MANAGER_DEBUG_MODE),
-                CONSENT_MANAGER_DEBUG_MODE);
-    }
-
-    @Override
-    public boolean getConsentManagerOTADebugMode() {
-        return SystemProperties.getBoolean(
-                getSystemPropertyName(FlagsConstants.KEY_CONSENT_MANAGER_OTA_DEBUG_MODE),
-                DEFAULT_CONSENT_MANAGER_OTA_DEBUG_MODE);
-    }
-
-    @Override
     public boolean getRvcPostOtaNotifAgeCheck() {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_RVC_POST_OTA_NOTIF_AGE_CHECK,
@@ -3042,6 +3008,20 @@ public final class PhFlags extends CommonPhFlags implements Flags {
     }
 
     @Override
+    public boolean getMeasurementEnableDestinationXPublisherXEnrollmentFifo() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_MEASUREMENT_ENABLE_DESTINATION_PUBLISHER_ENROLLMENT_FIFO,
+                MEASUREMENT_ENABLE_DESTINATION_PUBLISHER_ENROLLMENT_FIFO);
+    }
+
+    @Override
+    public boolean getMeasurementEnableFifoDestinationsDeleteAggregateReports() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_MEASUREMENT_ENABLE_FIFO_DESTINATIONS_DELETE_AGGREGATE_REPORTS,
+                MEASUREMENT_ENABLE_FIFO_DESTINATIONS_DELETE_AGGREGATE_REPORTS);
+    }
+
+    @Override
     public int getMeasurementMaxAggregateKeysPerSourceRegistration() {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_MEASUREMENT_MAX_AGGREGATE_KEYS_PER_SOURCE_REGISTRATION,
@@ -3203,11 +3183,6 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                         + " = "
                         + getEnableAdServicesSystemApi());
         writer.println("\t" + FlagsConstants.KEY_U18_UX_ENABLED + " = " + getU18UxEnabled());
-        writer.println(
-                "\t"
-                        + FlagsConstants.KEY_CONSENT_MANAGER_OTA_DEBUG_MODE
-                        + " = "
-                        + getConsentManagerOTADebugMode());
         writer.println(
                 "\t"
                         + FlagsConstants.KEY_RVC_POST_OTA_NOTIF_AGE_CHECK
@@ -3772,8 +3747,7 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                         + getMeasurementFlexApiMaxInformationGainDualDestinationNavigation());
         writer.println(
                 "\t"
-                        + FlagsConstants
-                                .KEY_MEASUREMENT_MAX_REPORT_STATES_PER_SOURCE_REGISTRATION
+                        + FlagsConstants.KEY_MEASUREMENT_MAX_REPORT_STATES_PER_SOURCE_REGISTRATION
                         + " = "
                         + getMeasurementMaxReportStatesPerSourceRegistration());
         writer.println(
@@ -4154,6 +4128,19 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                         + FlagsConstants.KEY_MEASUREMENT_EVENT_API_DEFAULT_EPSILON
                         + " = "
                         + getMeasurementPrivacyEpsilon());
+        writer.println(
+                "\t"
+                        + FlagsConstants
+                                .KEY_MEASUREMENT_ENABLE_DESTINATION_PUBLISHER_ENROLLMENT_FIFO
+                        + " = "
+                        + getMeasurementEnableDestinationXPublisherXEnrollmentFifo());
+
+        writer.println(
+                "\t"
+                        + FlagsConstants
+                                .KEY_MEASUREMENT_ENABLE_FIFO_DESTINATIONS_DELETE_AGGREGATE_REPORTS
+                        + " = "
+                        + getMeasurementEnableFifoDestinationsDeleteAggregateReports());
 
         writer.println("==== AdServices PH Flags Dump FLEDGE related flags: ====");
         writer.println(
@@ -4771,6 +4758,7 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                         + FlagsConstants.KEY_ISOLATE_MAX_HEAP_SIZE_BYTES
                         + " = "
                         + getIsolateMaxHeapSizeBytes());
+
         writer.println(
                 "\t"
                         + FlagsConstants.KEY_FLEDGE_AD_SELECTION_EXPIRATION_WINDOW_S
@@ -4974,7 +4962,7 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                         + getEnableMigrationFromAdExtService());
         writer.println(
                 "\t"
-                        + FlagsConstants.ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED
+                        + FlagsConstants.KEY_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED
                         + " = "
                         + getAdservicesConsentMigrationLoggingEnabled());
         writer.println(
@@ -5566,9 +5554,23 @@ public final class PhFlags extends CommonPhFlags implements Flags {
 
     @Override
     public boolean getPasUxEnabled() {
+        if (getEeaPasUxEnabled()) {
+            // EEA devices (if EEA device feature is not enabled, assume EEA to be safe)
+            if (!isEeaDeviceFeatureEnabled() || isEeaDevice()) {
+                return true;
+            }
+            // ROW devices
+            return getDeviceConfigFlag(FlagsConstants.KEY_PAS_UX_ENABLED, DEFAULT_PAS_UX_ENABLED);
+        }
         return isEeaDeviceFeatureEnabled()
                 && !isEeaDevice()
                 && getDeviceConfigFlag(FlagsConstants.KEY_PAS_UX_ENABLED, DEFAULT_PAS_UX_ENABLED);
+    }
+
+    @Override
+    public boolean getEeaPasUxEnabled() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_EEA_PAS_UX_ENABLED, DEFAULT_EEA_PAS_UX_ENABLED);
     }
 
     @Override
@@ -5618,6 +5620,7 @@ public final class PhFlags extends CommonPhFlags implements Flags {
                 FlagsConstants.KEY_IS_GET_ADSERVICES_COMMON_STATES_API_ENABLED,
                 isGetAdServicesCommonStatesApiEnabled());
         uxMap.put(FlagsConstants.KEY_PAS_UX_ENABLED, getPasUxEnabled());
+        uxMap.put(FlagsConstants.KEY_EEA_PAS_UX_ENABLED, getEeaPasUxEnabled());
         return uxMap;
     }
 
@@ -6011,7 +6014,7 @@ public final class PhFlags extends CommonPhFlags implements Flags {
     @Override
     public boolean getAdservicesConsentMigrationLoggingEnabled() {
         return getDeviceConfigFlag(
-                FlagsConstants.ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED,
+                FlagsConstants.KEY_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED,
                 DEFAULT_ADSERVICES_CONSENT_MIGRATION_LOGGING_ENABLED);
     }
 
@@ -6521,6 +6524,12 @@ public final class PhFlags extends CommonPhFlags implements Flags {
     public int getPasScriptExecutionTimeoutMs() {
         return getDeviceConfigFlag(
                 KEY_PAS_SCRIPT_EXECUTION_TIMEOUT_MS, DEFAULT_PAS_SCRIPT_EXECUTION_TIMEOUT_MS);
+    }
+
+    @Override
+    public boolean getSpeOnPilotJobsBatch2Enabled() {
+        return getDeviceConfigFlag(
+                KEY_SPE_ON_PILOT_JOBS_BATCH_2_ENABLED, DEFAULT_SPE_ON_PILOT_JOBS_BATCH_2_ENABLED);
     }
 
     // Do NOT add Flag / @Override methods below - it should only contain helpers
