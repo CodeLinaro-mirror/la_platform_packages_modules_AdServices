@@ -33,7 +33,7 @@ public abstract class AdServicesCtsTestCase extends AdServicesTestCase {
     protected static final String LOGCAT_TAG_ADSERVICES = "adservices";
     protected static final String LOGCAT_TAG_ADSERVICES_SERVICE = LOGCAT_TAG_ADSERVICES + "-system";
     protected static final String LOGCAT_TAG_TOPICS = LOGCAT_TAG_ADSERVICES + ".topics";
-    protected static final String LOGCAT_TAG_FLEDGE = LOGCAT_TAG_ADSERVICES + ".fledge";
+    public static final String LOGCAT_TAG_FLEDGE = LOGCAT_TAG_ADSERVICES + ".fledge";
     public static final String LOGCAT_TAG_MEASUREMENT = LOGCAT_TAG_ADSERVICES + ".measurement";
     protected static final String LOGCAT_TAG_UI = LOGCAT_TAG_ADSERVICES + ".ui";
     protected static final String LOGCAT_TAG_ADID = LOGCAT_TAG_ADSERVICES + ".adid";
@@ -42,6 +42,15 @@ public abstract class AdServicesCtsTestCase extends AdServicesTestCase {
     @Rule(order = 5)
     public final AdServicesFlagsSetterRule flags = getAdServicesFlagsSetterRule();
 
-    /** Gets the {@link AdServicesFlagsSetterRule} for this test. */
-    protected abstract AdServicesFlagsSetterRule getAdServicesFlagsSetterRule();
+    /**
+     * Gets the {@link AdServicesFlagsSetterRule} for this test.
+     *
+     * <p>By default returns a rule with just the bare minimum set (like {@code logcat} tags) and
+     * subclasses can customize it using class annotations (such as {@link
+     * com.android.adservices.shared.testing.annotations.SetFlagEnabled}), but subclasses could
+     * extend it to support more complex scenarios.
+     */
+    protected AdServicesFlagsSetterRule getAdServicesFlagsSetterRule() {
+        return AdServicesFlagsSetterRule.withDefaultLogcatTags();
+    }
 }

@@ -269,6 +269,7 @@ public class KAnonE2ETest {
                     .setIsChaff(false)
                     .setWinReportingUrls(WIN_REPORTING_URLS)
                     .build();
+    private static final boolean CONSOLE_MESSAGE_IN_LOGS_ENABLED = true;
 
     private ExecutorService mLightweightExecutorService;
     private ExecutorService mBackgroundExecutorService;
@@ -393,7 +394,7 @@ public class KAnonE2ETest {
                 Room.inMemoryDatabaseBuilder(mContext, AdSelectionServerDatabase.class).build();
         mEncryptionKeyDao =
                 com.android.adservices.data.encryptionkey.EncryptionKeyDao.getInstance(mContext);
-        mEnrollmentDao = EnrollmentDao.getInstance(mContext);
+        mEnrollmentDao = EnrollmentDao.getInstance();
         mAdFilteringFeatureFactory =
                 new AdFilteringFeatureFactory(mAppInstallDao, mFrequencyCapDaoSpy, mFlags);
         when(ConsentManager.getInstance()).thenReturn(mConsentManagerMock);
@@ -2096,7 +2097,8 @@ public class KAnonE2ETest {
                 false,
                 mRetryStrategyFactory,
                 mConsentedDebugConfigurationGeneratorFactory,
-                mEgressConfigurationGenerator);
+                mEgressConfigurationGenerator,
+                CONSOLE_MESSAGE_IN_LOGS_ENABLED);
     }
 
     public PersistAdSelectionResultTestCallback invokePersistAdSelectionResult(

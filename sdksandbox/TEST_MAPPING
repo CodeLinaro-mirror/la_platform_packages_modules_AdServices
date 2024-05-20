@@ -168,16 +168,25 @@
       "name": "CtsContentTestCases"
     },
     {
+      "name": "CtsGraphicsTestCases"
+    },
+    {
       "name": "CtsMediaCodecTestCases"
     },
     {
       "name": "CtsOsTestCases"
     },
     {
+      "name": "CtsTextTestCases"
+    },
+    {
       "name": "CtsUtilTestCases"
     },
     {
       "name": "CtsViewTestCases"
+    },
+    {
+      "name": "CtsWidgetTestCases"
     },
     {
       "name": "CtsWifiNonUpdatableTestCases"
