@@ -17,8 +17,8 @@ package com.android.adservices.common;
 
 import static com.android.adservices.common.DeviceSideDeviceConfigHelper.callWithDeviceConfigPermissions;
 import static com.android.adservices.service.FlagsConstants.KEY_ADID_KILL_SWITCH;
-import static com.android.adservices.service.FlagsConstants.KEY_CONSENT_MANAGER_DEBUG_MODE;
-import static com.android.adservices.service.FlagsConstants.KEY_CONSENT_NOTIFIED_DEBUG_MODE;
+import static com.android.adservices.service.DebugFlagsConstants.KEY_CONSENT_MANAGER_DEBUG_MODE;
+import static com.android.adservices.service.DebugFlagsConstants.KEY_CONSENT_NOTIFIED_DEBUG_MODE;
 import static com.android.adservices.service.FlagsConstants.KEY_DISABLE_TOPICS_ENROLLMENT_CHECK;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_CUSTOM_AUDIENCE_SERVICE_KILL_SWITCH;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_ENABLE_KANON_AUCTION_SERVER_FEATURE;
@@ -43,6 +43,8 @@ import static com.android.adservices.service.FlagsConstants.KEY_TOPICS_EPOCH_JOB
 import static com.android.adservices.service.FlagsConstants.KEY_TOPICS_PERCENTAGE_FOR_RANDOM_TOPIC;
 
 import android.os.Build;
+
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.adservices.experimental.AbstractFlagsRouletteRunner;
 import com.android.adservices.experimental.AbstractFlagsRouletteRunner.FlagsRouletteState;
@@ -82,6 +84,8 @@ public final class AdServicesFlagsSetterRule
     /** Factory method that sets default flags required to enable K-Anon functionality. */
     public static AdServicesFlagsSetterRule forKAnonEnabledTests() {
         return new AdServicesFlagsSetterRule()
+                .withDefaultLogcatTags()
+                .setLogcatTag(LOGCAT_TAG_FLEDGE, LOGCAT_LEVEL_VERBOSE)
                 .setLogcatTag(LOGCAT_TAG_KANON, LOGCAT_LEVEL_VERBOSE)
                 .setFlag(KEY_FLEDGE_ENABLE_KANON_SIGN_JOIN_FEATURE, true)
                 .setFlag(KEY_FLEDGE_ENABLE_KANON_AUCTION_SERVER_FEATURE, true)
@@ -155,6 +159,11 @@ public final class AdServicesFlagsSetterRule
     }
 
     // NOTE: add more factory methods as needed
+
+    @Override
+    protected String getTestPackageName() {
+        return InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageName();
+    }
 
     @Override
     protected int getDeviceSdk() {
