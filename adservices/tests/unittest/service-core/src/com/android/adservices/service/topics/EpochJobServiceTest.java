@@ -58,13 +58,13 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.FlakyTest;
 
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
-import com.android.adservices.common.synccallback.JobServiceLoggingCallback;
 import com.android.adservices.errorlogging.ErrorLogUtil;
 import com.android.adservices.service.FakeFlagsFactory;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.common.compat.ServiceCompatUtils;
 import com.android.adservices.shared.testing.JobServiceCallback;
+import com.android.adservices.shared.testing.JobServiceLoggingCallback;
 import com.android.adservices.shared.testing.annotations.RequiresSdkLevelAtLeastS;
 import com.android.adservices.spe.AdServicesJobScheduler;
 import com.android.adservices.spe.AdServicesJobServiceLogger;
@@ -131,7 +131,7 @@ public class EpochJobServiceTest extends AdServicesExtendedMockitoTestCase {
         mSpyLogger = mockAdServicesJobServiceLogger(CONTEXT, mMockFlags);
 
         // By default, do not use SPE.
-        when(mMockFlags.getSpeOnPilotJobsBatch2Enabled()).thenReturn(false);
+        when(mMockFlags.getSpeOnEpochJobEnabled()).thenReturn(false);
     }
 
     @After
@@ -216,7 +216,7 @@ public class EpochJobServiceTest extends AdServicesExtendedMockitoTestCase {
 
     @Test
     public void testOnStartJob_speEnabled() {
-        when(mMockFlags.getSpeOnPilotJobsBatch2Enabled()).thenReturn(true);
+        when(mMockFlags.getSpeOnEpochJobEnabled()).thenReturn(true);
         mocker.mockSpeJobScheduler(mMockAdServicesJobScheduler);
 
         mSpyEpochJobService.onStartJob(mMockJobParameters);

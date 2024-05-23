@@ -325,6 +325,13 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetMeasurementEnableHeaderErrorDebugReport() {
+        testFeatureFlagGuardedByGlobalKillSwitch(
+                "MEASUREMENT_ENABLE_HEADER_ERROR_DEBUG_REPORT",
+                Flags::getMeasurementEnableHeaderErrorDebugReport);
+    }
+
+    @Test
     public void testGetEnableBackCompat() {
         testFeatureFlag("ENABLE_BACK_COMPAT", Flags::getEnableBackCompat);
     }
@@ -402,6 +409,13 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetMsmtEnableSeparateReportTypes() {
+        testFeatureFlag(
+                "MEASUREMENT_ENABLE_SEPARATE_REPORT_TYPES_FOR_ATTRIBUTION_RATE_LIMIT",
+                Flags::getMeasurementEnableSeparateReportTypesForAttributionRateLimit);
+    }
+
+    @Test
     public void testGetCustomErrorCodeSamplingEnabled() {
         testFeatureFlag(
                 "DEFAULT_CUSTOM_ERROR_CODE_SAMPLING_ENABLED",
@@ -412,6 +426,25 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     public void testGetSpeOnPilotJobsBatch2Enabled() {
         testFeatureFlag(
                 "DEFAULT_SPE_ON_PILOT_JOBS_BATCH_2_ENABLED", Flags::getSpeOnPilotJobsBatch2Enabled);
+    }
+
+    @Test
+    public void testGetSpeOnEpochJobEnabled() {
+        testFeatureFlag("DEFAULT_SPE_ON_EPOCH_JOB_ENABLED", Flags::getSpeOnEpochJobEnabled);
+    }
+
+    @Test
+    public void testGetSpeOnBackgroundFetchJobEnabled() {
+        testFeatureFlag(
+                "DEFAULT_SPE_ON_BACKGROUND_FETCH_JOB_ENABLED",
+                Flags::getSpeOnBackgroundFetchJobEnabled);
+    }
+
+    @Test
+    public void testGetSpeOnAsyncRegistrationFallbackJobEnabled() {
+        testFeatureFlag(
+                "DEFAULT_SPE_ON_ASYNC_REGISTRATION_FALLBACK_JOB_ENABLED",
+                Flags::getSpeOnAsyncRegistrationFallbackJobEnabled);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
