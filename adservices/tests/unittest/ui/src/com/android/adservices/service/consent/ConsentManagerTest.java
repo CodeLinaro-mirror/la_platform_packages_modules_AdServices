@@ -135,7 +135,7 @@ import com.android.adservices.service.measurement.DeleteUninstalledJobService;
 import com.android.adservices.service.measurement.MeasurementImpl;
 import com.android.adservices.service.measurement.attribution.AttributionFallbackJobService;
 import com.android.adservices.service.measurement.attribution.AttributionJobService;
-import com.android.adservices.service.measurement.registration.AsyncRegistrationFallbackJobService;
+import com.android.adservices.service.measurement.registration.AsyncRegistrationFallbackJob;
 import com.android.adservices.service.measurement.registration.AsyncRegistrationQueueJobService;
 import com.android.adservices.service.measurement.reporting.AggregateFallbackReportingJobService;
 import com.android.adservices.service.measurement.reporting.AggregateReportingJobService;
@@ -151,7 +151,7 @@ import com.android.adservices.service.stats.UiStatsLogger;
 import com.android.adservices.service.topics.AppUpdateManager;
 import com.android.adservices.service.topics.BlockedTopicsManager;
 import com.android.adservices.service.topics.CacheManager;
-import com.android.adservices.service.topics.EpochJobService;
+import com.android.adservices.service.topics.EpochJob;
 import com.android.adservices.service.topics.EpochManager;
 import com.android.adservices.service.topics.TopicsWorker;
 import com.android.adservices.service.ui.data.UxStatesDao;
@@ -186,7 +186,7 @@ import java.util.stream.Collectors;
 @SpyStatic(AggregateReportingJobService.class)
 @SpyStatic(ImmediateAggregateReportingJobService.class)
 @SpyStatic(AsyncRegistrationQueueJobService.class)
-@SpyStatic(AsyncRegistrationFallbackJobService.class)
+@SpyStatic(AsyncRegistrationFallbackJob.class)
 @SpyStatic(AttributionJobService.class)
 @SpyStatic(AttributionFallbackJobService.class)
 @SpyStatic(BackgroundJobsManager.class)
@@ -194,7 +194,7 @@ import java.util.stream.Collectors;
 @SpyStatic(DeleteExpiredJobService.class)
 @SpyStatic(DeleteUninstalledJobService.class)
 @SpyStatic(DeviceRegionProvider.class)
-@SpyStatic(EpochJobService.class)
+@SpyStatic(EpochJob.class)
 @SpyStatic(ErrorLogUtil.class)
 @SpyStatic(EventFallbackReportingJobService.class)
 @SpyStatic(EventReportingJobService.class)
@@ -261,13 +261,13 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         // Default to use PPAPI consent to test migration-irrelevant logics.
         mConsentManager = getConsentManagerByConsentSourceOfTruth(Flags.PPAPI_ONLY);
 
-        extendedMockito.mockGetFlags(mMockFlags);
+        mocker.mockGetFlags(mMockFlags);
         doReturn(true).when(mMockFlags).getFledgeFrequencyCapFilteringEnabled();
         doReturn(true).when(mMockFlags).getFledgeAppInstallFilteringEnabled();
         doReturn(true).when(mMockFlags).getProtectedSignalsCleanupEnabled();
         doReturn(true).when(mMockFlags).getEnrollmentEnableLimitedLogging();
         doReturn(mAdServicesLoggerImplMock).when(AdServicesLoggerImpl::getInstance);
-        doReturn(true).when(() -> EpochJobService.scheduleIfNeeded(any(Context.class), eq(false)));
+        doNothing().when(EpochJob::schedule);
         doReturn(true)
                 .when(() -> MaintenanceJobService.scheduleIfNeeded(any(Context.class), eq(false)));
         doNothing().when(MddJob::scheduleAllMddJobs);
@@ -288,11 +288,7 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
                                 ImmediateAggregateReportingJobService.scheduleIfNeeded(
                                         any(), anyBoolean()));
         doNothing().when(() -> AttributionFallbackJobService.scheduleIfNeeded(any(), anyBoolean()));
-        doNothing()
-                .when(
-                        () ->
-                                AsyncRegistrationFallbackJobService.scheduleIfNeeded(
-                                        any(), anyBoolean()));
+        doNothing().when(AsyncRegistrationFallbackJob::schedule);
         doNothing()
                 .when(
                         () ->
@@ -301,7 +297,7 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         doNothing()
                 .when(() -> DebugReportingFallbackJobService.scheduleIfNeeded(any(), anyBoolean()));
         doNothing().when(() -> AttributionJobService.scheduleIfNeeded(any(), anyBoolean()));
-        doReturn(true).when(() -> EpochJobService.scheduleIfNeeded(any(), anyBoolean()));
+        doNothing().when(EpochJob::schedule);
         doNothing().when(MddJob::scheduleAllMddJobs);
         doNothing().when(() -> EventReportingJobService.scheduleIfNeeded(any(), anyBoolean()));
         doNothing()
@@ -616,7 +612,7 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         mConsentManager.enable(mSpyContext);
 
         verify(() -> BackgroundJobsManager.scheduleAllBackgroundJobs(any(Context.class)));
-        verify(() -> EpochJobService.scheduleIfNeeded(any(Context.class), eq(false)));
+        verify(EpochJob::schedule);
         verify(MddJob::scheduleAllMddJobs, times(3));
         verify(
                 () -> EncryptionKeyJobService.scheduleIfNeeded(any(Context.class), eq(false)),
@@ -634,10 +630,7 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
                         ImmediateAggregateReportingJobService.scheduleIfNeeded(
                                 any(Context.class), eq(false)));
         verify(() -> AttributionFallbackJobService.scheduleIfNeeded(any(Context.class), eq(false)));
-        verify(
-                () ->
-                        AsyncRegistrationFallbackJobService.scheduleIfNeeded(
-                                any(Context.class), eq(false)));
+        verify(AsyncRegistrationFallbackJob::schedule);
         verify(
                 () ->
                         VerboseDebugReportingFallbackJobService.scheduleIfNeeded(
@@ -672,7 +665,7 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         mConsentManager.enable(mSpyContext);
 
         verify(() -> BackgroundJobsManager.scheduleAllBackgroundJobs(any(Context.class)));
-        verify(() -> EpochJobService.scheduleIfNeeded(any(Context.class), eq(false)), never());
+        verify(EpochJob::schedule, never());
         verify(
                 () -> MaintenanceJobService.scheduleIfNeeded(any(Context.class), eq(false)),
                 never());
@@ -696,11 +689,7 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         verify(
                 () -> AttributionFallbackJobService.scheduleIfNeeded(any(Context.class), eq(false)),
                 never());
-        verify(
-                () ->
-                        AsyncRegistrationFallbackJobService.scheduleIfNeeded(
-                                any(Context.class), eq(false)),
-                never());
+        verify(AsyncRegistrationFallbackJob::schedule, never());
         verify(
                 () ->
                         VerboseDebugReportingFallbackJobService.scheduleIfNeeded(
@@ -1132,6 +1121,7 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
                 mConsentManager.isFledgeConsentRevokedForApp(
                         AppConsentDaoFixture.APP20_PACKAGE_NAME));
     }
+
     @Test
     public void testIsFledgeConsentRevokedForNotFoundAppGaUxEnabledThrows_ppApiOnly()
             throws PackageManager.NameNotFoundException {
@@ -3761,7 +3751,6 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         doNothing().when(mMockIAdServicesManager).recordUserManualInteractionWithConsent(anyInt());
         doReturn(isGiven).when(mAppSearchConsentManagerMock).getConsent(CONSENT_KEY_FOR_ALL);
         return consentManager;
-
     }
 
     private ConsentManager getSpiedConsentManagerForConsentPerApiTesting(
@@ -3918,10 +3907,13 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         assertThat(spyConsentManager.getCurrentPrivacySandboxFeature())
                 .isEqualTo(PrivacySandboxFeatureType.PRIVACY_SANDBOX_UNSUPPORTED);
         verify(mMockIAdServicesManager).getCurrentPrivacySandboxFeature();
-        MockedVoidMethod mockedVoidMethod = () ->ErrorLogUtil.e(
-                any(),
-                eq(AD_SERVICES_ERROR_REPORTED__ERROR_CODE__PRIVACY_SANDBOX_SAVE_FAILURE),
-                eq(AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__UX));
+        MockedVoidMethod mockedVoidMethod =
+                () ->
+                        ErrorLogUtil.e(
+                                any(),
+                                eq(
+                                        AD_SERVICES_ERROR_REPORTED__ERROR_CODE__PRIVACY_SANDBOX_SAVE_FAILURE),
+                                eq(AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__UX));
         verify(mockedVoidMethod);
         doReturn(PrivacySandboxFeatureType.PRIVACY_SANDBOX_FIRST_CONSENT.name())
                 .when(mMockIAdServicesManager)
@@ -3972,10 +3964,13 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         assertThat(spyConsentManager.getCurrentPrivacySandboxFeature())
                 .isEqualTo(PrivacySandboxFeatureType.PRIVACY_SANDBOX_UNSUPPORTED);
         verify(mMockIAdServicesManager).getCurrentPrivacySandboxFeature();
-        MockedVoidMethod mockedVoidMethod = () -> ErrorLogUtil.e(
-                any(),
-                eq(AD_SERVICES_ERROR_REPORTED__ERROR_CODE__PRIVACY_SANDBOX_SAVE_FAILURE),
-                eq(AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__UX));
+        MockedVoidMethod mockedVoidMethod =
+                () ->
+                        ErrorLogUtil.e(
+                                any(),
+                                eq(
+                                        AD_SERVICES_ERROR_REPORTED__ERROR_CODE__PRIVACY_SANDBOX_SAVE_FAILURE),
+                                eq(AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__UX));
         verify(mockedVoidMethod);
         doReturn(PrivacySandboxFeatureType.PRIVACY_SANDBOX_FIRST_CONSENT.name())
                 .when(mMockIAdServicesManager)

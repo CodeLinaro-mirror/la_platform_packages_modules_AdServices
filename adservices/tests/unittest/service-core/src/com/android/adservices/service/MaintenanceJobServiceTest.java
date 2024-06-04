@@ -17,7 +17,6 @@
 package com.android.adservices.service;
 
 import static com.android.adservices.mockito.ExtendedMockitoExpectations.mockAdServicesJobServiceLogger;
-import static com.android.adservices.mockito.ExtendedMockitoExpectations.mockGetFlags;
 import static com.android.adservices.mockito.MockitoExpectations.mockBackgroundJobsLoggingKillSwitch;
 import static com.android.adservices.mockito.MockitoExpectations.syncLogExecutionStats;
 import static com.android.adservices.mockito.MockitoExpectations.syncPersistJobExecutionData;
@@ -25,8 +24,6 @@ import static com.android.adservices.mockito.MockitoExpectations.verifyBackgroun
 import static com.android.adservices.mockito.MockitoExpectations.verifyLoggingNotHappened;
 import static com.android.adservices.mockito.MockitoExpectations.verifyOnStartJobLogged;
 import static com.android.adservices.mockito.MockitoExpectations.verifyOnStopJobLogged;
-import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__TOPICS_API_DISABLED;
-import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__TOPICS;
 import static com.android.adservices.spe.AdServicesJobInfo.MAINTENANCE_JOB;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.any;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.anyInt;
@@ -56,7 +53,6 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
-import com.android.adservices.common.synccallback.JobServiceLoggingCallback;
 import com.android.adservices.errorlogging.ErrorLogUtil;
 import com.android.adservices.service.common.FledgeMaintenanceTasksWorker;
 import com.android.adservices.service.common.compat.ServiceCompatUtils;
@@ -64,10 +60,10 @@ import com.android.adservices.service.signals.SignalsMaintenanceTasksWorker;
 import com.android.adservices.service.topics.AppUpdateManager;
 import com.android.adservices.service.topics.BlockedTopicsManager;
 import com.android.adservices.service.topics.CacheManager;
-import com.android.adservices.service.topics.EpochJobService;
 import com.android.adservices.service.topics.EpochManager;
 import com.android.adservices.service.topics.TopicsWorker;
 import com.android.adservices.shared.testing.JobServiceCallback;
+import com.android.adservices.shared.testing.JobServiceLoggingCallback;
 import com.android.adservices.spe.AdServicesJobServiceLogger;
 import com.android.modules.utils.testing.ExtendedMockitoRule.MockStatic;
 import com.android.modules.utils.testing.ExtendedMockitoRule.SpyStatic;
@@ -115,13 +111,13 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
 
     @Before
     public void setup() {
-        // Mock JobScheduler invocation in EpochJobService
+        // Mock JobScheduler invocation in MaintenanceJobService.
         assertThat(JOB_SCHEDULER).isNotNull();
         doReturn(JOB_SCHEDULER)
                 .when(mSpyMaintenanceJobService)
                 .getSystemService(JobScheduler.class);
 
-        mockGetFlags(mMockFlags);
+        mocker.mockGetFlags(mMockFlags);
 
         mSpyLogger = mockAdServicesJobServiceLogger(sContext, mMockFlags);
     }
@@ -178,7 +174,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
         JobInfo existingJobInfo =
                 new JobInfo.Builder(
                                 MAINTENANCE_JOB_ID,
-                                new ComponentName(sContext, EpochJobService.class))
+                                new ComponentName(sContext, MaintenanceJobService.class))
                         .setRequiresCharging(true)
                         .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
                         .setPersisted(true)
@@ -194,7 +190,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
         callback.assertJobFinished();
 
         // Verify that topics job is not done
-        verify(() -> TopicsWorker.getInstance(any(Context.class)), never());
+        verify(TopicsWorker::getInstance, never());
         verify(mMockAppUpdateManager, never())
                 .reconcileUninstalledApps(any(Context.class), eq(CURRENT_EPOCH_ID));
         verify(mMockAppUpdateManager, never())
@@ -224,7 +220,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
 
         // Mock static method AppUpdateWorker.getInstance, let it return the local
         // appUpdateWorker in order to get a test instance.
-        doReturn(topicsWorker).when(() -> TopicsWorker.getInstance(any(Context.class)));
+        doReturn(topicsWorker).when(TopicsWorker::getInstance);
 
         JobServiceCallback callback =
                 new JobServiceCallback().expectJobFinished(mSpyMaintenanceJobService);
@@ -233,7 +229,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
         JobInfo existingJobInfo =
                 new JobInfo.Builder(
                                 MAINTENANCE_JOB_ID,
-                                new ComponentName(sContext, EpochJobService.class))
+                                new ComponentName(sContext, MaintenanceJobService.class))
                         .setRequiresCharging(true)
                         .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
                         .setPersisted(true)
@@ -248,7 +244,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
 
         callback.assertJobFinished();
 
-        verify(() -> TopicsWorker.getInstance(any(Context.class)));
+        verify(TopicsWorker::getInstance);
         verify(mMockAppUpdateManager)
                 .reconcileUninstalledApps(any(Context.class), eq(CURRENT_EPOCH_ID));
         verify(mMockAppUpdateManager)
@@ -275,7 +271,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
 
         // Mock static method AppUpdateWorker.getInstance, let it return the local
         // appUpdateWorker in order to get a test instance.
-        doReturn(topicsWorker).when(() -> TopicsWorker.getInstance(any(Context.class)));
+        doReturn(topicsWorker).when(TopicsWorker::getInstance);
         doReturn(mPackageManagerMock).when(mSpyMaintenanceJobService).getPackageManager();
         mSpyMaintenanceJobService.injectFledgeMaintenanceTasksWorker(
                 mFledgeMaintenanceTasksWorkerMock);
@@ -289,7 +285,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
         JobInfo existingJobInfo =
                 new JobInfo.Builder(
                                 MAINTENANCE_JOB_ID,
-                                new ComponentName(sContext, EpochJobService.class))
+                                new ComponentName(sContext, MaintenanceJobService.class))
                         .setRequiresCharging(true)
                         .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
                         .setPersisted(true)
@@ -304,7 +300,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
 
         callback.assertJobFinished();
 
-        verify(() -> TopicsWorker.getInstance(any(Context.class)));
+        verify(TopicsWorker::getInstance);
         verify(mMockAppUpdateManager)
                 .reconcileUninstalledApps(any(Context.class), eq(CURRENT_EPOCH_ID));
         verify(mMockAppUpdateManager)
@@ -355,7 +351,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
 
         // Mock static method AppUpdateWorker.getInstance, let it return the local
         // appUpdateWorker in order to get a test instance.
-        doReturn(topicsWorker).when(() -> TopicsWorker.getInstance(any(Context.class)));
+        doReturn(topicsWorker).when(TopicsWorker::getInstance);
 
         // Inject FledgeMaintenanceTasksWorker since the test can't get it the standard way
         doReturn(mPackageManagerMock).when(mSpyMaintenanceJobService).getPackageManager();
@@ -376,7 +372,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
         JobInfo existingJobInfo =
                 new JobInfo.Builder(
                                 MAINTENANCE_JOB_ID,
-                                new ComponentName(sContext, EpochJobService.class))
+                                new ComponentName(sContext, MaintenanceJobService.class))
                         .setRequiresCharging(true)
                         .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
                         .setPersisted(true)
@@ -421,7 +417,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
 
         // Mock static method AppUpdateWorker.getInstance, let it return the local
         // appUpdateWorker in order to get a test instance.
-        doReturn(topicsWorker).when(() -> TopicsWorker.getInstance(any(Context.class)));
+        doReturn(topicsWorker).when(TopicsWorker::getInstance);
 
         // Inject FledgeMaintenanceTasksWorker since the test can't get it the standard way
         mSpyMaintenanceJobService.injectFledgeMaintenanceTasksWorker(
@@ -441,7 +437,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
         JobInfo existingJobInfo =
                 new JobInfo.Builder(
                                 MAINTENANCE_JOB_ID,
-                                new ComponentName(sContext, EpochJobService.class))
+                                new ComponentName(sContext, MaintenanceJobService.class))
                         .setRequiresCharging(true)
                         .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
                         .setPersisted(true)
@@ -456,9 +452,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
 
         callback.assertJobFinished();
 
-        verify(
-                () -> TopicsWorker.getInstance(any(Context.class)),
-                timeout(BACKGROUND_THREAD_TIMEOUT_MS));
+        verify(TopicsWorker::getInstance, timeout(BACKGROUND_THREAD_TIMEOUT_MS));
         verify(mMockAppUpdateManager, timeout(BACKGROUND_THREAD_TIMEOUT_MS))
                 .reconcileUninstalledApps(any(Context.class), eq(CURRENT_EPOCH_ID));
         verify(mMockAppUpdateManager, timeout(BACKGROUND_THREAD_TIMEOUT_MS))
@@ -502,7 +496,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
         JobInfo existingJobInfo =
                 new JobInfo.Builder(
                                 MAINTENANCE_JOB_ID,
-                                new ComponentName(sContext, EpochJobService.class))
+                                new ComponentName(sContext, MaintenanceJobService.class))
                         .setRequiresCharging(true)
                         .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
                         .setPersisted(true)
@@ -520,7 +514,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
         verify(mSpyMaintenanceJobService).jobFinished(mMockJobParameters, false);
         verifyNoMoreInteractions(staticMockMarker(TopicsWorker.class));
 
-        verify(() -> TopicsWorker.getInstance(any(Context.class)), never());
+        verify(TopicsWorker::getInstance, never());
         verify(mMockAppUpdateManager, never())
                 .reconcileUninstalledApps(any(Context.class), eq(CURRENT_EPOCH_ID));
         verify(mMockAppUpdateManager, never())
@@ -631,16 +625,12 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
         doNothing().when(() -> ErrorLogUtil.e(anyInt(), anyInt()));
         // Killswitch is on.
         doReturn(true).when(mMockFlags).getTopicsKillSwitch();
+        doReturn(true).when(mMockFlags).getFledgeSelectAdsKillSwitch();
 
-        // The first invocation of scheduleIfNeeded() schedules the job.
-        assertThat(EpochJobService.scheduleIfNeeded(sContext, /* forceSchedule */ false)).isFalse();
+        // The first invocation of scheduleIfNeeded() does NOT schedule the job.
+        assertThat(MaintenanceJobService.scheduleIfNeeded(sContext, /* forceSchedule */ false))
+                .isFalse();
         assertThat(JOB_SCHEDULER.getPendingJob(MAINTENANCE_JOB_ID)).isNull();
-        verify(
-                () -> {
-                    ErrorLogUtil.e(
-                            eq(AD_SERVICES_ERROR_REPORTED__ERROR_CODE__TOPICS_API_DISABLED),
-                            eq(AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__TOPICS));
-                });
     }
 
     @Test
@@ -698,7 +688,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
         JobInfo existingJobInfo =
                 new JobInfo.Builder(
                                 MAINTENANCE_JOB_ID,
-                                new ComponentName(sContext, EpochJobService.class))
+                                new ComponentName(sContext, MaintenanceJobService.class))
                         .setRequiresCharging(true)
                         .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
                         .setPersisted(true)
@@ -740,7 +730,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
 
         // Mock static method AppUpdateWorker.getInstance, let it return the local
         // appUpdateWorker in order to get a test instance.
-        doReturn(topicsWorker).when(() -> TopicsWorker.getInstance(any(Context.class)));
+        doReturn(topicsWorker).when(TopicsWorker::getInstance);
 
         JobServiceCallback callback =
                 new JobServiceCallback().expectJobFinished(mSpyMaintenanceJobService);
@@ -755,7 +745,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
         JobInfo existingJobInfo =
                 new JobInfo.Builder(
                                 MAINTENANCE_JOB_ID,
-                                new ComponentName(sContext, EpochJobService.class))
+                                new ComponentName(sContext, MaintenanceJobService.class))
                         .setRequiresCharging(true)
                         .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
                         .setPersisted(true)
@@ -770,7 +760,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
 
         callback.assertJobFinished();
 
-        verify(() -> TopicsWorker.getInstance(any(Context.class)));
+        verify(TopicsWorker::getInstance);
         verify(mMockAppUpdateManager)
                 .reconcileUninstalledApps(any(Context.class), eq(CURRENT_EPOCH_ID));
         verify(mMockAppUpdateManager)
@@ -811,7 +801,7 @@ public final class MaintenanceJobServiceTest extends AdServicesExtendedMockitoTe
         JobInfo existingJobInfo =
                 new JobInfo.Builder(
                                 MAINTENANCE_JOB_ID,
-                                new ComponentName(sContext, EpochJobService.class))
+                                new ComponentName(sContext, MaintenanceJobService.class))
                         .setRequiresCharging(true)
                         .setPeriodic(MAINTENANCE_JOB_PERIOD_MS, MAINTENANCE_JOB_FLEX_MS)
                         .setPersisted(true)

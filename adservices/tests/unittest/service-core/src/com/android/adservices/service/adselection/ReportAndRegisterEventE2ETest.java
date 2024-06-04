@@ -210,6 +210,7 @@ public class ReportAndRegisterEventE2ETest {
             mFlags.getFledgeReportImpressionMaxRegisteredAdBeaconsPerAdTechCount();
 
     private static final Context CONTEXT = ApplicationProvider.getApplicationContext();
+    private static final boolean CONSOLE_MESSAGE_IN_LOGS_ENABLED = true;
 
     private DBAdSelection mDBAdSelection;
     private DBRegisteredAdInteraction mDBRegisteredAdInteractionSellerClick;
@@ -238,17 +239,23 @@ public class ReportAndRegisterEventE2ETest {
 
     AdSelectionServiceImpl mAdSelectionService;
     private AsyncRegistrationQueueRunner mAsyncRegistrationQueueRunnerSpy;
+    @Mock private DebugReportApi mDebugReportApiMock;
 
     @Spy
     private AsyncSourceFetcher mAsyncSourceFetcherSpy =
-            new AsyncSourceFetcher(CONTEXT, mEnrollmentDaoMock, mFlags);
+            new AsyncSourceFetcher(
+                    CONTEXT, mEnrollmentDaoMock, mFlags, mDatastoreManagerSpy, mDebugReportApiMock);
 
     @Spy
     private AsyncTriggerFetcher mAsyncTriggerFetcherSpy =
             new AsyncTriggerFetcher(
-                    CONTEXT, mEnrollmentDaoMock, mFlags, mIOdpDelegationWrapperMock);
+                    CONTEXT,
+                    mEnrollmentDaoMock,
+                    mFlags,
+                    mIOdpDelegationWrapperMock,
+                    mDatastoreManagerSpy,
+                    mDebugReportApiMock);
 
-    @Mock private DebugReportApi mDebugReportApiMock;
     @Mock private SourceNoiseHandler mSourceNoiseHandlerMock;
     private RetryStrategyFactory mRetryStrategyFactory;
     private ConsentedDebugConfigurationDao mConsentedDebugConfigurationDao;
@@ -306,8 +313,8 @@ public class ReportAndRegisterEventE2ETest {
 
         mAppInstallDao = sharedDb.appInstallDao();
         mFrequencyCapDao = sharedDb.frequencyCapDao();
-        mEncryptionKeyDao = EncryptionKeyDao.getInstance(CONTEXT);
-        mEnrollmentDao = EnrollmentDao.getInstance(CONTEXT);
+        mEncryptionKeyDao = EncryptionKeyDao.getInstance();
+        mEnrollmentDao = EnrollmentDao.getInstance();
         mAdFilteringFeatureFactory =
                 new AdFilteringFeatureFactory(mAppInstallDao, mFrequencyCapDao, mFlags);
 
@@ -1051,7 +1058,8 @@ public class ReportAndRegisterEventE2ETest {
                 false,
                 mRetryStrategyFactory,
                 mConsentedDebugConfigurationGeneratorFactory,
-                mEgressConfigurationGenerator);
+                mEgressConfigurationGenerator,
+                CONSOLE_MESSAGE_IN_LOGS_ENABLED);
     }
 
     private void initializeReportingArtifacts() throws JSONException {

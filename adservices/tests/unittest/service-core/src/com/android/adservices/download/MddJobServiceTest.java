@@ -57,13 +57,13 @@ import android.content.Context;
 import android.os.PersistableBundle;
 
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
-import com.android.adservices.common.synccallback.JobServiceLoggingCallback;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.common.compat.ServiceCompatUtils;
 import com.android.adservices.service.stats.StatsdAdServicesLogger;
 import com.android.adservices.shared.spe.JobServiceConstants.JobSchedulingResultCode;
 import com.android.adservices.shared.testing.JobServiceCallback;
+import com.android.adservices.shared.testing.JobServiceLoggingCallback;
 import com.android.adservices.shared.testing.NoFailureSyncCallback;
 import com.android.adservices.shared.testing.annotations.RequiresSdkLevelAtLeastS;
 import com.android.adservices.spe.AdServicesJobServiceLogger;
@@ -136,7 +136,7 @@ public final class MddJobServiceTest extends AdServicesExtendedMockitoTestCase {
                 "Job already scheduled before setup!",
                 JOB_SCHEDULER.getPendingJob(MDD_WIFI_CHARGING_PERIODIC_TASK_JOB_ID));
 
-        extendedMockito.mockGetFlags(mMockFlags);
+        mocker.mockGetFlags(mMockFlags);
 
         doReturn(mSpyMobileDataDownload).when(() -> MobileDataDownloadFactory.getMdd(any()));
         doReturn(mSpyEnrollmentDataDownloadManager)
@@ -509,9 +509,7 @@ public final class MddJobServiceTest extends AdServicesExtendedMockitoTestCase {
         NoFailureSyncCallback<Integer> callback = new NoFailureSyncCallback<>();
 
         mExecutorService.execute(
-                () ->
-                        callback.injectResult(
-                                MddJobService.scheduleIfNeeded(sContext, forceSchedule)));
+                () -> callback.injectResult(MddJobService.scheduleIfNeeded(forceSchedule)));
 
         return callback;
     }

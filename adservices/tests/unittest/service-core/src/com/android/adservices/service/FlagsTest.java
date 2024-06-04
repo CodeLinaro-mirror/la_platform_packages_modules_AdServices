@@ -18,6 +18,8 @@ package com.android.adservices.service;
 
 import static com.android.adservices.service.Flags.AD_SERVICES_MODULE_JOB_POLICY;
 import static com.android.adservices.service.Flags.APPSEARCH_ONLY;
+import static com.android.adservices.service.Flags.DEFAULT_ADEXT_READ_TIMEOUT_MS;
+import static com.android.adservices.service.Flags.DEFAULT_ADEXT_WRITE_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.DEFAULT_BLOCKED_TOPICS_SOURCE_OF_TRUTH;
 import static com.android.adservices.service.Flags.DEFAULT_CONSENT_SOURCE_OF_TRUTH;
 import static com.android.adservices.service.Flags.DEFAULT_JOB_SCHEDULING_LOGGING_SAMPLING_RATE;
@@ -323,6 +325,13 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetMeasurementEnableHeaderErrorDebugReport() {
+        testFeatureFlagGuardedByGlobalKillSwitch(
+                "MEASUREMENT_ENABLE_HEADER_ERROR_DEBUG_REPORT",
+                Flags::getMeasurementEnableHeaderErrorDebugReport);
+    }
+
+    @Test
     public void testGetEnableBackCompat() {
         testFeatureFlag("ENABLE_BACK_COMPAT", Flags::getEnableBackCompat);
     }
@@ -339,6 +348,33 @@ public final class FlagsTest extends AdServicesUnitTestCase {
         testFeatureFlag(
                 "FLEDGE_AUCTION_SERVER_KEY_FETCH_METRICS_ENABLED",
                 Flags::getFledgeAuctionServerKeyFetchMetricsEnabled);
+    }
+
+    @Test
+    public void testGetFledgeSelectAdsFromOutcomesApiMetricsEnabled() {
+        testFeatureFlag(
+                "FLEDGE_SELECT_ADS_FROM_OUTCOMES_API_METRICS_ENABLED",
+                Flags::getFledgeSelectAdsFromOutcomesApiMetricsEnabled);
+    }
+
+    @Test
+    public void testGetFledgeCpcBillingMetricsEnabled() {
+        testFeatureFlag(
+                "FLEDGE_CPC_BILLING_METRICS_ENABLED", Flags::getFledgeCpcBillingMetricsEnabled);
+    }
+
+    @Test
+    public void testGetFledgeDataVersionHeaderMetricsEnabled() {
+        testFeatureFlag(
+                "FLEDGE_DATA_VERSION_HEADER_METRICS_ENABLED",
+                Flags::getFledgeDataVersionHeaderMetricsEnabled);
+    }
+
+    @Test
+    public void testGetFledgeReportImpressionApiMetricsEnabled() {
+        testFeatureFlag(
+                "FLEDGE_REPORT_IMPRESSION_API_METRICS_ENABLED",
+                Flags::getFledgeReportImpressionApiMetricsEnabled);
     }
 
     @Test
@@ -373,6 +409,13 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetMsmtEnableSeparateReportTypes() {
+        testFeatureFlag(
+                "MEASUREMENT_ENABLE_SEPARATE_REPORT_TYPES_FOR_ATTRIBUTION_RATE_LIMIT",
+                Flags::getMeasurementEnableSeparateReportTypesForAttributionRateLimit);
+    }
+
+    @Test
     public void testGetCustomErrorCodeSamplingEnabled() {
         testFeatureFlag(
                 "DEFAULT_CUSTOM_ERROR_CODE_SAMPLING_ENABLED",
@@ -383,6 +426,25 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     public void testGetSpeOnPilotJobsBatch2Enabled() {
         testFeatureFlag(
                 "DEFAULT_SPE_ON_PILOT_JOBS_BATCH_2_ENABLED", Flags::getSpeOnPilotJobsBatch2Enabled);
+    }
+
+    @Test
+    public void testGetSpeOnEpochJobEnabled() {
+        testFeatureFlag("DEFAULT_SPE_ON_EPOCH_JOB_ENABLED", Flags::getSpeOnEpochJobEnabled);
+    }
+
+    @Test
+    public void testGetSpeOnBackgroundFetchJobEnabled() {
+        testFeatureFlag(
+                "DEFAULT_SPE_ON_BACKGROUND_FETCH_JOB_ENABLED",
+                Flags::getSpeOnBackgroundFetchJobEnabled);
+    }
+
+    @Test
+    public void testGetSpeOnAsyncRegistrationFallbackJobEnabled() {
+        testFeatureFlag(
+                "DEFAULT_SPE_ON_ASYNC_REGISTRATION_FALLBACK_JOB_ENABLED",
+                Flags::getSpeOnAsyncRegistrationFallbackJobEnabled);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -516,6 +578,29 @@ public final class FlagsTest extends AdServicesUnitTestCase {
                 "getPasScriptExecutionTimeoutMs()",
                 DEFAULT_PAS_SCRIPT_EXECUTION_TIMEOUT_MS,
                 Flags::getPasScriptExecutionTimeoutMs);
+    }
+
+    @Test
+    public void testGetAdExtWriteTimeoutMs() {
+        testFlag(
+                "getAdExtWriteTimeoutMs()",
+                DEFAULT_ADEXT_WRITE_TIMEOUT_MS,
+                Flags::getAdExtWriteTimeoutMs);
+    }
+
+    @Test
+    public void testGetAdExtReadTimeoutMs() {
+        testFlag(
+                "getAdExtReadTimeoutMs()",
+                DEFAULT_ADEXT_READ_TIMEOUT_MS,
+                Flags::getAdExtReadTimeoutMs);
+    }
+
+    @Test
+    public void testGetAdServicesApiV2MigrationEnabled() {
+        testFeatureFlag(
+                "DEFAULT_ADSERVICES_CONSENT_BUSINESS_LOGIC_MIGRATION_ENABLED",
+                Flags::getAdServicesConsentBusinessLogicMigrationEnabled);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////

@@ -441,7 +441,7 @@ class AttributionJobHandler {
             mDebugReportApi.scheduleTriggerDebugReport(
                     source,
                     trigger,
-                    String.valueOf(numReportsPerDestination),
+                    String.valueOf(mFlags.getMeasurementMaxAggregateReportsPerDestination()),
                     measurementDao,
                     Type.TRIGGER_AGGREGATE_STORAGE_LIMIT);
             return TriggeringStatus.DROPPED;
@@ -462,7 +462,7 @@ class AttributionJobHandler {
                 mDebugReportApi.scheduleTriggerDebugReport(
                         source,
                         trigger,
-                        String.valueOf(numReportsPerSource),
+                        String.valueOf(mFlags.getMeasurementMaxAggregateReportsPerSource()),
                         measurementDao,
                         Type.TRIGGER_AGGREGATE_EXCESSIVE_REPORTS);
                 return TriggeringStatus.DROPPED;
@@ -1468,14 +1468,18 @@ class AttributionJobHandler {
                 : mFlags.getMeasurementMaxAggregateAttributionPerRateLimitWindow();
         boolean isWithinLimit = attributionCount < limit;
         if (!isWithinLimit) {
-            // TODO (b/309324404) Consider debug report implications for scoped attribution rate
-            // limit.
+            String reportType =
+                    scope == Attribution.Scope.EVENT
+                            ? Type.TRIGGER_EVENT_ATTRIBUTIONS_PER_SOURCE_DESTINATION_LIMIT
+                            : Type.TRIGGER_AGGREGATE_ATTRIBUTIONS_PER_SOURCE_DESTINATION_LIMIT;
             mDebugReportApi.scheduleTriggerDebugReport(
                     source,
                     trigger,
                     String.valueOf(limit),
                     measurementDao,
-                    Type.TRIGGER_ATTRIBUTIONS_PER_SOURCE_DESTINATION_LIMIT);
+                    mFlags.getMeasurementEnableSeparateReportTypesForAttributionRateLimit()
+                            ? reportType
+                            : Type.TRIGGER_ATTRIBUTIONS_PER_SOURCE_DESTINATION_LIMIT);
         }
         return isWithinLimit;
     }

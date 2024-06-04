@@ -45,12 +45,12 @@ import android.content.ComponentName;
 import android.content.Context;
 
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
-import com.android.adservices.common.synccallback.JobServiceLoggingCallback;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.common.compat.ServiceCompatUtils;
 import com.android.adservices.shared.testing.BooleanSyncCallback;
 import com.android.adservices.shared.testing.JobServiceCallback;
+import com.android.adservices.shared.testing.JobServiceLoggingCallback;
 import com.android.adservices.shared.testing.annotations.RequiresSdkLevelAtLeastS;
 import com.android.adservices.spe.AdServicesJobServiceLogger;
 import com.android.cobalt.CobaltPeriodicJob;
@@ -366,7 +366,7 @@ public final class CobaltJobServiceTest extends AdServicesExtendedMockitoTestCas
     }
 
     private void mockCobaltLoggingFlags() {
-        extendedMockito.mockGetFlags(mMockFlags);
+        mocker.mockGetFlags(mMockFlags);
 
         when(mMockFlags.getAdservicesReleaseStageForCobalt()).thenReturn(DEFAULT_RELEASE_STAGE);
         when(mMockFlags.getCobaltAdservicesApiKeyHex()).thenReturn(DEFAULT_API_KEY);

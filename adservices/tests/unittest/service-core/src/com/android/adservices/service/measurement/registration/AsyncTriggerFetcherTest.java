@@ -35,6 +35,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
@@ -56,7 +57,10 @@ import android.util.Pair;
 
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
 import com.android.adservices.common.WebUtil;
+import com.android.adservices.data.DbTestUtil;
 import com.android.adservices.data.enrollment.EnrollmentDao;
+import com.android.adservices.data.measurement.DatastoreManager;
+import com.android.adservices.data.measurement.SQLDatastoreManager;
 import com.android.adservices.errorlogging.ErrorLogUtil;
 import com.android.adservices.service.FakeFlagsFactory;
 import com.android.adservices.service.Flags;
@@ -69,10 +73,12 @@ import com.android.adservices.service.measurement.Trigger;
 import com.android.adservices.service.measurement.TriggerSpecs;
 import com.android.adservices.service.measurement.ondevicepersonalization.NoOdpDelegationWrapper;
 import com.android.adservices.service.measurement.ondevicepersonalization.OdpDelegationWrapperImpl;
+import com.android.adservices.service.measurement.reporting.DebugReportApi;
 import com.android.adservices.service.measurement.util.Enrollment;
 import com.android.adservices.service.measurement.util.UnsignedLong;
 import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.adservices.service.stats.MeasurementRegistrationResponseStats;
+import com.android.adservices.shared.errorlogging.AdServicesErrorLogger;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.modules.utils.testing.ExtendedMockitoRule.SpyStatic;
@@ -181,6 +187,7 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
     private static final int UNKNOWN_REGISTRATION_FAILURE_TYPE = 0;
     private static final String PLATFORM_AD_ID_VALUE = "SAMPLE_PLATFORM_AD_ID_VALUE";
     private static final String DEBUG_AD_ID_VALUE = "SAMPLE_DEBUG_AD_ID_VALUE";
+    private static final String HEADER_ODP_REGISTER_TRIGGER = "Odp-Register-Trigger";
     private static final String ODP_PACKAGE_NAME = "com.adtech1";
     private static final String ODP_CLASS_NAME = "com.adtech1.AdTechIsolatedService";
     private static final String ODP_CERT_DIGEST = "AABBCCDD";
@@ -189,12 +196,15 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
             Flags.DEFAULT_MEASUREMENT_MAX_AGGREGATE_DEDUPLICATION_KEYS_PER_REGISTRATION;
 
     private AsyncTriggerFetcher mFetcher;
+    private DatastoreManager mDatastoreManager;
 
     @Mock private HttpsURLConnection mUrlConnection;
     @Mock private HttpsURLConnection mUrlConnection1;
     @Mock private EnrollmentDao mEnrollmentDao;
     @Mock private Flags mFlags;
     @Mock private AdServicesLogger mLogger;
+    @Mock private AdServicesErrorLogger mErrorLogger;
+    @Mock private DebugReportApi mDebugReportApi;
 
     // Parameterised setup to run all the tests once with ARA parsing V1 flag on, and once with the
     // flag off.
@@ -213,14 +223,20 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
 
     @Before
     public void setup() {
-        extendedMockito.mockGetFlags(FakeFlagsFactory.getFlagsForTest());
+        mocker.mockGetFlags(FakeFlagsFactory.getFlagsForTest());
+        mDatastoreManager =
+                spy(
+                        new SQLDatastoreManager(
+                                DbTestUtil.getMeasurementDbHelperForTest(), mErrorLogger));
         mFetcher =
                 spy(
                         new AsyncTriggerFetcher(
                                 sContext,
                                 mEnrollmentDao,
                                 mFlags,
-                                mock(NoOdpDelegationWrapper.class)));
+                                mock(NoOdpDelegationWrapper.class),
+                                mDatastoreManager,
+                                mDebugReportApi));
         // For convenience, return the same enrollment-ID since we're using many arbitrary
         // registration URIs and not yet enforcing uniqueness of enrollment.
         ExtendedMockito.doReturn(Optional.of(ENROLLMENT_ID))
@@ -258,6 +274,10 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
                 .thenReturn(MEASUREMENT_MAX_LENGTH_OF_TRIGGER_CONTEXT_ID);
         when(mFlags.getMeasurementMaxAttributionScopeLength()).thenReturn(10);
         when(mFlags.getMeasurementMaxAttributionScopesPerSource()).thenReturn(10);
+        when(mFlags.getMeasurementEnableDebugReport())
+                .thenReturn(Flags.MEASUREMENT_ENABLE_DEBUG_REPORT);
+        when(mFlags.getMeasurementEnableHeaderErrorDebugReport())
+                .thenReturn(Flags.MEASUREMENT_ENABLE_HEADER_ERROR_DEBUG_REPORT);
     }
 
     @Test
@@ -5331,6 +5351,148 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
     }
 
     @Test
+    public void testBadTriggerJson_sendHeaderErrorDebugReport() throws Exception {
+        // Setup
+        when(mFlags.getMeasurementEnableDebugReport()).thenReturn(true);
+        when(mFlags.getMeasurementEnableHeaderErrorDebugReport()).thenReturn(true);
+        when(mFlags.getMeasurementEnableXNA()).thenReturn(true);
+        String headerWithJsonError = "{[[aaa[[[[}}}";
+        String headerName = "Attribution-Reporting-Register-Trigger";
+        RegistrationRequest request = buildRequest(TRIGGER_URI);
+        doReturn(mUrlConnection).when(mFetcher).openUrl(new URL(TRIGGER_URI));
+        when(mUrlConnection.getResponseCode()).thenReturn(200);
+        // Opt-in header error debug report by adding header "Attribution-Reporting-Info";
+        when(mUrlConnection.getHeaderFields())
+                .thenReturn(
+                        Map.of(
+                                headerName,
+                                List.of(headerWithJsonError),
+                                "Attribution-Reporting-Info",
+                                List.of("report-header-errors")));
+        doReturn(5000L).when(mFlags).getMaxResponseBasedRegistrationPayloadSizeBytes();
+        AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
+        AsyncRegistration asyncRegistration = appTriggerRegistrationRequest(request);
+
+        // Execution
+        Optional<Trigger> fetch =
+                mFetcher.fetchTrigger(asyncRegistration, asyncFetchStatus, new AsyncRedirects());
+
+        // Assertion
+        assertEquals(
+                AsyncFetchStatus.EntityStatus.PARSING_ERROR, asyncFetchStatus.getEntityStatus());
+        assertFalse(fetch.isPresent());
+        verify(mDebugReportApi, times(1))
+                .scheduleHeaderErrorReport(
+                        any(),
+                        any(),
+                        eq(headerName),
+                        eq(ENROLLMENT_ID),
+                        eq("Trigger JSON parsing failed"),
+                        eq(headerWithJsonError),
+                        any());
+    }
+
+    @Test
+    public void testBadTriggerJson_headerErrorReportFlagDisabled_doNotSend() throws Exception {
+        // Setup
+        when(mFlags.getMeasurementEnableHeaderErrorDebugReport()).thenReturn(false);
+        when(mFlags.getMeasurementEnableXNA()).thenReturn(true);
+        String headerWithJsonError = "{[[aaa[[[[}}}";
+        String headerName = "Attribution-Reporting-Register-Trigger";
+        RegistrationRequest request = buildRequest(TRIGGER_URI);
+        doReturn(mUrlConnection).when(mFetcher).openUrl(new URL(TRIGGER_URI));
+        when(mUrlConnection.getResponseCode()).thenReturn(200);
+        // Opt-in header error debug report by adding header "Attribution-Reporting-Info";
+        when(mUrlConnection.getHeaderFields())
+                .thenReturn(
+                        Map.of(
+                                headerName,
+                                List.of(headerWithJsonError),
+                                "Attribution-Reporting-Info",
+                                List.of("report-header-errors")));
+        doReturn(5000L).when(mFlags).getMaxResponseBasedRegistrationPayloadSizeBytes();
+        AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
+        AsyncRegistration asyncRegistration = appTriggerRegistrationRequest(request);
+
+        // Execution
+        Optional<Trigger> fetch =
+                mFetcher.fetchTrigger(asyncRegistration, asyncFetchStatus, new AsyncRedirects());
+
+        // Assertion
+        assertEquals(
+                AsyncFetchStatus.EntityStatus.PARSING_ERROR, asyncFetchStatus.getEntityStatus());
+        assertFalse(fetch.isPresent());
+        verify(mDebugReportApi, never())
+                .scheduleHeaderErrorReport(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    public void testBadTriggerJson_notOptInHeaderErrorDebugReport_doNotSend() throws Exception {
+        // Setup
+        when(mFlags.getMeasurementEnableDebugReport()).thenReturn(true);
+        when(mFlags.getMeasurementEnableHeaderErrorDebugReport()).thenReturn(true);
+        String headerWithJsonError = "{[[aaa[[[[}}}";
+        String headerName = "Attribution-Reporting-Register-Trigger";
+        RegistrationRequest request = buildRequest(TRIGGER_URI);
+        doReturn(mUrlConnection).when(mFetcher).openUrl(new URL(TRIGGER_URI));
+        when(mUrlConnection.getResponseCode()).thenReturn(200);
+        // Didn't opt-in header error debug report by adding header "Attribution-Reporting-Info";
+        when(mUrlConnection.getHeaderFields())
+                .thenReturn(Map.of(headerName, List.of(headerWithJsonError)));
+        doReturn(5000L).when(mFlags).getMaxResponseBasedRegistrationPayloadSizeBytes();
+        AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
+        AsyncRegistration asyncRegistration = appTriggerRegistrationRequest(request);
+        when(mFlags.getMeasurementEnableXNA()).thenReturn(true);
+
+        // Execution
+        Optional<Trigger> fetch =
+                mFetcher.fetchTrigger(asyncRegistration, asyncFetchStatus, new AsyncRedirects());
+
+        // Assertion
+        assertEquals(
+                AsyncFetchStatus.EntityStatus.PARSING_ERROR, asyncFetchStatus.getEntityStatus());
+        assertFalse(fetch.isPresent());
+        verify(mDebugReportApi, never())
+                .scheduleHeaderErrorReport(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    public void testBadTriggerJson_invalidOptInHeaderErrorDebugReport_doNotSend() throws Exception {
+        // Setup
+        when(mFlags.getMeasurementEnableDebugReport()).thenReturn(true);
+        when(mFlags.getMeasurementEnableHeaderErrorDebugReport()).thenReturn(true);
+        String headerWithJsonError = "{[[aaa[[[[}}}";
+        String headerName = "Attribution-Reporting-Register-Trigger";
+        RegistrationRequest request = buildRequest(TRIGGER_URI);
+        doReturn(mUrlConnection).when(mFetcher).openUrl(new URL(TRIGGER_URI));
+        when(mUrlConnection.getResponseCode()).thenReturn(200);
+        // Invalid opt-in string for header error debug report.
+        when(mUrlConnection.getHeaderFields())
+                .thenReturn(
+                        Map.of(
+                                headerName,
+                                List.of(headerWithJsonError),
+                                "Attribution-Reporting-Info",
+                                List.of("invalid-string")));
+        doReturn(5000L).when(mFlags).getMaxResponseBasedRegistrationPayloadSizeBytes();
+        AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
+        AsyncRegistration asyncRegistration = appTriggerRegistrationRequest(request);
+
+        when(mFlags.getMeasurementEnableXNA()).thenReturn(true);
+
+        // Execution
+        Optional<Trigger> fetch =
+                mFetcher.fetchTrigger(asyncRegistration, asyncFetchStatus, new AsyncRedirects());
+
+        // Assertion
+        assertEquals(
+                AsyncFetchStatus.EntityStatus.PARSING_ERROR, asyncFetchStatus.getEntityStatus());
+        assertFalse(fetch.isPresent());
+        verify(mDebugReportApi, never())
+                .scheduleHeaderErrorReport(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     public void triggerRequest_withValidAdtechBitMapping_storesCorrectly() throws Exception {
         // Setup
         String validAdTechBitMapping =
@@ -6344,21 +6506,26 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
     }
 
     @Test
-    public void fetchTrigger_odpAvailable_success() throws Exception {
+    public void fetchTrigger_odpHeaderPresent_reportingHeaderPresent_forwardOdpTrigger()
+            throws Exception {
         OdpDelegationWrapperImpl odpDelegationWrapperImplMock =
                 mock(OdpDelegationWrapperImpl.class);
         AsyncTriggerFetcher fetcher =
                 spy(
                         new AsyncTriggerFetcher(
-                                sContext, mEnrollmentDao, mFlags, odpDelegationWrapperImplMock));
+                                sContext,
+                                mEnrollmentDao,
+                                mFlags,
+                                odpDelegationWrapperImplMock,
+                                mDatastoreManager,
+                                mDebugReportApi));
 
         RegistrationRequest request = buildRequest(TRIGGER_URI);
         Map<String, List<String>> headersRequest = new HashMap<>();
         headersRequest.put(
                 "Attribution-Reporting-Register-Trigger",
                 List.of("{\"event_trigger_data\":" + EVENT_TRIGGERS_1 + "}"));
-        headersRequest.put(
-                "Odp-Register-Trigger",
+        List odpHeaderValue =
                 List.of(
                         "{"
                                 + "\"service\":\""
@@ -6372,10 +6539,12 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
                                 + "\"data\":\""
                                 + ODP_EVENT_DATA
                                 + "\""
-                                + "}"));
+                                + "}");
+        headersRequest.put(HEADER_ODP_REGISTER_TRIGGER, odpHeaderValue);
         doReturn(mUrlConnection).when(fetcher).openUrl(new URL(TRIGGER_URI));
         when(mUrlConnection.getResponseCode()).thenReturn(200);
-        when(mUrlConnection.getHeaderFields()).thenReturn(headersRequest);
+        when(mUrlConnection.getHeaderFields())
+                .thenReturn(Collections.unmodifiableMap(headersRequest));
 
         AsyncRedirects asyncRedirects = new AsyncRedirects();
         AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
@@ -6395,7 +6564,190 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
         assertEquals(new JSONArray(EVENT_TRIGGERS_1).toString(), result.getEventTriggers());
         assertEquals(TRIGGER_URI, result.getRegistrationOrigin().toString());
         verify(mUrlConnection).setRequestMethod("POST");
-        verify(odpDelegationWrapperImplMock, times(1)).registerOdpTrigger(any(), any());
+        verify(odpDelegationWrapperImplMock, times(1))
+                .registerOdpTrigger(
+                        eq(asyncRegistration),
+                        eq(Map.of(HEADER_ODP_REGISTER_TRIGGER, odpHeaderValue)),
+                        eq(true));
+    }
+
+    @Test
+    public void fetchTrigger_odpHeaderPresent_reportingHeaderMissing_forwardOdpTrigger()
+            throws Exception {
+        OdpDelegationWrapperImpl odpDelegationWrapperImplMock =
+                mock(OdpDelegationWrapperImpl.class);
+        AsyncTriggerFetcher fetcher =
+                spy(
+                        new AsyncTriggerFetcher(
+                                sContext,
+                                mEnrollmentDao,
+                                mFlags,
+                                odpDelegationWrapperImplMock,
+                                mDatastoreManager,
+                                mDebugReportApi));
+
+        RegistrationRequest request = buildRequest(TRIGGER_URI);
+        Map<String, List<String>> headersRequest = new HashMap<>();
+        List odpHeaderValue =
+                List.of(
+                        "{"
+                                + "\"service\":\""
+                                + ODP_PACKAGE_NAME
+                                + "/"
+                                + ODP_CLASS_NAME
+                                + "\","
+                                + "\"certDigest\":\""
+                                + ODP_CERT_DIGEST
+                                + "\","
+                                + "\"data\":\""
+                                + ODP_EVENT_DATA
+                                + "\""
+                                + "}");
+        headersRequest.put(HEADER_ODP_REGISTER_TRIGGER, odpHeaderValue);
+        doReturn(mUrlConnection).when(fetcher).openUrl(new URL(TRIGGER_URI));
+        when(mUrlConnection.getResponseCode()).thenReturn(200);
+        when(mUrlConnection.getHeaderFields())
+                .thenReturn(Collections.unmodifiableMap(headersRequest));
+
+        AsyncRedirects asyncRedirects = new AsyncRedirects();
+        AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
+        asyncFetchStatus.setRegistrationDelay(0L);
+        AsyncRegistration asyncRegistration = appTriggerRegistrationRequest(request);
+        // Execution
+        Optional<Trigger> fetch =
+                fetcher.fetchTrigger(asyncRegistration, asyncFetchStatus, asyncRedirects);
+        // Assertion
+        assertEquals(
+                AsyncFetchStatus.EntityStatus.HEADER_MISSING, asyncFetchStatus.getEntityStatus());
+        assertFalse(fetch.isPresent());
+        verify(mUrlConnection).setRequestMethod("POST");
+        verify(odpDelegationWrapperImplMock, times(1))
+                .registerOdpTrigger(
+                        eq(asyncRegistration),
+                        eq(Map.of(HEADER_ODP_REGISTER_TRIGGER, odpHeaderValue)),
+                        eq(true));
+    }
+
+    @Test
+    public void fetchTrigger_odpHeaderMissing_reportingHeaderPresent_odpTriggerNotForwarded()
+            throws Exception {
+        OdpDelegationWrapperImpl odpDelegationWrapperImplMock =
+                mock(OdpDelegationWrapperImpl.class);
+        AsyncTriggerFetcher fetcher =
+                spy(
+                        new AsyncTriggerFetcher(
+                                sContext,
+                                mEnrollmentDao,
+                                mFlags,
+                                odpDelegationWrapperImplMock,
+                                mDatastoreManager,
+                                mDebugReportApi));
+
+        RegistrationRequest request = buildRequest(TRIGGER_URI);
+        Map<String, List<String>> headersRequest = new HashMap<>();
+        headersRequest.put(
+                "Attribution-Reporting-Register-Trigger",
+                List.of("{\"event_trigger_data\":" + EVENT_TRIGGERS_1 + "}"));
+        doReturn(mUrlConnection).when(fetcher).openUrl(new URL(TRIGGER_URI));
+        when(mUrlConnection.getResponseCode()).thenReturn(200);
+        when(mUrlConnection.getHeaderFields())
+                .thenReturn(Collections.unmodifiableMap(headersRequest));
+
+        AsyncRedirects asyncRedirects = new AsyncRedirects();
+        AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
+        asyncFetchStatus.setRegistrationDelay(0L);
+        AsyncRegistration asyncRegistration = appTriggerRegistrationRequest(request);
+        // Execution
+        Optional<Trigger> fetch =
+                fetcher.fetchTrigger(asyncRegistration, asyncFetchStatus, asyncRedirects);
+        // Assertion
+        assertEquals(AsyncFetchStatus.ResponseStatus.SUCCESS, asyncFetchStatus.getResponseStatus());
+        assertTrue(fetch.isPresent());
+        Trigger result = fetch.get();
+        assertEquals(
+                asyncRegistration.getTopOrigin().toString(),
+                result.getAttributionDestination().toString());
+        assertEquals(ENROLLMENT_ID, result.getEnrollmentId());
+        assertEquals(new JSONArray(EVENT_TRIGGERS_1).toString(), result.getEventTriggers());
+        assertEquals(TRIGGER_URI, result.getRegistrationOrigin().toString());
+        verify(mUrlConnection).setRequestMethod("POST");
+        verify(odpDelegationWrapperImplMock, never())
+                .registerOdpTrigger(any(), any(), anyBoolean());
+    }
+
+    @Test
+    public void fetchTrigger_odpHeaderSizeIgnored_forwardOdpTrigger() throws Exception {
+        Map<String, List<String>> reportingHeaderOnly = new HashMap<>();
+        reportingHeaderOnly.put(
+                "Attribution-Reporting-Register-Trigger",
+                List.of("{\"event_trigger_data\":" + EVENT_TRIGGERS_1 + "}"));
+        when(mFlags.getMaxTriggerRegistrationHeaderSizeBytes())
+                .thenReturn(FetcherUtil.calculateHeadersCharactersLength(reportingHeaderOnly));
+        when(mFlags.getMeasurementEnableUpdateTriggerHeaderLimit()).thenReturn(true);
+
+        Map<String, List<String>> reportingAndOdpHeaders = new HashMap<>();
+        reportingAndOdpHeaders.put(
+                "Attribution-Reporting-Register-Trigger",
+                List.of("{\"event_trigger_data\":" + EVENT_TRIGGERS_1 + "}"));
+        List odpHeaderValue =
+                List.of(
+                        "{"
+                                + "\"service\":\""
+                                + ODP_PACKAGE_NAME
+                                + "/"
+                                + ODP_CLASS_NAME
+                                + "\","
+                                + "\"certDigest\":\""
+                                + ODP_CERT_DIGEST
+                                + "\","
+                                + "\"data\":\""
+                                + ODP_EVENT_DATA
+                                + "\""
+                                + "}");
+        reportingAndOdpHeaders.put(HEADER_ODP_REGISTER_TRIGGER, odpHeaderValue);
+
+        OdpDelegationWrapperImpl odpDelegationWrapperImplMock =
+                mock(OdpDelegationWrapperImpl.class);
+        AsyncTriggerFetcher fetcher =
+                spy(
+                        new AsyncTriggerFetcher(
+                                sContext,
+                                mEnrollmentDao,
+                                mFlags,
+                                odpDelegationWrapperImplMock,
+                                mDatastoreManager,
+                                mDebugReportApi));
+        RegistrationRequest request = buildRequest(TRIGGER_URI);
+        doReturn(mUrlConnection).when(fetcher).openUrl(new URL(TRIGGER_URI));
+        when(mUrlConnection.getResponseCode()).thenReturn(200);
+        when(mUrlConnection.getHeaderFields())
+                .thenReturn(Collections.unmodifiableMap(reportingAndOdpHeaders));
+        AsyncRedirects asyncRedirects = new AsyncRedirects();
+        AsyncFetchStatus asyncFetchStatus = new AsyncFetchStatus();
+        asyncFetchStatus.setRegistrationDelay(0L);
+        asyncFetchStatus.setRetryCount(0);
+        AsyncRegistration asyncRegistration = appTriggerRegistrationRequest(request);
+
+        // Execution
+        Optional<Trigger> fetch =
+                fetcher.fetchTrigger(asyncRegistration, asyncFetchStatus, asyncRedirects);
+
+        // Assertion
+        assertEquals(AsyncFetchStatus.ResponseStatus.SUCCESS, asyncFetchStatus.getResponseStatus());
+        assertTrue(fetch.isPresent());
+        Trigger result = fetch.get();
+        assertEquals(
+                asyncRegistration.getTopOrigin().toString(),
+                result.getAttributionDestination().toString());
+        assertEquals(ENROLLMENT_ID, result.getEnrollmentId());
+        assertEquals(new JSONArray(EVENT_TRIGGERS_1).toString(), result.getEventTriggers());
+        assertEquals(TRIGGER_URI, result.getRegistrationOrigin().toString());
+        verify(mUrlConnection).setRequestMethod("POST");
+        verify(odpDelegationWrapperImplMock, times(1))
+                .registerOdpTrigger(
+                        any(),
+                        eq(Map.of(HEADER_ODP_REGISTER_TRIGGER, odpHeaderValue)),
+                        eq(true));
     }
 
     @Test

@@ -16,7 +16,7 @@
 
 package com.android.adservices.ui.notifications;
 
-import static com.android.adservices.service.FlagsConstants.KEY_CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE;
+import static com.android.adservices.service.DebugFlagsConstants.KEY_CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE;
 import static com.android.adservices.service.FlagsConstants.KEY_DEBUG_UX;
 import static com.android.adservices.service.FlagsConstants.KEY_GA_UX_FEATURE_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_RECORD_MANUAL_INTERACTION_ENABLED;
@@ -79,7 +79,7 @@ public final class NotificationActivityUiAutomatorTest extends AdServicesUiTestC
     @Rule(order = 11)
     public final AdServicesFlagsSetterRule flags =
             AdServicesFlagsSetterRule.forGlobalKillSwitchDisabledTests()
-                    .setSystemProperty(KEY_CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE, true)
+                    .setDebugFlag(KEY_CONSENT_NOTIFICATION_ACTIVITY_DEBUG_MODE, true)
                     .setFlag(KEY_UI_DIALOGS_FEATURE_ENABLED, true)
                     .setFlag(KEY_UI_FEATURE_TYPE_LOGGING_ENABLED, true)
                     .setFlag(KEY_RECORD_MANUAL_INTERACTION_ENABLED, true)

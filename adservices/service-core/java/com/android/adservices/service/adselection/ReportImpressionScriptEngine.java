@@ -17,6 +17,8 @@
 package com.android.adservices.service.adselection;
 
 import static com.android.adservices.service.common.JsonUtils.getStringFromJson;
+import static com.android.adservices.service.js.JSScriptEngineCommonConstants.RESULTS_FIELD_NAME;
+import static com.android.adservices.service.js.JSScriptEngineCommonConstants.STATUS_FIELD_NAME;
 import static com.android.adservices.service.js.JSScriptArgument.jsonArg;
 import static com.android.adservices.service.js.JSScriptArgument.numericArg;
 import static com.android.adservices.service.js.JSScriptArgument.stringArg;
@@ -37,6 +39,7 @@ import com.android.adservices.service.devapi.DevContext;
 import com.android.adservices.service.js.IsolateSettings;
 import com.android.adservices.service.js.JSScriptArgument;
 import com.android.adservices.service.js.JSScriptEngine;
+import com.android.adservices.service.js.JSScriptEngineCommonConstants;
 import com.android.internal.util.Preconditions;
 
 import com.google.common.collect.ImmutableList;
@@ -67,8 +70,6 @@ public class ReportImpressionScriptEngine {
 
     // TODO: (b/228094391): Put these common constants in a separate class
     private static final int JS_SCRIPT_STATUS_SUCCESS = 0;
-    public static final String RESULTS_FIELD_NAME = "results";
-    public static final String STATUS_FIELD_NAME = "status";
     public static final String AD_SELECTION_SIGNALS_ARG_NAME = "selection_signals";
     public static final String PER_BUYER_SIGNALS_ARG_NAME = "per_buyer_signals";
     public static final String SIGNALS_FOR_BUYER_ARG_NAME = "signals_for_buyer";
@@ -89,9 +90,9 @@ public class ReportImpressionScriptEngine {
     public static final String INTERACTION_REPORTING_URI_ARG_NAME = "interaction_reporting_uri";
 
     public static final String REPORT_RESULT_ENTRY_NAME =
-            REPORT_RESULT_FUNC_NAME + JSScriptEngine.ENTRY_POINT_FUNC_NAME;
+            REPORT_RESULT_FUNC_NAME + JSScriptEngineCommonConstants.ENTRY_POINT_FUNC_NAME;
     public static final String REPORT_WIN_ENTRY_NAME =
-            REPORT_WIN_FUNC_NAME + JSScriptEngine.ENTRY_POINT_FUNC_NAME;
+            REPORT_WIN_FUNC_NAME + JSScriptEngineCommonConstants.ENTRY_POINT_FUNC_NAME;
 
     public static final String REGISTER_BEACON_JS =
             "function isString(s) {\n"

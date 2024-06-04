@@ -162,19 +162,55 @@
   ],
   "sdksandbox-postsubmit": [
     {
-      "name": "CtsViewTestCases"
+      "name": "CtsAnimationTestCases"
+    },
+    {
+      "name": "CtsApacheHttpTestCases"
     },
     {
       "name": "CtsContentTestCases"
     },
     {
+      "name": "CtsGraphicsTestCases"
+    },
+    {
+      "name": "CtsLocationCoarseTestCases"
+    },
+    {
+      "name": "CtsLocationFineTestCases"
+    },
+    {
+      "name": "CtsLocationGnssTestCases"
+    },
+    {
+      "name": "CtsLocationNoneTestCases"
+    },
+    {
+      "name": "CtsLocationPrivilegedTestCases"
+    },
+    {
+      "name": "CtsMediaCodecTestCases"
+    },
+    {
       "name": "CtsOsTestCases"
+    },
+    {
+      "name": "CtsTextTestCases"
     },
     {
       "name": "CtsUtilTestCases"
     },
     {
-      "name": "CtsMediaCodecTestCases"
+      "name": "CtsViewTestCases"
+    },
+    {
+      "name": "CtsWidgetTestCases"
+    },
+    {
+      "name": "CtsWifiNonUpdatableTestCases"
+    },
+    {
+      "name": "CtsWifiTestCases"
     }
   ]
 }

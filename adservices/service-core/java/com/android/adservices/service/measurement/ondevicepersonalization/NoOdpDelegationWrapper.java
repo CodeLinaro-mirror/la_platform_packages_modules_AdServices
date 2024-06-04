@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 
 public class NoOdpDelegationWrapper implements IOdpDelegationWrapper {
-    private static final String HEADER_ODP_REGISTER_TRIGGER = "Odp-Register-Trigger";
     private final AdServicesLogger mLogger;
 
     public NoOdpDelegationWrapper() {
@@ -43,21 +42,24 @@ public class NoOdpDelegationWrapper implements IOdpDelegationWrapper {
 
     @Override
     public void registerOdpTrigger(
-            AsyncRegistration asyncRegistration, Map<String, List<String>> headers) {
+            AsyncRegistration asyncRegistration,
+            Map<String, List<String>> headers,
+            boolean isValidEnrollment) {
         LoggerFactory.getMeasurementLogger().d("registerOdpTrigger: ODP is not available");
-        if (headers.containsKey(HEADER_ODP_REGISTER_TRIGGER)) {
-            logOdpRegistrationMetrics();
-        }
+        logOdpRegistrationMetrics(
+                new OdpRegistrationStatus(
+                        OdpRegistrationStatus.RegistrationType.TRIGGER,
+                        OdpRegistrationStatus.RegistrationStatus.ODP_UNAVAILABLE));
     }
 
-    private void logOdpRegistrationMetrics() {
+    @Override
+    public void logOdpRegistrationMetrics(OdpRegistrationStatus odpRegistrationStatus) {
         mLogger.logMeasurementOdpRegistrations(
                 new MeasurementOdpRegistrationStats.Builder()
                         .setCode(AD_SERVICES_MEASUREMENT_PROCESS_ODP_REGISTRATION)
-                        .setRegistrationType(
-                                OdpRegistrationStatus.RegistrationType.TRIGGER.getValue())
+                        .setRegistrationType(odpRegistrationStatus.getRegistrationType().getValue())
                         .setRegistrationStatus(
-                                OdpRegistrationStatus.RegistrationStatus.ODP_UNAVAILABLE.getValue())
+                                odpRegistrationStatus.getRegistrationStatus().getValue())
                         .build());
     }
 }
