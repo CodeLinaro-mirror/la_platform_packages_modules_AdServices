@@ -16,6 +16,8 @@
 
 package com.android.adservices.service.shell.signals;
 
+import static com.android.adservices.service.DebugFlagsConstants.KEY_PROTECTED_APP_SIGNALS_CLI_ENABLED;
+
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -46,8 +48,9 @@ public class SignalsShellCommandFactory implements ShellCommandFactory {
             boolean isSignalsCliEnabled, ProtectedSignalsDao protectedSignalsDao) {
         mIsSignalsCliEnabled = isSignalsCliEnabled;
         Set<ShellCommand> allCommandsMap =
-                ImmutableSet.of(new GenerateInputForEncodingCommand(
-                        new SignalsProviderImpl(protectedSignalsDao)));
+                ImmutableSet.of(
+                        new GenerateInputForEncodingCommand(
+                                new SignalsProviderImpl(protectedSignalsDao)));
         mAllCommandsMap =
                 allCommandsMap.stream()
                         .collect(
@@ -75,7 +78,8 @@ public class SignalsShellCommandFactory implements ShellCommandFactory {
         }
         ShellCommand command = mAllCommandsMap.get(cmd);
         if (!mIsSignalsCliEnabled) {
-            return new NoOpShellCommand(cmd, command.getMetricsLoggerCommand());
+            return new NoOpShellCommand(
+                    cmd, command.getMetricsLoggerCommand(), KEY_PROTECTED_APP_SIGNALS_CLI_ENABLED);
         }
         return command;
     }

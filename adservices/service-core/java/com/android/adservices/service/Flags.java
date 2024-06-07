@@ -2720,7 +2720,7 @@ public interface Flags extends ModuleSharedFlags {
 
     /** Manifest URL for encryption keys file group registered with MDD. */
     String MDD_ENCRYPTION_KEYS_MANIFEST_FILE_URL =
-            "https://www.gstatic.com/mdi-serving/rubidium-adservices-encryption-keys/3210/0c19c2a06422c21070192580a136d433ba3ae7f8";
+            "https://www.gstatic.com/mdi-serving/rubidium-adservices-encryption-keys/4543/e9d118728752e6a6bfb5d7d8d1520807591f0717";
 
     /** Returns manifest URL for encryption keys file group registered with MDD. */
     default String getMddEncryptionKeysManifestFileUrl() {
@@ -3671,6 +3671,14 @@ public interface Flags extends ModuleSharedFlags {
         return FLEDGE_REPORT_IMPRESSION_API_METRICS_ENABLED;
     }
 
+    // Fledge JS script result code metrics flag.
+    @FeatureFlag boolean FLEDGE_JS_SCRIPT_RESULT_CODE_METRICS_ENABLED = false;
+
+    /** Returns whether the FLEDGE JS script result code metrics feature is enabled. */
+    default boolean getFledgeJsScriptResultCodeMetricsEnabled() {
+        return FLEDGE_JS_SCRIPT_RESULT_CODE_METRICS_ENABLED;
+    }
+
     /**
      * Default allowlist of the enrollments for whom debug key insertion based on join key matching
      * is allowed.
@@ -3748,7 +3756,7 @@ public interface Flags extends ModuleSharedFlags {
     }
 
     /** Default maximum sources per publisher */
-    int MEASUREMENT_MAX_SOURCES_PER_PUBLISHER = 1024;
+    int MEASUREMENT_MAX_SOURCES_PER_PUBLISHER = 4096;
 
     /** Returns maximum sources per publisher */
     default int getMeasurementMaxSourcesPerPublisher() {
@@ -4634,6 +4642,21 @@ public interface Flags extends ModuleSharedFlags {
 
     default boolean getMeasurementEnableRedirectToWellKnownPath() {
         return MEASUREMENT_ENABLE_REDIRECT_TO_WELL_KNOWN_PATH;
+    }
+
+    @ConfigFlag
+    long MEASUREMENT_MAX_REINSTALL_REATTRIBUTION_WINDOW_SECONDS = TimeUnit.DAYS.toSeconds(90);
+
+    /** Maximum limit of duration to determine reattribution for a verified installation. */
+    default long getMeasurementMaxReinstallReattributionWindowSeconds() {
+        return MEASUREMENT_MAX_REINSTALL_REATTRIBUTION_WINDOW_SECONDS;
+    }
+
+    @FeatureFlag boolean MEASUREMENT_ENABLE_REINSTALL_REATTRIBUTION = false;
+
+    /** Returns whether to enable reinstall reattribution. */
+    default boolean getMeasurementEnableReinstallReattribution() {
+        return MEASUREMENT_ENABLE_REINSTALL_REATTRIBUTION;
     }
 
     /** Flag to enable context id for triggers */
