@@ -61,6 +61,8 @@ import java.util.concurrent.TimeUnit;
 @Scenario
 @RunWith(JUnit4.class)
 public class AdSelectionDataE2ETest extends ServerAuctionE2ETestBase {
+    private static final String TAG = "AdSelectionDataE2ETest";
+
     private static final String CONTEXTUAL_SIGNALS_ONE_BUYER = "ContextualSignalsOneBuyer.json";
     private static final String CONTEXTUAL_SIGNALS_CONTEXTUAL_WINNER =
             "ContextualSignalsContextualWinner.json";
@@ -120,6 +122,11 @@ public class AdSelectionDataE2ETest extends ServerAuctionE2ETestBase {
         return serverUrlOption.get();
     }
 
+    @Override
+    protected String getTag() {
+        return TAG;
+    }
+
     /**
      * Warm up servers to reduce flakiness.
      *
@@ -171,10 +178,17 @@ public class AdSelectionDataE2ETest extends ServerAuctionE2ETestBase {
                 new GetAdSelectionDataRequest.Builder()
                         .setSeller(AdTechIdentifier.fromString(SELLER))
                         .build();
+
         GetAdSelectionDataOutcome outcome =
-                AD_SELECTION_CLIENT
-                        .getAdSelectionData(request)
-                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                retryOnCondition(
+                        () ->
+                                AD_SELECTION_CLIENT
+                                        .getAdSelectionData(request)
+                                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                        matchOnTimeoutExecutionException(),
+                        /* maxRetries= */ 3,
+                        /* retryIntervalMillis= */ 2000L,
+                        "getAdSelectionData");
 
         SelectAdResponse selectAdResponse =
                 FakeAdExchangeServer.runServerAuction(
@@ -216,10 +230,17 @@ public class AdSelectionDataE2ETest extends ServerAuctionE2ETestBase {
                 new GetAdSelectionDataRequest.Builder()
                         .setSeller(AdTechIdentifier.fromString(SELLER))
                         .build();
+
         GetAdSelectionDataOutcome outcome =
-                AD_SELECTION_CLIENT
-                        .getAdSelectionData(request)
-                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                retryOnCondition(
+                        () ->
+                                AD_SELECTION_CLIENT
+                                        .getAdSelectionData(request)
+                                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                        matchOnTimeoutExecutionException(),
+                        /* maxRetries= */ 3,
+                        /* retryIntervalMillis= */ 2000L,
+                        "getAdSelectionData");
 
         SelectAdResponse selectAdResponse =
                 FakeAdExchangeServer.runServerAuction(
@@ -262,10 +283,17 @@ public class AdSelectionDataE2ETest extends ServerAuctionE2ETestBase {
                 new GetAdSelectionDataRequest.Builder()
                         .setSeller(AdTechIdentifier.fromString(SELLER))
                         .build();
+
         GetAdSelectionDataOutcome outcome =
-                AD_SELECTION_CLIENT
-                        .getAdSelectionData(request)
-                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                retryOnCondition(
+                        () ->
+                                AD_SELECTION_CLIENT
+                                        .getAdSelectionData(request)
+                                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                        matchOnTimeoutExecutionException(),
+                        /* maxRetries= */ 3,
+                        /* retryIntervalMillis= */ 2000L,
+                        "getAdSelectionData");
 
         SelectAdResponse selectAdResponse =
                 FakeAdExchangeServer.runServerAuction(
@@ -306,10 +334,17 @@ public class AdSelectionDataE2ETest extends ServerAuctionE2ETestBase {
                         .setSeller(AdTechIdentifier.fromString(SELLER))
                         .setSeller(AdTechIdentifier.fromString(SELLER))
                         .build();
+
         GetAdSelectionDataOutcome outcome =
-                AD_SELECTION_CLIENT
-                        .getAdSelectionData(request)
-                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                retryOnCondition(
+                        () ->
+                                AD_SELECTION_CLIENT
+                                        .getAdSelectionData(request)
+                                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                        matchOnTimeoutExecutionException(),
+                        /* maxRetries= */ 3,
+                        /* retryIntervalMillis= */ 2000L,
+                        "getAdSelectionData");
 
         SelectAdResponse selectAdResponse =
                 FakeAdExchangeServer.runServerAuction(
@@ -353,10 +388,17 @@ public class AdSelectionDataE2ETest extends ServerAuctionE2ETestBase {
                 new GetAdSelectionDataRequest.Builder()
                         .setSeller(AdTechIdentifier.fromString(SELLER))
                         .build();
+
         GetAdSelectionDataOutcome outcome =
-                AD_SELECTION_CLIENT
-                        .getAdSelectionData(request)
-                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                retryOnCondition(
+                        () ->
+                                AD_SELECTION_CLIENT
+                                        .getAdSelectionData(request)
+                                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                        matchOnTimeoutExecutionException(),
+                        /* maxRetries= */ 3,
+                        /* retryIntervalMillis= */ 2000L,
+                        "getAdSelectionData");
 
         SelectAdResponse selectAdResponse =
                 FakeAdExchangeServer.runServerAuction(
@@ -404,10 +446,17 @@ public class AdSelectionDataE2ETest extends ServerAuctionE2ETestBase {
                 new GetAdSelectionDataRequest.Builder()
                         .setSeller(AdTechIdentifier.fromString(SELLER))
                         .build();
+
         GetAdSelectionDataOutcome outcome =
-                AD_SELECTION_CLIENT
-                        .getAdSelectionData(request)
-                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                retryOnCondition(
+                        () ->
+                                AD_SELECTION_CLIENT
+                                        .getAdSelectionData(request)
+                                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                        matchOnTimeoutExecutionException(),
+                        /* maxRetries= */ 3,
+                        /* retryIntervalMillis= */ 2000L,
+                        "getAdSelectionData");
 
         SelectAdResponse selectAdResponse =
                 FakeAdExchangeServer.runServerAuction(

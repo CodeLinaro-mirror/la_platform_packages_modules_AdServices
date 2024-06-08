@@ -32,12 +32,15 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Predicate;
 
 public abstract class ServerAuctionE2ETestBase {
-    protected static final String TAG = "AdSelectionDataE2ETest";
     protected static final Executor CALLBACK_EXECUTOR = Executors.newCachedThreadPool();
     protected static final Context CONTEXT = ApplicationProvider.getApplicationContext();
     protected static final int API_RESPONSE_TIMEOUT_SECONDS = 100;
@@ -47,7 +50,9 @@ public abstract class ServerAuctionE2ETestBase {
                     .setExecutor(CALLBACK_EXECUTOR)
                     .build();
 
-    protected static void makeWarmUpNetworkCall(String endpointUrl) {
+    protected abstract String getTag();
+
+    protected void makeWarmUpNetworkCall(String endpointUrl) {
         try {
             URL url = new URL(endpointUrl);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -57,17 +62,17 @@ public abstract class ServerAuctionE2ETestBase {
 
             int responseCode = connection.getResponseCode();
             if (responseCode == HttpURLConnection.HTTP_OK) {
-                Log.w(TAG, "Warm-up call successful.");
+                Log.w(getTag(), "Warm-up call successful.");
             } else {
-                Log.w(TAG, "Failed to make warm-up call. Response code: " + responseCode);
+                Log.w(getTag(), "Failed to make warm-up call. Response code: " + responseCode);
             }
             connection.disconnect();
         } catch (IOException e) {
-            Log.w(TAG, "Error while trying to warm up encryption key server : " + e);
+            Log.w(getTag(), "Error while trying to warm up encryption key server : " + e);
         }
     }
 
-    protected static byte[] warmupBiddingAuctionServer(
+    protected byte[] warmupBiddingAuctionServer(
             String caFileName,
             String seller,
             String contextualSignalsFileName,
@@ -84,9 +89,15 @@ public abstract class ServerAuctionE2ETestBase {
                         .setSeller(AdTechIdentifier.fromString(seller))
                         .build();
         GetAdSelectionDataOutcome outcome =
-                AD_SELECTION_CLIENT
-                        .getAdSelectionData(request)
-                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                retryOnCondition(
+                        () ->
+                                AD_SELECTION_CLIENT
+                                        .getAdSelectionData(request)
+                                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                        matchOnTimeoutExecutionException(),
+                        /* maxRetries= */ 3,
+                        /* retryIntervalMillis= */ 2000L,
+                        "getAdSelectionData");
 
         CustomAudienceTestFixture.leaveCustomAudience(customAudiences);
 
@@ -98,7 +109,7 @@ public abstract class ServerAuctionE2ETestBase {
         return outcome.getAdSelectionData();
     }
 
-    protected static void runServerAuction(
+    protected void runServerAuction(
             String contextualSignalsFileName,
             byte[] getAdSelectionData,
             String sfeAddress,
@@ -111,10 +122,42 @@ public abstract class ServerAuctionE2ETestBase {
                     serverResponseLoggingEnabled);
         } catch (Exception e) {
             Log.w(
-                    TAG,
+                    getTag(),
                     "Exception encountered during first runServerAuction warmup: "
                             + e.getMessage()
                             + ". Continuing execution.");
         }
+    }
+
+    protected <T> T retryOnCondition(
+            Callable<T> callable,
+            Predicate<Exception> retryCondition,
+            int maxRetries,
+            long retryIntervalMillis,
+            String funcName)
+            throws Exception {
+
+        int attempt = 1;
+        while (attempt <= maxRetries) {
+            Log.w(getTag(), String.format("Trying %s. Attempt: %d", funcName, attempt));
+            try {
+                return callable.call();
+            } catch (Exception e) {
+                if (retryCondition.test(e)) {
+                    attempt++;
+                    if (attempt > maxRetries) {
+                        throw e; // Rethrow the exception after exceeding retries
+                    }
+                    Thread.sleep(retryIntervalMillis);
+                } else {
+                    throw e; // Rethrow immediately for non-retryable exceptions
+                }
+            }
+        }
+        return null; // Unreachable in practice, but required for compilation
+    }
+
+    protected Predicate<Exception> matchOnTimeoutExecutionException() {
+        return e -> e instanceof ExecutionException && e.getCause() instanceof TimeoutException;
     }
 }
