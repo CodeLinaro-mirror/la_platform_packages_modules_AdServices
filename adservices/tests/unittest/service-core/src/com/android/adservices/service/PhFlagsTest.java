@@ -275,6 +275,7 @@ import static com.android.adservices.service.Flags.FLEDGE_HTTP_CACHE_DEFAULT_MAX
 import static com.android.adservices.service.Flags.FLEDGE_HTTP_CACHE_ENABLE;
 import static com.android.adservices.service.Flags.FLEDGE_HTTP_CACHE_ENABLE_JS_CACHING;
 import static com.android.adservices.service.Flags.FLEDGE_HTTP_CACHE_MAX_ENTRIES;
+import static com.android.adservices.service.Flags.FLEDGE_JS_SCRIPT_RESULT_CODE_METRICS_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_FALLBACK_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_ON_DEVICE_AUCTION_KILL_SWITCH;
@@ -362,6 +363,7 @@ import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_NAVIGATION
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_ODP_WEB_TRIGGER_REGISTRATION;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_PREINSTALL_CHECK;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_REDIRECT_TO_WELL_KNOWN_PATH;
+import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_REINSTALL_REATTRIBUTION;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_REPORTING_JOBS_THROW_JSON_EXCEPTION;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_REPORTING_JOBS_THROW_UNACCOUNTED_EXCEPTION;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_SCOPED_ATTRIBUTION_RATE_LIMIT;
@@ -434,6 +436,7 @@ import static com.android.adservices.service.Flags.MEASUREMENT_MAX_LENGTH_OF_TRI
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_POST_INSTALL_EXCLUSIVITY_WINDOW;
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_REGISTRATIONS_PER_JOB_INVOCATION;
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_REGISTRATION_REDIRECTS;
+import static com.android.adservices.service.Flags.MEASUREMENT_MAX_REINSTALL_REATTRIBUTION_WINDOW_SECONDS;
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_REPORTING_ORIGINS_PER_SOURCE_REPORTING_SITE_PER_WINDOW;
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS;
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_REPORT_STATES_PER_SOURCE_REGISTRATION;
@@ -702,6 +705,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_HTTP_CACH
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_HTTP_CACHE_ENABLE;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_HTTP_CACHE_ENABLE_JS_CACHING;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_HTTP_CACHE_MAX_ENTRIES;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_JS_SCRIPT_RESULT_CODE_METRICS_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_KANON_BACKGROUND_JOB_REQUIRES_BATTERY_NOT_LOW;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_KANON_BACKGROUND_JOB_REQUIRES_DEVICE_IDLE;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_KANON_BACKGROUND_JOB_TYPE_OF_CONNECTION;
@@ -819,6 +823,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENAB
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_ODP_WEB_TRIGGER_REGISTRATION;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_PREINSTALL_CHECK;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_REDIRECT_TO_WELL_KNOWN_PATH;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_REINSTALL_REATTRIBUTION;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_REPORTING_JOBS_THROW_CRYPTO_EXCEPTION;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_REPORTING_JOBS_THROW_JSON_EXCEPTION;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_REPORTING_JOBS_THROW_UNACCOUNTED_EXCEPTION;
@@ -902,6 +907,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_POST_INSTALL_EXCLUSIVITY_WINDOW;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_REGISTRATIONS_PER_JOB_INVOCATION;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_REGISTRATION_REDIRECTS;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_REINSTALL_REATTRIBUTION_WINDOW;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_REPORTING_ORIGINS_PER_SOURCE_REPORTING_SITE_PER_WINDOW;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_REPORTING_REGISTER_SOURCE_EXPIRATION_IN_SECONDS;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_REPORT_STATES_PER_SOURCE_REGISTRATION;
@@ -2442,6 +2448,14 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
                 KEY_FLEDGE_REPORT_IMPRESSION_API_METRICS_ENABLED,
                 FLEDGE_REPORT_IMPRESSION_API_METRICS_ENABLED,
                 Flags::getFledgeReportImpressionApiMetricsEnabled);
+    }
+
+    @Test
+    public void testGetFledgeJsScriptResultCodeMetricsEnabled() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_FLEDGE_JS_SCRIPT_RESULT_CODE_METRICS_ENABLED,
+                FLEDGE_JS_SCRIPT_RESULT_CODE_METRICS_ENABLED,
+                Flags::getFledgeJsScriptResultCodeMetricsEnabled);
     }
 
     @Test
@@ -5345,6 +5359,22 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
                 KEY_MEASUREMENT_EVENT_API_DEFAULT_EPSILON,
                 DEFAULT_MEASUREMENT_PRIVACY_EPSILON,
                 Flags::getMeasurementPrivacyEpsilon);
+    }
+
+    @Test
+    public void testGetMeasurementEnableReinstallReattribution() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_MEASUREMENT_ENABLE_REINSTALL_REATTRIBUTION,
+                MEASUREMENT_ENABLE_REINSTALL_REATTRIBUTION,
+                Flags::getMeasurementEnableReinstallReattribution);
+    }
+
+    @Test
+    public void testGetMeasurementMaxReinstallReattributionWindow() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_MEASUREMENT_MAX_REINSTALL_REATTRIBUTION_WINDOW,
+                MEASUREMENT_MAX_REINSTALL_REATTRIBUTION_WINDOW_SECONDS,
+                Flags::getMeasurementMaxReinstallReattributionWindowSeconds);
     }
 
     @Test

@@ -88,6 +88,13 @@ public class ServerAuctionKAnonE2ETest extends ServerAuctionE2ETestBase {
             "Response code is 200. Updating message status to JOINED in database";
     private static final String TAG = "ServerAuctionKAnonE2ETest";
 
+    private static final int EXPONENTIAL_BACKOFF_BASE_SECONDS = 4;
+
+    @Override
+    protected String getTag() {
+        return TAG;
+    }
+
     @Rule
     public RuleChain rules =
             RuleChain.outerRule(
@@ -167,7 +174,7 @@ public class ServerAuctionKAnonE2ETest extends ServerAuctionE2ETestBase {
      * <p>B&A servers often send responses if contacted after a while. Warming up with a couple of
      * calls should greatly reduce this flakiness.
      */
-    private static void warmupClientAndServer() throws Exception {
+    private void warmupClientAndServer() throws Exception {
 
         makeWarmUpNetworkCall(TEST_COORDINATOR);
 
@@ -212,10 +219,17 @@ public class ServerAuctionKAnonE2ETest extends ServerAuctionE2ETestBase {
                 new GetAdSelectionDataRequest.Builder()
                         .setSeller(AdTechIdentifier.fromString(SELLER))
                         .build();
+
         GetAdSelectionDataOutcome outcome =
-                AD_SELECTION_CLIENT
-                        .getAdSelectionData(request)
-                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                retryOnCondition(
+                        () ->
+                                AD_SELECTION_CLIENT
+                                        .getAdSelectionData(request)
+                                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                        matchOnTimeoutExecutionException(),
+                        /* maxRetries= */ 3,
+                        /* retryIntervalMillis= */ 2000L,
+                        "getAdSelectionData");
 
         SelectAdResponse selectAdResponse =
                 FakeAdExchangeServer.runServerAuction(
@@ -262,6 +276,7 @@ public class ServerAuctionKAnonE2ETest extends ServerAuctionE2ETestBase {
     }
 
     private boolean doLogsContainSuccessStatement(Instant startTime, int retries) throws Exception {
+        long waitTimeMs = EXPONENTIAL_BACKOFF_BASE_SECONDS * 1000;
         for (int i = 0; i < retries; i++) {
             Log.d(TAG, "Reading logs. Attempt: " + (i + 1));
             try (InputStream inputStream = getMetricsEvents(startTime);
@@ -275,7 +290,8 @@ public class ServerAuctionKAnonE2ETest extends ServerAuctionE2ETestBase {
                 }
             }
 
-            Thread.sleep(5000L);
+            waitTimeMs *= EXPONENTIAL_BACKOFF_BASE_SECONDS;
+            Thread.sleep(waitTimeMs);
         }
         return false;
     }

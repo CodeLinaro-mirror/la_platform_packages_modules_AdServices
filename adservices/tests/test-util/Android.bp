@@ -60,6 +60,7 @@ android_library {
         "junit",
     ],
     static_libs: [
+        "auto_value_annotations",
         // TODO(b/338132355): Clean up dependencies for adservices-test-utility.
         "adservices-service-core",
         "adservices-shared-mockito-expectations", // TODO(b/338132355): should not be needed if mocker is split
@@ -71,7 +72,10 @@ android_library {
         // TODO(b/281577492): should use modules-utils-extended-mockito-rule instead
         "modules-utils-testable-device-config",
     ],
-    apex_available: ["com.android.adservices", "com.android.extservices"],
+    apex_available: [
+        "com.android.adservices",
+        "com.android.extservices",
+    ],
     visibility: [
         "//packages/modules/AdServices:__subpackages__",
         "//vendor:__subpackages__", // used by some integration tests
@@ -79,6 +83,7 @@ android_library {
     lint: {
         extra_check_modules: ["AdServicesLintChecker"],
     },
+    plugins: ["auto_annotation_plugin"],
 }
 
 android_library {
@@ -101,7 +106,10 @@ android_library {
         "mockito-target-extended-minus-junit4",
         "truth",
     ],
-    apex_available: ["com.android.adservices", "com.android.extservices"],
+    apex_available: [
+        "com.android.adservices",
+        "com.android.extservices",
+    ],
     lint: {
         extra_check_modules: ["AdServicesLintChecker"],
     },

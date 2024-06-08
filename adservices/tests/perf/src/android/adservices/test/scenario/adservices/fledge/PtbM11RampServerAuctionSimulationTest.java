@@ -56,6 +56,8 @@ import java.util.concurrent.TimeUnit;
 @Scenario
 @RunWith(JUnit4.class)
 public class PtbM11RampServerAuctionSimulationTest extends ServerAuctionE2ETestBase {
+    private static final String TAG = "PtbM11SimulationTest";
+
     private static final String CONTEXTUAL_SIGNALS_ONE_BUYER = "PtbContextualSignals.json";
     private static final String CUSTOM_AUDIENCE_ONE_CA_ONE_AD = "PtbCustomAudienceOneCaOneAd.json";
 
@@ -91,6 +93,11 @@ public class PtbM11RampServerAuctionSimulationTest extends ServerAuctionE2ETestB
 
     private String getAdWinnerDomain() {
         return winnerDomainOption.get();
+    }
+
+    @Override
+    protected String getTag() {
+        return TAG;
     }
 
     @Rule
@@ -161,10 +168,17 @@ public class PtbM11RampServerAuctionSimulationTest extends ServerAuctionE2ETestB
                 new GetAdSelectionDataRequest.Builder()
                         .setSeller(AdTechIdentifier.fromString(getSeller()))
                         .build();
+
         GetAdSelectionDataOutcome outcome =
-                AD_SELECTION_CLIENT
-                        .getAdSelectionData(request)
-                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                retryOnCondition(
+                        () ->
+                                AD_SELECTION_CLIENT
+                                        .getAdSelectionData(request)
+                                        .get(API_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                        matchOnTimeoutExecutionException(),
+                        /* maxRetries= */ 3,
+                        /* retryIntervalMillis= */ 2000L,
+                        "getAdSelectionData");
 
         SelectAdResponse selectAdResponse =
                 FakeAdExchangeServer.runServerAuction(

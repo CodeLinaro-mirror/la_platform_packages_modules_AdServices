@@ -16,6 +16,7 @@
 
 package com.android.adservices.tests.cts.topics.connection;
 
+import static com.android.adservices.service.DebugFlagsConstants.KEY_RECORD_TOPICS_COMPLETE_BROADCAST_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_TOPICS_EPOCH_JOB_PERIOD_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_TOPICS_PERCENTAGE_FOR_RANDOM_TOPIC;
 
@@ -31,14 +32,14 @@ import android.content.Context;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.FlakyTest;
 
-import com.android.adservices.common.AdServicesDeviceSupportedRule;
-import com.android.adservices.common.AdServicesFlagsSetterRule;
+import com.android.adservices.common.AdServicesCtsTestCase;
 import com.android.adservices.common.AdservicesTestHelper;
+import com.android.adservices.shared.testing.annotations.EnableDebugFlag;
+import com.android.adservices.tests.topics.utils.TopicsTestHelper;
 import com.android.compatibility.common.util.ShellUtils;
 import com.android.modules.utils.build.SdkLevel;
 
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -49,8 +50,9 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 @RunWith(JUnit4.class)
-public class TopicsConnectionTest {
-    private static final String TAG = "TopicsConnectionTest";
+@EnableDebugFlag(KEY_RECORD_TOPICS_COMPLETE_BROADCAST_ENABLED)
+public final class TopicsConnectionTest extends AdServicesCtsTestCase {
+    private static final String TAG = TopicsConnectionTest.class.getSimpleName();
 
     // The JobId of the Epoch Computation.
     private static final int EPOCH_JOB_ID = 2;
@@ -66,14 +68,6 @@ public class TopicsConnectionTest {
 
     private static final String ADSERVICES_PACKAGE_NAME =
             AdservicesTestHelper.getAdServicesPackageName(sContext, TAG);
-
-    @Rule(order = 0)
-    public final AdServicesDeviceSupportedRule adServicesDeviceSupportedRule =
-            new AdServicesDeviceSupportedRule();
-
-    @Rule(order = 1)
-    public final AdServicesFlagsSetterRule flags =
-            AdServicesFlagsSetterRule.forGlobalKillSwitchDisabledTests().setCompatModeFlags();
 
     @Before
     public void setup() throws Exception {
@@ -116,7 +110,9 @@ public class TopicsConnectionTest {
         enableGlobalKillSwitch(/* enabled */ false);
 
         // At beginning, Sdk1 receives no topic.
-        GetTopicsResponse sdk1Result = advertisingTopicsClient1.getTopics().get();
+        GetTopicsResponse sdk1Result =
+                TopicsTestHelper.getTopicsWithBroadcast(sContext, advertisingTopicsClient1);
+
         assertThat(sdk1Result.getTopics()).isEmpty();
 
         // Now force the Epoch Computation Job. This should be done in the same epoch for

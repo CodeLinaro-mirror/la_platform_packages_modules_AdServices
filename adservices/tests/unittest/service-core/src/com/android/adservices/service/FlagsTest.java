@@ -35,6 +35,7 @@ import static com.android.adservices.service.Flags.ENABLE_MIGRATION_FROM_ADEXT_S
 import static com.android.adservices.service.Flags.GLOBAL_KILL_SWITCH;
 import static com.android.adservices.service.Flags.MDD_LOGGER_KILL_SWITCH;
 import static com.android.adservices.service.Flags.MEASUREMENT_KILL_SWITCH;
+import static com.android.adservices.service.Flags.MEASUREMENT_MAX_REINSTALL_REATTRIBUTION_WINDOW_SECONDS;
 import static com.android.adservices.service.Flags.MEASUREMENT_ROLLBACK_DELETION_R_ENABLED;
 import static com.android.adservices.service.Flags.PPAPI_AND_ADEXT_SERVICE;
 import static com.android.adservices.service.Flags.PPAPI_AND_SYSTEM_SERVER;
@@ -378,6 +379,13 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetFledgeJsScriptResultCodeMetricsEnabled() {
+        testFeatureFlag(
+                "FLEDGE_JS_SCRIPT_RESULT_CODE_METRICS_ENABLED",
+                Flags::getFledgeJsScriptResultCodeMetricsEnabled);
+    }
+
+    @Test
     public void testGetSpeOnPilotJobsEnabled() {
         testFeatureFlag("DEFAULT_SPE_ON_PILOT_JOBS_ENABLED", Flags::getSpeOnPilotJobsEnabled);
     }
@@ -413,6 +421,13 @@ public final class FlagsTest extends AdServicesUnitTestCase {
         testFeatureFlag(
                 "MEASUREMENT_ENABLE_SEPARATE_REPORT_TYPES_FOR_ATTRIBUTION_RATE_LIMIT",
                 Flags::getMeasurementEnableSeparateReportTypesForAttributionRateLimit);
+    }
+
+    @Test
+    public void testGetMeasurementEnableReinstallReattribution() {
+        testFeatureFlag(
+                "MEASUREMENT_ENABLE_REINSTALL_REATTRIBUTION",
+                Flags::getMeasurementEnableReinstallReattribution);
     }
 
     @Test
@@ -601,6 +616,14 @@ public final class FlagsTest extends AdServicesUnitTestCase {
         testFeatureFlag(
                 "DEFAULT_ADSERVICES_CONSENT_BUSINESS_LOGIC_MIGRATION_ENABLED",
                 Flags::getAdServicesConsentBusinessLogicMigrationEnabled);
+    }
+
+    @Test
+    public void testGetMeasurementMaxReinstallReattributionWindowSeconds() {
+        testFlag(
+                "getMeasurementMaxReinstallReattributionWindowSeconds",
+                MEASUREMENT_MAX_REINSTALL_REATTRIBUTION_WINDOW_SECONDS,
+                Flags::getMeasurementMaxReinstallReattributionWindowSeconds);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
