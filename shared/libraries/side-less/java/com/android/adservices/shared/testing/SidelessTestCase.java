@@ -15,6 +15,8 @@
  */
 package com.android.adservices.shared.testing;
 
+import com.android.adservices.shared.testing.Logger.RealLogger;
+
 import com.google.common.truth.Expect;
 
 import org.junit.Rule;
@@ -27,15 +29,12 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>It provide the bare minimum features that will be used by all sort of tests (unit / CTS,
  * device/host side, project-specific).
  */
-public abstract class SidelessTestCase {
-
-    /** Value returned by {@link #getTestName()} when not running a test. */
-    public static final String DEFAULT_TEST_NAME = "N/A";
+public abstract class SidelessTestCase implements TestNamer {
 
     private static final AtomicInteger sNextInvocationId = new AtomicInteger();
 
-    @Rule(order = 42)
-    public final Expect expect = Expect.create();
+    // TODO(b/342639109): set order
+    @Rule public final Expect expect = Expect.create();
 
     private final int mInvocationId = sNextInvocationId.incrementAndGet();
 
@@ -43,12 +42,19 @@ public abstract class SidelessTestCase {
     // Something like (which used to be on AdServicesTestCase):
     // Log.d(TAG, "setTestNumber(): " + getTestName() + " is test #" + mTestNumber);
 
-    /**
-     * Gets the name of the test being executed.
-     *
-     * @return {@link #DEFAULT_TEST_NAME} by default, but subclasses should override to provide the
-     *     proper name (typically obtained from a rule).
-     */
+    protected final Logger mLog;
+    protected final RealLogger mRealLogger;
+
+    public SidelessTestCase() {
+        this(DynamicLogger.getInstance());
+    }
+
+    public SidelessTestCase(RealLogger realLogger) {
+        mRealLogger = realLogger;
+        mLog = new Logger(realLogger, getClass());
+    }
+
+    @Override
     public String getTestName() {
         return DEFAULT_TEST_NAME;
     }

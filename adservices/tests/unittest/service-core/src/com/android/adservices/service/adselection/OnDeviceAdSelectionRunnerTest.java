@@ -132,7 +132,6 @@ import android.net.Uri;
 import android.os.LimitExceededException;
 import android.os.Process;
 import android.os.RemoteException;
-import android.webkit.WebView;
 
 import androidx.room.Room;
 import androidx.test.core.app.ApplicationProvider;
@@ -355,7 +354,6 @@ public class OnDeviceAdSelectionRunnerTest {
         mStaticMockSession =
                 ExtendedMockito.mockitoSession()
                         .spyStatic(FlagsFactory.class)
-                        .spyStatic(WebView.class)
                         .mockStatic(com.android.adservices.shared.util.Clock.class)
                         .strictness(Strictness.LENIENT)
                         .initMocks(this)
@@ -449,7 +447,6 @@ public class OnDeviceAdSelectionRunnerTest {
         verifyAndSetupCommonSuccessScenario(adSelectionConfig);
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -559,7 +556,6 @@ public class OnDeviceAdSelectionRunnerTest {
         // Init runner with unified tables boolean true
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -736,7 +732,6 @@ public class OnDeviceAdSelectionRunnerTest {
         verifyAndSetupCommonSuccessScenario(adSelectionConfig);
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -866,7 +861,6 @@ public class OnDeviceAdSelectionRunnerTest {
         verifyAndSetupCommonSuccessScenario(adSelectionConfig);
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -1013,7 +1007,6 @@ public class OnDeviceAdSelectionRunnerTest {
         assertFalse(mAdSelectionEntryDaoSpy.doesAdSelectionIdExist(AD_SELECTION_ID));
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -1218,7 +1211,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -1323,7 +1315,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -1442,7 +1433,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -1522,7 +1512,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -1593,7 +1582,6 @@ public class OnDeviceAdSelectionRunnerTest {
         setAdSelectionExecutionLoggerMockWithFailedAdSelectionByValidateRequest();
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -1661,7 +1649,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -1720,7 +1707,6 @@ public class OnDeviceAdSelectionRunnerTest {
         verifyAndSetupCommonSuccessScenario(adSelectionConfigWithValidSubdomains);
         AdSelectionRunner runner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -1875,7 +1861,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -1999,7 +1984,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -2101,7 +2085,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -2208,7 +2191,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -2318,7 +2300,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -2450,7 +2431,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -2519,10 +2499,13 @@ public class OnDeviceAdSelectionRunnerTest {
                 };
         mAdSelectionExecutionLogger =
                 new AdSelectionExecutionLogger(
-                        sCallerMetadata, mLoggerClockMock, mContextSpy, mAdServicesLoggerMock);
+                        sCallerMetadata,
+                        mLoggerClockMock,
+                        mContextSpy,
+                        mAdServicesLoggerMock,
+                        mFlags);
         AdSelectionRunner runner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -2621,7 +2604,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -2772,7 +2754,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -2864,7 +2845,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -2941,7 +2921,6 @@ public class OnDeviceAdSelectionRunnerTest {
         verifyAndSetupAdFilteringSuccessScenario(adSelectionConfig);
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -3061,7 +3040,6 @@ public class OnDeviceAdSelectionRunnerTest {
         verifyAndSetupAdFilteringSuccessScenario(adSelectionConfig);
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -3189,7 +3167,6 @@ public class OnDeviceAdSelectionRunnerTest {
         verifyAndSetupAdFilteringSuccessScenario(adSelectionConfig);
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -3280,7 +3257,6 @@ public class OnDeviceAdSelectionRunnerTest {
         verifyAndSetupCommonSuccessScenario(adSelectionConfig);
         OnDeviceAdSelectionRunner adSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -3339,7 +3315,6 @@ public class OnDeviceAdSelectionRunnerTest {
 
         OnDeviceAdSelectionRunner adSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -3414,7 +3389,6 @@ public class OnDeviceAdSelectionRunnerTest {
         setAdSelectionExecutionLoggerMockWithContextualAdsAndNoCAs();
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -3492,7 +3466,6 @@ public class OnDeviceAdSelectionRunnerTest {
         setAdSelectionExecutionLoggerMockWithContextualAdsAndNoCAs();
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -3567,7 +3540,6 @@ public class OnDeviceAdSelectionRunnerTest {
         setAdSelectionExecutionLoggerMockWithContextualAdsAndNoCAs();
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -3656,7 +3628,6 @@ public class OnDeviceAdSelectionRunnerTest {
         setAdSelectionExecutionLoggerMockWithAdFiltering();
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -3728,7 +3699,6 @@ public class OnDeviceAdSelectionRunnerTest {
         setAdSelectionExecutionLoggerMockWithFailedAdSelectionByNoCAs();
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -3808,7 +3778,6 @@ public class OnDeviceAdSelectionRunnerTest {
         setAdSelectionExecutionLoggerMockWithContextualAdsAndNoCAs();
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -3886,7 +3855,6 @@ public class OnDeviceAdSelectionRunnerTest {
         verifyAndSetupCommonSuccessScenario(adSelectionConfig);
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -3979,7 +3947,6 @@ public class OnDeviceAdSelectionRunnerTest {
         verifyAndSetupCommonSuccessScenario(adSelectionConfig);
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -4065,7 +4032,6 @@ public class OnDeviceAdSelectionRunnerTest {
         verifyAndSetupCommonSuccessScenario(adSelectionConfig);
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -4135,7 +4101,6 @@ public class OnDeviceAdSelectionRunnerTest {
         verifyAndSetupCommonSuccessScenario(adSelectionConfig);
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -4264,7 +4229,6 @@ public class OnDeviceAdSelectionRunnerTest {
         verifyAndSetupCommonSuccessScenario(adSelectionConfig);
         mAdSelectionRunner =
                 new OnDeviceAdSelectionRunner(
-                        mContextSpy,
                         mCustomAudienceDao,
                         mAdSelectionEntryDaoSpy,
                         mEncryptionKeyDaoMock,
@@ -4486,7 +4450,11 @@ public class OnDeviceAdSelectionRunnerTest {
                         STOP_ELAPSED_TIMESTAMP);
         mAdSelectionExecutionLogger =
                 new AdSelectionExecutionLogger(
-                        sCallerMetadata, mLoggerClockMock, mContextSpy, mAdServicesLoggerMock);
+                        sCallerMetadata,
+                        mLoggerClockMock,
+                        mContextSpy,
+                        mAdServicesLoggerMock,
+                        mFlags);
     }
 
     private void setAdSelectionExecutionLoggerMockWithFailedAdSelectionByValidateRequest() {
@@ -4494,7 +4462,11 @@ public class OnDeviceAdSelectionRunnerTest {
                 .thenReturn(START_ELAPSED_TIMESTAMP, STOP_ELAPSED_TIMESTAMP);
         mAdSelectionExecutionLogger =
                 new AdSelectionExecutionLogger(
-                        sCallerMetadata, mLoggerClockMock, mContextSpy, mAdServicesLoggerMock);
+                        sCallerMetadata,
+                        mLoggerClockMock,
+                        mContextSpy,
+                        mAdServicesLoggerMock,
+                        mFlags);
     }
 
     private void setAdSelectionExecutionLoggerMockWithFailedAdSelectionByNoCAs() {
@@ -4506,7 +4478,11 @@ public class OnDeviceAdSelectionRunnerTest {
                         STOP_ELAPSED_TIMESTAMP);
         mAdSelectionExecutionLogger =
                 new AdSelectionExecutionLogger(
-                        sCallerMetadata, mLoggerClockMock, mContextSpy, mAdServicesLoggerMock);
+                        sCallerMetadata,
+                        mLoggerClockMock,
+                        mContextSpy,
+                        mAdServicesLoggerMock,
+                        mFlags);
     }
 
     private void setAdSelectionExecutionLoggerMockWithFailedAdSelectionByNoBiddingOutcomes() {
@@ -4520,7 +4496,11 @@ public class OnDeviceAdSelectionRunnerTest {
                         STOP_ELAPSED_TIMESTAMP);
         mAdSelectionExecutionLogger =
                 new AdSelectionExecutionLogger(
-                        sCallerMetadata, mLoggerClockMock, mContextSpy, mAdServicesLoggerMock);
+                        sCallerMetadata,
+                        mLoggerClockMock,
+                        mContextSpy,
+                        mAdServicesLoggerMock,
+                        mFlags);
     }
 
     private void setAdSelectionExecutionLoggerMockWithContextualAdsAndNoCAs() {
@@ -4546,7 +4526,11 @@ public class OnDeviceAdSelectionRunnerTest {
                         STOP_ELAPSED_TIMESTAMP);
         mAdSelectionExecutionLogger =
                 new AdSelectionExecutionLogger(
-                        sCallerMetadata, mLoggerClockMock, mContextSpy, mAdServicesLoggerMock);
+                        sCallerMetadata,
+                        mLoggerClockMock,
+                        mContextSpy,
+                        mAdServicesLoggerMock,
+                        mFlags);
     }
 
     // TODO(b/221861861): add SCORING TIMESTAMP.
@@ -4561,7 +4545,11 @@ public class OnDeviceAdSelectionRunnerTest {
                         STOP_ELAPSED_TIMESTAMP);
         mAdSelectionExecutionLogger =
                 new AdSelectionExecutionLogger(
-                        sCallerMetadata, mLoggerClockMock, mContextSpy, mAdServicesLoggerMock);
+                        sCallerMetadata,
+                        mLoggerClockMock,
+                        mContextSpy,
+                        mAdServicesLoggerMock,
+                        mFlags);
     }
 
     private void setAdSelectionExecutionLoggerMockWithFailedAdSelectionBeforePersistAdSelection() {
@@ -4575,7 +4563,11 @@ public class OnDeviceAdSelectionRunnerTest {
                         STOP_ELAPSED_TIMESTAMP);
         mAdSelectionExecutionLogger =
                 new AdSelectionExecutionLogger(
-                        sCallerMetadata, mLoggerClockMock, mContextSpy, mAdServicesLoggerMock);
+                        sCallerMetadata,
+                        mLoggerClockMock,
+                        mContextSpy,
+                        mAdServicesLoggerMock,
+                        mFlags);
     }
 
     private void setAdSelectionExecutionLoggerMockWithAdFiltering() {
@@ -4592,7 +4584,11 @@ public class OnDeviceAdSelectionRunnerTest {
                         AD_FILTERING_END);
         mAdSelectionExecutionLogger =
                 new AdSelectionExecutionLogger(
-                        sCallerMetadata, mLoggerClockMock, mContextSpy, mAdServicesLoggerMock);
+                        sCallerMetadata,
+                        mLoggerClockMock,
+                        mContextSpy,
+                        mAdServicesLoggerMock,
+                        mFlags);
     }
 
     // Verify bidding process.

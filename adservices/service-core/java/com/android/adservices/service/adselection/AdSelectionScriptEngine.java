@@ -28,6 +28,8 @@ import static com.android.adservices.service.js.JSScriptEngineCommonConstants.JS
 import static com.android.adservices.service.js.JSScriptEngineCommonConstants.RESULTS_FIELD_NAME;
 import static com.android.adservices.service.js.JSScriptEngineCommonConstants.SCRIPT_ARGUMENT_NAME_IGNORED;
 import static com.android.adservices.service.js.JSScriptEngineCommonConstants.STATUS_FIELD_NAME;
+import static com.android.adservices.service.stats.AdsRelevanceStatusUtils.JS_RUN_STATUS_JS_REFERENCE_ERROR;
+import static com.android.adservices.service.stats.AdsRelevanceStatusUtils.JS_RUN_STATUS_OTHER_FAILURE;
 import static com.android.adservices.service.stats.AdsRelevanceStatusUtils.JS_RUN_STATUS_OUTPUT_SEMANTIC_ERROR;
 import static com.android.adservices.service.stats.AdsRelevanceStatusUtils.JS_RUN_STATUS_OUTPUT_SYNTAX_ERROR;
 import static com.android.adservices.service.stats.AdsRelevanceStatusUtils.JS_RUN_STATUS_SUCCESS;
@@ -39,7 +41,6 @@ import android.adservices.adselection.AdWithBid;
 import android.adservices.common.AdData;
 import android.adservices.common.AdSelectionSignals;
 import android.annotation.NonNull;
-import android.content.Context;
 import android.net.Uri;
 import android.webkit.URLUtil;
 
@@ -247,7 +248,6 @@ public class AdSelectionScriptEngine {
     private final Supplier<Boolean> mIsolateConsoleMessageInLogsEnabled;
 
     public AdSelectionScriptEngine(
-            Context context,
             Supplier<Boolean> enforceMaxHeapSizeFeatureSupplier,
             Supplier<Long> maxHeapSizeBytesSupplier,
             AdCounterKeyCopier adCounterKeyCopier,
@@ -255,7 +255,7 @@ public class AdSelectionScriptEngine {
             boolean cpcBillingEnabled,
             RetryStrategy retryStrategy,
             Supplier<Boolean> isolateConsoleMessageInLogsEnabled) {
-        mJsEngine = JSScriptEngine.getInstance(context, sLogger);
+        mJsEngine = JSScriptEngine.getInstance(sLogger);
         mAdDataArgumentUtil = new AdDataArgumentUtil(adCounterKeyCopier);
         mAdWithBidArgumentUtil = new AdWithBidArgumentUtil(mAdDataArgumentUtil);
         mDebugReportingScript = debugReportingScript;
@@ -322,7 +322,8 @@ public class AdSelectionScriptEngine {
                                         this::callGenerateBid),
                                 result -> {
                                     List<GenerateBidResult> bidsResults =
-                                            handleGenerateBidsOutput(result);
+                                            handleGenerateBidsOutput(
+                                                    result, runAdBiddingPerCAExecutionLogger);
                                     runAdBiddingPerCAExecutionLogger.endGenerateBids();
                                     Tracing.endAsyncSection(Tracing.GENERATE_BIDS, traceCookie);
                                     return bidsResults;
@@ -331,6 +332,13 @@ public class AdSelectionScriptEngine {
                 .catchingAsync(
                         JSExecutionException.class,
                         e -> {
+                            if (e.getMessage().contains("Uncaught ReferenceError:")) {
+                                runAdBiddingPerCAExecutionLogger.setGenerateBidJsScriptResultCode(
+                                        JS_RUN_STATUS_JS_REFERENCE_ERROR);
+                            } else {
+                                runAdBiddingPerCAExecutionLogger.setGenerateBidJsScriptResultCode(
+                                        JS_RUN_STATUS_OTHER_FAILURE);
+                            }
                             Tracing.endAsyncSection(Tracing.GENERATE_BIDS, traceCookie);
                             sLogger.e(
                                     e,
@@ -385,7 +393,9 @@ public class AdSelectionScriptEngine {
                         runAuctionScriptGenerateBidV3(
                                 generateBidJS, signals, this::callGenerateBidV3),
                         result -> {
-                            List<GenerateBidResult> bidResults = handleGenerateBidsOutput(result);
+                            List<GenerateBidResult> bidResults =
+                                    handleGenerateBidsOutput(
+                                            result, runAdBiddingPerCAExecutionLogger);
                             runAdBiddingPerCAExecutionLogger.endGenerateBids();
                             Tracing.endAsyncSection(Tracing.GENERATE_BIDS, traceCookie);
                             return bidResults;
@@ -447,6 +457,19 @@ public class AdSelectionScriptEngine {
                                 scoreAdJS, adWithBidArguments.build(), args, this::callScoreAd))
                 .transform(
                         result -> handleScoreAdsOutput(result, adSelectionExecutionLogger),
+                        mExecutor)
+                .catchingAsync(
+                        JSExecutionException.class,
+                        e -> {
+                            if (e.getMessage().contains("Uncaught ReferenceError:")) {
+                                adSelectionExecutionLogger.setScoreAdJsScriptResultCode(
+                                        JS_RUN_STATUS_JS_REFERENCE_ERROR);
+                            } else {
+                                adSelectionExecutionLogger.setScoreAdJsScriptResultCode(
+                                        JS_RUN_STATUS_OTHER_FAILURE);
+                            }
+                            throw e;
+                        },
                         mExecutor);
     }
 
@@ -503,10 +526,14 @@ public class AdSelectionScriptEngine {
      * not {@link JSScriptEngineCommonConstants#JS_SCRIPT_STATUS_SUCCESS} or if there has been any
      * problem parsing the JS response.
      */
-    private List<GenerateBidResult> handleGenerateBidsOutput(AuctionScriptResult batchBidResult) {
+    private List<GenerateBidResult> handleGenerateBidsOutput(
+            AuctionScriptResult batchBidResult,
+            RunAdBiddingPerCAExecutionLogger runAdBiddingPerCAExecutionLogger) {
         ImmutableList.Builder<GenerateBidResult> results = ImmutableList.builder();
         if (batchBidResult.status != JS_SCRIPT_STATUS_SUCCESS) {
             sLogger.v("Bid script failed, returning empty result.");
+            runAdBiddingPerCAExecutionLogger.setGenerateBidJsScriptResultCode(
+                    JS_RUN_STATUS_OUTPUT_SYNTAX_ERROR);
             return ImmutableList.of();
         }
 
@@ -539,9 +566,12 @@ public class AdSelectionScriptEngine {
                     e,
                     "Invalid ad with bid returned by a generateBid script. Returning empty"
                             + " list of ad with bids.");
+            runAdBiddingPerCAExecutionLogger.setGenerateBidJsScriptResultCode(
+                    JS_RUN_STATUS_OUTPUT_SEMANTIC_ERROR);
             return ImmutableList.of();
         }
 
+        runAdBiddingPerCAExecutionLogger.setGenerateBidJsScriptResultCode(JS_RUN_STATUS_SUCCESS);
         return results.build();
     }
 
@@ -560,6 +590,8 @@ public class AdSelectionScriptEngine {
 
         if (batchBidResult.status != JS_SCRIPT_STATUS_SUCCESS) {
             sLogger.v("Scoring script failed, returning empty result.");
+            adSelectionExecutionLogger.setScoreAdJsScriptResultCode(
+                    JS_RUN_STATUS_OUTPUT_SYNTAX_ERROR);
         } else {
             for (int i = 0; i < batchBidResult.results.length(); i++) {
                 // If the output of the score for this advert is invalid JSON or doesn't have a
@@ -580,6 +612,7 @@ public class AdSelectionScriptEngine {
                                 .setLossDebugReportUri(debugReportingLossUri)
                                 .build());
             }
+            adSelectionExecutionLogger.setScoreAdJsScriptResultCode(JS_RUN_STATUS_SUCCESS);
         }
 
         adSelectionExecutionLogger.endScoreAds();
@@ -782,7 +815,8 @@ public class AdSelectionScriptEngine {
         return transform(
                 biddingResult,
                 result -> {
-                    List<GenerateBidResult> bidResults = handleGenerateBidsOutput(result);
+                    List<GenerateBidResult> bidResults =
+                            handleGenerateBidsOutput(result, runAdBiddingPerCAExecutionLogger);
                     runAdBiddingPerCAExecutionLogger.endGenerateBids();
                     return bidResults;
                 },

@@ -24,9 +24,7 @@ import java.util.Objects;
 public final class TestHelper {
     private static final boolean VERBOSE = false; // Should NEVER be merged as true
 
-    // TODO(b/338232806): use proper logger
-    private static final Logger sLogger =
-            new Logger(StandardStreamsLogger.getInstance(), TestHelper.class);
+    private static final Logger sLogger = new Logger(DynamicLogger.getInstance(), TestHelper.class);
 
     // TODO(b/315339283): use in other places
     /** Gets the given annotation from the test, its class, or its ancestors. */
@@ -71,6 +69,7 @@ public final class TestHelper {
     }
 
     // TODO(b/315339283): use in other places
+
     /** Gests a user-friendly name for the test. */
     public static String getTestName(Description test) {
         StringBuilder testName = new StringBuilder(test.getTestClass().getSimpleName());
@@ -79,6 +78,18 @@ public final class TestHelper {
             testName.append('#').append(methodName).append("()");
         }
         return testName.toString();
+    }
+
+    /**
+     * Util method to throw exception if description is not a test node. Use this to throw exception
+     * for rules that can only be used on individual tests, not as @ClassRule or in a suite.
+     */
+    public static void throwIfNotTest(Description description) {
+        if (!description.isTest()) {
+            throw new IllegalStateException(
+                    "This rule can only be applied to individual tests, it cannot be used as"
+                            + " @ClassRule or in a test suite");
+        }
     }
 
     private TestHelper() {

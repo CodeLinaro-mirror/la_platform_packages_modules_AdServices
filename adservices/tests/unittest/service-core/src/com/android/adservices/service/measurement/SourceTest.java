@@ -847,6 +847,16 @@ public class SourceTest {
     }
 
     @Test
+    public void testReinstallReattributionWindow() throws Exception {
+        final Source source =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setReinstallReattributionWindow(50L)
+                        .build();
+
+        assertEquals(50L, source.getReinstallReattributionWindow());
+    }
+
+    @Test
     public void testAggregatableAttributionSourceWithTrigger_addsLookbackWindow() throws Exception {
         when(mFlags.getMeasurementEnableLookbackWindowFilter()).thenReturn(true);
         JSONObject aggregatableSource = new JSONObject();
@@ -1355,7 +1365,6 @@ public class SourceTest {
     @Test
     public void validateAndSetNumReportStates_flexLiteValid_returnsTrue() {
         Flags flags = mock(Flags.class);
-        doReturn(true).when(flags).getMeasurementFlexLiteApiEnabled();
         doReturn(Flags.MEASUREMENT_MAX_REPORT_STATES_PER_SOURCE_REGISTRATION)
                 .when(flags).getMeasurementMaxReportStatesPerSourceRegistration();
         doReturn(Flags.DEFAULT_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT)
@@ -1380,7 +1389,6 @@ public class SourceTest {
     @Test
     public void validateAndSetMaxEventStates_attributionScopeEnabledValid_returnsTrue() {
         Flags flags = mock(Flags.class);
-        doReturn(true).when(flags).getMeasurementFlexLiteApiEnabled();
         doReturn(true).when(flags).getMeasurementEnableAttributionScope();
         doReturn(Flags.MEASUREMENT_MAX_REPORT_STATES_PER_SOURCE_REGISTRATION)
                 .when(flags)
@@ -1411,7 +1419,6 @@ public class SourceTest {
     @Test
     public void validateAndSetMaxEventStates_maxEventStatesNullNonDefaultVtc_returnsFalse() {
         Flags flags = mock(Flags.class);
-        doReturn(true).when(flags).getMeasurementFlexLiteApiEnabled();
         doReturn(true).when(flags).getMeasurementEnableAttributionScope();
         doReturn(Flags.MEASUREMENT_MAX_REPORT_STATES_PER_SOURCE_REGISTRATION)
                 .when(flags)
@@ -1442,7 +1449,6 @@ public class SourceTest {
     @Test
     public void validateAndSetMaxEventStates_maxEventStatesNullNavigation_returnsFalse() {
         Flags flags = mock(Flags.class);
-        doReturn(true).when(flags).getMeasurementFlexLiteApiEnabled();
         doReturn(true).when(flags).getMeasurementEnableAttributionScope();
         doReturn(Flags.MEASUREMENT_MAX_REPORT_STATES_PER_SOURCE_REGISTRATION)
                 .when(flags)
@@ -1474,7 +1480,6 @@ public class SourceTest {
     @Test
     public void validateAndSetMaxEventStates_attributionScopeMaxEventStatesTooLow_returnsFalse() {
         Flags flags = mock(Flags.class);
-        doReturn(true).when(flags).getMeasurementFlexLiteApiEnabled();
         doReturn(true).when(flags).getMeasurementEnableAttributionScope();
         doReturn(Flags.MEASUREMENT_MAX_REPORT_STATES_PER_SOURCE_REGISTRATION)
                 .when(flags)
@@ -1505,7 +1510,6 @@ public class SourceTest {
     @Test
     public void validateAndSetNumReportStates_flexLiteInvalid_returnsFalse() {
         Flags flags = mock(Flags.class);
-        doReturn(true).when(flags).getMeasurementFlexLiteApiEnabled();
         doReturn(Flags.MEASUREMENT_MAX_REPORT_STATES_PER_SOURCE_REGISTRATION)
                 .when(flags).getMeasurementMaxReportStatesPerSourceRegistration();
         doReturn(Flags.DEFAULT_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT)

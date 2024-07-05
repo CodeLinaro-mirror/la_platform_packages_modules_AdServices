@@ -76,6 +76,7 @@ public class Source {
     @Nullable private Long mEventReportWindow;
     @Nullable private String mEventReportWindows;
     private long mAggregatableReportWindow;
+    private long mReinstallReattributionWindow;
     private List<UnsignedLong> mAggregateReportDedupKeys;
     private List<UnsignedLong> mEventReportDedupKeys;
     @AttributionMode private int mAttributionMode;
@@ -320,7 +321,7 @@ public class Source {
      * @param flipProbability the flip probability, used only if attribution scope is not enabled.
      * @param numTriggerStates num of trigger states.
      */
-    public double getInformationGain(Flags flags, long numTriggerStates, double flipProbability) {
+    double getInformationGain(Flags flags, long numTriggerStates, double flipProbability) {
         if (flags.getMeasurementEnableAttributionScope()) {
             long attributionScopeLimit =
                     getAttributionScopeLimit() == null ? 1L : getAttributionScopeLimit();
@@ -335,9 +336,6 @@ public class Source {
     }
 
     private boolean isFlexLiteApiValueValid(Flags flags) {
-        if (!flags.getMeasurementFlexLiteApiEnabled()) {
-            return true;
-        }
         return getInformationGain(flags, getNumStates(flags), getFlipProbability(flags))
                 <= getInformationGainThreshold(flags);
     }
@@ -442,16 +440,19 @@ public class Source {
         private final long mReportingTime;
         private final long mTriggerTime;
         private final List<Uri> mDestinations;
+        private final Pair<Long, Long> mTriggerSummaryBucket;
 
         public FakeReport(
                 UnsignedLong triggerData,
                 long reportingTime,
                 long triggerTime,
-                List<Uri> destinations) {
+                List<Uri> destinations,
+                @Nullable Pair<Long, Long> triggerSummaryBucket) {
             mTriggerData = triggerData;
             mReportingTime = reportingTime;
             mDestinations = destinations;
             mTriggerTime = triggerTime;
+            mTriggerSummaryBucket = triggerSummaryBucket;
         }
 
         @Override
@@ -462,12 +463,18 @@ public class Source {
             return Objects.equals(mTriggerData, that.mTriggerData)
                     && mReportingTime == that.mReportingTime
                     && mTriggerTime == that.mTriggerTime
-                    && Objects.equals(mDestinations, that.mDestinations);
+                    && Objects.equals(mDestinations, that.mDestinations)
+                    && Objects.equals(mTriggerSummaryBucket, that.mTriggerSummaryBucket);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(mTriggerData, mReportingTime, mTriggerTime, mDestinations);
+            return Objects.hash(
+                    mTriggerData,
+                    mReportingTime,
+                    mTriggerTime,
+                    mDestinations,
+                    mTriggerSummaryBucket);
         }
 
         public long getReportingTime() {
@@ -484,6 +491,11 @@ public class Source {
 
         public List<Uri> getDestinations() {
             return mDestinations;
+        }
+
+        @Nullable
+        public Pair<Long, Long> getTriggerSummaryBucket() {
+            return mTriggerSummaryBucket;
         }
     }
 
@@ -570,6 +582,7 @@ public class Source {
                 && Objects.equals(mEventReportWindows, source.mEventReportWindows)
                 && Objects.equals(mAggregatableReportWindow, source.mAggregatableReportWindow)
                 && mEventTime == source.mEventTime
+                && mReinstallReattributionWindow == source.mReinstallReattributionWindow
                 && mAdIdPermission == source.mAdIdPermission
                 && mArDebugPermission == source.mArDebugPermission
                 && Objects.equals(mEventId, source.mEventId)
@@ -625,6 +638,7 @@ public class Source {
                 mEventReportWindow,
                 mEventReportWindows,
                 mAggregatableReportWindow,
+                mReinstallReattributionWindow,
                 mEventTime,
                 mEventId,
                 mSourceType,
@@ -756,6 +770,11 @@ public class Source {
     /** Returns Event report window */
     public Long getEventReportWindow() {
         return mEventReportWindow;
+    }
+
+    /** Returns reinstall reattribution window */
+    public long getReinstallReattributionWindow() {
+        return mReinstallReattributionWindow;
     }
 
     /**
@@ -1350,6 +1369,7 @@ public class Source {
             builder.setInstallCooldownWindow(copyFrom.mInstallCooldownWindow);
             builder.setInstallAttributed(copyFrom.mIsInstallAttributed);
             builder.setInstallAttributionWindow(copyFrom.mInstallAttributionWindow);
+            builder.setReinstallReattributionWindow(copyFrom.mReinstallReattributionWindow);
             builder.setSourceType(copyFrom.mSourceType);
             builder.setAdIdPermission(copyFrom.mAdIdPermission);
             builder.setAggregateContributions(copyFrom.mAggregateContributions);
@@ -1488,6 +1508,12 @@ public class Source {
         /** See {@link Source#getAggregatableReportWindow()}. */
         public Builder setAggregatableReportWindow(Long aggregateReportWindow) {
             mBuilding.mAggregatableReportWindow = aggregateReportWindow;
+            return this;
+        }
+
+        /** See {@link Source#getReinstallReattributionWindow()}. */
+        public Builder setReinstallReattributionWindow(Long reinstallReattributionWindow) {
+            mBuilding.mReinstallReattributionWindow = reinstallReattributionWindow;
             return this;
         }
 

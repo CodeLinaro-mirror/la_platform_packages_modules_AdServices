@@ -18,6 +18,9 @@ package com.android.adservices.service.stats;
 
 
 import com.android.adservices.cobalt.AppNameApiErrorLogger;
+import com.android.adservices.cobalt.MeasurementCobaltLogger;
+import com.android.adservices.concurrency.AdServicesExecutors;
+import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.common.AppManifestConfigCall;
 import com.android.adservices.service.stats.kanon.KAnonBackgroundJobStatusStats;
 import com.android.adservices.service.stats.kanon.KAnonGetChallengeStatusStats;
@@ -32,6 +35,8 @@ import com.android.adservices.service.stats.pas.PersistAdSelectionResultCalledSt
 import com.android.adservices.service.stats.pas.UpdateSignalsApiCalledStats;
 import com.android.internal.annotations.VisibleForTesting;
 
+import java.util.concurrent.Executor;
+
 import javax.annotation.concurrent.ThreadSafe;
 
 /** AdServicesLogger that delegate to the appropriate Logger Implementations. */
@@ -39,6 +44,7 @@ import javax.annotation.concurrent.ThreadSafe;
 public final class AdServicesLoggerImpl implements AdServicesLogger {
 
     private static volatile AdServicesLoggerImpl sAdServicesLogger;
+    private static final Executor sBackgroundExecutor = AdServicesExecutors.getBackgroundExecutor();
     private final StatsdAdServicesLogger mStatsdAdServicesLogger;
 
     private AdServicesLoggerImpl() {
@@ -100,6 +106,9 @@ public final class AdServicesLoggerImpl implements AdServicesLogger {
     public void logMeasurementRegistrationsResponseSize(
             MeasurementRegistrationResponseStats stats) {
         mStatsdAdServicesLogger.logMeasurementRegistrationsResponseSize(stats);
+
+        // Log to Cobalt system in parallel with existing logging.
+        cobaltLogMsmtRegistration(stats);
     }
 
     @Override
@@ -222,6 +231,12 @@ public final class AdServicesLoggerImpl implements AdServicesLogger {
                 mEnrollmentRecordCountInTable,
                 mQueryParameter,
                 mErrorCause);
+    }
+
+    /** Logs enrollment transaction stats. */
+    @Override
+    public void logEnrollmentTransactionStats(AdServicesEnrollmentTransactionStats stats) {
+        mStatsdAdServicesLogger.logEnrollmentTransactionStats(stats);
     }
 
     /** Logs encryption key fetch stats. */
@@ -392,10 +407,36 @@ public final class AdServicesLoggerImpl implements AdServicesLogger {
         mStatsdAdServicesLogger.logSelectAdsFromOutcomesApiCalledStats(stats);
     }
 
+    @Override
+    public void logReportImpressionApiCalledStats(ReportImpressionApiCalledStats stats) {
+        mStatsdAdServicesLogger.logReportImpressionApiCalledStats(stats);
+    }
+
     /** Logs api call error status using {@code CobaltLogger}. */
     private void cobaltLogAppNameApiError(String appPackageName, int apiName, int errorCode) {
-        AppNameApiErrorLogger appNameApiErrorLogger = AppNameApiErrorLogger.getInstance();
+        sBackgroundExecutor.execute(
+                () -> {
+                    AppNameApiErrorLogger appNameApiErrorLogger =
+                            AppNameApiErrorLogger.getInstance();
 
-        appNameApiErrorLogger.logErrorOccurrence(appPackageName, apiName, errorCode);
+                    appNameApiErrorLogger.logErrorOccurrence(appPackageName, apiName, errorCode);
+                });
+    }
+
+    /** Logs measurement registration status using {@code CobaltLogger}. */
+    private void cobaltLogMsmtRegistration(MeasurementRegistrationResponseStats stats) {
+        sBackgroundExecutor.execute(
+                () -> {
+                    MeasurementCobaltLogger measurementCobaltLogger =
+                            MeasurementCobaltLogger.getInstance();
+                    measurementCobaltLogger.logRegistrationStatus(
+                            /* appPackageName= */ stats.getSourceRegistrant(),
+                            /* surfaceType= */ stats.getSurfaceType(),
+                            /* type= */ stats.getRegistrationType(),
+                            /* sourceType= */ stats.getInteractionType(),
+                            /* statusCode= */ stats.getRegistrationStatus(),
+                            /* errorCode= */ stats.getFailureType(),
+                            /* isEeaDevice= */ FlagsFactory.getFlags().isEeaDevice());
+                });
     }
 }

@@ -29,17 +29,11 @@ import android.adservices.extdata.IGetAdServicesExtDataCallback;
 import android.content.Intent;
 import android.os.IBinder;
 
-import androidx.test.runner.AndroidJUnit4;
+import com.android.adservices.shared.testing.concurrency.FailableOnResultSyncCallback;
 
-import com.android.adservices.shared.testing.ExceptionFailureSyncCallback;
-
-import org.junit.Assert;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
-@RunWith(AndroidJUnit4.class)
-public class AdServicesExtDataServiceCtsTest {
-
+public final class AdServicesExtDataServiceCtsTest {
     /** Fake AdServicesExtDataStorageService implementation for testing. */
     private static final class AdServicesExtDataStorageServiceTestProxy
             extends AdServicesExtDataStorageService {
@@ -65,11 +59,11 @@ public class AdServicesExtDataServiceCtsTest {
         Intent intent = new Intent();
         intent.setAction(AdServicesExtDataStorageService.SERVICE_INTERFACE);
         IBinder remoteObject = proxy.onBind(intent);
-        Assert.assertNotNull(remoteObject);
+        assertThat(remoteObject).isNotNull();
 
         IAdServicesExtDataStorageService service =
                 IAdServicesExtDataStorageService.Stub.asInterface(remoteObject);
-        Assert.assertNotNull(service);
+        assertThat(service).isNotNull();
 
         // Update AdExt data
         AdServicesExtDataParams paramsToUpdate =
@@ -87,28 +81,23 @@ public class AdServicesExtDataServiceCtsTest {
                 new int[] {}, // Fake service implementation ignores this parameter.
                 putReceiver);
 
-        putReceiver.assertSuccess();
+        putReceiver.assertResultReceived();
 
         // Get updated AdExt data
         SyncAdExtTestCallback getReceiver = new SyncAdExtTestCallback();
         service.getAdServicesExtData(getReceiver);
 
-        GetAdServicesExtDataResult result = getReceiver.assertSuccess();
+        GetAdServicesExtDataResult result = getReceiver.assertResultReceived();
+        assertThat(result).isNotNull();
         assertThat(result.getAdServicesExtDataParams()).isEqualTo(paramsToUpdate);
     }
 
     private static final class SyncAdExtTestCallback
-            extends ExceptionFailureSyncCallback<GetAdServicesExtDataResult>
+            extends FailableOnResultSyncCallback<GetAdServicesExtDataResult, String>
             implements IGetAdServicesExtDataCallback {
-
         @Override
         public void onError(String msg) {
-            injectError(new RuntimeException(msg));
-        }
-
-        @Override
-        public IBinder asBinder() {
-            return null;
+            onFailure(msg);
         }
     }
 }

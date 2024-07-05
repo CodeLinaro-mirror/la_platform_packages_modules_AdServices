@@ -15,13 +15,13 @@
  */
 package com.android.adservices.shared.testing;
 
-import static com.android.adservices.shared.meta_testing.LogEntry.Subject.logEntry;
+import static com.android.adservices.shared.testing.LogEntry.Subject.logEntry;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.android.adservices.shared.meta_testing.FakeLogger;
-import com.android.adservices.shared.meta_testing.LogEntry;
 import com.android.adservices.shared.meta_testing.SimpleStatement;
+import com.android.adservices.shared.meta_testing.TestNamerRuleTester;
 import com.android.adservices.shared.testing.Logger.LogLevel;
 import com.android.adservices.shared.testing.Logger.RealLogger;
 
@@ -54,7 +54,7 @@ public final class AbstractRuleTest extends SharedSidelessTestCase {
     }
 
     @Test
-    public void testRunSafely_noErrors() throws Exception {
+    public void testRunSafely_noErrors() {
         List<Throwable> errors = new ArrayList<>();
 
         mRule.runSafely(errors, () -> System.out.println("I'm fine"));
@@ -63,7 +63,7 @@ public final class AbstractRuleTest extends SharedSidelessTestCase {
     }
 
     @Test
-    public void testRunSafely_withError() throws Exception {
+    public void testRunSafely_withError() {
         List<Throwable> errors = new ArrayList<>();
         RuntimeException exception = new RuntimeException("D'OH");
 
@@ -86,10 +86,10 @@ public final class AbstractRuleTest extends SharedSidelessTestCase {
     }
 
     @Test
-    public void testGetTestName() throws Exception {
-        expect.withMessage("getTestName()")
-                .that(mRule.getTestName(mDefaultDescription))
-                .isEqualTo("AbstractRuleTest#aTestHasNoName()");
+    public void testGetTestName() throws Throwable {
+        TestNamerRuleTester<ConcreteRule> tester = new TestNamerRuleTester<>(expect, mRule);
+
+        tester.justDoIt();
     }
 
     private static final class ConcreteRule extends AbstractRule {

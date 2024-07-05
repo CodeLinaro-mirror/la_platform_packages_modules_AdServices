@@ -35,7 +35,6 @@ import android.adservices.common.AdTechIdentifier;
 import android.adservices.common.FledgeErrorResponse;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.content.Context;
 import android.net.Uri;
 import android.os.Build;
 import android.os.RemoteException;
@@ -69,6 +68,7 @@ import com.android.adservices.service.devapi.DevContext;
 import com.android.adservices.service.exception.FilterException;
 import com.android.adservices.service.profiling.Tracing;
 import com.android.adservices.service.stats.AdServicesLogger;
+import com.android.adservices.service.stats.ReportImpressionExecutionLogger;
 import com.android.internal.util.Preconditions;
 
 import com.google.common.util.concurrent.FluentFuture;
@@ -121,12 +121,12 @@ public class ImpressionReporter {
     @NonNull private final FledgeAuthorizationFilter mFledgeAuthorizationFilter;
     @NonNull private final FrequencyCapAdDataValidator mFrequencyCapAdDataValidator;
     @NonNull private final DevContext mDevContext;
+    @NonNull private final ReportImpressionExecutionLogger mReportImpressionExecutionLogger;
     private int mCallerUid;
     @NonNull private String mCallerAppPackageName;
     private final boolean mShouldUseUnifiedTables;
 
     public ImpressionReporter(
-            @NonNull Context context,
             @NonNull ExecutorService lightweightExecutor,
             @NonNull ExecutorService backgroundExecutor,
             @NonNull ScheduledThreadPoolExecutor scheduledExecutor,
@@ -141,8 +141,8 @@ public class ImpressionReporter {
             @NonNull final FrequencyCapAdDataValidator frequencyCapAdDataValidator,
             final int callerUid,
             @NonNull final RetryStrategy retryStrategy,
-            boolean shouldUseUnifiedTables) {
-        Objects.requireNonNull(context);
+            boolean shouldUseUnifiedTables,
+            ReportImpressionExecutionLogger reportImpressionExecutionLogger) {
         Objects.requireNonNull(lightweightExecutor);
         Objects.requireNonNull(backgroundExecutor);
         Objects.requireNonNull(scheduledExecutor);
@@ -184,7 +184,6 @@ public class ImpressionReporter {
         }
         mJsEngine =
                 new ReportImpressionScriptEngine(
-                        context,
                         flags::getEnforceIsolateMaxHeapSize,
                         flags::getIsolateMaxHeapSizeBytes,
                         registerAdBeaconScriptEngineHelper,
@@ -210,6 +209,7 @@ public class ImpressionReporter {
         mPrebuiltLogicGenerator = new PrebuiltLogicGenerator(mFlags);
         mFledgeAuthorizationFilter = fledgeAuthorizationFilter;
         mShouldUseUnifiedTables = shouldUseUnifiedTables;
+        mReportImpressionExecutionLogger = reportImpressionExecutionLogger;
     }
 
     /**
@@ -298,11 +298,15 @@ public class ImpressionReporter {
                                 notifySuccessToCaller(callback);
                                 sLogger.d("Perform reporting!");
                                 performReporting(result);
+                                mReportImpressionExecutionLogger
+                                        .logReportImpressionApiCalledStats();
                             }
 
                             @Override
                             public void onFailure(Throwable t) {
                                 sLogger.e(t, "Report Impression invocation failed!");
+                                mReportImpressionExecutionLogger
+                                        .logReportImpressionApiCalledStats();
                                 if (t instanceof FilterException
                                         && t.getCause()
                                                 instanceof ConsentManager.RevokedConsentException) {
@@ -556,7 +560,8 @@ public class ImpressionReporter {
                                     ctx.mAdSelectionConfig,
                                     ctx.mComputationData.getWinningRenderUri(),
                                     ctx.mComputationData.getWinningBid(),
-                                    ctx.mComputationData.getSellerContextualSignals()))
+                                    ctx.mComputationData.getSellerContextualSignals(),
+                                    mReportImpressionExecutionLogger))
                     .transform(
                             sellerResult -> Pair.create(sellerResult, ctx),
                             mLightweightExecutorService);
@@ -591,7 +596,8 @@ public class ImpressionReporter {
                                     signals,
                                     sellerReportingResult.getSignalsForBuyer(),
                                     ctx.mComputationData.getBuyerContextualSignals(),
-                                    customAudienceSignals))
+                                    customAudienceSignals,
+                                    mReportImpressionExecutionLogger))
                     .transform(
                             buyerReportingResult ->
                                     Pair.create(

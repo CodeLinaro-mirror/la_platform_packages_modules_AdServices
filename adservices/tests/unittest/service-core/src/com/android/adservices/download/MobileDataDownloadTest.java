@@ -28,6 +28,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 import android.content.Context;
 import android.database.DatabaseUtils;
+import android.net.wifi.WifiManager;
 import android.os.SystemClock;
 
 import androidx.annotation.NonNull;
@@ -75,6 +76,7 @@ import com.google.mobiledatadownload.DownloadConfigProto.DownloadConditions;
 import com.google.mobiledatadownload.DownloadConfigProto.DownloadConditions.DeviceNetworkPolicy;
 
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -95,8 +97,6 @@ import java.util.stream.Collectors;
 @SpyStatic(CommonClassifierHelper.class)
 public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestCase {
     private static final int MAX_HANDLE_TASK_WAIT_TIME_SECS = 300;
-    private static final long WAIT_FOR_WIFI_CONNECTION_MS = 5 * 1000; // 5 seconds.
-    private static boolean sNeedWifiConnectionWait = true;
 
     // Two files are from cts_test_1 folder.
     // https://source.corp.google.com/piper///depot/google3/wireless/android/adservices/mdd/topics_classifier/cts_test_1/
@@ -105,34 +105,44 @@ public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestC
     private static final String FILE_ID_2 = "stopwords.txt";
     private static final String FILE_CHECKSUM_1 = "52633ae715ead32ec6c8ae721ad34ea301336a8e";
     private static final String FILE_URL_1 =
-            "https://dl.google.com/mdi-serving/rubidium-adservices-topics-classifier/1489/52633ae715ead32ec6c8ae721ad34ea301336a8e";
+            "https://dl.google.com/mdi-serving/rubidium-adservices-topics-classifier/1489"
+                    + "/52633ae715ead32ec6c8ae721ad34ea301336a8e";
     private static final int FILE_SIZE_1 = 1026;
 
     private static final String FILE_CHECKSUM_2 = "042dc4512fa3d391c5170cf3aa61e6a638f84342";
     private static final String FILE_URL_2 =
-            "https://dl.google.com/mdi-serving/rubidium-adservices-topics-classifier/1489/042dc4512fa3d391c5170cf3aa61e6a638f84342";
+            "https://dl.google.com/mdi-serving/rubidium-adservices-topics-classifier/1489"
+                    + "/042dc4512fa3d391c5170cf3aa61e6a638f84342";
     private static final int FILE_SIZE_2 = 1;
 
     // TODO(b/263521464): Use the production topics classifier manifest URL.
     private static final String TEST_MDD_TOPICS_CLASSIFIER_MANIFEST_FILE_URL =
-            "https://www.gstatic.com/mdi-serving/rubidium-adservices-topics-classifier/922/217081737fd739c74dd3ca5c407813d818526577";
+            "https://www.gstatic.com/mdi-serving/rubidium-adservices-topics-classifier/922"
+                    + "/217081737fd739c74dd3ca5c407813d818526577";
     private static final String MDD_TOPICS_CLASSIFIER_MANIFEST_FILE_URL =
-            "https://www.gstatic.com/mdi-serving/rubidium-adservices-topics-classifier/1986/9e98784bcdb26a3eb2ab3f65ee811f43177c761f";
+            "https://www.gstatic.com/mdi-serving/rubidium-adservices-topics-classifier/1986"
+                    + "/9e98784bcdb26a3eb2ab3f65ee811f43177c761f";
     private static final String PRODUCTION_ENROLLMENT_MANIFEST_FILE_URL =
-            "https://www.gstatic.com/mdi-serving/rubidium-adservices-adtech-enrollment/4503/fecd522d3dcfbe1b3b1f1054947be8528be43e97";
+            "https://www.gstatic.com/mdi-serving/rubidium-adservices-adtech-enrollment/4503"
+                    + "/fecd522d3dcfbe1b3b1f1054947be8528be43e97";
     private static final String PRODUCTION_ENCRYPTION_KEYS_MANIFEST_FILE_URL =
-            "https://www.gstatic.com/mdi-serving/rubidium-adservices-encryption-keys/4543/e9d118728752e6a6bfb5d7d8d1520807591f0717";
+            "https://www.gstatic.com/mdi-serving/rubidium-adservices-encryption-keys/4543"
+                    + "/e9d118728752e6a6bfb5d7d8d1520807591f0717";
 
     // Prod Test Bed enrollment manifest URL
     private static final String PTB_ENROLLMENT_MANIFEST_FILE_URL =
-            "https://www.gstatic.com/mdi-serving/rubidium-adservices-adtech-enrollment/3548/206afe932d6db2a87cad70421454a0c258297d77";
+            "https://www.gstatic.com/mdi-serving/rubidium-adservices-adtech-enrollment/3548"
+                    + "/206afe932d6db2a87cad70421454a0c258297d77";
     private static final String OEM_ENROLLMENT_MANIFEST_FILE_URL =
-            "https://www.gstatic.com/mdi-serving/rubidium-adservices-adtech-enrollment/1760/1460e6aea598fe7a153100d6e2749f45313ef905";
+            "https://www.gstatic.com/mdi-serving/rubidium-adservices-adtech-enrollment/1760"
+                    + "/1460e6aea598fe7a153100d6e2749f45313ef905";
     private static final String UI_OTA_STRINGS_MANIFEST_FILE_URL =
-            "https://www.gstatic.com/mdi-serving/rubidium-adservices-ui-ota-strings/1360/d428721d225582922a7fe9d5ad6db7b09cb03209";
+            "https://www.gstatic.com/mdi-serving/rubidium-adservices-ui-ota-strings/1360"
+                    + "/d428721d225582922a7fe9d5ad6db7b09cb03209";
 
     private static final String UI_OTA_RESOURCES_MANIFEST_FILE_URL =
-            "https://www.gstatic.com/mdi-serving/rubidium-adservices-ui-ota-strings/3150/672c83fa4aad630a360dc3b7ce43d94ab75852cd";
+            "https://www.gstatic.com/mdi-serving/rubidium-adservices-ui-ota-strings/3150"
+                    + "/672c83fa4aad630a360dc3b7ce43d94ab75852cd";
 
     private static final int PRODUCTION_ENROLLMENT_ENTRIES = 78;
 
@@ -152,11 +162,13 @@ public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestC
     public static final String TEST_TOPIC_FILE_GROUP_NAME = "topics-classifier-model";
     public static final String ENCRYPTION_KEYS_FILE_GROUP_NAME = "encryption-keys";
     public static final String ENROLLMENT_FILE_GROUP_NAME = "adtech_enrollment_data";
+    public static final String ENROLLMENT_PROTO_FILE_GROUP_NAME = "adtech_enrollment_proto_data";
     public static final String UI_OTA_STRINGS_FILE_GROUP_NAME = "ui-ota-strings";
     private SynchronousFileStorage mFileStorage;
     private FileDownloader mFileDownloader;
     private SharedDbHelper mDbHelper;
     private MobileDataDownload mMdd;
+    private WifiManager mWifiManager;
 
     @Mock Flags mMockFlags;
     @Mock ConsentManager mConsentManager;
@@ -165,13 +177,10 @@ public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestC
 
     @Before
     public void setUp() throws Exception {
-        // Add latency to fix the boot up WIFI connection delay. We only need to wait once during
-        // the whole test suite run.
-        // Checking wifi connection using WifiManager isn't working on low-performance devices.
-        if (sNeedWifiConnectionWait) {
-            Thread.sleep(WAIT_FOR_WIFI_CONNECTION_MS);
-            sNeedWifiConnectionWait = false;
-        }
+        mWifiManager = mContext.getSystemService(WifiManager.class);
+        // The MDD integration tests require wifi connection. If the running device is not
+        // connected to the Wifi, tests should be skipped.
+        Assume.assumeTrue("Device must have wifi connection", mWifiManager.isWifiEnabled());
 
         mockMddFlags();
 
@@ -331,7 +340,8 @@ public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestC
     @Test
     public void testEnrollmentDataDownload_Production()
             throws ExecutionException, InterruptedException, TimeoutException {
-        createMddForEnrollment(PRODUCTION_ENROLLMENT_MANIFEST_FILE_URL);
+        when(mMockFlags.getEncryptionKeyNewEnrollmentFetchKillSwitch()).thenReturn(true);
+        createMddForEnrollment(PRODUCTION_ENROLLMENT_MANIFEST_FILE_URL, /* getProto= */ false);
 
         ClientFileGroup clientFileGroup =
                 mMdd.getFileGroup(
@@ -351,7 +361,8 @@ public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestC
     @Test
     public void testEnrollmentDataDownload_OEM()
             throws ExecutionException, InterruptedException, TimeoutException {
-        createMddForEnrollment(OEM_ENROLLMENT_MANIFEST_FILE_URL);
+        when(mMockFlags.getEncryptionKeyNewEnrollmentFetchKillSwitch()).thenReturn(true);
+        createMddForEnrollment(OEM_ENROLLMENT_MANIFEST_FILE_URL, /* getProto= */ false);
 
         ClientFileGroup clientFileGroup =
                 mMdd.getFileGroup(
@@ -370,8 +381,9 @@ public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestC
     @Test
     public void testEnrollmentDataDownload_PTB()
             throws ExecutionException, InterruptedException, TimeoutException {
+        when(mMockFlags.getEncryptionKeyNewEnrollmentFetchKillSwitch()).thenReturn(true);
         when(mMockFlags.getEnrollmentMddRecordDeletionEnabled()).thenReturn(true);
-        createMddForEnrollment(PTB_ENROLLMENT_MANIFEST_FILE_URL);
+        createMddForEnrollment(PTB_ENROLLMENT_MANIFEST_FILE_URL, /* getProto= */ false);
 
         ClientFileGroup clientFileGroup =
                 mMdd.getFileGroup(
@@ -386,13 +398,31 @@ public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestC
                 PTB_ENROLLMENT_ENTRIES,
                 /* clearExistingData= */ true,
                 /* clearDownloadedData= */ false);
-        createMddForEnrollment(PTB_OLD_ENROLLMENT_FILE_URL);
+        createMddForEnrollment(PTB_OLD_ENROLLMENT_FILE_URL, /* getProto= */ false);
         verifyMeasurementFileGroup(
                 clientFileGroup,
                 PTB_FILEGROUP_VERSION,
                 PTB_OLD_ENROLLMENT_ENTRIES,
                 /* clearExistingData= */ false,
                 /* clearDownloadedData= */ true);
+    }
+
+    // TODO (b/340891475): Add tests for Enrollment production proto files
+
+    /** This method verifies that the file group does not exist when an empty url is provided. */
+    @Test
+    public void testEnrollmentProtoDataDownload_emptyUrl() throws Exception {
+        when(mMockFlags.getEncryptionKeyNewEnrollmentFetchKillSwitch()).thenReturn(true);
+        createMddForEnrollment("", /* getProto= */ true);
+
+        ClientFileGroup clientFileGroup =
+                mMdd.getFileGroup(
+                                GetFileGroupRequest.newBuilder()
+                                        .setGroupName(ENROLLMENT_PROTO_FILE_GROUP_NAME)
+                                        .build())
+                        .get();
+
+        assertThat(clientFileGroup).isNull();
     }
 
     /**
@@ -406,7 +436,7 @@ public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestC
         when(mConsentManager.getConsent(AdServicesApiType.MEASUREMENTS))
                 .thenReturn(AdServicesApiConsent.REVOKED);
 
-        createMddForEnrollment(PRODUCTION_ENROLLMENT_MANIFEST_FILE_URL);
+        createMddForEnrollment(PRODUCTION_ENROLLMENT_MANIFEST_FILE_URL, /* getProto= */ false);
 
         ClientFileGroup clientFileGroup =
                 mMdd.getFileGroup(
@@ -429,7 +459,7 @@ public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestC
         when(mConsentManager.getConsent(AdServicesApiType.MEASUREMENTS))
                 .thenReturn(AdServicesApiConsent.GIVEN);
 
-        createMddForEnrollment(PRODUCTION_ENROLLMENT_MANIFEST_FILE_URL);
+        createMddForEnrollment(PRODUCTION_ENROLLMENT_MANIFEST_FILE_URL, /* getProto= */ false);
 
         ClientFileGroup clientFileGroup =
                 mMdd.getFileGroup(
@@ -746,13 +776,17 @@ public final class MobileDataDownloadTest extends AdServicesExtendedMockitoTestC
 
     // Returns MobileDataDownload using passed in enrollment manifest url.
     @NonNull
-    private void createMddForEnrollment(String enrollmentManifestFileUrl)
+    private void createMddForEnrollment(String enrollmentManifestFileUrl, boolean getProto)
             throws ExecutionException, InterruptedException, TimeoutException {
-        doReturn(enrollmentManifestFileUrl).when(mMockFlags).getMeasurementManifestFileUrl();
+        if (getProto) {
+            doReturn(enrollmentManifestFileUrl).when(mMockFlags).getMddEnrollmentManifestFileUrl();
+        } else {
+            doReturn(enrollmentManifestFileUrl).when(mMockFlags).getMeasurementManifestFileUrl();
+        }
 
         FileGroupPopulator fileGroupPopulator =
                 MobileDataDownloadFactory.getMeasurementManifestPopulator(
-                        mMockFlags, mFileStorage, mFileDownloader);
+                        mMockFlags, mFileStorage, mFileDownloader, getProto);
 
         mMdd =
                 getMddForTesting(

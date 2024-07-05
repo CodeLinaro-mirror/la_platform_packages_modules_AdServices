@@ -55,9 +55,9 @@ import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.common.compat.ServiceCompatUtils;
 import com.android.adservices.shared.testing.HandlerIdleSyncCallback;
-import com.android.adservices.shared.testing.JobServiceCallback;
 import com.android.adservices.shared.testing.JobServiceLoggingCallback;
 import com.android.adservices.shared.testing.annotations.RequiresSdkLevelAtLeastS;
+import com.android.adservices.shared.testing.concurrency.JobServiceCallback;
 import com.android.adservices.spe.AdServicesJobScheduler;
 import com.android.adservices.spe.AdServicesJobServiceLogger;
 import com.android.modules.utils.testing.ExtendedMockitoRule.MockStatic;
@@ -196,16 +196,21 @@ public class EpochJobServiceTest extends AdServicesExtendedMockitoTestCase {
     }
 
     @Test
-    public void testOnStartJob_speEnabled() {
+    public void testOnStartJob_speEnabled() throws Exception {
         when(mMockFlags.getSpeOnEpochJobEnabled()).thenReturn(true);
         doReturn(false).when(mMockFlags).getGlobalKillSwitch();
         mocker.mockSpeJobScheduler(mMockAdServicesJobScheduler);
         // Mock not to run actual execution logic.
         doReturn(mMockTopicsWorker).when(TopicsWorker::getInstance);
+        // Verify logging for current execution.
+        mockBackgroundJobsLoggingKillSwitch(mMockFlags, /* overrideValue= */ false);
+        JobServiceLoggingCallback onStartJobCallback = syncPersistJobExecutionData(mSpyLogger);
+        JobServiceLoggingCallback onJobDoneCallback = syncLogExecutionStats(mSpyLogger);
 
         mSpyEpochJobService.onStartJob(mMockJobParameters);
 
         verify(mMockAdServicesJobScheduler).schedule(any());
+        verifyJobFinishedLogged(mSpyLogger, onStartJobCallback, onJobDoneCallback);
     }
 
     @Test

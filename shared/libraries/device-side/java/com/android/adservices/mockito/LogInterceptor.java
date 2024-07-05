@@ -25,7 +25,7 @@ import android.util.ArrayMap;
 import android.util.Log;
 
 import com.android.adservices.shared.testing.LogEntry;
-import com.android.adservices.shared.testing.LogEntry.Level;
+import com.android.adservices.shared.testing.Logger.LogLevel;
 import com.android.internal.util.Preconditions;
 
 import java.util.ArrayList;
@@ -48,7 +48,7 @@ public final class LogInterceptor {
     /**
      * Creates an interceptor for {@link Log} calls using the given {@code tag} and {@code levels}.
      */
-    public static LogInterceptor forTagAndLevels(String tag, Level... levels) {
+    public static LogInterceptor forTagAndLevels(String tag, LogLevel... levels) {
         // Log.v is used inside the Answers below, so it cannot be spied upon
         Preconditions.checkArgument(
                 !TAG.equals(Objects.requireNonNull(tag, "tag cannot be null")),
@@ -56,15 +56,43 @@ public final class LogInterceptor {
                 TAG);
 
         LogInterceptor interceptor = new LogInterceptor();
-        for (Level level : levels) {
+        for (LogLevel level : levels) {
             switch (level) {
+                case DEBUG:
+                    doAnswer(
+                                    invocation -> {
+                                        Log.d(TAG, invocation.toString());
+                                        interceptor.log(
+                                                new LogEntry(
+                                                        LogLevel.DEBUG,
+                                                        invocation.getArgument(0),
+                                                        invocation.getArgument(1)));
+                                        invocation.callRealMethod();
+                                        return null;
+                                    })
+                            .when(() -> Log.d(eq(tag), any()));
+
+                    doAnswer(
+                                    invocation -> {
+                                        Log.d(TAG, invocation.toString());
+                                        interceptor.log(
+                                                new LogEntry(
+                                                        LogLevel.DEBUG,
+                                                        invocation.getArgument(0),
+                                                        invocation.getArgument(1),
+                                                        invocation.getArgument(2)));
+                                        invocation.callRealMethod();
+                                        return null;
+                                    })
+                            .when(() -> Log.d(eq(tag), any(), any()));
+                    break;
                 case VERBOSE:
                     doAnswer(
                                     invocation -> {
                                         Log.v(TAG, invocation.toString());
                                         interceptor.log(
                                                 new LogEntry(
-                                                        Level.VERBOSE,
+                                                        LogLevel.VERBOSE,
                                                         invocation.getArgument(0),
                                                         invocation.getArgument(1)));
                                         invocation.callRealMethod();
@@ -77,7 +105,7 @@ public final class LogInterceptor {
                                         Log.v(TAG, invocation.toString());
                                         interceptor.log(
                                                 new LogEntry(
-                                                        Level.VERBOSE,
+                                                        LogLevel.VERBOSE,
                                                         invocation.getArgument(0),
                                                         invocation.getArgument(1),
                                                         invocation.getArgument(2)));
@@ -92,7 +120,7 @@ public final class LogInterceptor {
                                         Log.v(TAG, invocation.toString());
                                         interceptor.log(
                                                 new LogEntry(
-                                                        Level.ERROR,
+                                                        LogLevel.ERROR,
                                                         invocation.getArgument(0),
                                                         invocation.getArgument(1)));
                                         invocation.callRealMethod();
@@ -105,7 +133,7 @@ public final class LogInterceptor {
                                         Log.v(TAG, invocation.toString());
                                         interceptor.log(
                                                 new LogEntry(
-                                                        Level.ERROR,
+                                                        LogLevel.ERROR,
                                                         invocation.getArgument(0),
                                                         invocation.getArgument(1),
                                                         invocation.getArgument(2)));
@@ -137,7 +165,7 @@ public final class LogInterceptor {
      * Gets the messages from all "plain" calls (i.e., whose argument was just the message, without
      * a {@link Throwable}) to that {@code tag}.
      */
-    public List<String> getPlainMessages(String tag, Level level) {
+    public List<String> getPlainMessages(String tag, LogLevel level) {
         Objects.requireNonNull(tag, "tag cannot be null");
         Objects.requireNonNull(level, "level cannot be null");
         return getAllEntries(tag).stream()
@@ -145,7 +173,7 @@ public final class LogInterceptor {
                         entry ->
                                 entry.level.equals(level)
                                         && entry.tag.equals(tag)
-                                        && entry.exception == null)
+                                        && entry.throwable == null)
                 .map(entry -> entry.message)
                 .collect(Collectors.toList());
     }

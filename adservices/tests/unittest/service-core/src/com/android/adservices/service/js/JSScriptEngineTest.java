@@ -34,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -43,7 +44,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
-import android.webkit.WebView;
 
 import androidx.annotation.NonNull;
 import androidx.javascriptengine.IsolateStartupParameters;
@@ -143,6 +143,7 @@ public class JSScriptEngineTest {
     public static void initJavaScriptSandbox() {
         when(sMockProfiler.start(JSScriptEngineLogConstants.SANDBOX_INIT_TIME))
                 .thenReturn(sSandboxInitWatch);
+        doNothing().when(sSandboxInitWatch).stop();
         if (JSScriptEngine.AvailabilityChecker.isJSSandboxAvailable()) {
             sJSScriptEngine =
                     JSScriptEngine.getInstanceForTesting(sContext, sMockProfiler, sLogger);
@@ -172,11 +173,11 @@ public class JSScriptEngineTest {
         try {
             staticMockSessionLocal =
                     ExtendedMockito.mockitoSession()
-                            .spyStatic(WebView.class)
+                            .spyStatic(JavaScriptSandbox.class)
                             .strictness(Strictness.LENIENT)
                             .initMocks(this)
                             .startMocking();
-            ExtendedMockito.doReturn(null).when(WebView::getCurrentWebViewPackage);
+            ExtendedMockito.doReturn(false).when(JavaScriptSandbox::isSupported);
 
             ThrowingRunnable getFutureInstance =
                     () ->
@@ -202,11 +203,11 @@ public class JSScriptEngineTest {
         try {
             staticMockSessionLocal =
                     ExtendedMockito.mockitoSession()
-                            .spyStatic(WebView.class)
+                            .spyStatic(JavaScriptSandbox.class)
                             .strictness(Strictness.LENIENT)
                             .initMocks(this)
                             .startMocking();
-            ExtendedMockito.doReturn(null).when(WebView::getCurrentWebViewPackage);
+            ExtendedMockito.doReturn(false).when(JavaScriptSandbox::isSupported);
 
             ThrowingRunnable getFutureInstance =
                     () ->
@@ -378,7 +379,13 @@ public class JSScriptEngineTest {
     }
 
     @Test
-    public void testCanHandleFailuresFromWebView() {
+    public void testCanHandleFailuresFromWebView() throws Exception {
+        Assume.assumeFalse(sJSScriptEngine.isLargeTransactionsSupported().get(1, TimeUnit.SECONDS));
+
+        when(sMockProfiler.start(JSScriptEngineLogConstants.SANDBOX_INIT_TIME))
+                .thenReturn(sSandboxInitWatch);
+        doNothing().when(sSandboxInitWatch).stop();
+
         // The binder can transfer at most 1MB, this is larger than needed since, once
         // converted into a JS array initialization script will be way over the limits.
         List<JSScriptNumericArgument<Integer>> tooBigForBinder =
@@ -386,7 +393,6 @@ public class JSScriptEngineTest {
                         .boxed()
                         .map(value -> numericArg("_", value))
                         .collect(Collectors.toList());
-
         ExecutionException outerException =
                 assertThrows(
                         ExecutionException.class,
@@ -396,14 +402,46 @@ public class JSScriptEngineTest {
                                                 + " return array.length;\n"
                                                 + "}",
                                         ImmutableList.of(arrayArg("array", tooBigForBinder)),
-                                        "test",
+                                        "helloBigArray",
                                         mDefaultIsolateSettings,
                                         mNoOpRetryStrategy));
+
         assertThat(outerException).hasCauseThat().isInstanceOf(JSExecutionException.class);
+        // assert that we can recover from this exception
+        assertThat(
+                        callJSEngine(
+                                "function test() { return \"hello world\"; }",
+                                ImmutableList.of(),
+                                "test",
+                                mDefaultIsolateSettings,
+                                new RetryStrategyImpl(1, mExecutorService)))
+                .isEqualTo("\"hello world\"");
+    }
+
+    @Test
+    public void testCanHandleLargeTransactionsToWebView() throws Exception {
+        Assume.assumeTrue(sJSScriptEngine.isLargeTransactionsSupported().get(1, TimeUnit.SECONDS));
+        List<JSScriptNumericArgument<Integer>> tooBigForBinder =
+                Arrays.stream(new int[1024 * 1024])
+                        .boxed()
+                        .map(value -> numericArg("_", value))
+                        .collect(Collectors.toList());
+
+        String result =
+                callJSEngine(
+                        "function helloBigArray(array) {\n" + " return array.length;\n" + "}",
+                        ImmutableList.of(arrayArg("array", tooBigForBinder)),
+                        "helloBigArray",
+                        mDefaultIsolateSettings,
+                        mNoOpRetryStrategy);
+        assertThat(Integer.parseInt(result)).isEqualTo(1024 * 1024);
     }
 
     @Test
     public void testCanCloseAndThenWorkWithSameInstance() throws Exception {
+        when(sMockProfiler.start(JSScriptEngineLogConstants.SANDBOX_INIT_TIME))
+                .thenReturn(sSandboxInitWatch);
+        doNothing().when(sSandboxInitWatch).stop();
         assertThat(
                         callJSEngine(
                                 "function test() { return \"hello world\"; }",
@@ -414,9 +452,6 @@ public class JSScriptEngineTest {
                 .isEqualTo("\"hello world\"");
 
         sJSScriptEngine.shutdown().get(3, TimeUnit.SECONDS);
-
-        when(sMockProfiler.start(JSScriptEngineLogConstants.SANDBOX_INIT_TIME))
-                .thenReturn(sSandboxInitWatch);
 
         assertThat(
                         callJSEngine(
@@ -1202,7 +1237,7 @@ public class JSScriptEngineTest {
             @NonNull RetryStrategy retryStrategy) {
         Objects.requireNonNull(engine);
         Objects.requireNonNull(resultLatch);
-        sLogger.v("Calling WebVew");
+        sLogger.v("Calling JavaScriptSandbox");
         ListenableFuture<String> result =
                 engine.evaluate(jsScript, args, functionName, isolateSettings, retryStrategy);
         result.addListener(resultLatch::countDown, mExecutorService);
@@ -1220,7 +1255,7 @@ public class JSScriptEngineTest {
             @NonNull RetryStrategy retryStrategy) {
         Objects.requireNonNull(engine);
         Objects.requireNonNull(resultLatch);
-        sLogger.v("Calling WebVew");
+        sLogger.v("Calling JavaScriptSandbox");
         ListenableFuture<String> result =
                 engine.evaluate(
                         jsScript, wasmBytes, args, functionName, isolateSettings, retryStrategy);

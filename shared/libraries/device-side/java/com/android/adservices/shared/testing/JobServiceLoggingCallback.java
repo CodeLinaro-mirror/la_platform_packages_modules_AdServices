@@ -18,6 +18,11 @@ package com.android.adservices.shared.testing;
 
 import android.app.job.JobService;
 
+import com.android.adservices.shared.testing.concurrency.DeviceSideSyncCallback;
+import com.android.adservices.shared.testing.concurrency.SyncCallbackFactory;
+import com.android.adservices.shared.testing.concurrency.SyncCallbackSettings;
+
+// TODO(b/344610522): add unit test
 /**
  * A synchronized callback used for logging {@link JobService} on testing purpose.
  *
@@ -25,16 +30,23 @@ import android.app.job.JobService;
  * In order to make the test result deterministic, use this callback to help wait for the completion
  * of such logging methods.
  */
-public class JobServiceLoggingCallback extends SyncCallback<Boolean, Void> {
-    /**
-     * Injects a boolean {@code true} as Result. This is used for checking a stub method is called.
-     */
+public final class JobServiceLoggingCallback extends DeviceSideSyncCallback {
+
+    public JobServiceLoggingCallback() {
+        this(SyncCallbackFactory.newDefaultSettings());
+    }
+
+    public JobServiceLoggingCallback(SyncCallbackSettings settings) {
+        super(settings);
+    }
+
+    /** This is used for checking a stub method is called. */
     public void onLoggingMethodCalled() {
-        super.injectResult(true);
+        internalSetCalled("onLoggingMethodCalled()");
     }
 
     /** Assert the corresponding logging method has happened. */
     public void assertLoggingFinished() throws InterruptedException {
-        assertResultReceived();
+        assertCalled();
     }
 }

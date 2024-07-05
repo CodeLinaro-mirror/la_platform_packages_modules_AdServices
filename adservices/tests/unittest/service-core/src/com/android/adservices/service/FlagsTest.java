@@ -35,6 +35,12 @@ import static com.android.adservices.service.Flags.ENABLE_MIGRATION_FROM_ADEXT_S
 import static com.android.adservices.service.Flags.GLOBAL_KILL_SWITCH;
 import static com.android.adservices.service.Flags.MDD_LOGGER_KILL_SWITCH;
 import static com.android.adservices.service.Flags.MEASUREMENT_KILL_SWITCH;
+import static com.android.adservices.service.Flags.MEASUREMENT_MAX_REINSTALL_REATTRIBUTION_WINDOW_SECONDS;
+import static com.android.adservices.service.Flags.MEASUREMENT_REPORTING_JOB_PERSISTED;
+import static com.android.adservices.service.Flags.MEASUREMENT_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW;
+import static com.android.adservices.service.Flags.MEASUREMENT_REPORTING_JOB_REQUIRED_NETWORK_TYPE;
+import static com.android.adservices.service.Flags.MEASUREMENT_REPORTING_JOB_SERVICE_BATCH_WINDOW_MILLIS;
+import static com.android.adservices.service.Flags.MEASUREMENT_REPORTING_JOB_SERVICE_MIN_EXECUTION_WINDOW_MILLIS;
 import static com.android.adservices.service.Flags.MEASUREMENT_ROLLBACK_DELETION_R_ENABLED;
 import static com.android.adservices.service.Flags.PPAPI_AND_ADEXT_SERVICE;
 import static com.android.adservices.service.Flags.PPAPI_AND_SYSTEM_SERVER;
@@ -325,6 +331,27 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetMsmtRegistrationCobaltLoggingEnabled() {
+        testFeatureFlagGuardedByGlobalKillSwitch(
+                "MSMT_REGISTRATION_COBALT_LOGGING_ENABLED",
+                Flags::getMsmtRegistrationCobaltLoggingEnabled);
+    }
+
+    @Test
+    public void testGetMsmtAttributionCobaltLoggingEnabled() {
+        testFeatureFlagGuardedByGlobalKillSwitch(
+                "MSMT_ATTRIBUTION_COBALT_LOGGING_ENABLED",
+                Flags::getMsmtAttributionCobaltLoggingEnabled);
+    }
+
+    @Test
+    public void testGetMsmtReportigCobaltLoggingEnabled() {
+        testFeatureFlagGuardedByGlobalKillSwitch(
+                "MSMT_REPORTING_COBALT_LOGGING_ENABLED",
+                Flags::getMsmtReportingCobaltLoggingEnabled);
+    }
+
+    @Test
     public void testGetMeasurementEnableHeaderErrorDebugReport() {
         testFeatureFlagGuardedByGlobalKillSwitch(
                 "MEASUREMENT_ENABLE_HEADER_ERROR_DEBUG_REPORT",
@@ -378,6 +405,13 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetFledgeJsScriptResultCodeMetricsEnabled() {
+        testFeatureFlag(
+                "FLEDGE_JS_SCRIPT_RESULT_CODE_METRICS_ENABLED",
+                Flags::getFledgeJsScriptResultCodeMetricsEnabled);
+    }
+
+    @Test
     public void testGetSpeOnPilotJobsEnabled() {
         testFeatureFlag("DEFAULT_SPE_ON_PILOT_JOBS_ENABLED", Flags::getSpeOnPilotJobsEnabled);
     }
@@ -416,6 +450,13 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetMeasurementEnableReinstallReattribution() {
+        testFeatureFlag(
+                "MEASUREMENT_ENABLE_REINSTALL_REATTRIBUTION",
+                Flags::getMeasurementEnableReinstallReattribution);
+    }
+
+    @Test
     public void testGetCustomErrorCodeSamplingEnabled() {
         testFeatureFlag(
                 "DEFAULT_CUSTOM_ERROR_CODE_SAMPLING_ENABLED",
@@ -445,6 +486,24 @@ public final class FlagsTest extends AdServicesUnitTestCase {
         testFeatureFlag(
                 "DEFAULT_SPE_ON_ASYNC_REGISTRATION_FALLBACK_JOB_ENABLED",
                 Flags::getSpeOnAsyncRegistrationFallbackJobEnabled);
+    }
+
+    @Test
+    public void testGetMeasurementReportingJobServiceEnabled() {
+        testFeatureFlag(
+                "MEASUREMENT_REPORTING_JOB_ENABLED",
+                Flags::getMeasurementReportingJobServiceEnabled);
+    }
+
+    @Test
+    public void testGetMddEnrollmentManifestFileUrl() {
+        testFlag("getMddEnrollmentManifestFileUrl()", "", Flags::getMddEnrollmentManifestFileUrl);
+    }
+
+    @Test
+    public void testGetEnrollmentProtoFileEnabled() {
+        testFeatureFlag(
+                "DEFAULT_ENROLLMENT_PROTO_FILE_ENABLED", Flags::getEnrollmentProtoFileEnabled);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -603,6 +662,54 @@ public final class FlagsTest extends AdServicesUnitTestCase {
                 Flags::getAdServicesConsentBusinessLogicMigrationEnabled);
     }
 
+    @Test
+    public void testGetMeasurementMaxReinstallReattributionWindowSeconds() {
+        testFlag(
+                "getMeasurementMaxReinstallReattributionWindowSeconds",
+                MEASUREMENT_MAX_REINSTALL_REATTRIBUTION_WINDOW_SECONDS,
+                Flags::getMeasurementMaxReinstallReattributionWindowSeconds);
+    }
+
+    @Test
+    public void testGetMeasurementReportingJobRequiredBatteryNotLow() {
+        testFlag(
+                "getMeasurementReportingJobRequiredBatteryNotLow",
+                MEASUREMENT_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW,
+                Flags::getMeasurementReportingJobRequiredBatteryNotLow);
+    }
+
+    @Test
+    public void testGetMeasurementReportingJobRequiredNetworkType() {
+        testFlag(
+                "getMeasurementReportingJobRequiredNetworkType",
+                MEASUREMENT_REPORTING_JOB_REQUIRED_NETWORK_TYPE,
+                Flags::getMeasurementReportingJobRequiredNetworkType);
+    }
+
+    @Test
+    public void testGetMeasurementReportingJobPersisted() {
+        testFlag(
+                "getMeasurementReportingJobPersisted",
+                MEASUREMENT_REPORTING_JOB_PERSISTED,
+                Flags::getMeasurementReportingJobPersisted);
+    }
+
+    @Test
+    public void testGetMeasurementReportingJobServiceBatchWindowMillis() {
+        testFlag(
+                "getMeasurementReportingJobServiceBatchWindowMillis",
+                MEASUREMENT_REPORTING_JOB_SERVICE_BATCH_WINDOW_MILLIS,
+                Flags::getMeasurementReportingJobServiceBatchWindowMillis);
+    }
+
+    @Test
+    public void testGetMeasurementReportingJobServiceMinExecutionWindowMillis() {
+        testFlag(
+                "getMeasurementReportingJobServiceMinExecutionWindowMillis",
+                MEASUREMENT_REPORTING_JOB_SERVICE_MIN_EXECUTION_WINDOW_MILLIS,
+                Flags::getMeasurementReportingJobServiceMinExecutionWindowMillis);
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////
     // Internal helpers - do not add new tests following this point.                              //
     ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -679,8 +786,15 @@ public final class FlagsTest extends AdServicesUnitTestCase {
                 .isEqualTo(defaultValue);
     }
 
+    private void testFlag(
+            String getterName, String defaultValue, Flaginator<Flags, String> flaginator) {
+        expect.withMessage("%s", getterName)
+                .that(flaginator.getFlagValue(mFlags))
+                .isEqualTo(defaultValue);
+    }
+
     /**
-     * @deprecated TODO(b/324077542) - remove once all kill-switches have been converted
+     * @deprecated TODO(b / 324077542) - remove once all kill-switches have been converted
      */
     @Deprecated
     private void testKillSwitchBeingConvertedAndGuardedByGlobalKillSwitch(

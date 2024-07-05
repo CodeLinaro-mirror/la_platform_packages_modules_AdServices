@@ -437,8 +437,8 @@ public interface Flags extends ModuleSharedFlags {
 
     /** Measurement manifest file url, used for MDD download. */
     String MEASUREMENT_MANIFEST_FILE_URL =
-            "https://www.gstatic.com/mdi-serving/rubidium-adservices-adtech-enrollment/2867"
-                    + "/799a2e308daf8ccaa2fe9c9ef71b115a7f4a41c8";
+            "https://www.gstatic.com/mdi-serving/rubidium-adservices-adtech-enrollment/4503"
+                    + "/fecd522d3dcfbe1b3b1f1054947be8528be43e97";
 
     /** Measurement manifest file url. */
     default String getMeasurementManifestFileUrl() {
@@ -701,7 +701,8 @@ public interface Flags extends ModuleSharedFlags {
      * Returns the maximum number of reporting origins per source site, reporting site,
      * reporting-origin-update-window counted per source registration.
      */
-    default int getMeasurementMaxReportingOriginsPerSourceReportingSitePerWindow() {
+    default int
+        getMeasurementMaxReportingOriginsPerSourceReportingSitePerWindow() {
         return MEASUREMENT_MAX_REPORTING_ORIGINS_PER_SOURCE_REPORTING_SITE_PER_WINDOW;
     }
 
@@ -747,13 +748,6 @@ public interface Flags extends ModuleSharedFlags {
     /** Returns the duration that controls the rate-limiting window for destinations. */
     default long getMeasurementDestinationRateLimitWindow() {
         return MEASUREMENT_DESTINATION_RATE_LIMIT_WINDOW;
-    }
-
-    boolean MEASUREMENT_FLEX_LITE_API_ENABLED = true;
-
-    /** Returns true if flex lite api is enabled else false. */
-    default boolean getMeasurementFlexLiteApiEnabled() {
-        return MEASUREMENT_FLEX_LITE_API_ENABLED;
     }
 
     float MEASUREMENT_FLEX_API_MAX_INFORMATION_GAIN_EVENT = 6.5F;
@@ -1592,7 +1586,7 @@ public interface Flags extends ModuleSharedFlags {
     }
 
     String FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_URI =
-            "https://publickeyservice-v150.coordinator-a.bas-gcp.pstest.dev/.well-known/protected-auction/v1/public-keys";
+            "https://publickeyservice.pa.gcp.privacysandboxservices.com/.well-known/protected-auction/v1/public-keys";
 
     /** Returns Uri to fetch auction encryption key for fledge ad selection. */
     default String getFledgeAuctionServerAuctionKeyFetchUri() {
@@ -1847,6 +1841,20 @@ public interface Flags extends ModuleSharedFlags {
     /** Returns whether the fledge GetAdSelectionData payload metrics are enabled. */
     default boolean getFledgeAuctionServerGetAdSelectionDataPayloadMetricsEnabled() {
         return FLEDGE_AUCTION_SERVER_GET_AD_SELECTION_DATA_PAYLOAD_METRICS_ENABLED;
+    }
+
+    @FeatureFlag boolean FLEDGE_GET_AD_SELECTION_DATA_SELLER_CONFIGURATION_ENABLED = false;
+
+    /** Returns whether the seller configuration feature for getAdSelectionData is enabled. */
+    default boolean getFledgeGetAdSelectionDataSellerConfigurationEnabled() {
+        return FLEDGE_GET_AD_SELECTION_DATA_SELLER_CONFIGURATION_ENABLED;
+    }
+
+    @FeatureFlag int FLEDGE_GET_AD_SELECTION_DATA_BUYER_INPUT_CREATOR_VERSION = 0;
+
+    /** Returns the getAdSelectionData data buyer input creator version */
+    default int getFledgeGetAdSelectionDataBuyerInputCreatorVersion() {
+        return FLEDGE_GET_AD_SELECTION_DATA_BUYER_INPUT_CREATOR_VERSION;
     }
 
     // Protected signals cleanup feature flag disabled by default
@@ -2720,7 +2728,7 @@ public interface Flags extends ModuleSharedFlags {
 
     /** Manifest URL for encryption keys file group registered with MDD. */
     String MDD_ENCRYPTION_KEYS_MANIFEST_FILE_URL =
-            "https://www.gstatic.com/mdi-serving/rubidium-adservices-encryption-keys/3210/0c19c2a06422c21070192580a136d433ba3ae7f8";
+            "https://www.gstatic.com/mdi-serving/rubidium-adservices-encryption-keys/4543/e9d118728752e6a6bfb5d7d8d1520807591f0717";
 
     /** Returns manifest URL for encryption keys file group registered with MDD. */
     default String getMddEncryptionKeysManifestFileUrl() {
@@ -3671,6 +3679,14 @@ public interface Flags extends ModuleSharedFlags {
         return FLEDGE_REPORT_IMPRESSION_API_METRICS_ENABLED;
     }
 
+    // Fledge JS script result code metrics flag.
+    @FeatureFlag boolean FLEDGE_JS_SCRIPT_RESULT_CODE_METRICS_ENABLED = false;
+
+    /** Returns whether the FLEDGE JS script result code metrics feature is enabled. */
+    default boolean getFledgeJsScriptResultCodeMetricsEnabled() {
+        return FLEDGE_JS_SCRIPT_RESULT_CODE_METRICS_ENABLED;
+    }
+
     /**
      * Default allowlist of the enrollments for whom debug key insertion based on join key matching
      * is allowed.
@@ -3722,9 +3738,12 @@ public interface Flags extends ModuleSharedFlags {
             "341300000,341400000,202401|341400000,341500000,202402"
                     + "|341500000,341600000,202403|341600000,341700000,202404"
                     + "|341700000,341800000,202405|341800000,341900000,202406"
-                    + "|341900000,342000000,202407|342000000,342100000,202408"
-                    + "|342100000,342200000,202409|342200000,342300000,202410"
-                    + "|342300000,342400000,202411|342400000,342500000,202412";
+                    + "|341900000,342000000,202407|350800000,350900000,202408"
+                    + "|350900000,351000000,202409|351000000,351100000,202410"
+                    + "|351100000,351200000,202411|351200000,351300000,202412"
+                    + "|351300000,351400000,202501|351400000,351500000,202502"
+                    + "|351500000,351600000,202503|351600000,351700000,202504"
+                    + "|351700000,351800000,202505|351800000,351900000,202506";
 
     /** Get adservices version mappings */
     default String getAdservicesVersionMappings() {
@@ -3748,7 +3767,7 @@ public interface Flags extends ModuleSharedFlags {
     }
 
     /** Default maximum sources per publisher */
-    int MEASUREMENT_MAX_SOURCES_PER_PUBLISHER = 1024;
+    int MEASUREMENT_MAX_SOURCES_PER_PUBLISHER = 4096;
 
     /** Returns maximum sources per publisher */
     default int getMeasurementMaxSourcesPerPublisher() {
@@ -3912,14 +3931,6 @@ public interface Flags extends ModuleSharedFlags {
     /** Returns whether Measurement source deactivation after filtering feature is enabled. */
     default boolean getMeasurementEnableSourceDeactivationAfterFiltering() {
         return MEASUREMENT_ENABLE_SOURCE_DEACTIVATION_AFTER_FILTERING;
-    }
-
-    /** Default Measurement scoped attribution rate limit feature flag. */
-    boolean MEASUREMENT_ENABLE_SCOPED_ATTRIBUTION_RATE_LIMIT = true;
-
-    /** Returns whether Measurement scoped attribution rate limit feature is enabled. */
-    default boolean getMeasurementEnableScopedAttributionRateLimit() {
-        return MEASUREMENT_ENABLE_SCOPED_ATTRIBUTION_RATE_LIMIT;
     }
 
     /** Default Measurement app package name logging flag. */
@@ -4253,6 +4264,67 @@ public interface Flags extends ModuleSharedFlags {
         return MEASUREMENT_IMMEDIATE_AGGREGATE_REPORTING_JOB_PERSISTED;
     }
 
+    /** Default value for Reporting Job feature flag */
+    @FeatureFlag boolean MEASUREMENT_REPORTING_JOB_ENABLED = false;
+
+    /** Feature flag for Reporting Job */
+    default boolean getMeasurementReportingJobServiceEnabled() {
+        // The Measurement API should be enabled as a prerequisite.
+        return getMeasurementEnabled() && MEASUREMENT_REPORTING_JOB_ENABLED;
+    }
+
+    @ConfigFlag boolean MEASUREMENT_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW = true;
+
+    /** Returns whether to require battery not low for reporting job. */
+    default boolean getMeasurementReportingJobRequiredBatteryNotLow() {
+        return MEASUREMENT_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW;
+    }
+
+    @ConfigFlag int MEASUREMENT_REPORTING_JOB_REQUIRED_NETWORK_TYPE = JobInfo.NETWORK_TYPE_ANY;
+
+    /** Returns the required network type for reporting job. */
+    default int getMeasurementReportingJobRequiredNetworkType() {
+        return MEASUREMENT_REPORTING_JOB_REQUIRED_NETWORK_TYPE;
+    }
+
+    @ConfigFlag boolean MEASUREMENT_REPORTING_JOB_PERSISTED = true;
+
+    /** Returns whether to persist this job across device reboots for reporting job. */
+    default boolean getMeasurementReportingJobPersisted() {
+        return MEASUREMENT_REPORTING_JOB_PERSISTED;
+    }
+
+    /**
+     * Default value for delaying reporting job service so that reports can be batched. Values are
+     * in milliseconds.
+     */
+    @ConfigFlag
+    long MEASUREMENT_REPORTING_JOB_SERVICE_BATCH_WINDOW_MILLIS = TimeUnit.MINUTES.toMillis(30);
+
+    /**
+     * Returns ms to defer transmission of reports in {@link
+     * com.android.adservices.service.measurement.reporting.ReportingJobService}
+     */
+    default long getMeasurementReportingJobServiceBatchWindowMillis() {
+        return MEASUREMENT_REPORTING_JOB_SERVICE_BATCH_WINDOW_MILLIS;
+    }
+
+    /**
+     * Default value for minimum amount of time to wait between executions of reporting job service.
+     * This is to throttle the service. Values are in milliseconds.
+     */
+    @ConfigFlag
+    long MEASUREMENT_REPORTING_JOB_SERVICE_MIN_EXECUTION_WINDOW_MILLIS =
+            TimeUnit.MINUTES.toMillis(30);
+
+    /**
+     * Returns minimum ms to wait between invocations of {@link
+     * com.android.adservices.service.measurement.reporting.ReportingJobService}
+     */
+    default long getMeasurementReportingJobServiceMinExecutionWindowMillis() {
+        return MEASUREMENT_REPORTING_JOB_SERVICE_MIN_EXECUTION_WINDOW_MILLIS;
+    }
+
     /** Default value for Null Aggregate Report feature flag. */
     boolean MEASUREMENT_NULL_AGGREGATE_REPORT_ENABLED = false;
 
@@ -4261,7 +4333,7 @@ public interface Flags extends ModuleSharedFlags {
         return MEASUREMENT_NULL_AGGREGATE_REPORT_ENABLED;
     }
 
-    /** Default value for null report rate including source registration time. */
+    /** Default value for null aggregate report rate including source registration time. */
     float MEASUREMENT_NULL_AGG_REPORT_RATE_INCL_SOURCE_REGISTRATION_TIME = .008f;
 
     /**
@@ -4448,7 +4520,7 @@ public interface Flags extends ModuleSharedFlags {
 
     /** Returns true when attribution scope is enabled. */
     default boolean getMeasurementEnableAttributionScope() {
-        return getMeasurementFlexLiteApiEnabled() && MEASUREMENT_ENABLE_ATTRIBUTION_SCOPE;
+        return MEASUREMENT_ENABLE_ATTRIBUTION_SCOPE;
     }
 
     boolean MEASUREMENT_ENABLE_NAVIGATION_REPORTING_ORIGIN_CHECK = false;
@@ -4529,7 +4601,7 @@ public interface Flags extends ModuleSharedFlags {
      * Default value of whether cobalt logging feature is enabled for source and trigger
      * registrations in measurement service.
      */
-    boolean MSMT_REGISTRATION_COBALT_LOGGING_ENABLED = false;
+    @FeatureFlag boolean MSMT_REGISTRATION_COBALT_LOGGING_ENABLED = false;
 
     /**
      * Returns whether the cobalt logging feature is enabled for source and trigger registration in
@@ -4541,6 +4613,40 @@ public interface Flags extends ModuleSharedFlags {
      */
     default boolean getMsmtRegistrationCobaltLoggingEnabled() {
         return getCobaltLoggingEnabled() && MSMT_REGISTRATION_COBALT_LOGGING_ENABLED;
+    }
+
+    /**
+     * Default value of whether cobalt logging feature is enabled for attribution metrics in
+     * measurement service.
+     */
+    @FeatureFlag boolean MSMT_ATTRIBUTION_COBALT_LOGGING_ENABLED = false;
+
+    /**
+     * Returns whether the cobalt logging feature is enabled for attribution metrics in measurement
+     * service .
+     *
+     * <p>The cobalt logging for measurement registration will be disabled either the {@code
+     * getCobaltLoggingEnabled} or {@code MSMT_ATTRIBUTION_COBALT_LOGGING_ENABLED} is {@code false}.
+     */
+    default boolean getMsmtAttributionCobaltLoggingEnabled() {
+        return getCobaltLoggingEnabled() && MSMT_ATTRIBUTION_COBALT_LOGGING_ENABLED;
+    }
+
+    /**
+     * Default value of whether cobalt logging feature is enabled for reporting metrics in
+     * measurement service.
+     */
+    @FeatureFlag boolean MSMT_REPORTING_COBALT_LOGGING_ENABLED = false;
+
+    /**
+     * Returns whether the cobalt logging feature is enabled for reporting metrics in measurement
+     * service .
+     *
+     * <p>The cobalt logging for measurement registration will be disabled either the {@code
+     * getCobaltLoggingEnabled} or {@code MSMT_REPORTING_COBALT_LOGGING_ENABLED} is {@code false}.
+     */
+    default boolean getMsmtReportingCobaltLoggingEnabled() {
+        return getCobaltLoggingEnabled() && MSMT_REPORTING_COBALT_LOGGING_ENABLED;
     }
 
     /** Default value of whether app name and api error cobalt logging feature is enabled. */
@@ -4634,6 +4740,21 @@ public interface Flags extends ModuleSharedFlags {
 
     default boolean getMeasurementEnableRedirectToWellKnownPath() {
         return MEASUREMENT_ENABLE_REDIRECT_TO_WELL_KNOWN_PATH;
+    }
+
+    @ConfigFlag
+    long MEASUREMENT_MAX_REINSTALL_REATTRIBUTION_WINDOW_SECONDS = TimeUnit.DAYS.toSeconds(90);
+
+    /** Maximum limit of duration to determine reattribution for a verified installation. */
+    default long getMeasurementMaxReinstallReattributionWindowSeconds() {
+        return MEASUREMENT_MAX_REINSTALL_REATTRIBUTION_WINDOW_SECONDS;
+    }
+
+    @FeatureFlag boolean MEASUREMENT_ENABLE_REINSTALL_REATTRIBUTION = false;
+
+    /** Returns whether to enable reinstall reattribution. */
+    default boolean getMeasurementEnableReinstallReattribution() {
+        return MEASUREMENT_ENABLE_REINSTALL_REATTRIBUTION;
     }
 
     /** Flag to enable context id for triggers */
@@ -5441,6 +5562,26 @@ public interface Flags extends ModuleSharedFlags {
     /** Returns the default value of the enablement of adservices business logic migration. */
     default boolean getAdServicesConsentBusinessLogicMigrationEnabled() {
         return DEFAULT_ADSERVICES_CONSENT_BUSINESS_LOGIC_MIGRATION_ENABLED;
+    }
+
+    /** Enrollment Manifest File URL, used to provide proto file for MDD download. */
+    String MDD_DEFAULT_ENROLLMENT_MANIFEST_FILE_URL = "";
+
+    /**
+     * @return default Enrollment Manifest File URL
+     */
+    default String getMddEnrollmentManifestFileUrl() {
+        return MDD_DEFAULT_ENROLLMENT_MANIFEST_FILE_URL;
+    }
+
+    /** Feature flag to ramp up use of enrollment proto file. */
+    @FeatureFlag boolean DEFAULT_ENROLLMENT_PROTO_FILE_ENABLED = false;
+
+    /**
+     * @return whether to enable use of enrollment proto file.
+     */
+    default boolean getEnrollmentProtoFileEnabled() {
+        return DEFAULT_ENROLLMENT_PROTO_FILE_ENABLED;
     }
 
     /** Dump some debug info for the flags */

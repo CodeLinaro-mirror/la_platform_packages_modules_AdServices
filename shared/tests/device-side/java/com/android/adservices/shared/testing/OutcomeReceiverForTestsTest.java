@@ -16,14 +16,15 @@
 
 package com.android.adservices.shared.testing;
 
-import static com.android.adservices.shared.testing.ConcurrencyHelper.runAsync;
-import static com.android.adservices.shared.testing.ConcurrencyHelper.runOnMainThread;
-import static com.android.adservices.shared.testing.SyncCallback.MSG_WRONG_ERROR_RECEIVED;
+import static com.android.adservices.shared.testing.concurrency.FailableResultSyncCallback.MSG_WRONG_ERROR_RECEIVED;
 
 import static org.junit.Assert.assertThrows;
 
-import com.android.adservices.shared.SharedUnitTestCase;
 import com.android.adservices.shared.testing.annotations.RequiresSdkLevelAtLeastS;
+import com.android.adservices.shared.testing.concurrency.FailableResultSyncCallbackTestCase;
+import com.android.adservices.shared.testing.concurrency.SyncCallback;
+import com.android.adservices.shared.testing.concurrency.SyncCallbackFactory;
+import com.android.adservices.shared.testing.concurrency.SyncCallbackSettings;
 import com.android.adservices.shared.testing.junit.SafeAndroidJUnitRunner;
 
 import org.junit.Test;
@@ -33,7 +34,9 @@ import java.util.NoSuchElementException;
 
 @RequiresSdkLevelAtLeastS(reason = "android.os.OutcomeReceiver was introduced on S")
 @RunWith(SafeAndroidJUnitRunner.class)
-public final class OutcomeReceiverForTestsTest extends SharedUnitTestCase {
+public final class OutcomeReceiverForTestsTest
+        extends FailableResultSyncCallbackTestCase<
+                String, Exception, OutcomeReceiverForTests<String>> {
 
     private static final String RESULT = "Saul Goodman!";
 
@@ -41,9 +44,30 @@ public final class OutcomeReceiverForTestsTest extends SharedUnitTestCase {
 
     private final Exception mError = new UnsupportedOperationException("D'OH!");
 
+    @Override
+    protected SyncCallback newRawCallback(SyncCallbackSettings settings) {
+        return new OutcomeReceiverForTests<>(settings);
+    }
+
+    @Override
+    protected String newResult() {
+        return "Ouchcome#" + getNextUniqueId();
+    }
+
+    @Override
+    protected Exception newFailure() {
+        return new UnsupportedOperationException(getNextUniqueId() + ": D'OH");
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    protected Class<?> getClassOfDifferentFailure() {
+        return ArithmeticException.class;
+    }
+
     @Test
     public void testOnResult() throws Exception {
-        OutcomeReceiverForTests<String> receiver = new OutcomeReceiverForTests<>(TIMEOUT_MS * 3);
+        OutcomeReceiverForTests<String> receiver = newReceiver(TIMEOUT_MS * 3);
 
         runAsync(TIMEOUT_MS, () -> receiver.onResult(RESULT));
 
@@ -51,94 +75,43 @@ public final class OutcomeReceiverForTestsTest extends SharedUnitTestCase {
     }
 
     @Test
-    public void testDefaultConstructor() {
-        OutcomeReceiverForTests<String> receiver = new OutcomeReceiverForTests<>();
-
-        expect.withMessage("getTimeout()").that(receiver.getTimeoutMs()).isGreaterThan(0);
-        expect.withMessage("isFailIfCalledOnMainThread()")
-                .that(receiver.isFailIfCalledOnMainThread())
-                .isTrue();
-    }
-
-    @Test
-    public void testGetTimeout() {
-        OutcomeReceiverForTests<String> receiver = new OutcomeReceiverForTests<>(42);
-
-        expect.withMessage("getTimeout()").that(receiver.getTimeoutMs()).isEqualTo(42);
-    }
-
-    @Test
-    public void testOnResult_calledTwice() {
-        OutcomeReceiverForTests<String> receiver = new OutcomeReceiverForTests<>();
+    public void testOnResult_calledTwice() throws Exception {
+        OutcomeReceiverForTests<String> receiver = mCallback;
         receiver.onResult(RESULT);
-        String anotherError = "You Shall Not Pass!";
-        receiver.onResult(anotherError);
+        String anotherResult = "You Shall Not Pass!";
+        receiver.onResult(anotherResult);
 
-        IllegalStateException exception =
-                assertThrows(IllegalStateException.class, () -> receiver.assertCalled());
+        receiver.assertCalled();
 
-        expect.withMessage("exception")
-                .that(exception)
-                .hasMessageThat()
-                .contains(
-                        "injectResult("
-                                + anotherError
-                                + ") called after injectResult("
-                                + RESULT
-                                + ")");
+        String when = "after 2 onResult() calls";
+        assertGetResultMethods(receiver, when, RESULT, anotherResult);
+        assertGetFailureMethodsWhenNoFailure(receiver, when);
     }
 
     @Test
-    public void testOnResult_afterOnError() {
-        OutcomeReceiverForTests<String> receiver = new OutcomeReceiverForTests<>();
+    public void testOnResult_afterOnError() throws Exception {
+        OutcomeReceiverForTests<String> receiver = mCallback;
         receiver.onError(mError);
         receiver.onResult(RESULT);
 
-        IllegalStateException exception =
-                assertThrows(IllegalStateException.class, () -> receiver.assertCalled());
+        receiver.assertCalled();
 
-        expect.withMessage("exception")
-                .that(exception)
-                .hasMessageThat()
-                .contains("injectResult(" + RESULT + ") called after injectError(" + mError + ")");
+        String when = "after onError() and onResult()";
+        assertGetResultMethodsWhenInjectFailureWasCalledFirst(receiver, when, RESULT);
+        assertGetFailureMethods(receiver, when, mError);
     }
 
     @Test
-    public void testOnResult_calledOnMainThread_fails() throws Exception {
-        OutcomeReceiverForTests<String> receiver =
-                new OutcomeReceiverForTests<>(TIMEOUT_MS, /* failIfCalledOnMainThread= */ true);
-
-        runOnMainThread(() -> receiver.onResult(RESULT));
-        IllegalStateException exception =
-                assertThrows(IllegalStateException.class, () -> receiver.assertCalled());
-
-        expect.withMessage("exception")
-                .that(exception)
-                .hasMessageThat()
-                .contains("injectResult(" + RESULT + ") called on main thread");
-    }
-
-    @Test
-    public void testOnResult_calledOnMainThread_pass() throws Exception {
-        OutcomeReceiverForTests<String> receiver =
-                new OutcomeReceiverForTests<>(TIMEOUT_MS, /* failIfCalledOnMainThread= */ false);
-
-        runOnMainThread(() -> receiver.onResult(RESULT));
-
-        assertSuccess(receiver, RESULT);
-    }
-
-    @Test
-    public void testaAssertFailure_nullArg() {
-        OutcomeReceiverForTests<String> receiver = new OutcomeReceiverForTests<>();
+    public void testAssertFailure_nullArg() {
+        OutcomeReceiverForTests<String> receiver = mCallback;
         receiver.onError(mError);
 
-        assertThrows(IllegalArgumentException.class, () -> receiver.assertFailure(null));
+        assertThrows(NullPointerException.class, () -> receiver.assertFailure(null));
     }
 
     @Test
     public void testOnError() throws Exception {
-        OutcomeReceiverForTests<String> receiver = new OutcomeReceiverForTests<>(TIMEOUT_MS * 3);
+        OutcomeReceiverForTests<String> receiver = newReceiver(TIMEOUT_MS * 3);
 
         runAsync(TIMEOUT_MS, () -> receiver.onError(mError));
 
@@ -147,7 +120,7 @@ public final class OutcomeReceiverForTestsTest extends SharedUnitTestCase {
 
     @Test
     public void testOnError_wrongExceptionClass() throws Exception {
-        OutcomeReceiverForTests<String> receiver = new OutcomeReceiverForTests<>(TIMEOUT_MS * 3);
+        OutcomeReceiverForTests<String> receiver = newReceiver(TIMEOUT_MS * 3);
 
         runAsync(TIMEOUT_MS, () -> receiver.onError(mError));
 
@@ -164,82 +137,43 @@ public final class OutcomeReceiverForTestsTest extends SharedUnitTestCase {
     }
 
     @Test
-    public void testOnError_calledTwice() {
-        OutcomeReceiverForTests<String> receiver = new OutcomeReceiverForTests<>();
+    public void testOnError_calledTwice() throws Exception {
+        OutcomeReceiverForTests<String> receiver = mCallback;
         receiver.onError(mError);
         Exception anotherError = new UnsupportedOperationException("Again?");
         receiver.onError(anotherError);
 
-        IllegalStateException exception =
-                assertThrows(IllegalStateException.class, () -> receiver.assertCalled());
+        receiver.assertCalled();
 
-        expect.withMessage("exception")
-                .that(exception)
-                .hasMessageThat()
-                .contains(
-                        "injectError("
-                                + anotherError
-                                + ") called after injectError("
-                                + mError
-                                + ")");
+        String when = "after 2 onError() calls";
+        assertGetResultMethodsWhenNoResult(receiver, when);
+        assertGetFailureMethods(receiver, when, mError, anotherError);
     }
 
     @Test
-    public void testOnError_afterOnResult() {
-        OutcomeReceiverForTests<String> receiver = new OutcomeReceiverForTests<>();
+    public void testOnError_afterOnResult() throws Exception {
+        OutcomeReceiverForTests<String> receiver = mCallback;
         receiver.onResult(RESULT);
         receiver.onError(mError);
 
-        IllegalStateException exception =
-                assertThrows(IllegalStateException.class, () -> receiver.assertCalled());
+        receiver.assertCalled();
 
-        expect.withMessage("exception")
-                .that(exception)
-                .hasMessageThat()
-                .contains("injectError(" + mError + ") called after injectResult(" + RESULT + ")");
+        String when = "after onResult() and onError() calls";
+        assertGetResultMethods(receiver, when, RESULT);
+        assertGetFailureMethodsWhenInjectedResultWasCalledFirst(receiver, when, mError);
     }
 
-    @Test
-    public void testOnError_calledOnMainThread_fails() throws Exception {
-        OutcomeReceiverForTests<String> receiver =
-                new OutcomeReceiverForTests<>(TIMEOUT_MS, /* failIfCalledOnMainThread= */ true);
-
-        runOnMainThread(() -> receiver.onError(mError));
-        IllegalStateException exception =
-                assertThrows(IllegalStateException.class, () -> receiver.assertCalled());
-
-        expect.withMessage("exception")
-                .that(exception)
-                .hasMessageThat()
-                .contains("injectError(" + mError + ") called on main thread");
+    private static OutcomeReceiverForTests<String> newReceiver(long timeoutMs) {
+        return newReceiver(timeoutMs, /* failIfCalledOnMainThread= */ true);
     }
 
-    @Test
-    public void testOnError_calledOnMainThread_pass() throws Exception {
-        OutcomeReceiverForTests<String> receiver =
-                new OutcomeReceiverForTests<>(TIMEOUT_MS, /* failIfCalledOnMainThread= */ false);
-
-        runOnMainThread(() -> receiver.onError(mError));
-
-        assertFailure(receiver, mError);
-    }
-
-    @Test
-    public void testToString_beforeOutcome() {
-        OutcomeReceiverForTests<String> receiver =
-                new OutcomeReceiverForTests<>(TIMEOUT_MS, /* failIfCalledOnMainThread= */ false);
-
-        String string = receiver.toString();
-
-        expect.withMessage("toString()").that(string).startsWith("OutcomeReceiverForTests");
-        expect.withMessage("toString()")
-                .that(string)
-                .containsMatch(".*timeoutMs=" + TIMEOUT_MS + ".*");
-        expect.withMessage("toString()")
-                .that(string)
-                .containsMatch(".*failIfCalledOnMainThread=false.*");
-        expect.withMessage("toString()").that(string).containsMatch(".*result=null.*");
-        expect.withMessage("toString()").that(string).containsMatch(".*error=null.*");
+    private static OutcomeReceiverForTests<String> newReceiver(
+            long timeoutMs, boolean failIfCalledOnMainThread) {
+        return new OutcomeReceiverForTests<>(
+                SyncCallbackFactory.newSettingsBuilder()
+                        .setMaxTimeoutMs(timeoutMs)
+                        .setFailIfCalledOnMainThread(failIfCalledOnMainThread)
+                        .build());
     }
 
     private void assertSuccess(OutcomeReceiverForTests<String> receiver, String expectedResult)
@@ -250,7 +184,6 @@ public final class OutcomeReceiverForTestsTest extends SharedUnitTestCase {
         expect.withMessage("getError()").that(receiver.getError()).isNull();
         String toString = receiver.toString();
         expect.withMessage("toString()").that(toString).contains("result=" + expectedResult);
-        expect.withMessage("toString()").that(toString).contains("error=null");
     }
 
     private void assertFailure(OutcomeReceiverForTests<String> receiver, Exception expectedError)
@@ -260,7 +193,6 @@ public final class OutcomeReceiverForTestsTest extends SharedUnitTestCase {
         expect.withMessage("getError()").that(receiver.getError()).isSameInstanceAs(expectedError);
         expect.withMessage("getResult()").that(receiver.getResult()).isNull();
         String toString = receiver.toString();
-        expect.withMessage("toString()").that(toString).contains("result=null");
-        expect.withMessage("toString()").that(toString).contains("error=" + expectedError);
+        expect.withMessage("toString()").that(toString).contains("result=" + expectedError);
     }
 }

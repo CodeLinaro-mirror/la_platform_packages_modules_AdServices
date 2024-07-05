@@ -22,7 +22,7 @@ import android.os.Binder;
 import android.os.Process;
 import android.util.Log;
 
-import com.android.adservices.shared.testing.LogEntry.Level;
+import com.android.adservices.shared.testing.Logger.LogLevel;
 import com.android.modules.utils.build.SdkLevel;
 
 // TODO(b/324919960): add unit test
@@ -94,11 +94,19 @@ public final class AndroidExtendedMockitoMocker extends AbstractStaticMocker
     }
 
     @Override
+    public LogInterceptor interceptLogD(String tag) {
+        logV("interceptLogD(%s)", tag);
+        assertSpiedOrMocked(Log.class);
+
+        return LogInterceptor.forTagAndLevels(tag, LogLevel.DEBUG);
+    }
+
+    @Override
     public LogInterceptor interceptLogV(String tag) {
         logV("interceptLogV(%s)", tag);
         assertSpiedOrMocked(Log.class);
 
-        return LogInterceptor.forTagAndLevels(tag, Level.VERBOSE);
+        return LogInterceptor.forTagAndLevels(tag, LogLevel.VERBOSE);
     }
 
     @Override
@@ -106,7 +114,7 @@ public final class AndroidExtendedMockitoMocker extends AbstractStaticMocker
         logV("interceptLogE(%s)", tag);
         assertSpiedOrMocked(Log.class);
 
-        return LogInterceptor.forTagAndLevels(tag, Level.ERROR);
+        return LogInterceptor.forTagAndLevels(tag, LogLevel.ERROR);
     }
 
     // mock only, don't log
