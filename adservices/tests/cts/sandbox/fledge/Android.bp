@@ -40,8 +40,7 @@ android_test {
     data: [
         ":SdkFledge",
     ],
-    // TODO(b/247834676) uncomment to bring in line with upstream
-    // min_sdk_version: "33",
+    min_sdk_version: "33",
     target_sdk_version: "33",
     test_suites: [
         "cts",
