@@ -379,8 +379,8 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_EVENT_REPORTING_JOB_PERSISTED =
             "measurement_event_reporting_job_persisted";
 
-    public static final String KEY_MEASUREMENT_ENABLE_EVENT_TRIGGER_DEBUG_SIGNAL =
-            "measurement_enable_event_trigger_debug_signal";
+    public static final String KEY_MEASUREMENT_ENABLE_TRIGGER_DEBUG_SIGNAL =
+            "measurement_enable_trigger_debug_signal";
     public static final String
             KEY_MEASUREMENT_ENABLE_EVENT_TRIGGER_DEBUG_SIGNAL_FOR_COARSE_DESTINATION =
                     "measurement_enable_event_trigger_debug_signal_for_coarse_destination";
@@ -1518,6 +1518,10 @@ public final class FlagsConstants {
 
     /** Key for PAS API extended metrics flag. */
     public static final String KEY_PAS_EXTENDED_METRICS_ENABLED = "pas_extended_metrics_enabled";
+
+    /** Key for PAS API product metrics v1 flag. */
+    public static final String KEY_PAS_PRODUCT_METRICS_V1_ENABLED =
+            "pas_product_metrics_v1_enabled";
 
     /** Key for enabling SPE on pilot background jobs. */
     public static final String KEY_SPE_ON_PILOT_JOBS_ENABLED = "spe_on_pilot_jobs_enabled";

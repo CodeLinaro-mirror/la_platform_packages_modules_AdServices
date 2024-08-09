@@ -86,13 +86,13 @@ import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_DELE
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_DELETE_UNINSTALLED_JOB_PERIOD_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_DELETE_UNINSTALLED_JOB_PERSISTED;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_AGGREGATABLE_REPORT_PAYLOAD_PADDING;
-import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_EVENT_TRIGGER_DEBUG_SIGNAL;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_EVENT_TRIGGER_DEBUG_SIGNAL_FOR_COARSE_DESTINATION;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_HEADER_ERROR_DEBUG_REPORT;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_NAVIGATION_REPORTING_ORIGIN_CHECK;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_REINSTALL_REATTRIBUTION;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_SEPARATE_DEBUG_REPORT_TYPES_FOR_ATTRIBUTION_RATE_LIMIT;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_SESSION_STABLE_KILL_SWITCHES;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_TRIGGER_DEBUG_SIGNAL;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_PERSISTED;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_EVENT_FALLBACK_REPORTING_JOB_REQUIRED_NETWORK_TYPE;
@@ -114,6 +114,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_TRIG
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_VERBOSE_DEBUG_REPORTING_FALLBACK_JOB_PERSISTED;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_VERBOSE_DEBUG_REPORTING_JOB_REQUIRED_NETWORK_TYPE;
 import static com.android.adservices.service.FlagsConstants.KEY_PAS_EXTENDED_METRICS_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_PAS_PRODUCT_METRICS_V1_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_PAS_SCRIPT_DOWNLOAD_CONNECTION_TIMEOUT_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_PAS_SCRIPT_DOWNLOAD_READ_TIMEOUT_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_PAS_SCRIPT_EXECUTION_TIMEOUT_MS;
@@ -5246,9 +5247,9 @@ public final class PhFlags implements Flags {
                         + getMeasurementEventReportingJobPersisted());
         writer.println(
                 "\t"
-                        + KEY_MEASUREMENT_ENABLE_EVENT_TRIGGER_DEBUG_SIGNAL
+                        + KEY_MEASUREMENT_ENABLE_TRIGGER_DEBUG_SIGNAL
                         + " = "
-                        + getMeasurementEnableEventTriggerDebugSignal());
+                        + getMeasurementEnableTriggerDebugSignal());
         writer.println(
                 "\t"
                         + KEY_MEASUREMENT_ENABLE_EVENT_TRIGGER_DEBUG_SIGNAL_FOR_COARSE_DESTINATION
@@ -6090,10 +6091,10 @@ public final class PhFlags implements Flags {
     }
 
     @Override
-    public boolean getMeasurementEnableEventTriggerDebugSignal() {
+    public boolean getMeasurementEnableTriggerDebugSignal() {
         return getDeviceConfigFlag(
-                KEY_MEASUREMENT_ENABLE_EVENT_TRIGGER_DEBUG_SIGNAL,
-                MEASUREMENT_ENABLE_EVENT_TRIGGER_DEBUG_SIGNAL);
+                KEY_MEASUREMENT_ENABLE_TRIGGER_DEBUG_SIGNAL,
+                MEASUREMENT_ENABLE_TRIGGER_DEBUG_SIGNAL);
     }
 
     @Override
@@ -6751,6 +6752,12 @@ public final class PhFlags implements Flags {
     @Override
     public boolean getPasExtendedMetricsEnabled() {
         return getDeviceConfigFlag(KEY_PAS_EXTENDED_METRICS_ENABLED, PAS_EXTENDED_METRICS_ENABLED);
+    }
+
+    @Override
+    public boolean getPasProductMetricsV1Enabled() {
+        return getDeviceConfigFlag(
+                KEY_PAS_PRODUCT_METRICS_V1_ENABLED, PAS_PRODUCT_METRICS_V1_ENABLED);
     }
 
     @Override

@@ -289,12 +289,15 @@ public interface Flags extends ModuleSharedFlags {
     }
 
     /* The default value for whether the trigger debugging availability signal is enabled for event
-    reports. */
-    @FeatureFlag boolean MEASUREMENT_ENABLE_EVENT_TRIGGER_DEBUG_SIGNAL = false;
+    or aggregate reports. */
+    @FeatureFlag boolean MEASUREMENT_ENABLE_TRIGGER_DEBUG_SIGNAL = false;
 
-    /** Returns whether the trigger debugging availability signal is enabled for event reports. */
-    default boolean getMeasurementEnableEventTriggerDebugSignal() {
-        return MEASUREMENT_ENABLE_EVENT_TRIGGER_DEBUG_SIGNAL;
+    /**
+     * Returns whether the trigger debugging availability signal is enabled for event or aggregate
+     * reports.
+     */
+    default boolean getMeasurementEnableTriggerDebugSignal() {
+        return MEASUREMENT_ENABLE_TRIGGER_DEBUG_SIGNAL;
     }
 
     /* The default value for whether the trigger debugging availability signal is enabled for event
@@ -5501,6 +5504,14 @@ public interface Flags extends ModuleSharedFlags {
     /** Returns whether the PAS API extended metrics is enabled. */
     default boolean getPasExtendedMetricsEnabled() {
         return PAS_EXTENDED_METRICS_ENABLED;
+    }
+
+    /** Protected app signals API product metrics v1 flag. */
+    @FeatureFlag boolean PAS_PRODUCT_METRICS_V1_ENABLED = false;
+
+    /** Returns whether to enable PAS API product metrics v1. */
+    default boolean getPasProductMetricsV1Enabled() {
+        return PAS_PRODUCT_METRICS_V1_ENABLED;
     }
 
     /** Default enablement for applying SPE (Scheduling Policy Engine) to pilot jobs. */
