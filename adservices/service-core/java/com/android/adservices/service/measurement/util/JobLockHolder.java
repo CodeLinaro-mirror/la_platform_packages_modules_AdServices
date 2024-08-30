@@ -23,10 +23,17 @@ import static com.android.adservices.service.measurement.util.JobLockHolder.Type
 import static com.android.adservices.service.measurement.util.JobLockHolder.Type.EVENT_REPORTING;
 import static com.android.adservices.service.measurement.util.JobLockHolder.Type.VERBOSE_DEBUG_REPORTING;
 
+import android.annotation.Nullable;
+
+import com.android.adservices.LoggerFactory;
+import com.android.adservices.LoggerFactory.Logger;
+
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 /**
  * Holds the lock to be used by the background jobs. The locks will be used by multiple jobs,
@@ -56,10 +63,16 @@ public final class JobLockHolder {
     private final Type mType;
 
     /* Holds the lock that will be given per instance */
-    private final ReentrantLock mLock = new ReentrantLock();
+    private final ReentrantLock mLock;
 
     private JobLockHolder(Type type) {
+        this(type, new ReentrantLock());
+    }
+
+    @VisibleForTesting
+    JobLockHolder(Type type, ReentrantLock lock) {
         mType = type;
+        mLock = lock;
     }
 
     /**
@@ -73,40 +86,61 @@ public final class JobLockHolder {
     }
 
     /**
-     * Tries to acquire the lock. Returns true if the lock was acquired successfully or false if it
-     * has already been acquired by another thread. If lock was acquired, at the end of processing,
-     * a call to {@link JobLockHolder#unlock()} will need to be made.
+     * Runs the given runnable after acquiring the lock.
      *
-     * @return a boolean determining if the lock was successfully acquired or not.
+     * @param tag name of the caller (used for logging purposes)
+     * @param runnable what to run
      */
-    public boolean tryLock() {
-        return mLock.tryLock();
+    public void runWithLock(String tag, Runnable runnable) {
+        Objects.requireNonNull(tag, "tag cannot be null");
+        Objects.requireNonNull(runnable, "runnable cannot be null");
+
+        Logger logger = LoggerFactory.getMeasurementLogger();
+        logger.v("%s.runWithLock(%s) started", tag, mType);
+
+        if (mLock.tryLock()) {
+            try {
+                runnable.run();
+            } finally {
+                mLock.unlock();
+            }
+            return;
+        }
+
+        logger.e("%s.runWithLock(%s) failed to acquire lock", tag, mType);
     }
 
     /**
-     * Releases the lock that was previously acquired. It must be called after the lock has been
-     * successfully acquired.
+     * Calls the given "callable" after acquiring the lock.
      *
-     * <p><b>Note: </b>the lock won't be unlocked until {@code unlock()} is called the same number
-     * of times that {@code tryLock()} is called and returns {@code true}.
+     * @param tag name of the caller (used for logging purposes)
+     * @param callable what to call (i.e, the value returned by {@code get()}.
+     * @param lockFailureResult what to return if the lock could not be acquired
+     * @return result of callable, or {@code failureResult} if the lock could not be acquired.
      */
-    public void unlock() {
-        mLock.unlock();
-    }
+    public <T> T callWithLock(String tag, Supplier<T> callable, @Nullable T lockFailureResult) {
+        Objects.requireNonNull(tag, "tag cannot be null");
+        Objects.requireNonNull(callable, "callable cannot be null");
 
-    @VisibleForTesting
-    boolean isLocked() {
-        return mLock.isLocked();
+        Logger logger = LoggerFactory.getMeasurementLogger();
+        logger.v("%s.callWithLock(%s) started", tag, mType);
+
+        if (mLock.tryLock()) {
+            try {
+                return callable.get();
+            } finally {
+                mLock.unlock();
+            }
+        }
+
+        logger.e(
+                "%s.callWithLock(%s) failed to acquire lock; returning %s",
+                tag, mType, lockFailureResult);
+        return lockFailureResult;
     }
 
     @Override
     public String toString() {
-        return "JobLockHolder[mType="
-                + mType
-                + ", isLocked()="
-                + isLocked()
-                + ", mLock="
-                + mLock
-                + "]";
+        return "JobLockHolder[mType=" + mType + ", mLock=" + mLock + "]";
     }
 }
