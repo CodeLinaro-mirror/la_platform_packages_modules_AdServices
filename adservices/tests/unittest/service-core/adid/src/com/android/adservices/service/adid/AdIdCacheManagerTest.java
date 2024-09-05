@@ -19,8 +19,7 @@ package com.android.adservices.service.adid;
 import static android.adservices.common.AdServicesStatusUtils.STATUS_PROVIDER_SERVICE_INTERNAL_ERROR;
 import static android.adservices.common.AdServicesStatusUtils.STATUS_SUCCESS;
 
-import static com.android.adservices.mockito.ExtendedMockitoExpectations.doNothingOnErrorLogUtilError;
-import static com.android.adservices.mockito.ExtendedMockitoExpectations.verifyErrorLogUtilErrorWithAnyException;
+import static com.android.adservices.common.logging.annotations.ExpectErrorLogUtilWithExceptionCall.Any;
 import static com.android.adservices.service.adid.AdIdCacheManager.SHARED_PREFS_IAPC;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__IAPC_AD_ID_PROVIDER_NOT_AVAILABLE;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__AD_ID;
@@ -45,7 +44,8 @@ import android.adservices.common.UpdateAdIdRequest;
 import android.os.RemoteException;
 
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
-import com.android.adservices.errorlogging.ErrorLogUtil;
+import com.android.adservices.common.logging.annotations.ExpectErrorLogUtilWithExceptionCall;
+import com.android.adservices.common.logging.annotations.SetErrorLogUtilDefaultParams;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.modules.utils.testing.ExtendedMockitoRule.SpyStatic;
@@ -59,6 +59,9 @@ import java.util.concurrent.CompletableFuture;
 
 /** Unit test for {@link AdIdCacheManager}. */
 @SpyStatic(FlagsFactory.class)
+@SetErrorLogUtilDefaultParams(
+        throwable = Any.class,
+        ppapiName = AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__AD_ID)
 public final class AdIdCacheManagerTest extends AdServicesExtendedMockitoTestCase {
     private static final String PACKAGE_NAME = "package_name";
     // Use a non zeroed out AdId differentiate from the scenario without the provider service.
@@ -173,11 +176,11 @@ public final class AdIdCacheManagerTest extends AdServicesExtendedMockitoTestCas
     }
 
     @Test
-    @SpyStatic(ErrorLogUtil.class)
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode = AD_SERVICES_ERROR_REPORTED__ERROR_CODE__IAPC_AD_ID_PROVIDER_NOT_AVAILABLE)
     public void testGetAdIdOnError() throws Exception {
         // Enable the AdId cache.
         doReturn(true).when(mMockFlags).getAdIdCacheEnabled();
-        doNothingOnErrorLogUtilError();
 
         mAdIdProviderService = createAdIdProviderService(FAILURE_RESPONSE);
         doReturn(mAdIdProviderService).when(mAdIdCacheManager).getService();
@@ -189,17 +192,14 @@ public final class AdIdCacheManagerTest extends AdServicesExtendedMockitoTestCas
 
         int result = future.get();
         assertThat(result).isEqualTo(STATUS_PROVIDER_SERVICE_INTERNAL_ERROR);
-        verifyErrorLogUtilErrorWithAnyException(
-                AD_SERVICES_ERROR_REPORTED__ERROR_CODE__IAPC_AD_ID_PROVIDER_NOT_AVAILABLE,
-                AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__AD_ID);
     }
 
     @Test
-    @SpyStatic(ErrorLogUtil.class)
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode = AD_SERVICES_ERROR_REPORTED__ERROR_CODE__IAPC_AD_ID_PROVIDER_NOT_AVAILABLE)
     public void testGetAdIdOnUnauthorizedError() throws Exception {
         // Enable the AdId cache.
         doReturn(false).when(mMockFlags).getAdIdCacheEnabled();
-        doNothingOnErrorLogUtilError();
 
         mAdIdProviderService = createAdIdProviderService(UNAUTHORIZED_RESPONSE);
         doReturn(mAdIdProviderService).when(mAdIdCacheManager).getService();
@@ -213,9 +213,6 @@ public final class AdIdCacheManagerTest extends AdServicesExtendedMockitoTestCas
         AdId actualAdId = new AdId(result.getAdId(), result.isLatEnabled());
         AdId expectedAdId = new AdId(AdId.ZERO_OUT, /* limitAdTrackingEnabled= */ true);
         assertWithMessage("Get AdId Unauthorized failed").that(actualAdId).isEqualTo(expectedAdId);
-        verifyErrorLogUtilErrorWithAnyException(
-                AD_SERVICES_ERROR_REPORTED__ERROR_CODE__IAPC_AD_ID_PROVIDER_NOT_AVAILABLE,
-                AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__AD_ID);
     }
 
     @Test

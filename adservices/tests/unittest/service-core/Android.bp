@@ -102,9 +102,6 @@ android_test {
         // Measurement unit tests will be covered by AdServicesServiceCoreMeasurementUnitTests.
         "src/com/android/adservices/service/measurement/**/*.java",
         "src/com/android/adservices/data/measurement/**/*Test.java",
-        // Topics unit tests will be covered by AdServicesServiceCoreTopicsUnitTests.
-        "src/com/android/adservices/service/topics/**/*.java",
-        "src/com/android/adservices/data/topics/**/*Test.java",
     ],
     defaults: ["AdServices-ServiceCoreUnitTest-Defaults"],
 }
@@ -152,10 +149,8 @@ android_test {
     name: "AdServicesMddIntegrationTests",
     srcs: [
         "src/com/android/adservices/download/MobileDataDownloadTest.java",
-        // Contains DB Util methods which used in MobileDataDownloadTest.java
-        "src/com/android/adservices/data/DbTestUtil.java",
     ],
-    defaults: ["modules-utils-testable-device-config-defaults"],
+    defaults: ["AdServices-ServiceCoreUnitTest-Defaults"],
     sdk_version: "module_current",
     compile_multilib: "both",
     min_sdk_version: "Tiramisu",
@@ -174,7 +169,6 @@ android_test {
         "android.test.mock.stubs",
         "framework-adservices.impl",
         "framework-annotations-lib",
-        "framework-connectivity",
     ],
     test_suites: [
         "general-tests",
@@ -276,9 +270,6 @@ android_test {
         // Measurement unit tests will be covered by AdExtServicesServiceCoreMeasurementUnitTests.
         "src/com/android/adservices/service/measurement/**/*.java",
         "src/com/android/adservices/data/measurement/**/*Test.java",
-        // Topics unit tests will be covered by AdServicesServiceCoreTopicsUnitTests.
-        "src/com/android/adservices/service/topics/**/*.java",
-        "src/com/android/adservices/data/topics/**/*Test.java",
     ],
     test_config: "AndroidTest.ExtServices.xml",
 }
@@ -289,7 +280,6 @@ android_test {
     srcs: [
         "src/com/android/adservices/service/measurement/**/*.java",
         "src/com/android/adservices/data/measurement/**/*.java",
-        "src/com/android/adservices/data/DbTestUtil.java",
         "src/com/android/adservices/MockWebServerRuleFactory.java",
     ],
     test_config: "AndroidTest.Measurement.xml",
@@ -300,35 +290,10 @@ android_test {
     srcs: [
         "src/com/android/adservices/service/measurement/**/*.java",
         "src/com/android/adservices/data/measurement/**/*.java",
-        "src/com/android/adservices/data/DbTestUtil.java",
         "src/com/android/adservices/MockWebServerRuleFactory.java",
     ],
     defaults: ["AdExtServices-ServiceCoreUnitTest-Defaults"],
     test_config: "AndroidTest.Measurement.ExtServices.xml",
-}
-
-android_test {
-    name: "AdServicesServiceCoreTopicsUnitTests",
-    defaults: ["AdServices-ServiceCoreUnitTest-Defaults"],
-    srcs: [
-        "src/com/android/adservices/service/topics/**/*.java",
-        "src/com/android/adservices/data/topics/**/*.java",
-        "src/com/android/adservices/data/DbTestUtil.java",
-        "src/com/android/adservices/MockRandom.java",
-    ],
-    test_config: "AndroidTest.Topics.xml",
-}
-
-android_test {
-    name: "AdExtServicesServiceCoreTopicsUnitTests",
-    srcs: [
-        "src/com/android/adservices/service/topics/**/*.java",
-        "src/com/android/adservices/data/topics/**/*.java",
-        "src/com/android/adservices/data/DbTestUtil.java",
-        "src/com/android/adservices/MockRandom.java",
-    ],
-    defaults: ["AdExtServices-ServiceCoreUnitTest-Defaults"],
-    test_config: "AndroidTest.Topics.ExtServices.xml",
 }
 
 android_test {
@@ -375,10 +340,8 @@ android_test {
     name: "AdExtServicesMddIntegrationTests",
     srcs: [
         "src/com/android/adservices/download/MobileDataDownloadTest.java",
-        // Contains DB Util methods which used in MobileDataDownloadTest.java
-        "src/com/android/adservices/data/DbTestUtil.java",
     ],
-    defaults: ["modules-utils-testable-device-config-defaults"],
+    defaults: ["AdServices-ServiceCoreUnitTest-Defaults"],
     sdk_version: "module_current",
     compile_multilib: "both",
     min_sdk_version: "30",
@@ -399,7 +362,6 @@ android_test {
         "android.test.mock.stubs",
         "framework-adservices.impl",
         "framework-annotations-lib",
-        "framework-connectivity",
     ],
     test_suites: [
         "general-tests",

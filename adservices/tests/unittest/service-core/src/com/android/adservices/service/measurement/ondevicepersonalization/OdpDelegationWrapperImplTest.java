@@ -16,8 +16,6 @@
 
 package com.android.adservices.service.measurement.ondevicepersonalization;
 
-import static com.android.adservices.mockito.ExtendedMockitoExpectations.doNothingOnErrorLogUtilError;
-import static com.android.adservices.mockito.ExtendedMockitoExpectations.verifyErrorLogUtilError;
 import static com.android.adservices.service.Flags.MAX_ODP_TRIGGER_REGISTRATION_HEADER_SIZE_BYTES;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_INVALID_HEADER_FIELD_VALUE_ERROR;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_INVALID_HEADER_FORMAT_ERROR;
@@ -30,7 +28,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -42,13 +39,14 @@ import android.adservices.ondevicepersonalization.OnDevicePersonalizationSystemE
 import android.net.Uri;
 
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
-import com.android.adservices.errorlogging.ErrorLogUtil;
+import com.android.adservices.common.logging.annotations.ExpectErrorLogUtilCall;
+import com.android.adservices.common.logging.annotations.ExpectErrorLogUtilWithExceptionCall;
+import com.android.adservices.common.logging.annotations.SetErrorLogUtilDefaultParams;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.measurement.registration.AsyncRegistration;
 import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.adservices.service.stats.MeasurementOdpRegistrationStats;
 import com.android.modules.utils.build.SdkLevel;
-import com.android.modules.utils.testing.ExtendedMockitoRule.SpyStatic;
 
 import org.junit.Assume;
 import org.junit.Before;
@@ -62,7 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@SpyStatic(ErrorLogUtil.class)
+@SetErrorLogUtilDefaultParams(ppapiName = AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__MEASUREMENT)
 public class OdpDelegationWrapperImplTest extends AdServicesExtendedMockitoTestCase {
     private static final String ODP_PACKAGE_NAME = "com.adtech1";
     private static final String ODP_CLASS_NAME = "com.adtech1.AdTechIsolatedService";
@@ -79,7 +77,6 @@ public class OdpDelegationWrapperImplTest extends AdServicesExtendedMockitoTestC
 
     @Before
     public void setup() {
-        doNothingOnErrorLogUtilError();
         when(mFlags.getMaxOdpTriggerRegistrationHeaderSizeBytes())
                 .thenReturn(MAX_ODP_TRIGGER_REGISTRATION_HEADER_SIZE_BYTES);
     }
@@ -251,6 +248,9 @@ public class OdpDelegationWrapperImplTest extends AdServicesExtendedMockitoTestC
     }
 
     @Test
+    @ExpectErrorLogUtilCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_INVALID_HEADER_FORMAT_ERROR)
     public void registerOdpTrigger_invalidHeaderFormat_fail() {
         OdpDelegationWrapperImpl odpDelegationWrapperImpl =
                 new OdpDelegationWrapperImpl(mOdpSystemEventManager, mLogger, mFlags);
@@ -293,12 +293,12 @@ public class OdpDelegationWrapperImplTest extends AdServicesExtendedMockitoTestC
         assertEquals(
                 measurementOdpRegistrationStats.getRegistrationStatus(),
                 OdpRegistrationStatus.RegistrationStatus.INVALID_HEADER_FORMAT.getValue());
-        verifyErrorLogUtilError(
-                AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_INVALID_HEADER_FORMAT_ERROR,
-                AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__MEASUREMENT);
     }
 
     @Test
+    @ExpectErrorLogUtilCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_MISSING_REQUIRED_HEADER_FIELD_ERROR)
     public void registerOdpTrigger_missingRequiredField_fail() {
         OdpDelegationWrapperImpl odpDelegationWrapperImpl =
                 new OdpDelegationWrapperImpl(mOdpSystemEventManager, mLogger, mFlags);
@@ -333,12 +333,12 @@ public class OdpDelegationWrapperImplTest extends AdServicesExtendedMockitoTestC
         assertEquals(
                 measurementOdpRegistrationStats.getRegistrationStatus(),
                 OdpRegistrationStatus.RegistrationStatus.MISSING_REQUIRED_HEADER_FIELD.getValue());
-        verifyErrorLogUtilError(
-                AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_MISSING_REQUIRED_HEADER_FIELD_ERROR,
-                AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__MEASUREMENT);
     }
 
     @Test
+    @ExpectErrorLogUtilCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_INVALID_HEADER_FIELD_VALUE_ERROR)
     public void registerOdpTrigger_invalidServiceName_NoForwardSlash_fail() {
         OdpDelegationWrapperImpl odpDelegationWrapperImpl =
                 new OdpDelegationWrapperImpl(mOdpSystemEventManager, mLogger, mFlags);
@@ -376,12 +376,12 @@ public class OdpDelegationWrapperImplTest extends AdServicesExtendedMockitoTestC
         assertEquals(
                 measurementOdpRegistrationStats.getRegistrationStatus(),
                 OdpRegistrationStatus.RegistrationStatus.INVALID_HEADER_FIELD_VALUE.getValue());
-        verifyErrorLogUtilError(
-                AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_INVALID_HEADER_FIELD_VALUE_ERROR,
-                AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__MEASUREMENT);
     }
 
     @Test
+    @ExpectErrorLogUtilCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_INVALID_HEADER_FIELD_VALUE_ERROR)
     public void registerOdpTrigger_invalidServiceName_forwardSlashEndingCharacter_fail() {
         OdpDelegationWrapperImpl odpDelegationWrapperImpl =
                 new OdpDelegationWrapperImpl(mOdpSystemEventManager, mLogger, mFlags);
@@ -419,12 +419,12 @@ public class OdpDelegationWrapperImplTest extends AdServicesExtendedMockitoTestC
         assertEquals(
                 measurementOdpRegistrationStats.getRegistrationStatus(),
                 OdpRegistrationStatus.RegistrationStatus.INVALID_HEADER_FIELD_VALUE.getValue());
-        verifyErrorLogUtilError(
-                AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_INVALID_HEADER_FIELD_VALUE_ERROR,
-                AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__MEASUREMENT);
     }
 
     @Test
+    @ExpectErrorLogUtilCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_JSON_PARSING_ERROR)
     public void registerOdpTrigger_headerNotJson_fail() {
         OdpDelegationWrapperImpl odpDelegationWrapperImpl =
                 new OdpDelegationWrapperImpl(mOdpSystemEventManager, mLogger, mFlags);
@@ -463,12 +463,13 @@ public class OdpDelegationWrapperImplTest extends AdServicesExtendedMockitoTestC
         assertEquals(
                 measurementOdpRegistrationStats.getRegistrationStatus(),
                 OdpRegistrationStatus.RegistrationStatus.PARSING_EXCEPTION.getValue());
-        verifyErrorLogUtilError(
-                AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_JSON_PARSING_ERROR,
-                AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__MEASUREMENT);
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            throwable = IllegalArgumentException.class,
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_PARSING_UNKNOWN_ERROR)
     public void registerOdpTrigger_throwIllegalArgumentException_fail() {
         Assume.assumeTrue(SdkLevel.isAtLeastT());
         doThrow(new IllegalArgumentException("Illegal Argument"))
@@ -513,13 +514,13 @@ public class OdpDelegationWrapperImplTest extends AdServicesExtendedMockitoTestC
         assertEquals(
                 measurementOdpRegistrationStats.getRegistrationStatus(),
                 OdpRegistrationStatus.RegistrationStatus.PARSING_EXCEPTION.getValue());
-        verifyErrorLogUtilError(
-                any(IllegalArgumentException.class),
-                eq(AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_PARSING_UNKNOWN_ERROR),
-                eq(AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__MEASUREMENT));
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            throwable = NullPointerException.class,
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_PARSING_UNKNOWN_ERROR)
     public void registerOdpTrigger_throwNullPointerException_fail() {
         Assume.assumeTrue(SdkLevel.isAtLeastT());
         doThrow(new NullPointerException("Null Error"))
@@ -564,9 +565,5 @@ public class OdpDelegationWrapperImplTest extends AdServicesExtendedMockitoTestC
         assertEquals(
                 measurementOdpRegistrationStats.getRegistrationStatus(),
                 OdpRegistrationStatus.RegistrationStatus.PARSING_EXCEPTION.getValue());
-        verifyErrorLogUtilError(
-                any(NullPointerException.class),
-                eq(AD_SERVICES_ERROR_REPORTED__ERROR_CODE__MEASUREMENT_REGISTRATION_ODP_PARSING_UNKNOWN_ERROR),
-                eq(AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__MEASUREMENT));
     }
 }
