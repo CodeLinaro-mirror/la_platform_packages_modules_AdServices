@@ -30,9 +30,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.adservices.adid.AdId;
@@ -48,14 +46,13 @@ import com.android.adservices.common.logging.annotations.ExpectErrorLogUtilWithE
 import com.android.adservices.common.logging.annotations.SetErrorLogUtilDefaultParams;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
+import com.android.adservices.shared.testing.IntFailureSyncCallback;
 import com.android.modules.utils.testing.ExtendedMockitoRule.SpyStatic;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
-
-import java.util.concurrent.CompletableFuture;
 
 /** Unit test for {@link AdIdCacheManager}. */
 @SpyStatic(FlagsFactory.class)
@@ -94,20 +91,17 @@ public final class AdIdCacheManagerTest extends AdServicesExtendedMockitoTestCas
     }
 
     @Test
-    public void testGetAdId_cacheEnabled() throws Exception {
-        // Enable the AdId cache.
-        doReturn(true).when(mMockFlags).getAdIdCacheEnabled();
-
+    public void testGetAdId() throws Exception {
         mAdIdProviderService = createAdIdProviderService(SUCCESS_RESPONSE);
         doReturn(mAdIdProviderService).when(mAdIdCacheManager).getService();
 
         // First getAdId() call should get AdId from the provider.
-        CompletableFuture<GetAdIdResult> future1 = new CompletableFuture<>();
-        IGetAdIdCallback callback1 = createSuccessGetAdIdCallBack(future1);
+        SyncIGetAdIdCallback callback1 = new SyncIGetAdIdCallback();
 
         mAdIdCacheManager.getAdId(PACKAGE_NAME, DUMMY_CALLER_UID, callback1);
 
-        GetAdIdResult result = future1.get();
+        GetAdIdResult result = callback1.assertResultReceived();
+        assertWithMessage("result from 1st call").that(result).isNotNull();
         AdId actualAdId = new AdId(result.getAdId(), result.isLatEnabled());
         AdId expectedAdId = new AdId(AD_ID, /* limitAdTrackingEnabled= */ false);
         assertWithMessage("The first result is from the Provider.")
@@ -118,10 +112,10 @@ public final class AdIdCacheManagerTest extends AdServicesExtendedMockitoTestCas
         verify(mAdIdCacheManager).getAdIdFromProvider(PACKAGE_NAME, DUMMY_CALLER_UID, callback1);
 
         // Second getAdId() call should get AdId from the cache.
-        CompletableFuture<GetAdIdResult> future2 = new CompletableFuture<>();
-        IGetAdIdCallback callback2 = createSuccessGetAdIdCallBack(future2);
+        SyncIGetAdIdCallback callback2 = new SyncIGetAdIdCallback();
         mAdIdCacheManager.getAdId(PACKAGE_NAME, DUMMY_CALLER_UID, callback2);
-        result = future2.get();
+        result = callback2.assertResultReceived();
+        assertWithMessage("result from 2nd call").that(result).isNotNull();
         actualAdId = new AdId(result.getAdId(), result.isLatEnabled());
         assertWithMessage("The second result is from the Cache")
                 .that(actualAdId)
@@ -134,12 +128,11 @@ public final class AdIdCacheManagerTest extends AdServicesExtendedMockitoTestCas
         // Make the third getAdId() call after updating the shared preference.
         mAdIdCacheManager.setAdIdInStorage(
                 new AdId(AD_ID_UPDATE, /* limitAdTrackingEnabled= */ true));
-        CompletableFuture<GetAdIdResult> future3 = new CompletableFuture<>();
-        IGetAdIdCallback callback3 = createSuccessGetAdIdCallBack(future3);
-
+        SyncIGetAdIdCallback callback3 = new SyncIGetAdIdCallback();
         mAdIdCacheManager.getAdId(PACKAGE_NAME, DUMMY_CALLER_UID, callback3);
 
-        result = future3.get();
+        result = callback3.assertResultReceived();
+        assertWithMessage("result from 3rd call").that(result).isNotNull();
         actualAdId = new AdId(result.getAdId(), result.isLatEnabled());
         expectedAdId = new AdId(AD_ID_UPDATE, /* limitAdTrackingEnabled= */ true);
 
@@ -150,47 +143,16 @@ public final class AdIdCacheManagerTest extends AdServicesExtendedMockitoTestCas
     }
 
     @Test
-    public void testGetAdId_cacheDisabled() throws Exception {
-        // Disable the AdId cache.
-        doReturn(false).when(mMockFlags).getAdIdCacheEnabled();
-
-        mAdIdProviderService = createAdIdProviderService(SUCCESS_RESPONSE);
-        doReturn(mAdIdProviderService).when(mAdIdCacheManager).getService();
-
-        // First getAdId() call should get AdId from the provider.
-        CompletableFuture<GetAdIdResult> future = new CompletableFuture<>();
-        IGetAdIdCallback callback = createSuccessGetAdIdCallBack(future);
-
-        mAdIdCacheManager.getAdId(PACKAGE_NAME, DUMMY_CALLER_UID, callback);
-
-        GetAdIdResult result = future.get();
-        AdId actualAdId = new AdId(result.getAdId(), result.isLatEnabled());
-        AdId expectedAdId = new AdId(AD_ID, /* limitAdTrackingEnabled= */ false);
-        assertWithMessage("Get AdId from Provider").that(actualAdId).isEqualTo(expectedAdId);
-
-        // Verify the first call should call the provider to fetch the AdId
-        verify(mAdIdCacheManager).getAdIdFromProvider(PACKAGE_NAME, DUMMY_CALLER_UID, callback);
-        // Verify the cache is never visited. (the SharedPreference getter is never called.)
-        verify(mAdIdCacheManager).getAdIdInStorage();
-        verify(mAdIdCacheManager, never()).getSharedPreferences();
-    }
-
-    @Test
     @ExpectErrorLogUtilWithExceptionCall(
             errorCode = AD_SERVICES_ERROR_REPORTED__ERROR_CODE__IAPC_AD_ID_PROVIDER_NOT_AVAILABLE)
     public void testGetAdIdOnError() throws Exception {
-        // Enable the AdId cache.
-        doReturn(true).when(mMockFlags).getAdIdCacheEnabled();
-
         mAdIdProviderService = createAdIdProviderService(FAILURE_RESPONSE);
         doReturn(mAdIdProviderService).when(mAdIdCacheManager).getService();
-
-        CompletableFuture<Integer> future = new CompletableFuture<>();
-        IGetAdIdCallback callback = createFailureGetAdIdCallBack(future);
+        SyncIGetAdIdCallback callback = new SyncIGetAdIdCallback();
 
         mAdIdCacheManager.getAdId(PACKAGE_NAME, DUMMY_CALLER_UID, callback);
 
-        int result = future.get();
+        int result = callback.assertFailureReceived();
         assertThat(result).isEqualTo(STATUS_PROVIDER_SERVICE_INTERNAL_ERROR);
     }
 
@@ -198,18 +160,15 @@ public final class AdIdCacheManagerTest extends AdServicesExtendedMockitoTestCas
     @ExpectErrorLogUtilWithExceptionCall(
             errorCode = AD_SERVICES_ERROR_REPORTED__ERROR_CODE__IAPC_AD_ID_PROVIDER_NOT_AVAILABLE)
     public void testGetAdIdOnUnauthorizedError() throws Exception {
-        // Enable the AdId cache.
-        doReturn(false).when(mMockFlags).getAdIdCacheEnabled();
-
         mAdIdProviderService = createAdIdProviderService(UNAUTHORIZED_RESPONSE);
         doReturn(mAdIdProviderService).when(mAdIdCacheManager).getService();
 
-        CompletableFuture<GetAdIdResult> future = new CompletableFuture<>();
-        IGetAdIdCallback callback = createUnauthorizedFailureGetAdIdCallBack(future);
+        SyncIGetAdIdCallback callback = new SyncIGetAdIdCallback();
 
         mAdIdCacheManager.getAdId(PACKAGE_NAME, DUMMY_CALLER_UID, callback);
 
-        GetAdIdResult result = future.get();
+        GetAdIdResult result = callback.assertResultReceived();
+        assertWithMessage("result").that(result).isNotNull();
         AdId actualAdId = new AdId(result.getAdId(), result.isLatEnabled());
         AdId expectedAdId = new AdId(AdId.ZERO_OUT, /* limitAdTrackingEnabled= */ true);
         assertWithMessage("Get AdId Unauthorized failed").that(actualAdId).isEqualTo(expectedAdId);
@@ -217,9 +176,6 @@ public final class AdIdCacheManagerTest extends AdServicesExtendedMockitoTestCas
 
     @Test
     public void testUpdateAdId_success() {
-        // Enable the AdId cache.
-        doReturn(true).when(mMockFlags).getAdIdCacheEnabled();
-
         AdId adId = new AdId(AD_ID, /* limitAdTrackingEnabled= */ false);
         AdId adIdUpdate = new AdId(AD_ID_UPDATE, /* limitAdTrackingEnabled= */ true);
 
@@ -235,81 +191,13 @@ public final class AdIdCacheManagerTest extends AdServicesExtendedMockitoTestCas
         verify(mAdIdCacheManager).setAdIdInStorage(adIdUpdate);
     }
 
-    @Test
-    public void testUpdateAdId_cacheDisabledWhenUpdating() {
-        // Enable the AdId cache at beginning to initialize the cache.
-        doReturn(true).when(mMockFlags).getAdIdCacheEnabled();
+    private static final class SyncIGetAdIdCallback extends IntFailureSyncCallback<GetAdIdResult>
+            implements IGetAdIdCallback {
 
-        AdId adId = new AdId(AD_ID, /* limitAdTrackingEnabled= */ false);
-        mAdIdCacheManager.setAdIdInStorage(adId);
-        assertWithMessage("getAdIdInStorage() 1st")
-                .that(mAdIdCacheManager.getAdIdInStorage())
-                .isEqualTo(adId);
-
-        // Disable the cache before updating.
-        doReturn(false).when(mMockFlags).getAdIdCacheEnabled();
-
-        AdId adIdUpdate = new AdId(AD_ID_UPDATE, /* limitAdTrackingEnabled= */ true);
-        mAdIdCacheManager.updateAdId(
-                new UpdateAdIdRequest.Builder(adIdUpdate.getAdId())
-                        .setLimitAdTrackingEnabled(adIdUpdate.isLimitAdTrackingEnabled())
-                        .build());
-
-        // Enable the cache again to check the cached value.
-        doReturn(true).when(mMockFlags).getAdIdCacheEnabled();
-
-        assertWithMessage("getAdIdInStorage() 2nd")
-                .that(mAdIdCacheManager.getAdIdInStorage())
-                .isEqualTo(adId);
-
-        // Verify the SharedPreference is interacted 3 times when there are 4 cache get/set actions.
-        verify(mAdIdCacheManager).setAdIdInStorage(adId);
-        verify(mAdIdCacheManager).setAdIdInStorage(adIdUpdate);
-        verify(mAdIdCacheManager, times(2)).getAdIdInStorage();
-        verify(mAdIdCacheManager, times(3)).getSharedPreferences();
-    }
-
-    private IGetAdIdCallback createSuccessGetAdIdCallBack(CompletableFuture<GetAdIdResult> future) {
-        return new IGetAdIdCallback.Stub() {
-            @Override
-            public void onResult(GetAdIdResult resultParcel) {
-                future.complete(resultParcel);
-            }
-
-            @Override
-            public void onError(int resultCode) {
-                throw new UnsupportedOperationException("Should never be called!");
-            }
-        };
-    }
-
-    private IGetAdIdCallback createFailureGetAdIdCallBack(CompletableFuture<Integer> future) {
-        return new IGetAdIdCallback.Stub() {
-            @Override
-            public void onResult(GetAdIdResult resultParcel) {
-                throw new UnsupportedOperationException("Should never be called!");
-            }
-
-            @Override
-            public void onError(int resultCode) {
-                future.complete(resultCode);
-            }
-        };
-    }
-
-    private IGetAdIdCallback createUnauthorizedFailureGetAdIdCallBack(
-            CompletableFuture<GetAdIdResult> future) {
-        return new IGetAdIdCallback.Stub() {
-            @Override
-            public void onResult(GetAdIdResult resultParcel) {
-                future.complete(resultParcel);
-            }
-
-            @Override
-            public void onError(int resultCode) {
-                throw new UnsupportedOperationException("Should never be called!");
-            }
-        };
+        @Override
+        public void onError(int resultCode) {
+            onFailure(resultCode);
+        }
     }
 
     private IAdIdProviderService createAdIdProviderService(String response) {
