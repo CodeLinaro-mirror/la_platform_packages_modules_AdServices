@@ -18,16 +18,12 @@ package com.android.adservices.service.common;
 
 import static android.adservices.common.AdServicesStatusUtils.STATUS_ADSERVICES_ACTIVITY_DISABLED;
 import static android.adservices.common.AdServicesStatusUtils.STATUS_CALLER_NOT_ALLOWED_PACKAGE_NOT_IN_ALLOWLIST;
-import static android.adservices.common.AdServicesStatusUtils.STATUS_KILLSWITCH_ENABLED;
 import static android.adservices.common.AdServicesStatusUtils.STATUS_SUCCESS;
 import static android.adservices.common.AdServicesStatusUtils.STATUS_UNAUTHORIZED;
 
 import static com.android.adservices.data.common.AdservicesEntryPointConstant.ADSERVICES_ENTRY_POINT_STATUS_DISABLE;
 import static com.android.adservices.data.common.AdservicesEntryPointConstant.ADSERVICES_ENTRY_POINT_STATUS_ENABLE;
 import static com.android.adservices.data.common.AdservicesEntryPointConstant.KEY_ADSERVICES_ENTRY_POINT_STATUS;
-import static com.android.adservices.mockito.ExtendedMockitoExpectations.doNothingOnErrorLogUtilError;
-import static com.android.adservices.mockito.ExtendedMockitoExpectations.verifyErrorLogUtilError;
-import static com.android.adservices.mockito.MockitoExpectations.mockLogApiCallStats;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__IAPC_UPDATE_AD_ID_API_ERROR;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__AD_ID;
 import static com.android.adservices.service.ui.ux.collection.PrivacySandboxUxCollection.GA_UX;
@@ -68,7 +64,7 @@ import android.telephony.TelephonyManager;
 import androidx.test.filters.FlakyTest;
 
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
-import com.android.adservices.errorlogging.ErrorLogUtil;
+import com.android.adservices.common.logging.annotations.ExpectErrorLogUtilWithExceptionCall;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.adid.AdIdWorker;
@@ -85,6 +81,7 @@ import com.android.adservices.shared.testing.annotations.RequiresSdkLevelAtLeast
 import com.android.adservices.shared.testing.concurrency.ResultSyncCallback;
 import com.android.adservices.shared.util.Clock;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
+import com.android.modules.utils.build.SdkLevel;
 import com.android.modules.utils.testing.ExtendedMockitoRule.SpyStatic;
 
 import org.junit.Before;
@@ -102,12 +99,12 @@ import org.mockito.Mockito;
 @SpyStatic(PermissionHelper.class)
 @SpyStatic(UxStatesManager.class)
 @SpyStatic(PackageManagerCompatUtils.class)
-public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTestCase {
+@SpyStatic(SdkLevel.class)
+public final class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTestCase {
     private static final String UNUSED_AD_ID = "unused_ad_id";
 
     private AdServicesCommonServiceImpl mCommonService;
     @Mock private Flags mFlags;
-    @Mock private Context mContext;
     @Mock private PackageManager mPackageManager;
     @Mock private UxEngine mUxEngine;
     @Mock private UxStatesManager mUxStatesManager;
@@ -117,8 +114,9 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
     @Mock private TelephonyManager mTelephonyManager;
     @Mock private AdIdWorker mMockAdIdWorker;
     @Mock private Clock mClock;
-    @Captor ArgumentCaptor<String> mStringArgumentCaptor;
-    @Captor ArgumentCaptor<Integer> mIntegerArgumentCaptor;
+    @Captor private ArgumentCaptor<String> mStringArgumentCaptor;
+    @Captor private ArgumentCaptor<Integer> mIntegerArgumentCaptor;
+
     private static final int BINDER_CONNECTION_TIMEOUT_MS = 5_000;
     private static final String TEST_APP_PACKAGE_NAME = "com.android.adservices.servicecoretest";
     private static final String INVALID_PACKAGE_NAME = "com.do_not_exists";
@@ -135,14 +133,14 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
     public void setup() {
         mCommonService =
                 new AdServicesCommonServiceImpl(
-                        mContext,
+                        mMockContext,
                         mFlags,
                         mUxEngine,
                         mUxStatesManager,
                         mMockAdIdWorker,
                         mAdServicesLogger,
                         mClock);
-        mLogApiCallStatsCallback = mockLogApiCallStats(mAdServicesLogger);
+        mLogApiCallStatsCallback = mocker.mockLogApiCallStats(mAdServicesLogger);
         mocker.mockGetFlags(mFlags);
         doReturn(true).when(mFlags).getAdServicesEnabled();
 
@@ -159,8 +157,8 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
                                         any(Boolean.class),
                                         any(Boolean.class)));
 
-        doReturn(mSharedPreferences).when(mContext).getSharedPreferences(anyString(), anyInt());
-        doReturn(mPackageManager).when(mContext).getPackageManager();
+        doReturn(mSharedPreferences).when(mMockContext).getSharedPreferences(anyString(), anyInt());
+        doReturn(mPackageManager).when(mMockContext).getPackageManager();
         doReturn(mEditor).when(mSharedPreferences).edit();
         doReturn(mEditor).when(mEditor).putInt(anyString(), anyInt());
         doReturn(true).when(mEditor).commit();
@@ -172,19 +170,19 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
         doReturn(Flags.UI_EEA_COUNTRIES).when(mFlags).getUiEeaCountries();
         doReturn("pl").when(mTelephonyManager).getSimCountryIso();
         doReturn(true).when(mPackageManager).hasSystemFeature(anyString());
-        doReturn(mPackageManager).when(mContext).getPackageManager();
-        doReturn(mTelephonyManager).when(mContext).getSystemService(TelephonyManager.class);
-        doReturn(true).when(mUxStatesManager).isEnrolledUser(mContext);
+        doReturn(mPackageManager).when(mMockContext).getPackageManager();
+        doReturn(mTelephonyManager).when(mMockContext).getSystemService(TelephonyManager.class);
+        doReturn(true).when(mUxStatesManager).isEnrolledUser(mMockContext);
     }
 
     // For the old entry point logic, we only check the UX flag and user enrollment is irrelevant.
     @Test
     public void isAdServiceEnabledTest_userNotEnrolledEntryPointLogicV1() throws Exception {
-        doReturn(false).when(mUxStatesManager).isEnrolledUser(mContext);
+        doReturn(false).when(mUxStatesManager).isEnrolledUser(mMockContext);
         doReturn(false).when(mFlags).getEnableAdServicesSystemApi();
         mCommonService =
                 new AdServicesCommonServiceImpl(
-                        mContext,
+                        mMockContext,
                         mFlags,
                         mUxEngine,
                         mUxStatesManager,
@@ -201,13 +199,13 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
     // can see the entry point.
     @Test
     public void isAdServiceEnabledTest_userNotEnrolledEntryPointLogicV2() throws Exception {
-        doReturn(false).when(mUxStatesManager).isEnrolledUser(mContext);
+        doReturn(false).when(mUxStatesManager).isEnrolledUser(mMockContext);
         doReturn(true).when(mFlags).getEnableAdServicesSystemApi();
         doReturn(GA_UX).when(mConsentManager).getUx();
 
         mCommonService =
                 new AdServicesCommonServiceImpl(
-                        mContext,
+                        mMockContext,
                         mFlags,
                         mUxEngine,
                         mUxStatesManager,
@@ -224,7 +222,7 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
         doReturn(false).when(mFlags).getGaUxFeatureEnabled();
         mCommonService =
                 new AdServicesCommonServiceImpl(
-                        mContext,
+                        mMockContext,
                         mFlags,
                         mUxEngine,
                         mUxStatesManager,
@@ -250,7 +248,7 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
         doReturn(false).when(mFlags).getGaUxFeatureEnabled();
         mCommonService =
                 new AdServicesCommonServiceImpl(
-                        mContext,
+                        mMockContext,
                         mFlags,
                         mUxEngine,
                         mUxStatesManager,
@@ -634,6 +632,11 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
     public void enableAdServicesTest_extServicesPackage_initializesComponents() throws Exception {
         SyncIEnableAdServicesCallback callback =
                 new SyncIEnableAdServicesCallback(BINDER_CONNECTION_TIMEOUT_MS);
+        // Components are not initialized on T+; rather they are disabled including background
+        // jobs which this test does not provide appropriate mocks for leading to ErrorLogUtil
+        // logging. Mock SDK level so that error logging does not need to be verified on T+,
+        // enforced by the AdServicesLoggingUsageRule.
+        mocker.mockIsAtLeastT(false);
         ExtendedMockito.doReturn(true)
                 .when(() -> PermissionHelper.hasModifyAdServicesStatePermission(any()));
         doReturn(true).when(mFlags).getEnableAdServicesSystemApi();
@@ -642,7 +645,7 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
         doReturn(true).when(mFlags).getAdServicesEnabled();
         doReturn(false).when(mFlags).getGlobalKillSwitch();
 
-        doReturn(EXT_SERVICES_APK_PKG_SUFFIX).when(mContext).getPackageName();
+        doReturn(EXT_SERVICES_APK_PKG_SUFFIX).when(mMockContext).getPackageName();
         spyBackCompatInit();
         ExtendedMockito.doReturn(true)
                 .when(() -> PackageManagerCompatUtils.isAdServicesActivityEnabled(any()));
@@ -667,7 +670,7 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
                 .when(() -> PermissionHelper.hasModifyAdServicesStatePermission(any()));
         doReturn(true).when(mFlags).getEnableAdServicesSystemApi();
         doReturn(true).when(mFlags).getEnableBackCompatInit();
-        doReturn(AD_SERVICES_APK_PKG_SUFFIX).when(mContext).getPackageName();
+        doReturn(AD_SERVICES_APK_PKG_SUFFIX).when(mMockContext).getPackageName();
         spyBackCompatInit();
         ExtendedMockito.doReturn(true)
                 .when(() -> PackageManagerCompatUtils.isAdServicesActivityEnabled(any()));
@@ -711,7 +714,6 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
     @Test
     @RequiresSdkLevelAtLeastT
     public void enableAdServicesTest_activitiesEnabled_startUxEngine() throws InterruptedException {
-
         SyncIEnableAdServicesCallback callback =
                 new SyncIEnableAdServicesCallback(BINDER_CONNECTION_TIMEOUT_MS);
         ExtendedMockito.doReturn(true)
@@ -737,7 +739,6 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
     public void testUpdateAdIdChange() throws InterruptedException {
         ExtendedMockito.doReturn(true)
                 .when(() -> PermissionHelper.hasUpdateAdIdCachePermission(any()));
-        doReturn(true).when(mFlags).getAdIdCacheEnabled();
 
         UpdateAdIdRequest request = new UpdateAdIdRequest.Builder(UNUSED_AD_ID).build();
         doNothing().when(mMockAdIdWorker).updateAdId(request);
@@ -746,7 +747,6 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
         callback.assertResultReceived();
 
         ExtendedMockito.verify(() -> PermissionHelper.hasUpdateAdIdCachePermission(any()));
-        verify(mFlags).getAdIdCacheEnabled();
         verify(mMockAdIdWorker).updateAdId(request);
     }
 
@@ -754,7 +754,6 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
     public void testUpdateAdIdChange_unauthorizedCaller() throws InterruptedException {
         ExtendedMockito.doReturn(false)
                 .when(() -> PermissionHelper.hasUpdateAdIdCachePermission(any()));
-        doReturn(true).when(mFlags).getAdIdCacheEnabled();
 
         UpdateAdIdRequest request = new UpdateAdIdRequest.Builder(UNUSED_AD_ID).build();
         doNothing().when(mMockAdIdWorker).updateAdId(request);
@@ -763,34 +762,17 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
         callback.assertFailed(STATUS_UNAUTHORIZED);
 
         ExtendedMockito.verify(() -> PermissionHelper.hasUpdateAdIdCachePermission(any()));
-        verify(mFlags).getAdIdCacheEnabled();
         verify(mMockAdIdWorker, never()).updateAdId(request);
     }
 
     @Test
-    public void testUpdateAdIdChange_disabled() throws InterruptedException {
-        ExtendedMockito.doReturn(true)
-                .when(() -> PermissionHelper.hasUpdateAdIdCachePermission(any()));
-        doReturn(false).when(mFlags).getAdIdCacheEnabled();
-
-        UpdateAdIdRequest request = new UpdateAdIdRequest.Builder(UNUSED_AD_ID).build();
-        doNothing().when(mMockAdIdWorker).updateAdId(request);
-
-        SyncIUpdateAdIdCallback callback = callUpdateAdIdCache(request);
-        callback.assertFailed(STATUS_KILLSWITCH_ENABLED);
-
-        ExtendedMockito.verify(() -> PermissionHelper.hasUpdateAdIdCachePermission(any()));
-        verify(mFlags).getAdIdCacheEnabled();
-        verify(mMockAdIdWorker, never()).updateAdId(request);
-    }
-
-    @Test
-    @SpyStatic(ErrorLogUtil.class)
+    @ExpectErrorLogUtilWithExceptionCall(
+            throwable = RuntimeException.class,
+            errorCode = AD_SERVICES_ERROR_REPORTED__ERROR_CODE__IAPC_UPDATE_AD_ID_API_ERROR,
+            ppapiName = AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__AD_ID)
     public void testUpdateAdIdChange_throwsException() throws InterruptedException {
         ExtendedMockito.doReturn(true)
                 .when(() -> PermissionHelper.hasUpdateAdIdCachePermission(any()));
-        doReturn(true).when(mFlags).getAdIdCacheEnabled();
-        doNothingOnErrorLogUtilError();
 
         RuntimeException exception = new RuntimeException("Update AdId Error.");
         UpdateAdIdRequest request = new UpdateAdIdRequest.Builder(UNUSED_AD_ID).build();
@@ -800,12 +782,7 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
         callback.assertFailureReceived();
 
         ExtendedMockito.verify(() -> PermissionHelper.hasUpdateAdIdCachePermission(any()));
-        verify(mFlags).getAdIdCacheEnabled();
         verify(mMockAdIdWorker).updateAdId(request);
-        verifyErrorLogUtilError(
-                exception,
-                AD_SERVICES_ERROR_REPORTED__ERROR_CODE__IAPC_UPDATE_AD_ID_API_ERROR,
-                AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__AD_ID);
     }
 
     @Test
@@ -845,7 +822,7 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
                                 PermissionHelper.hasAccessAdServicesCommonStatePermission(
                                         any(), any()));
         ResultSyncCallback<ApiCallStats> logApiCallStatsCallback =
-                mockLogApiCallStats(mAdServicesLogger);
+                mocker.mockLogApiCallStats(mAdServicesLogger);
         when(mClock.elapsedRealtime()).thenReturn(150L, 200L);
         GetAdServicesCommonStatesParams params =
                 new GetAdServicesCommonStatesParams.Builder(TEST_APP_PACKAGE_NAME, SOME_SDK_NAME)
@@ -1030,7 +1007,7 @@ public class AdServicesCommonServiceImplTest extends AdServicesExtendedMockitoTe
     }
 
     private void spyBackCompatInit() {
-        mSpyBackCompatInit = Mockito.spy(new AdServicesBackCompatInit(mContext));
+        mSpyBackCompatInit = Mockito.spy(new AdServicesBackCompatInit(mMockContext));
         ExtendedMockito.doReturn(mSpyBackCompatInit)
                 .when(() -> AdServicesBackCompatInit.getInstance());
     }

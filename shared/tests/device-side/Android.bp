@@ -50,6 +50,7 @@ java_defaults {
     name: "AdServicesSharedLibrariesUnitTests-defaults",
     srcs: [
         "java/**/*.java",
+        ":adservices-shared-device-side-meta-testing-sources",
         ":adservices-shared-sideless-meta-testing-sources",
         ":adservices-shared-sideless-tests-sources",
     ],
@@ -68,6 +69,9 @@ java_defaults {
         "androidx.test.runner",
         "auto_value_annotations",
         "truth",
+    ],
+    libs: [
+        "framework-connectivity",
     ],
     plugins: ["auto_annotation_plugin"],
     min_sdk_version: "30",
