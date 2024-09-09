@@ -48,6 +48,8 @@ import com.android.adservices.data.customaudience.CustomAudienceDatabase;
 import com.android.adservices.data.customaudience.DBCustomAudience;
 import com.android.adservices.data.enrollment.EnrollmentDao;
 import com.android.adservices.data.signals.EncodedPayloadDao;
+import com.android.adservices.data.signals.EncoderLogicHandler;
+import com.android.adservices.data.signals.EncoderLogicMetadataDao;
 import com.android.adservices.data.signals.ProtectedSignalsDao;
 import com.android.adservices.data.signals.ProtectedSignalsDatabase;
 import com.android.adservices.service.FakeFlagsFactory;
@@ -61,15 +63,20 @@ import com.android.adservices.service.adselection.CompressedBuyerInputCreatorFac
 import com.android.adservices.service.adselection.CompressedBuyerInputCreatorHelper;
 import com.android.adservices.service.adselection.CompressedBuyerInputCreatorNoOptimizations;
 import com.android.adservices.service.adselection.FrequencyCapAdFiltererNoOpImpl;
+import com.android.adservices.service.adselection.debug.ConsentedDebugConfigurationGenerator;
+import com.android.adservices.service.adselection.debug.ConsentedDebugConfigurationGeneratorFactory;
 import com.android.adservices.service.customaudience.BackgroundFetchRunner;
 import com.android.adservices.service.shell.adselection.AdSelectionShellCommandFactory;
 import com.android.adservices.service.shell.adselection.ConsentedDebugShellCommand;
 import com.android.adservices.service.shell.customaudience.CustomAudienceListCommand;
 import com.android.adservices.service.shell.customaudience.CustomAudienceShellCommandFactory;
+import com.android.adservices.service.signals.PeriodicEncodingJobRunner;
 import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.adservices.service.stats.CustomAudienceLoggerFactory;
 import com.android.adservices.service.stats.GetAdSelectionDataApiCalledStats;
 import com.android.adservices.service.stats.ShellCommandStats;
+import com.android.adservices.service.stats.pas.EncodingExecutionLogHelper;
+import com.android.adservices.service.stats.pas.EncodingJobRunStatsLogger;
 import com.android.adservices.shared.testing.BooleanSyncCallback;
 import com.android.adservices.shared.testing.concurrency.OnResultSyncCallback;
 import com.android.adservices.shared.testing.concurrency.ResultSyncCallback;
@@ -98,6 +105,11 @@ public final class ShellCommandServiceImplTest extends AdServicesMockitoTestCase
 
     @Mock private AdServicesLogger mAdServicesLogger;
     @Mock private CompressedBuyerInputCreatorFactory mMockCompressedBuyerInputCreatorFactory;
+    @Mock private PeriodicEncodingJobRunner mEncodingJobRunner;
+    @Mock private EncoderLogicHandler mEncoderLogicHandler;
+    @Mock private EncodingExecutionLogHelper mEncodingExecutionLogHelper;
+    @Mock private EncodingJobRunStatsLogger mEncodingJobRunStatsLogger;
+    @Mock private EncoderLogicMetadataDao mEncoderLogicMetadataDao;
 
     private final Flags mFlags = FakeFlagsFactory.getFlagsForTest();
     private ShellCommandServiceImpl mShellCommandService;
@@ -167,6 +179,10 @@ public final class ShellCommandServiceImplTest extends AdServicesMockitoTestCase
                         new AdFilteringFeatureFactory(appInstallDao, frequencyCapDao, mFlags)
                                 .getAppInstallAdFilterer(),
                         mMockCompressedBuyerInputCreatorFactory);
+        ConsentedDebugConfigurationGenerator consentedDebugConfigurationGenerator =
+                new ConsentedDebugConfigurationGeneratorFactory(
+                                CONSENTED_DEBUG_CLI_ENABLED, consentedDebugConfigurationDao)
+                        .create();
         ShellCommandFactorySupplier adServicesShellCommandHandlerFactory =
                 new TestShellCommandFactorySupplier(
                         CUSTOM_AUDIENCE_CLI_ENABLED,
@@ -177,7 +193,13 @@ public final class ShellCommandServiceImplTest extends AdServicesMockitoTestCase
                         consentedDebugConfigurationDao,
                         protectedSignalsDao,
                         buyerInputGenerator,
-                        auctionServerDataCompressor);
+                        auctionServerDataCompressor,
+                        mEncodingJobRunner,
+                        mEncoderLogicHandler,
+                        mEncodingExecutionLogHelper,
+                        mEncodingJobRunStatsLogger,
+                        mEncoderLogicMetadataDao,
+                        consentedDebugConfigurationGenerator);
         mShellCommandService =
                 new ShellCommandServiceImpl(
                         adServicesShellCommandHandlerFactory,
