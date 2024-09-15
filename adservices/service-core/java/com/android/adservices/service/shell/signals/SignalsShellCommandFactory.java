@@ -39,7 +39,7 @@ import com.android.adservices.service.shell.NoOpShellCommand;
 import com.android.adservices.service.shell.ShellCommand;
 import com.android.adservices.service.shell.ShellCommandFactory;
 import com.android.adservices.service.signals.PeriodicEncodingJobRunner;
-import com.android.adservices.service.signals.SignalsProviderImpl;
+import com.android.adservices.service.signals.SignalsProviderAndArgumentFactory;
 import com.android.adservices.service.signals.SignalsScriptEngine;
 import com.android.adservices.service.stats.AdServicesLoggerImpl;
 import com.android.adservices.service.stats.pas.EncodingExecutionLogHelper;
@@ -64,7 +64,7 @@ public class SignalsShellCommandFactory implements ShellCommandFactory {
 
     public SignalsShellCommandFactory(
             boolean isSignalsCliEnabled,
-            ProtectedSignalsDao protectedSignalsDao,
+            SignalsProviderAndArgumentFactory signalsProviderAndArgumentFactory,
             PeriodicEncodingJobRunner encodingJobRunner,
             EncoderLogicHandler encoderLogicHandler,
             EncodingExecutionLogHelper encodingExecutionLogHelper,
@@ -73,8 +73,7 @@ public class SignalsShellCommandFactory implements ShellCommandFactory {
         mIsSignalsCliEnabled = isSignalsCliEnabled;
         Set<ShellCommand> allCommandsMap =
                 ImmutableSet.of(
-                        new GenerateInputForEncodingCommand(
-                                new SignalsProviderImpl(protectedSignalsDao)),
+                        new GenerateInputForEncodingCommand(signalsProviderAndArgumentFactory),
                         new TriggerEncodingCommand(
                                 encodingJobRunner,
                                 encoderLogicHandler,
@@ -97,11 +96,14 @@ public class SignalsShellCommandFactory implements ShellCommandFactory {
             Flags flags,
             Context context) {
         EncoderLogicHandler encoderLogicHandler = new EncoderLogicHandler(context);
+        SignalsProviderAndArgumentFactory signalsProviderAndArgumentFactory =
+                new SignalsProviderAndArgumentFactory(
+                        protectedSignalsDao, flags.getPasEncodingJobImprovementsEnabled());
         return new SignalsShellCommandFactory(
                 debugFlags.getProtectedAppSignalsCommandsEnabled(),
-                protectedSignalsDao,
+                signalsProviderAndArgumentFactory,
                 new PeriodicEncodingJobRunner(
-                        new SignalsProviderImpl(protectedSignalsDao),
+                        signalsProviderAndArgumentFactory,
                         protectedSignalsDao,
                         new SignalsScriptEngine(
                                 flags::getIsolateMaxHeapSizeBytes,

@@ -71,6 +71,7 @@ import com.android.adservices.service.shell.adselection.ConsentedDebugShellComma
 import com.android.adservices.service.shell.customaudience.CustomAudienceListCommand;
 import com.android.adservices.service.shell.customaudience.CustomAudienceShellCommandFactory;
 import com.android.adservices.service.signals.PeriodicEncodingJobRunner;
+import com.android.adservices.service.signals.SignalsProviderAndArgumentFactory;
 import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.adservices.service.stats.CustomAudienceLoggerFactory;
 import com.android.adservices.service.stats.GetAdSelectionDataApiCalledStats;
@@ -111,10 +112,11 @@ public final class ShellCommandServiceImplTest extends AdServicesMockitoTestCase
     @Mock private EncodingJobRunStatsLogger mEncodingJobRunStatsLogger;
     @Mock private EncoderLogicMetadataDao mEncoderLogicMetadataDao;
 
-    private final Flags mFlags = FakeFlagsFactory.getFlagsForTest();
+    private final Flags mFakeFlags = FakeFlagsFactory.getFlagsForTest();
     private ShellCommandServiceImpl mShellCommandService;
     private final SyncIShellCommandCallback mSyncIShellCommandCallback =
             new SyncIShellCommandCallback();
+    private SignalsProviderAndArgumentFactory mSignalsProviderAndArgumentFactory;
 
     @Before
     public void setup() {
@@ -148,12 +150,13 @@ public final class ShellCommandServiceImplTest extends AdServicesMockitoTestCase
                         customAudienceDao,
                         appInstallDao,
                         sContext.getPackageManager(),
-                        new EnrollmentDao(mContext, DbTestUtil.getSharedDbHelperForTest(), mFlags),
-                        mFlags,
+                        new EnrollmentDao(
+                                mContext, DbTestUtil.getSharedDbHelperForTest(), mFakeFlags),
+                        mFakeFlags,
                         CustomAudienceLoggerFactory.getNoOpInstance());
         AuctionServerDataCompressor auctionServerDataCompressor =
                 AuctionServerDataCompressorFactory.getDataCompressor(
-                        mFlags.getFledgeAuctionServerCompressionAlgorithmVersion());
+                        mFakeFlags.getFledgeAuctionServerCompressionAlgorithmVersion());
 
         CompressedBuyerInputCreatorHelper helper =
                 new CompressedBuyerInputCreatorHelper(
@@ -173,16 +176,19 @@ public final class ShellCommandServiceImplTest extends AdServicesMockitoTestCase
                         new FrequencyCapAdFiltererNoOpImpl(),
                         AdServicesExecutors.getLightWeightExecutor(),
                         AdServicesExecutors.getBackgroundExecutor(),
-                        mFlags.getFledgeCustomAudienceActiveTimeWindowInMs(),
-                        mFlags.getFledgeAuctionServerEnableAdFilterInGetAdSelectionData(),
-                        mFlags.getProtectedSignalsPeriodicEncodingEnabled(),
-                        new AdFilteringFeatureFactory(appInstallDao, frequencyCapDao, mFlags)
+                        mFakeFlags.getFledgeCustomAudienceActiveTimeWindowInMs(),
+                        mFakeFlags.getFledgeAuctionServerEnableAdFilterInGetAdSelectionData(),
+                        mFakeFlags.getProtectedSignalsPeriodicEncodingEnabled(),
+                        new AdFilteringFeatureFactory(appInstallDao, frequencyCapDao, mFakeFlags)
                                 .getAppInstallAdFilterer(),
                         mMockCompressedBuyerInputCreatorFactory);
         ConsentedDebugConfigurationGenerator consentedDebugConfigurationGenerator =
                 new ConsentedDebugConfigurationGeneratorFactory(
                                 CONSENTED_DEBUG_CLI_ENABLED, consentedDebugConfigurationDao)
                         .create();
+        mSignalsProviderAndArgumentFactory =
+                new SignalsProviderAndArgumentFactory(
+                        protectedSignalsDao, mFakeFlags.getPasEncodingJobImprovementsEnabled());
         ShellCommandFactorySupplier adServicesShellCommandHandlerFactory =
                 new TestShellCommandFactorySupplier(
                         CUSTOM_AUDIENCE_CLI_ENABLED,
@@ -191,7 +197,7 @@ public final class ShellCommandServiceImplTest extends AdServicesMockitoTestCase
                         backgroundFetchRunner,
                         customAudienceDao,
                         consentedDebugConfigurationDao,
-                        protectedSignalsDao,
+                        mSignalsProviderAndArgumentFactory,
                         buyerInputGenerator,
                         auctionServerDataCompressor,
                         mEncodingJobRunner,
