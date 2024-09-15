@@ -14,14 +14,21 @@
  * limitations under the License.
  */
 
-package com.android.adservices.service.shell.adselection;
+package com.android.adservices.service.measurement.util;
 
-public final class GetAdSelectionDataArgs {
-    static final int FIRST_ARG_FOR_PARSING = 2;
+import org.json.JSONArray;
+import org.json.JSONException;
 
-    public static final String BUYER = "--buyer";
+import java.util.Optional;
 
-    private GetAdSelectionDataArgs() {
-        throw new UnsupportedOperationException();
+public class JsonUtil {
+
+    /** Returns result of parsing String as JSONArray. */
+    public static Optional<JSONArray> maybeGetJsonArray(String s) throws JSONException {
+        try {
+            return Optional.of(new JSONArray(s));
+        } catch (JSONException e) {
+            return Optional.empty();
+        }
     }
 }
