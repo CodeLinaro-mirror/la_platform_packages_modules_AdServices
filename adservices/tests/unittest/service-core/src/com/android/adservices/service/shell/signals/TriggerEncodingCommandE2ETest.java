@@ -74,7 +74,7 @@ import com.android.adservices.service.devapi.DevContext;
 import com.android.adservices.service.devapi.DevContextFilter;
 import com.android.adservices.service.signals.PeriodicEncodingJobRunner;
 import com.android.adservices.service.signals.ProtectedSignalsServiceImpl;
-import com.android.adservices.service.signals.SignalsProviderImpl;
+import com.android.adservices.service.signals.SignalsProviderAndArgumentFactory;
 import com.android.adservices.service.signals.SignalsScriptEngine;
 import com.android.adservices.service.signals.UpdateProcessingOrchestrator;
 import com.android.adservices.service.signals.UpdateSignalsOrchestrator;
@@ -168,6 +168,7 @@ public class TriggerEncodingCommandE2ETest extends AdServicesExtendedMockitoTest
     private ProtectedSignalsServiceImpl mProtectedSignalsService;
     @Mock private ConsentManager mConsentManagerMock;
     private ProtectedSignalsDao mProtectedSignalsDao;
+    private SignalsProviderAndArgumentFactory mSignalsProviderAndArgumentFactory;
 
     @Before
     public void setUp() throws Exception {
@@ -203,10 +204,12 @@ public class TriggerEncodingCommandE2ETest extends AdServicesExtendedMockitoTest
         final int maxJsFailures =
                 flags.getProtectedSignalsMaxJsFailureExecutionOnCertainVersionBeforeStop();
         final boolean jsIsolateMessagesInLogs = true;
+        mSignalsProviderAndArgumentFactory =
+                new SignalsProviderAndArgumentFactory(mProtectedSignalsDao, true);
         mTriggerEncodingCommand =
                 new TriggerEncodingCommand(
                         new PeriodicEncodingJobRunner(
-                                new SignalsProviderImpl(mProtectedSignalsDao),
+                                mSignalsProviderAndArgumentFactory,
                                 mProtectedSignalsDao,
                                 new SignalsScriptEngine(
                                         flags::getIsolateMaxHeapSizeBytes,

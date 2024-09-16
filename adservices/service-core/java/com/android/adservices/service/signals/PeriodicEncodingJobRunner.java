@@ -55,11 +55,13 @@ public class PeriodicEncodingJobRunner {
     private final EncodedPayloadDao mEncodedPayloadDao;
     private final ListeningExecutorService mBackgroundExecutor;
     private final ListeningExecutorService mLightWeightExecutor;
+    private final ProtectedSignalsArgument mProtectedSignalsArgument;
 
     /**
      * Create a periodic encoding job runner.
      *
-     * @param signalsProvider Provider to access signals data stored on the device.
+     * @param signalsProviderAndArgumentFactory Factory which allows access to signals data stored
+     *     on the device.
      * @param protectedSignalsDao DAO for underlying raw signals tables.
      * @param scriptEngine Wrapper over JSScriptEngine for evaluating user-defined scripts.
      * @param encoderLogicMaximumFailure Maximum number of tolerable failures in encoding logic.
@@ -71,7 +73,7 @@ public class PeriodicEncodingJobRunner {
      * @param lightWeightExecutor Executor for lightweight tasks.
      */
     public PeriodicEncodingJobRunner(
-            SignalsProvider signalsProvider,
+            SignalsProviderAndArgumentFactory signalsProviderAndArgumentFactory,
             ProtectedSignalsDao protectedSignalsDao,
             SignalsScriptEngine scriptEngine,
             int encoderLogicMaximumFailure,
@@ -80,7 +82,7 @@ public class PeriodicEncodingJobRunner {
             EncodedPayloadDao encodedPayloadDao,
             ListeningExecutorService backgroundExecutor,
             ListeningExecutorService lightWeightExecutor) {
-        mSignalsProvider = signalsProvider;
+        mSignalsProvider = signalsProviderAndArgumentFactory.getSignalsProvider();
         mProtectedSignalsDao = protectedSignalsDao;
         mScriptEngine = scriptEngine;
         mEncoderLogicMaximumFailure = encoderLogicMaximumFailure;
@@ -89,6 +91,7 @@ public class PeriodicEncodingJobRunner {
         mEncodedPayloadDao = encodedPayloadDao;
         mBackgroundExecutor = backgroundExecutor;
         mLightWeightExecutor = lightWeightExecutor;
+        mProtectedSignalsArgument = signalsProviderAndArgumentFactory.getProtectedSignalsArgument();
     }
 
     /**
@@ -165,7 +168,11 @@ public class PeriodicEncodingJobRunner {
         sLogger.v("runEncodingPerBuyer: beginning encoding of signals");
         return FluentFuture.from(
                         mScriptEngine.encodeSignals(
-                                encodingLogic, signals, mEncodedPayLoadMaxSizeBytes, logHelper))
+                                encodingLogic,
+                                signals,
+                                mEncodedPayLoadMaxSizeBytes,
+                                logHelper,
+                                mProtectedSignalsArgument))
                 .transform(
                         encodedPayload -> {
                             sLogger.v("runEncodingPerBuyer: completed encoding of signals");
