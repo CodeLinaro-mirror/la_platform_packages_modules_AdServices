@@ -2970,8 +2970,6 @@ public interface Flags extends ModuleSharedFlags {
     String PPAPI_APP_ALLOW_LIST =
             "android.platform.test.scenario,"
                     + "android.adservices.crystalball,"
-                    + "android.adservices.cts,"
-                    + "android.adservices.debuggablects,"
                     + "com.android.sdksandboxclient,"
                     + "com.example.adservices.samples.adid.app,"
                     + "com.example.adservices.samples.appsetid.app,"
@@ -3011,8 +3009,6 @@ public interface Flags extends ModuleSharedFlags {
     String MSMT_API_APP_ALLOW_LIST =
             "android.platform.test.scenario,"
                     + "android.adservices.crystalball,"
-                    + "android.adservices.cts,"
-                    + "android.adservices.debuggablects,"
                     + "com.android.sdksandboxclient,"
                     + "com.example.adservices.samples.adid.app,"
                     + "com.example.adservices.samples.appsetid.app,"
@@ -4962,6 +4958,18 @@ public interface Flags extends ModuleSharedFlags {
     /** Returns whether enrollment logging should be limited. */
     default boolean getEnrollmentEnableLimitedLogging() {
         return ENROLLMENT_ENABLE_LIMITED_LOGGING;
+    }
+
+    @ConfigFlag int MEASUREMENT_DEFAULT_FILTERING_ID_MAX_BYTES = 8;
+
+    default int getMeasurementDefaultFilteringIdMaxBytes() {
+        return MEASUREMENT_DEFAULT_FILTERING_ID_MAX_BYTES;
+    }
+
+    @FeatureFlag boolean MEASUREMENT_ENABLE_FLEXIBLE_CONTRIBUTION_FILTERING = false;
+
+    default boolean getMeasurementEnableFlexibleContributionFiltering() {
+        return MEASUREMENT_ENABLE_FLEXIBLE_CONTRIBUTION_FILTERING;
     }
 
     /**
