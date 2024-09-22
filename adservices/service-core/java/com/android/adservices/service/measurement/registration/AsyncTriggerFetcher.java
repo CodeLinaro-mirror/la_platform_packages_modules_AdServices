@@ -185,7 +185,11 @@ public class AsyncTriggerFetcher {
             registrationHeaderStr = field.get(0);
             boolean isValid =
                     parseValidateTrigger(
-                            registrationHeaderStr, asyncRegistration, builder, enrollmentId);
+                            registrationHeaderStr,
+                            asyncRegistration,
+                            builder,
+                            enrollmentId,
+                            asyncFetchStatus);
             if (!isValid) {
                 asyncFetchStatus.setEntityStatus(EntityStatus.VALIDATION_ERROR);
                 LoggerFactory.getMeasurementLogger()
@@ -413,7 +417,8 @@ public class AsyncTriggerFetcher {
             String registrationHeaderStr,
             AsyncRegistration asyncRegistration,
             Trigger.Builder builder,
-            String enrollmentId)
+            String enrollmentId,
+            AsyncFetchStatus asyncFetchStatus)
             throws JSONException {
         String eventTriggerData = new JSONArray().toString();
         JSONObject json = new JSONObject(registrationHeaderStr);
@@ -463,7 +468,8 @@ public class AsyncTriggerFetcher {
                                                     .HEADER_ATTRIBUTION_REPORTING_REGISTER_TRIGGER));
                     return false;
                 }
-                builder.setAggregateValues(
+                asyncFetchStatus.setIsTriggerAggregatableValueFiltersConfigured(true);
+                builder.setAggregateValuesString(
                         json.getString(TriggerHeaderContract.AGGREGATABLE_VALUES));
             } else {
                 if (!isValidAggregateValues(
@@ -477,7 +483,7 @@ public class AsyncTriggerFetcher {
                                                     .HEADER_ATTRIBUTION_REPORTING_REGISTER_TRIGGER));
                     return false;
                 }
-                builder.setAggregateValues(
+                builder.setAggregateValuesString(
                         json.getString(TriggerHeaderContract.AGGREGATABLE_VALUES));
             }
         }
