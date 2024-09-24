@@ -138,7 +138,8 @@ public class StatsdAdServicesLogger implements AdServicesLogger {
     }
 
     /** log method for measurement reporting. */
-    public void logMeasurementReports(MeasurementReportsStats measurementReportsStats) {
+    public void logMeasurementReports(
+            MeasurementReportsStats measurementReportsStats, @Nullable String enrollmentId) {
         AdServicesStatsLog.write(
                 measurementReportsStats.getCode(),
                 measurementReportsStats.getType(),
@@ -226,7 +227,8 @@ public class StatsdAdServicesLogger implements AdServicesLogger {
                 stats.isRedirectOnly(),
                 stats.isPARequest(),
                 stats.getNumDeletedEntities(),
-                stats.isEventLevelEpsilonEnabled());
+                stats.isEventLevelEpsilonEnabled(),
+                stats.isTriggerAggregatableValueFiltersConfigured());
     }
 
     @Override
@@ -435,7 +437,8 @@ public class StatsdAdServicesLogger implements AdServicesLogger {
 
     /** log method for measurement attribution. */
     public void logMeasurementAttributionStats(
-            MeasurementAttributionStats measurementAttributionStats) {
+            MeasurementAttributionStats measurementAttributionStats,
+            @Nullable String enrollmentId) {
         AdServicesStatsLog.write(
                 measurementAttributionStats.getCode(),
                 measurementAttributionStats.getSourceType(),

@@ -299,6 +299,7 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
                                 false,
                                 false,
                                 0,
+                                false,
                                 false)
                         .setAdTechDomain(null)
                         .build();
@@ -356,6 +357,7 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
                                 false,
                                 false,
                                 0,
+                                false,
                                 false)
                         .setAdTechDomain(null)
                         .build();
@@ -2170,9 +2172,10 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
                 mFetcher.fetchTrigger(
                         appTriggerRegistrationRequest(request), asyncFetchStatus, asyncRedirects);
         // Assertion
-        assertTrue(fetch.isPresent());
+        assertThat(fetch.isPresent()).isTrue();
         Trigger result = fetch.get();
-        assertEquals(null, result.getAggregateValues());
+        assertThat(result.getAggregateValuesString()).isNull();
+        assertThat(asyncFetchStatus.isTriggerAggregatableValueFiltersConfigured()).isFalse();
     }
 
     @Test
@@ -2197,11 +2200,13 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
                 mFetcher.fetchTrigger(
                         appTriggerRegistrationRequest(request), asyncFetchStatus, asyncRedirects);
         // Assertion
-        assertTrue(fetch.isPresent());
-        assertEquals(AsyncFetchStatus.EntityStatus.SUCCESS, asyncFetchStatus.getEntityStatus());
+        assertThat(fetch.isPresent()).isTrue();
+        assertThat(asyncFetchStatus.getEntityStatus())
+                .isEqualTo(AsyncFetchStatus.EntityStatus.SUCCESS);
         Trigger result = fetch.get();
-        assertEquals(
-                new JSONObject(validAggregatableValues).toString(), result.getAggregateValues());
+        assertThat(result.getAggregateValuesString())
+                .isEqualTo(new JSONObject(validAggregatableValues).toString());
+        assertThat(asyncFetchStatus.isTriggerAggregatableValueFiltersConfigured()).isTrue();
     }
 
     @Test
@@ -2227,11 +2232,13 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
                 mFetcher.fetchTrigger(
                         appTriggerRegistrationRequest(request), asyncFetchStatus, asyncRedirects);
         // Assertion
-        assertTrue(fetch.isPresent());
-        assertEquals(AsyncFetchStatus.EntityStatus.SUCCESS, asyncFetchStatus.getEntityStatus());
+        assertThat(fetch.isPresent()).isTrue();
+        assertThat(asyncFetchStatus.getEntityStatus())
+                .isEqualTo(AsyncFetchStatus.EntityStatus.SUCCESS);
         Trigger result = fetch.get();
-        assertEquals(
-                new JSONArray(validAggregatableValuesArr).toString(), result.getAggregateValues());
+        assertThat(result.getAggregateValuesString())
+                .isEqualTo(new JSONArray(validAggregatableValuesArr).toString());
+        assertThat(asyncFetchStatus.isTriggerAggregatableValueFiltersConfigured()).isTrue();
     }
 
     @Test
@@ -2253,9 +2260,10 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
                 mFetcher.fetchTrigger(
                         appTriggerRegistrationRequest(request), asyncFetchStatus, asyncRedirects);
         // Assertion
-        assertFalse(fetch.isPresent());
-        assertEquals(
-                AsyncFetchStatus.EntityStatus.VALIDATION_ERROR, asyncFetchStatus.getEntityStatus());
+        assertThat(fetch.isPresent()).isFalse();
+        assertThat(asyncFetchStatus.getEntityStatus())
+                .isEqualTo(AsyncFetchStatus.EntityStatus.VALIDATION_ERROR);
+        assertThat(asyncFetchStatus.isTriggerAggregatableValueFiltersConfigured()).isFalse();
     }
 
     @Test
@@ -2298,7 +2306,9 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
         assertEquals(AsyncFetchStatus.EntityStatus.SUCCESS, asyncFetchStatus.getEntityStatus());
         Trigger result = fetch.get();
         assertEquals(
-                new JSONArray(validAggregatableValuesArr).toString(), result.getAggregateValues());
+                new JSONArray(validAggregatableValuesArr).toString(),
+                result.getAggregateValuesString());
+        assertThat(asyncFetchStatus.isTriggerAggregatableValueFiltersConfigured()).isTrue();
     }
 
     @Test
@@ -2324,9 +2334,10 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
                 mFetcher.fetchTrigger(
                         appTriggerRegistrationRequest(request), asyncFetchStatus, asyncRedirects);
         // Assertion
-        assertFalse(fetch.isPresent());
-        assertEquals(
-                AsyncFetchStatus.EntityStatus.VALIDATION_ERROR, asyncFetchStatus.getEntityStatus());
+        assertThat(fetch.isPresent()).isFalse();
+        assertThat(asyncFetchStatus.getEntityStatus())
+                .isEqualTo(AsyncFetchStatus.EntityStatus.VALIDATION_ERROR);
+        assertThat(asyncFetchStatus.isTriggerAggregatableValueFiltersConfigured()).isFalse();
     }
 
     @Test
@@ -2356,6 +2367,7 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
         assertFalse(fetch.isPresent());
         assertEquals(
                 AsyncFetchStatus.EntityStatus.VALIDATION_ERROR, asyncFetchStatus.getEntityStatus());
+        assertThat(asyncFetchStatus.isTriggerAggregatableValueFiltersConfigured()).isFalse();
     }
 
     @Test
@@ -2389,6 +2401,7 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
         assertFalse(fetch.isPresent());
         assertEquals(
                 AsyncFetchStatus.EntityStatus.PARSING_ERROR, asyncFetchStatus.getEntityStatus());
+        assertThat(asyncFetchStatus.isTriggerAggregatableValueFiltersConfigured()).isFalse();
     }
 
     @Test
@@ -2431,6 +2444,7 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
         assertFalse(fetch.isPresent());
         assertEquals(
                 AsyncFetchStatus.EntityStatus.VALIDATION_ERROR, asyncFetchStatus.getEntityStatus());
+        assertThat(asyncFetchStatus.isTriggerAggregatableValueFiltersConfigured()).isFalse();
     }
 
     @Test
@@ -2473,6 +2487,7 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
         assertFalse(fetch.isPresent());
         assertEquals(
                 AsyncFetchStatus.EntityStatus.VALIDATION_ERROR, asyncFetchStatus.getEntityStatus());
+        assertThat(asyncFetchStatus.isTriggerAggregatableValueFiltersConfigured()).isFalse();
     }
 
     @Test
@@ -2932,9 +2947,10 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
     }
 
     @Test
-    public void fetchTrigger_invalidLookbackWindow_rejectsTrigger() throws Exception {
+    public void fetchTrigger_invalidLookbackWindowValidJSON_rejectsTrigger() throws Exception {
         RegistrationRequest request = buildRequest(TRIGGER_URI);
-        String filters = "{\"product\":[\"1234\"], \"ctid\":[\"id\"], \"_lookback_window\": 123f}";
+        String filters =
+                "{\"product\":[\"1234\"], \"ctid\":[\"id\"], \"_lookback_window\": \"123\"}";
         doReturn(mUrlConnection).when(mFetcher).openUrl(new URL(TRIGGER_URI));
         when(mUrlConnection.getResponseCode()).thenReturn(200);
         when(mUrlConnection.getHeaderFields())
@@ -4027,10 +4043,12 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
                 mFetcher.fetchTrigger(
                         appTriggerRegistrationRequest(request), asyncFetchStatus, asyncRedirects);
         // Assertion
-        assertEquals(AsyncFetchStatus.ResponseStatus.SUCCESS, asyncFetchStatus.getResponseStatus());
-        assertTrue(fetch.isPresent());
+        assertThat(asyncFetchStatus.getResponseStatus())
+                .isEqualTo(AsyncFetchStatus.ResponseStatus.SUCCESS);
+        assertThat(fetch.isPresent()).isTrue();
         Trigger result = fetch.get();
-        assertEquals(new JSONObject(aggregatableValues).toString(), result.getAggregateValues());
+        assertThat(result.getAggregateValuesString())
+                .isEqualTo(new JSONObject(aggregatableValues).toString());
         verify(mUrlConnection).setRequestMethod("POST");
     }
 
@@ -4059,9 +4077,9 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
                 mFetcher.fetchTrigger(
                         appTriggerRegistrationRequest(request), asyncFetchStatus, asyncRedirects);
         // Assertion
-        assertEquals(
-                AsyncFetchStatus.EntityStatus.VALIDATION_ERROR, asyncFetchStatus.getEntityStatus());
-        assertFalse(fetch.isPresent());
+        assertThat(fetch.isPresent()).isFalse();
+        assertThat(asyncFetchStatus.getEntityStatus())
+                .isEqualTo(AsyncFetchStatus.EntityStatus.VALIDATION_ERROR);
         verify(mUrlConnection).setRequestMethod("POST");
     }
 
@@ -4352,15 +4370,17 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
                         asyncFetchStatus,
                         asyncRedirects);
         // Assertion
-        assertEquals(AsyncFetchStatus.ResponseStatus.SUCCESS, asyncFetchStatus.getResponseStatus());
-        assertTrue(fetch.isPresent());
+        assertThat(asyncFetchStatus.getResponseStatus())
+                .isEqualTo(AsyncFetchStatus.ResponseStatus.SUCCESS);
+        assertThat(fetch.isPresent()).isTrue();
         Trigger result = fetch.get();
-        assertEquals(new JSONArray(EVENT_TRIGGERS_1).toString(), result.getEventTriggers());
-        assertEquals(new JSONArray(aggregatableTriggerData).toString(),
-                result.getAggregateTriggerData());
-        assertEquals(new JSONObject(aggregatableValues).toString(), result.getAggregateValues());
-        assertEquals(new JSONArray(filters).toString(), result.getFilters());
-        assertEquals(TRIGGER_URI, result.getRegistrationOrigin().toString());
+        assertThat(result.getEventTriggers()).isEqualTo(new JSONArray(EVENT_TRIGGERS_1).toString());
+        assertThat(result.getAggregateTriggerData())
+                .isEqualTo((new JSONArray(aggregatableTriggerData).toString()));
+        assertThat(result.getAggregateValuesString())
+                .isEqualTo(new JSONObject(aggregatableValues).toString());
+        assertThat(result.getFilters()).isEqualTo(new JSONArray(filters).toString());
+        assertThat(result.getRegistrationOrigin().toString()).isEqualTo(TRIGGER_URI);
         verify(mUrlConnection).setRequestMethod("POST");
     }
 
@@ -5171,11 +5191,12 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
         Optional<Trigger> fetch =
                 mFetcher.fetchTrigger(
                         appTriggerRegistrationRequest(request), asyncFetchStatus, asyncRedirects);
-        assertTrue(fetch.isPresent());
+        assertThat(fetch.isPresent()).isTrue();
         Trigger result = fetch.get();
-        assertEquals(ENROLLMENT_ID, result.getEnrollmentId());
-        assertEquals(new JSONObject(aggregatableValues).toString(), result.getAggregateValues());
-        assertEquals(TRIGGER_URI, result.getRegistrationOrigin().toString());
+        assertThat(result.getEnrollmentId()).isEqualTo(ENROLLMENT_ID);
+        assertThat(result.getAggregateValuesString())
+                .isEqualTo(new JSONObject(aggregatableValues).toString());
+        assertThat(result.getRegistrationOrigin().toString()).isEqualTo(TRIGGER_URI);
         verify(mUrlConnection).setRequestMethod("POST");
     }
 
@@ -5397,6 +5418,7 @@ public final class AsyncTriggerFetcherTest extends AdServicesExtendedMockitoTest
                                 false,
                                 false,
                                 0,
+                                false,
                                 false)
                         .setAdTechDomain(WebUtil.validUrl("https://foo.test"))
                         .build();
