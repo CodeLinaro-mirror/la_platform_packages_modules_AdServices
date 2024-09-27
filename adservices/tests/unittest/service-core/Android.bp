@@ -239,9 +239,6 @@ java_defaults {
         "-0 .lite",
         "-0 .tflite",
     ],
-    visibility: [
-      "//packages/modules/AdServices/adservices/tests/unittest/service-core",
-    ],
     lint: {
         extra_check_modules: ["AdServicesTestLintChecker"],
         test: false, // TODO(b/343741206): remove when checks will run on android_test
