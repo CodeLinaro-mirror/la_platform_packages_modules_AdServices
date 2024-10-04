@@ -16,6 +16,7 @@
 package com.android.adservices.shared.testing.flags;
 
 import static com.android.adservices.shared.testing.device.DeviceConfig.SyncDisabledModeForTest.PERSISTENT;
+import static com.android.adservices.shared.testing.device.DeviceConfig.SyncDisabledModeForTest.UNSUPPORTED;
 import static com.android.adservices.shared.testing.device.DeviceConfig.SyncDisabledModeForTest.UNTIL_REBOOT;
 
 import static org.junit.Assert.assertThrows;
@@ -98,7 +99,14 @@ public class AbstractFlagsPreparerClassRuleTest extends SharedSidelessTestCase {
                 () -> new FakeFlagsPreparerClassRule(/* deviceConfig= */ null, mModeDuringTest));
         assertThrows(
                 NullPointerException.class,
-                () -> new FakeFlagsPreparerClassRule(mDeviceConfig, /* syncMode= */ null));
+                () -> new FakeFlagsPreparerClassRule(mDeviceConfig, /* mode= */ null));
+    }
+
+    @Test
+    public void testConstructor_unsupported() throws Throwable {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new FakeFlagsPreparerClassRule(mDeviceConfig, UNSUPPORTED));
     }
 
     @Test
@@ -106,6 +114,22 @@ public class AbstractFlagsPreparerClassRuleTest extends SharedSidelessTestCase {
         var rule = newRule(mDeviceConfig, PERSISTENT);
 
         assertThrows(IllegalStateException.class, () -> rule.evaluate(mTestBody, mTest));
+    }
+
+    @Test
+    public void testWhenGetModeReturnsUnsupported() throws Throwable {
+        mDeviceConfig.setSyncDisabledMode(UNSUPPORTED);
+        mDeviceConfig.onSetSyncDisabledModeCallback(failWith("Supported I'm Not!"));
+
+        AtomicReference<SyncDisabledModeForTest> modeSetDuringTest = new AtomicReference<>();
+        mTestBody.onEvaluate(() -> modeSetDuringTest.set(mDeviceConfig.getSyncDisabledMode()));
+        var rule = newRule(mDeviceConfig, mModeDuringTest);
+        rule.evaluate(mTestBody, mSuite);
+
+        expect.withMessage("mode during test").that(modeSetDuringTest.get()).isEqualTo(UNSUPPORTED);
+        expect.withMessage("mode after test")
+                .that(mDeviceConfig.getSyncDisabledMode())
+                .isEqualTo(UNSUPPORTED);
     }
 
     @Test
@@ -230,13 +254,19 @@ public class AbstractFlagsPreparerClassRuleTest extends SharedSidelessTestCase {
 
         FakeFlagsPreparerClassRule(
                 RealLogger realLogger, DeviceConfig deviceConfig, SyncDisabledModeForTest mode) {
-            super(realLogger, deviceConfig, mode);
+            super(realLogger, deviceConfig, isValid(mode));
         }
 
-        protected FakeFlagsPreparerClassRule(
-                DeviceConfig deviceConfig, SyncDisabledModeForTest mode) {
+        FakeFlagsPreparerClassRule(DeviceConfig deviceConfig, SyncDisabledModeForTest mode) {
             this(StandardStreamsLogger.getInstance(), deviceConfig, mode);
         }
+    }
+
+    private static SyncDisabledModeForTest isValid(SyncDisabledModeForTest mode) {
+        if (mode.equals(UNSUPPORTED)) {
+            throw new IllegalArgumentException("invalid mode: " + mode);
+        }
+        return mode;
     }
 
     // Use to create the Description fixtures

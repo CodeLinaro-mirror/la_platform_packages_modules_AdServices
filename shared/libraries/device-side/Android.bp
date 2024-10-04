@@ -189,6 +189,7 @@ java_library {
     ],
     exclude_srcs: [
         "java/com/android/adservices/shared/common/exception/*.java",
+        "java/com/android/adservices/shared/common/system/*.java",
     ],
     static_libs: [
         "adservices-shared-util",
@@ -225,6 +226,37 @@ java_library {
     },
 }
 
+// Provides helper to be used only by system-server classes
+java_library {
+    name: "adservices-shared-system-common",
+    min_sdk_version: "33",
+    sdk_version: "module_current",
+    srcs: [
+        "java/com/android/adservices/shared/system/**/*.java",
+    ],
+    libs: [
+        "error_prone_annotations", // for @FormatMethod
+        "framework-annotations-lib", // for @VisibleForTesting
+    ],
+    apex_available: [
+        "com.android.adservices",
+        // extservices doesn't have system-server classes
+        "com.android.ondevicepersonalization",
+    ],
+    visibility: [
+        // Available for its own tests...
+        "//packages/modules/AdServices/shared/tests/device-side:__subpackages__",
+
+        // ... and system-server projects
+        "//packages/modules/AdServices/adservices/service:__subpackages__",
+        "//packages/modules/AdServices/sdksandbox/service:__subpackages__",
+        "//packages/modules/OnDevicePersonalization/systemservice:__subpackages__",
+    ],
+    lint: {
+        extra_check_modules: ["AdServicesProdLintChecker"],
+    },
+}
+
 filegroup {
     name: "adservices-shared-flag-annotation-sources",
     srcs: [
@@ -244,10 +276,12 @@ java_library {
     sdk_version: "module_current",
     srcs: [
         "java/com/android/adservices/shared/util/ProtoParser.java",
+        "java/com/android/adservices/shared/errorlogging/AdServicesErrorLogger.java",
     ],
     static_libs: [
         "adservices-shared-proto-lite",
         "adservices-shared-util",
+        "adservices-statsd",
     ],
     libs: [
         "framework-annotations-lib",
@@ -282,7 +316,7 @@ java_library {
         "truth",
     ],
     libs: [
-        "framework-connectivity",
+        "framework-connectivity.stubs.module_lib",
     ],
     visibility: [
         "//packages/modules/AdServices:__subpackages__",

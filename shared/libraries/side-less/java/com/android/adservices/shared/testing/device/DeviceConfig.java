@@ -15,6 +15,8 @@
  */
 package com.android.adservices.shared.testing.device;
 
+import java.util.Locale;
+
 /** Side-agnostic abstraction to interact with the {@code DeviceConfig}. */
 public interface DeviceConfig {
 
@@ -26,8 +28,14 @@ public interface DeviceConfig {
 
     /* Synchronization mode */
     enum SyncDisabledModeForTest {
+        UNSUPPORTED,
         NONE,
         PERSISTENT,
-        UNTIL_REBOOT
+        UNTIL_REBOOT;
+
+        /** Gets the value of the mode used on {@code cmd device_config} parameters. */
+        String getShellCommandString() {
+            return toString().toLowerCase(Locale.ENGLISH);
+        }
     }
 }

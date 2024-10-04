@@ -341,6 +341,9 @@ public class FetchCustomAudienceImpl {
                                                         API_NAME,
                                                         FLEDGE_API_FETCH_CUSTOM_AUDIENCE,
                                                         devContext);
+                                sLogger.d(
+                                        "Buyer extracted by Custom Audience Service Filter is: %s",
+                                        mBuyer);
                             } catch (Throwable t) {
                                 throw new FilterException(t);
                             }
@@ -460,7 +463,8 @@ public class FetchCustomAudienceImpl {
         return FluentFuture.from(
                 mExecutorService.submit(
                         () -> {
-                            boolean isDebuggableCustomAudience = devContext.getDevOptionsEnabled();
+                            boolean isDebuggableCustomAudience =
+                                    devContext.getDeviceDevOptionsEnabled();
                             sLogger.v(
                                     "Is debuggable custom audience: %b",
                                     isDebuggableCustomAudience);
