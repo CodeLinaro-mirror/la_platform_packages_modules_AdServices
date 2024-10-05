@@ -129,6 +129,15 @@ public interface Flags extends ModuleSharedFlags {
         return TOPICS_ENCRYPTION_METRICS_ENABLED;
     }
 
+    /** Flag to enable Topics epoch job battery constraint logging for Topics API. */
+    @FeatureFlag boolean TOPICS_EPOCH_JOB_BATTERY_CONSTRAINT_LOGGING_ENABLED = false;
+
+    /** Returns the feature flag to enable Topics epoch job battery constraint logging
+     * for Topics API. */
+    default boolean getTopicsEpochJobBatteryConstraintLoggingEnabled() {
+        return TOPICS_EPOCH_JOB_BATTERY_CONSTRAINT_LOGGING_ENABLED;
+    }
+
     /** Flag to disable plaintext Topics for Topics API response. */
     boolean TOPICS_DISABLE_PLAINTEXT_RESPONSE = false;
 
@@ -1990,6 +1999,17 @@ public interface Flags extends ModuleSharedFlags {
         return FLEDGE_GET_AD_SELECTION_DATA_MAX_NUM_ENTIRE_PAYLOAD_COMPRESSIONS;
     }
 
+    @FeatureFlag boolean FLEDGE_GET_AD_SELECTION_DATA_DESERIALIZE_ONLY_AD_RENDER_IDS = false;
+
+    /**
+     * Returns whether querying custom audiences from the DB, for the getAdSelectionData API, will
+     * deserialize only ad render ids or the entire ad. When enabled, the DB query will only
+     * deserialize ad render ids.
+     */
+    default boolean getFledgeGetAdSelectionDataDeserializeOnlyAdRenderIds() {
+        return FLEDGE_GET_AD_SELECTION_DATA_DESERIALIZE_ONLY_AD_RENDER_IDS;
+    }
+
     // Protected signals cleanup feature flag disabled by default
     boolean PROTECTED_SIGNALS_CLEANUP_ENABLED = false;
 
@@ -2002,6 +2022,15 @@ public interface Flags extends ModuleSharedFlags {
 
     default boolean getAdServicesEnabled() {
         return ADSERVICES_ENABLED;
+    }
+
+    @FeatureFlag boolean DEFAULT_DEVELOPER_MODE_FEATURE_ENABLED = false;
+
+    /**
+     * @return {@code true} if the developer mode feature is enabled on this device.
+     */
+    default boolean getDeveloperModeFeatureEnabled() {
+        return DEFAULT_DEVELOPER_MODE_FEATURE_ENABLED;
     }
 
     /**
@@ -2642,18 +2671,6 @@ public interface Flags extends ModuleSharedFlags {
      */
     default boolean getMeasurementRollbackDeletionKillSwitch() {
         return getLegacyMeasurementKillSwitch() || MEASUREMENT_ROLLBACK_DELETION_KILL_SWITCH;
-    }
-
-    /** Flag for storing Measurement Rollback data in External Storage for Android R. */
-    boolean MEASUREMENT_ROLLBACK_DELETION_R_ENABLED = !SdkLevel.isAtLeastS();
-
-    /**
-     * Returns whether storing Measurement rollback deletion handling data in AdServices external
-     * storage is enabled. Rollback deletion handling on Android R will be disabled if this value is
-     * false.
-     */
-    default boolean getMeasurementRollbackDeletionREnabled() {
-        return MEASUREMENT_ROLLBACK_DELETION_R_ENABLED;
     }
 
     /**
@@ -3871,6 +3888,14 @@ public interface Flags extends ModuleSharedFlags {
         return DEFAULT_ADSERVICES_VERSION_MAPPINGS;
     }
 
+    /** Default value for Measurement aggregate contribution budget capacity */
+    @FeatureFlag boolean MEASUREMENT_ENABLE_AGGREGATE_CONTRIBUTION_BUDGET_CAPACITY = false;
+
+    /** Returns whether to enable Measurement aggregate contribution budget capacity */
+    default boolean getMeasurementEnableAggregateContributionBudgetCapacity() {
+        return MEASUREMENT_ENABLE_AGGREGATE_CONTRIBUTION_BUDGET_CAPACITY;
+    }
+
     /** Default value for Measurement V1 source trigger data */
     @FeatureFlag boolean MEASUREMENT_ENABLE_V1_SOURCE_TRIGGER_DATA = false;
 
@@ -4474,22 +4499,6 @@ public interface Flags extends ModuleSharedFlags {
         return DEFAULT_U18_UX_ENABLED;
     }
 
-    /** Default RVC UX feature flag.. */
-    boolean DEFAULT_RVC_UX_ENABLED = SDK_INT == Build.VERSION_CODES.R;
-
-    /** RVC UX feature flag.. */
-    default boolean getEnableRvcUx() {
-        return DEFAULT_RVC_UX_ENABLED;
-    }
-
-    /** Default RVC NOTIFICATION feature flag.. */
-    boolean DEFAULT_RVC_POST_OTA_NOTIFICATION_ENABLED = false;
-
-    /** RVC Notification feature flag.. */
-    default boolean getEnableRvcPostOtaNotification() {
-        return DEFAULT_RVC_POST_OTA_NOTIFICATION_ENABLED;
-    }
-
     /** Default enableAdServices system API feature flag.. */
     boolean DEFAULT_ENABLE_AD_SERVICES_SYSTEM_API = false;
 
@@ -4899,6 +4908,21 @@ public interface Flags extends ModuleSharedFlags {
         return MEASUREMENT_ENABLE_REINSTALL_REATTRIBUTION;
     }
 
+    @ConfigFlag
+    long MEASUREMENT_MIN_REPORT_LIFESPAN_FOR_UNINSTALL_SECONDS = TimeUnit.DAYS.toSeconds(1);
+
+    /** Minimum time a report can stay on the device after app uninstall. */
+    default long getMeasurementMinReportLifespanForUninstallSeconds() {
+        return MEASUREMENT_MIN_REPORT_LIFESPAN_FOR_UNINSTALL_SECONDS;
+    }
+
+    @FeatureFlag boolean MEASUREMENT_ENABLE_MIN_REPORT_LIFESPAN_FOR_UNINSTALL = false;
+
+    /** Returns whether to enable uninstall report feature. */
+    default boolean getMeasurementEnableMinReportLifespanForUninstall() {
+        return MEASUREMENT_ENABLE_MIN_REPORT_LIFESPAN_FOR_UNINSTALL;
+    }
+
     /** Flag to enable context id for triggers */
     boolean MEASUREMENT_ENABLE_TRIGGER_CONTEXT_ID = false;
 
@@ -4968,6 +4992,45 @@ public interface Flags extends ModuleSharedFlags {
         return MEASUREMENT_ENABLE_AGGREGATE_VALUE_FILTERS;
     }
 
+    /** Flag for enabling measurement aggregate debug reporting */
+    @FeatureFlag boolean MEASUREMENT_ENABLE_AGGREGATE_DEBUG_REPORTING = false;
+
+    /** Returns whether measurement aggregate debug reporting is enabled. */
+    default boolean getMeasurementEnableAggregateDebugReporting() {
+        return MEASUREMENT_ENABLE_AGGREGATE_DEBUG_REPORTING;
+    }
+
+    @ConfigFlag int MEASUREMENT_ADR_BUDGET_PER_ORIGIN_PUBLISHER_WINDOW = 65536; // = 2^16
+
+    /** Returns aggregatable debug reporting budget allocated per origin per publisher per window */
+    default int getMeasurementAdrBudgetOriginXPublisherXWindow() {
+        return MEASUREMENT_ADR_BUDGET_PER_ORIGIN_PUBLISHER_WINDOW;
+    }
+
+    @ConfigFlag int MEASUREMENT_ADR_BUDGET_PER_PUBLISHER_WINDOW = 1048576; // = 2^20
+
+    /** Returns aggregatable debug reporting budget allocated per publisher per window */
+    default int getMeasurementAdrBudgetPublisherXWindow() {
+        return MEASUREMENT_ADR_BUDGET_PER_PUBLISHER_WINDOW;
+    }
+
+    @ConfigFlag long MEASUREMENT_ADR_BUDGET_WINDOW_LENGTH_MILLIS = TimeUnit.DAYS.toMillis(1);
+
+    /**
+     * Returns aggregatable debug reporting budget consumption tracking window length in
+     * milliseconds.
+     */
+    default long getMeasurementAdrBudgetWindowLengthMillis() {
+        return MEASUREMENT_ADR_BUDGET_WINDOW_LENGTH_MILLIS;
+    }
+
+    @ConfigFlag int MEASUREMENT_MAX_ADR_COUNT_PER_SOURCE = 5;
+
+    /** Returns maximum number of aggregatable debug reports allowed per source. */
+    default int getMeasurementMaxAdrCountPerSource() {
+        return MEASUREMENT_MAX_ADR_COUNT_PER_SOURCE;
+    }
+
     /**
      * Default whether to limit logging for enrollment metrics to avoid performance issues. This
      * includes not logging data that requires database queries and downloading MDD files.
@@ -4979,10 +5042,16 @@ public interface Flags extends ModuleSharedFlags {
         return ENROLLMENT_ENABLE_LIMITED_LOGGING;
     }
 
-    @ConfigFlag int MEASUREMENT_DEFAULT_FILTERING_ID_MAX_BYTES = 8;
+    @ConfigFlag int MEASUREMENT_DEFAULT_FILTERING_ID_MAX_BYTES = 1;
 
     default int getMeasurementDefaultFilteringIdMaxBytes() {
         return MEASUREMENT_DEFAULT_FILTERING_ID_MAX_BYTES;
+    }
+
+    @ConfigFlag int MEASUREMENT_MAX_FILTERING_ID_MAX_BYTES = 8;
+
+    default int getMeasurementMaxFilteringIdMaxBytes() {
+        return MEASUREMENT_MAX_FILTERING_ID_MAX_BYTES;
     }
 
     @FeatureFlag boolean MEASUREMENT_ENABLE_FLEXIBLE_CONTRIBUTION_FILTERING = false;
@@ -5798,6 +5867,64 @@ public interface Flags extends ModuleSharedFlags {
      */
     default long getAdIdCacheTtlMs() {
         return DEFAULT_ADID_CACHE_TTL_MS;
+    }
+
+    /** Feature flag to ramp up use of package deny service. */
+    @FeatureFlag boolean DEFAULT_ENABLE_PACKAGE_DENY_SERVICE = false;
+
+    /**
+     * @return whether to enable use of package deny service.
+     */
+    default boolean getEnablePackageDenyService() {
+        return DEFAULT_ENABLE_PACKAGE_DENY_SERVICE;
+    }
+
+    /** Feature flag to ramp up use of mdd package deny proto file. */
+    @FeatureFlag boolean DEFAULT_ENABLE_PACKAGE_DENY_MDD = false;
+
+    /**
+     * @return whether to enable use of package deny mdd file.
+     */
+    default boolean getEnablePackageDenyMdd() {
+        return DEFAULT_ENABLE_PACKAGE_DENY_MDD;
+    }
+
+    /** Feature flag to ramp up use of package deny service on adding a package. */
+    @FeatureFlag boolean DEFAULT_ENABLE_PACKAGE_DENY_JOB_ON_PACKAGE_ADD = false;
+
+    /**
+     * @return whether to enable use of package deny service on adding a package.
+     */
+    default boolean getEnablePackageDenyJobOnPackageAdd() {
+        return DEFAULT_ENABLE_PACKAGE_DENY_JOB_ON_PACKAGE_ADD;
+    }
+
+    /** Feature flag to ramp up use of package deny preprocessing background job. */
+    @FeatureFlag boolean DEFAULT_ENABLE_PACKAGE_DENY_BG_JOB = false;
+
+    /**
+     * @return whether to enable use of package deny preprocessing background job.
+     */
+    default boolean getEnablePackageDenyBgJob() {
+        return DEFAULT_ENABLE_PACKAGE_DENY_BG_JOB;
+    }
+
+    /** Feature flag to ramp up use of package deny preprocessing on mdd file download. */
+    @FeatureFlag boolean DEFAULT_ENABLE_PACKAGE_DENY_JOB_ON_MDD_DOWNLOAD = false;
+
+    /**
+     * @return whether to enable use of package deny preprocessing job on mdd file download.
+     */
+    default boolean getEnablePackageDenyJobOnMddDownload() {
+        return DEFAULT_ENABLE_PACKAGE_DENY_JOB_ON_MDD_DOWNLOAD;
+    }
+
+    /** MDD package deny registry manifest url. */
+    @ConfigFlag String DEFAULT_MDD_PACKAGE_DENY_REGISTRY_MANIFEST_FILE_URL = "";
+
+    /** Returns MDD package deny registry manifest url. */
+    default String getMddPackageDenyRegistryManifestFileUrl() {
+        return DEFAULT_MDD_PACKAGE_DENY_REGISTRY_MANIFEST_FILE_URL;
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////

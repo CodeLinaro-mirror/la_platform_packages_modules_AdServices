@@ -560,7 +560,7 @@ public final class PackageChangedReceiverTest extends AdServicesExtendedMockitoT
 
         // Mock static method MeasurementImpl.getInstance that executes on a separate thread
         MeasurementImpl mockMeasurementImpl = mock(MeasurementImpl.class);
-        doReturn(mockMeasurementImpl).when(() -> MeasurementImpl.getInstance(any()));
+        doReturn(mockMeasurementImpl).when(MeasurementImpl::getInstance);
 
         // Initialize package receiver meant for Measurement
         PackageChangedReceiver spyReceiver = createSpyPackageReceiverForMeasurement();
@@ -575,7 +575,7 @@ public final class PackageChangedReceiverTest extends AdServicesExtendedMockitoT
         Thread.sleep(BACKGROUND_THREAD_TIMEOUT_MS);
 
         // Verify method inside measurement background thread executes
-        verify(mockMeasurementImpl, times(1)).deletePackageRecords(any());
+        verify(mockMeasurementImpl, times(1)).deletePackageRecords(any(), anyLong());
     }
 
     private void runPackageFullyRemovedForMsmtKillSwitchOn(Intent intent) throws Exception {
@@ -587,7 +587,7 @@ public final class PackageChangedReceiverTest extends AdServicesExtendedMockitoT
 
         // Mock static method MeasurementImpl.getInstance that executes on a separate thread
         MeasurementImpl mockMeasurementImpl = mock(MeasurementImpl.class);
-        doReturn(mockMeasurementImpl).when(() -> MeasurementImpl.getInstance(any()));
+        doReturn(mockMeasurementImpl).when(MeasurementImpl::getInstance);
 
         // Initialize package receiver meant for Measurement
         PackageChangedReceiver spyReceiver = createSpyPackageReceiverForMeasurement();
@@ -602,7 +602,7 @@ public final class PackageChangedReceiverTest extends AdServicesExtendedMockitoT
         Thread.sleep(BACKGROUND_THREAD_TIMEOUT_MS);
 
         // Verify method inside measurement background thread does not execute
-        verify(mockMeasurementImpl, never()).deletePackageRecords(any());
+        verify(mockMeasurementImpl, never()).deletePackageRecords(any(), anyLong());
     }
 
     private void runPackageFullyRemovedForFledgeKillSwitchOff(
@@ -776,7 +776,7 @@ public final class PackageChangedReceiverTest extends AdServicesExtendedMockitoT
 
         // Mock static method MeasurementImpl.getInstance that executes on a separate thread
         MeasurementImpl mockMeasurementImpl = mock(MeasurementImpl.class);
-        doReturn(mockMeasurementImpl).when(() -> MeasurementImpl.getInstance(any()));
+        doReturn(mockMeasurementImpl).when(MeasurementImpl::getInstance);
 
         // Initialize package receiver meant for Measurement
         PackageChangedReceiver spyReceiver = createSpyPackageReceiverForMeasurement();
@@ -803,7 +803,7 @@ public final class PackageChangedReceiverTest extends AdServicesExtendedMockitoT
 
         // Mock static method MeasurementImpl.getInstance that executes on a separate thread
         MeasurementImpl mockMeasurementImpl = mock(MeasurementImpl.class);
-        doReturn(mockMeasurementImpl).when(() -> MeasurementImpl.getInstance(any()));
+        doReturn(mockMeasurementImpl).when(MeasurementImpl::getInstance);
 
         // Initialize package receiver meant for Measurement
         PackageChangedReceiver spyReceiver = createSpyPackageReceiverForMeasurement();
@@ -830,7 +830,7 @@ public final class PackageChangedReceiverTest extends AdServicesExtendedMockitoT
 
         // Mock static method MeasurementImpl.getInstance that executes on a separate thread
         MeasurementImpl mockMeasurementImpl = mock(MeasurementImpl.class);
-        doReturn(mockMeasurementImpl).when(() -> MeasurementImpl.getInstance(any()));
+        doReturn(mockMeasurementImpl).when(MeasurementImpl::getInstance);
 
         // Initialize package receiver meant for Measurement
         PackageChangedReceiver spyReceiver = createSpyPackageReceiverForMeasurement();
@@ -845,7 +845,7 @@ public final class PackageChangedReceiverTest extends AdServicesExtendedMockitoT
         Thread.sleep(BACKGROUND_THREAD_TIMEOUT_MS);
 
         // Verify method inside measurement background thread executes
-        verify(mockMeasurementImpl, times(1)).deletePackageRecords(any());
+        verify(mockMeasurementImpl, times(1)).deletePackageRecords(any(), anyLong());
     }
 
     private void runPackageDataClearedForMsmtKillSwitchOn(Intent intent) throws Exception {
@@ -857,7 +857,7 @@ public final class PackageChangedReceiverTest extends AdServicesExtendedMockitoT
 
         // Mock static method MeasurementImpl.getInstance that executes on a separate thread
         MeasurementImpl mockMeasurementImpl = mock(MeasurementImpl.class);
-        doReturn(mockMeasurementImpl).when(() -> MeasurementImpl.getInstance(any()));
+        doReturn(mockMeasurementImpl).when(MeasurementImpl::getInstance);
 
         // Initialize package receiver meant for Measurement
         PackageChangedReceiver spyReceiver = createSpyPackageReceiverForMeasurement();
@@ -872,7 +872,7 @@ public final class PackageChangedReceiverTest extends AdServicesExtendedMockitoT
         Thread.sleep(BACKGROUND_THREAD_TIMEOUT_MS);
 
         // Verify method inside measurement background thread does not execute
-        verify(mockMeasurementImpl, never()).deletePackageRecords(any());
+        verify(mockMeasurementImpl, never()).deletePackageRecords(any(), anyLong());
     }
 
     private void runPackageDataClearedForFledgeKillSwitchOff(Intent intent) throws Exception {
@@ -1053,7 +1053,7 @@ public final class PackageChangedReceiverTest extends AdServicesExtendedMockitoT
 
         // Mock static method MeasurementImpl.getInstance that executes on a separate thread
         MeasurementImpl mockMeasurementImpl = mock(MeasurementImpl.class);
-        doReturn(mockMeasurementImpl).when(() -> MeasurementImpl.getInstance(any()));
+        doReturn(mockMeasurementImpl).when(MeasurementImpl::getInstance);
 
         // Initialize package receiver meant for Measurement
         PackageChangedReceiver spyReceiver = createSpyPackageReceiverForMeasurement();

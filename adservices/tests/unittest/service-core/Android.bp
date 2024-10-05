@@ -53,11 +53,11 @@ java_defaults {
         "framework-ondevicepersonalization.impl",
     ],
     libs: [
-        "android.test.base",
+        "android.test.base.stubs.system",
         "android.test.mock.stubs",
         "framework-adservices.impl",
         "framework-annotations-lib",
-        "framework-configinfrastructure",
+        "framework-configinfrastructure.stubs.module_lib",
         "framework-sdksandbox.impl",
         "auto_value_annotations",
     ],
@@ -122,7 +122,7 @@ android_test {
         "adservices-test-fixtures",
     ],
     libs: [
-        "android.test.base",
+        "android.test.base.stubs.system",
         "android.test.mock.stubs",
         "framework-adservices.impl",
         "framework-annotations-lib",
@@ -161,7 +161,7 @@ android_test {
         "mobile_data_downloader_lib",
     ],
     libs: [
-        "android.test.base",
+        "android.test.base.stubs.system",
         "android.test.mock.stubs",
         "framework-adservices.impl",
         "framework-annotations-lib",
@@ -215,10 +215,10 @@ java_defaults {
     ],
     libs: [
         "android.ext.adservices",
-        "android.test.base",
+        "android.test.base.stubs.system",
         "android.test.mock.stubs",
         "framework-annotations-lib",
-        "framework-configinfrastructure",
+        "framework-configinfrastructure.stubs.module_lib",
         "framework-sdksandbox.impl",
     ],
     test_suites: [
@@ -238,9 +238,6 @@ java_defaults {
         // See https://elinux.org/Android_aapt for more detail.
         "-0 .lite",
         "-0 .tflite",
-    ],
-    visibility: [
-      "//packages/modules/AdServices/adservices/tests/unittest/service-core",
     ],
     lint: {
         extra_check_modules: ["AdServicesTestLintChecker"],
@@ -288,7 +285,7 @@ android_test {
     ],
     libs: [
         "android.ext.adservices",
-        "android.test.base",
+        "android.test.base.stubs.system",
         "android.test.mock.stubs",
         "framework-annotations-lib",
         "framework-statsd.stubs.module_lib",
@@ -328,7 +325,7 @@ android_test {
     ],
     libs: [
         "android.ext.adservices",
-        "android.test.base",
+        "android.test.base.stubs.system",
         "android.test.mock.stubs",
         "framework-adservices.impl",
         "framework-annotations-lib",

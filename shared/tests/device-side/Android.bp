@@ -64,6 +64,7 @@ java_defaults {
         "adservices-shared-proto-utils",
         "adservices-shared-spe",
         "adservices-shared-storage",
+        "adservices-shared-system-common",
         "adservices-shared-testing",
         "adservices-shared-util",
         "androidx.test.core",
@@ -72,7 +73,7 @@ java_defaults {
         "truth",
     ],
     libs: [
-        "framework-connectivity",
+        "framework-connectivity.stubs.module_lib",
     ],
     plugins: ["auto_annotation_plugin"],
     min_sdk_version: "30",

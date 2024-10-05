@@ -68,6 +68,7 @@ import static com.android.adservices.service.stats.AdServicesStatsLog.RUN_AD_SCO
 import static com.android.adservices.service.stats.AdServicesStatsLog.SERVER_AUCTION_BACKGROUND_KEY_FETCH_ENABLED;
 import static com.android.adservices.service.stats.AdServicesStatsLog.TOPICS_ENCRYPTION_EPOCH_COMPUTATION_REPORTED;
 import static com.android.adservices.service.stats.AdServicesStatsLog.TOPICS_ENCRYPTION_GET_TOPICS_REPORTED;
+import static com.android.adservices.service.stats.AdServicesStatsLog.TOPICS_SCHEDULE_EPOCH_JOB_SETTING_REPORTED;
 import static com.android.adservices.service.stats.AdServicesStatsLog.UPDATE_SIGNALS_API_CALLED;
 import static com.android.adservices.service.stats.AdServicesStatsLog.UPDATE_SIGNALS_PROCESS_REPORTED;
 import static com.android.adservices.service.stats.AdsRelevanceStatusUtils.BACKGROUND_KEY_FETCH_STATUS_NO_OP;
@@ -543,12 +544,11 @@ public final class StatsdAdServicesLoggerTest extends AdServicesExtendedMockitoT
         mLogger = new StatsdAdServicesLogger(mMockFlags);
 
         int apiName = AD_SERVICES_API_CALLED__API_NAME__SELECT_ADS;
-        String appPackageName = null;
         int resultCode = STATUS_SUCCESS;
         int latencyMs = 10;
 
         // Log api call with app package name.
-        mLogger.logFledgeApiCallStats(apiName, appPackageName, resultCode, latencyMs);
+        mLogger.logFledgeApiCallStats(apiName, null, resultCode, latencyMs);
 
         // Verify app package name is logged.
         verify(
@@ -583,12 +583,11 @@ public final class StatsdAdServicesLoggerTest extends AdServicesExtendedMockitoT
         mLogger = new StatsdAdServicesLogger(mMockFlags);
 
         int apiName = AD_SERVICES_API_CALLED__API_NAME__SELECT_ADS;
-        String appPackageName = TEST_PACKAGE_NAME;
         int resultCode = STATUS_SUCCESS;
         int latencyMs = 10;
 
         // Log api call with app package name.
-        mLogger.logFledgeApiCallStats(apiName, appPackageName, resultCode, latencyMs);
+        mLogger.logFledgeApiCallStats(apiName, TEST_PACKAGE_NAME, resultCode, latencyMs);
 
         // Verify app package name is not logged.
         verify(
@@ -1378,10 +1377,6 @@ public final class StatsdAdServicesLoggerTest extends AdServicesExtendedMockitoT
                 DestinationRegisteredBeaconsReportedStats
                         .InteractionKeySizeRangeType
                         .EQUAL_TO_MAXIMUM_KEY_SIZE);
-        int[] keySizeRangeTypeArray = new int[] {
-                /* LARGER_THAN_MAXIMUM_KEY_SIZE */ 4,
-                /* SMALLER_THAN_MAXIMUM_KEY_SIZE */ 2,
-                /* EQUAL_TO_MAXIMUM_KEY_SIZE */ 3};
 
         DestinationRegisteredBeaconsReportedStats stats =
                 DestinationRegisteredBeaconsReportedStats.builder()
@@ -2417,6 +2412,38 @@ public final class StatsdAdServicesLoggerTest extends AdServicesExtendedMockitoT
                                 eq(123.4F),
                                 eq(345.67F),
                                 eq(0.0001F));
+        verify(writeInvocation);
+
+        verifyNoMoreInteractions(staticMockMarker(AdServicesStatsLog.class));
+    }
+
+    @Test
+    public void testLogTopicsScheduleEpochJobSettingReportedStats_success() {
+        TopicsScheduleEpochJobSettingReportedStats stats =
+                TopicsScheduleEpochJobSettingReportedStats.builder()
+                        .setRescheduleEpochJobStatus(0)
+                        .setPreviousEpochJobSetting(1)
+                        .setCurrentEpochJobSetting(2)
+                        .setScheduleIfNeededEpochJobStatus(1)
+                        .build();
+        doNothing()
+                .when(
+                        () ->
+                                AdServicesStatsLog.write(
+                                        anyInt(), anyInt(), anyInt(), anyInt(), anyInt()));
+
+        // Invoke logging call.
+        mLogger.logTopicsScheduleEpochJobSettingReportedStats(stats);
+
+        // Verify only compat logging took place.
+        MockedVoidMethod writeInvocation =
+                () ->
+                        AdServicesStatsLog.write(
+                                TOPICS_SCHEDULE_EPOCH_JOB_SETTING_REPORTED,
+                                0,
+                                1,
+                                2,
+                                1);
         verify(writeInvocation);
 
         verifyNoMoreInteractions(staticMockMarker(AdServicesStatsLog.class));

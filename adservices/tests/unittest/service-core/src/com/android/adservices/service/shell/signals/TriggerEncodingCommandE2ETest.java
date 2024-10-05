@@ -50,6 +50,7 @@ import androidx.room.Room;
 import com.android.adservices.LoggerFactory;
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
 import com.android.adservices.common.AdservicesTestHelper;
+import com.android.adservices.common.WebViewSupportUtil;
 import com.android.adservices.concurrency.AdServicesExecutors;
 import com.android.adservices.data.enrollment.EnrollmentDao;
 import com.android.adservices.data.signals.DBEncodedPayload;
@@ -94,6 +95,7 @@ import com.android.adservices.service.stats.pas.EncodingJobRunStats;
 import com.android.adservices.service.stats.pas.EncodingJobRunStatsLoggerImpl;
 import com.android.adservices.service.stats.pas.UpdateSignalsProcessReportedLoggerImpl;
 import com.android.adservices.shared.testing.BroadcastReceiverSyncCallback;
+import com.android.adservices.shared.testing.SupportedByConditionRule;
 import com.android.adservices.shared.testing.annotations.EnableDebugFlag;
 import com.android.adservices.shared.testing.annotations.RequiresSdkLevelAtLeastT;
 import com.android.adservices.shared.testing.annotations.SetFlagEnabled;
@@ -108,6 +110,7 @@ import com.google.mockwebserver.MockResponse;
 import com.google.mockwebserver.RecordedRequest;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.Mock;
 
@@ -170,9 +173,15 @@ public final class TriggerEncodingCommandE2ETest extends AdServicesExtendedMocki
     private EncodedPayloadDao mEncodedPayloadDao;
     private TriggerEncodingCommand mTriggerEncodingCommand;
 
-    private final MockWebServerRule mMockWebServerRule =
+    @Rule
+    public MockWebServerRule mMockWebServerRule =
             MockWebServerRule.forHttps(
                     mContext, "adservices_untrusted_test_server.p12", "adservices_test");
+
+    @Rule
+    public SupportedByConditionRule mWebViewSupportedRule =
+            WebViewSupportUtil.createJSSandboxAvailableRule(mContext);
+
     private EncoderEndpointsDao mEncoderEndpointDao;
     private EncoderLogicMetadataDao mEncoderLogicMetadataDao;
     private ProtectedSignalsServiceImpl mProtectedSignalsService;
@@ -196,7 +205,7 @@ public final class TriggerEncodingCommandE2ETest extends AdServicesExtendedMocki
                         CacheProviderFactory.createNoOpCache());
         EncoderLogicHandler encoderLogicHandler =
                 new EncoderLogicHandler(
-                        EncoderPersistenceDao.getInstance(mContext),
+                        EncoderPersistenceDao.getInstance(),
                         mEncoderEndpointDao,
                         mEncoderLogicMetadataDao,
                         mProtectedSignalsDao,
@@ -234,7 +243,6 @@ public final class TriggerEncodingCommandE2ETest extends AdServicesExtendedMocki
                                 logger, Clock.getInstance(), EnrollmentDao.getInstance()),
                         new EncodingJobRunStatsLoggerImpl(logger, EncodingJobRunStats.builder()),
                         mEncoderLogicMetadataDao);
-
         mProtectedSignalsService =
                 new ProtectedSignalsServiceImpl(
                         mContext,
@@ -275,7 +283,7 @@ public final class TriggerEncodingCommandE2ETest extends AdServicesExtendedMocki
                                 FledgeAuthorizationFilter.create(mContext, logger),
                                 new FledgeAllowListsFilter(mMockFlags, logger),
                                 new FledgeApiThrottleFilter(
-                                        Throttler.getInstance(mMockFlags), logger)),
+                                        Throttler.newInstance(mMockFlags), logger)),
                         EnrollmentDao.getInstance(),
                         mUpdateSignalsProcessReportedLoggerMock);
         when(mConsentManagerMock.isPasFledgeConsentGiven()).thenReturn(true);

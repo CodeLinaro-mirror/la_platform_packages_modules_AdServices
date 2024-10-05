@@ -25,19 +25,23 @@ import static com.android.adservices.service.Flags.DEFAULT_ADID_CACHE_TTL_MS;
 import static com.android.adservices.service.Flags.DEFAULT_BLOCKED_TOPICS_SOURCE_OF_TRUTH;
 import static com.android.adservices.service.Flags.DEFAULT_CONSENT_SOURCE_OF_TRUTH;
 import static com.android.adservices.service.Flags.DEFAULT_JOB_SCHEDULING_LOGGING_SAMPLING_RATE;
+import static com.android.adservices.service.Flags.DEFAULT_MDD_PACKAGE_DENY_REGISTRY_MANIFEST_FILE_URL;
 import static com.android.adservices.service.Flags.DEFAULT_PAS_SCRIPT_DOWNLOAD_CONNECTION_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.DEFAULT_PAS_SCRIPT_DOWNLOAD_READ_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.DEFAULT_PAS_SCRIPT_EXECUTION_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.DEFAULT_PAS_SIGNALS_DOWNLOAD_CONNECTION_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.DEFAULT_PAS_SIGNALS_DOWNLOAD_READ_TIMEOUT_MS;
-import static com.android.adservices.service.Flags.DEFAULT_RVC_UX_ENABLED;
 import static com.android.adservices.service.Flags.ENABLE_ADEXT_SERVICE_CONSENT_DATA;
 import static com.android.adservices.service.Flags.ENABLE_APPSEARCH_CONSENT_DATA;
 import static com.android.adservices.service.Flags.ENABLE_MIGRATION_FROM_ADEXT_SERVICE;
 import static com.android.adservices.service.Flags.FLEDGE_GET_AD_SELECTION_DATA_BUYER_INPUT_CREATOR_VERSION;
+import static com.android.adservices.service.Flags.FLEDGE_GET_AD_SELECTION_DATA_DESERIALIZE_ONLY_AD_RENDER_IDS;
 import static com.android.adservices.service.Flags.FLEDGE_GET_AD_SELECTION_DATA_MAX_NUM_ENTIRE_PAYLOAD_COMPRESSIONS;
 import static com.android.adservices.service.Flags.GLOBAL_KILL_SWITCH;
 import static com.android.adservices.service.Flags.MDD_LOGGER_KILL_SWITCH;
+import static com.android.adservices.service.Flags.MEASUREMENT_ADR_BUDGET_PER_ORIGIN_PUBLISHER_WINDOW;
+import static com.android.adservices.service.Flags.MEASUREMENT_ADR_BUDGET_PER_PUBLISHER_WINDOW;
+import static com.android.adservices.service.Flags.MEASUREMENT_ADR_BUDGET_WINDOW_LENGTH_MILLIS;
 import static com.android.adservices.service.Flags.MEASUREMENT_ATTRIBUTION_SCOPE_MAX_INFO_GAIN_DUAL_DESTINATION_EVENT;
 import static com.android.adservices.service.Flags.MEASUREMENT_ATTRIBUTION_SCOPE_MAX_INFO_GAIN_DUAL_DESTINATION_NAVIGATION;
 import static com.android.adservices.service.Flags.MEASUREMENT_ATTRIBUTION_SCOPE_MAX_INFO_GAIN_EVENT;
@@ -48,13 +52,15 @@ import static com.android.adservices.service.Flags.MEASUREMENT_DESTINATION_PER_D
 import static com.android.adservices.service.Flags.MEASUREMENT_DESTINATION_PER_DAY_RATE_LIMIT_WINDOW_IN_MS;
 import static com.android.adservices.service.Flags.MEASUREMENT_DESTINATION_RATE_LIMIT_WINDOW;
 import static com.android.adservices.service.Flags.MEASUREMENT_KILL_SWITCH;
+import static com.android.adservices.service.Flags.MEASUREMENT_MAX_ADR_COUNT_PER_SOURCE;
+import static com.android.adservices.service.Flags.MEASUREMENT_MAX_FILTERING_ID_MAX_BYTES;
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_REINSTALL_REATTRIBUTION_WINDOW_SECONDS;
+import static com.android.adservices.service.Flags.MEASUREMENT_MIN_REPORT_LIFESPAN_FOR_UNINSTALL_SECONDS;
 import static com.android.adservices.service.Flags.MEASUREMENT_REPORTING_JOB_PERSISTED;
 import static com.android.adservices.service.Flags.MEASUREMENT_REPORTING_JOB_REQUIRED_BATTERY_NOT_LOW;
 import static com.android.adservices.service.Flags.MEASUREMENT_REPORTING_JOB_REQUIRED_NETWORK_TYPE;
 import static com.android.adservices.service.Flags.MEASUREMENT_REPORTING_JOB_SERVICE_BATCH_WINDOW_MILLIS;
 import static com.android.adservices.service.Flags.MEASUREMENT_REPORTING_JOB_SERVICE_MIN_EXECUTION_WINDOW_MILLIS;
-import static com.android.adservices.service.Flags.MEASUREMENT_ROLLBACK_DELETION_R_ENABLED;
 import static com.android.adservices.service.Flags.MEASUREMENT_TRIGGER_DEBUG_SIGNAL_PROBABILITY_FOR_FAKE_REPORTS;
 import static com.android.adservices.service.Flags.PPAPI_AND_ADEXT_SERVICE;
 import static com.android.adservices.service.Flags.PPAPI_AND_SYSTEM_SERVER;
@@ -216,48 +222,6 @@ public final class FlagsTest extends AdServicesUnitTestCase {
 
     @Test
     @RequiresSdkRange(atMost = RVC, reason = REASON_TO_NOT_MOCK_SDK_LEVEL)
-    public void testEnableRvcUx_isR() {
-        assertEnableRvcUx(true);
-    }
-
-    @Test
-    @RequiresSdkLevelAtLeastS(reason = REASON_TO_NOT_MOCK_SDK_LEVEL)
-    public void testEnableRvcUx_isAtLeastS() {
-        assertEnableRvcUx(false);
-    }
-
-    private void assertEnableRvcUx(boolean expected) {
-        expect.withMessage("DEFAULT_RVC_UX_ENABLED")
-                .that(DEFAULT_RVC_UX_ENABLED)
-                .isEqualTo(expected);
-
-        expect.withMessage("getEnableRvcUx()").that(mFlags.getEnableRvcUx()).isEqualTo(expected);
-    }
-
-    @Test
-    @RequiresSdkRange(atMost = RVC, reason = REASON_TO_NOT_MOCK_SDK_LEVEL)
-    public void testMeasurementRollbackDeletionREnabled_isR() {
-        assertMeasurementRollbackDeletionREnabled(true);
-    }
-
-    @Test
-    @RequiresSdkLevelAtLeastS(reason = REASON_TO_NOT_MOCK_SDK_LEVEL)
-    public void testaMeasurementRollbackDeletionREnabled_isAtLeastS() {
-        assertMeasurementRollbackDeletionREnabled(false);
-    }
-
-    private void assertMeasurementRollbackDeletionREnabled(boolean expected) {
-        expect.withMessage("MEASUREMENT_ROLLBACK_DELETION_R_ENABLED")
-                .that(MEASUREMENT_ROLLBACK_DELETION_R_ENABLED)
-                .isEqualTo(expected);
-
-        expect.withMessage("getMeasurementRollbackDeletionREnabled()")
-                .that(mFlags.getMeasurementRollbackDeletionREnabled())
-                .isEqualTo(expected);
-    }
-
-    @Test
-    @RequiresSdkRange(atMost = RVC, reason = REASON_TO_NOT_MOCK_SDK_LEVEL)
     public void testEnableMigrationFromAdExtService_isR() {
         assertEnableMigrationFromAdExtService(false);
     }
@@ -338,6 +302,35 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     ////////////////////////////////////////////////////////////////////////////////////////////////
     // Tests for feature flags.                                                                   //
     ////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Test
+    public void testGetEnablePackageDenyService() {
+        testFeatureFlag("DEFAULT_ENABLE_PACKAGE_DENY_SERVICE", Flags::getEnablePackageDenyService);
+    }
+
+    @Test
+    public void testGetEnablePackageDenyMdd() {
+        testFeatureFlag("DEFAULT_ENABLE_PACKAGE_DENY_MDD", Flags::getEnablePackageDenyMdd);
+    }
+
+    @Test
+    public void testGetEnablePackageDenyJobOnPackageAdd() {
+        testFeatureFlag(
+                "DEFAULT_ENABLE_PACKAGE_DENY_JOB_ON_PACKAGE_ADD",
+                Flags::getEnablePackageDenyJobOnPackageAdd);
+    }
+
+    @Test
+    public void testGetEnablePackageDenyBgJob() {
+        testFeatureFlag("DEFAULT_ENABLE_PACKAGE_DENY_BG_JOB", Flags::getEnablePackageDenyBgJob);
+    }
+
+    @Test
+    public void testGetEnablePackageDenyJobOnMddDownload() {
+        testFeatureFlag(
+                "DEFAULT_ENABLE_PACKAGE_DENY_JOB_ON_MDD_DOWNLOAD",
+                Flags::getEnablePackageDenyJobOnMddDownload);
+    }
 
     @Test
     public void testGetProtectedSignalsEnabled() {
@@ -500,6 +493,13 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetMeasurementEnableMinReportLifespanForUninstall() {
+        testFeatureFlag(
+                "MEASUREMENT_ENABLE_MIN_REPORT_LIFESPAN_FOR_UNINSTALL",
+                Flags::getMeasurementEnableMinReportLifespanForUninstall);
+    }
+
+    @Test
     public void testGetMeasurementEnableDestinationLimitPriority() {
         testFeatureFlag(
                 "MEASUREMENT_ENABLE_DESTINATION_LIMIT_PRIORITY",
@@ -532,6 +532,13 @@ public final class FlagsTest extends AdServicesUnitTestCase {
         testFeatureFlag(
                 "MEASUREMENT_ENABLE_AGGREGATE_VALUE_FILTERS",
                 Flags::getMeasurementEnableAggregateValueFilters);
+    }
+
+    @Test
+    public void testGetMeasurementEnableAggregateContributionBudgetCapacity() {
+        testFeatureFlag(
+                "MEASUREMENT_ENABLE_AGGREGATE_CONTRIBUTION_BUDGET_CAPACITY",
+                Flags::getMeasurementEnableAggregateContributionBudgetCapacity);
     }
 
     @Test
@@ -631,6 +638,14 @@ public final class FlagsTest extends AdServicesUnitTestCase {
                 "TOPICS_EPOCH_JOB_BATTERY_NOT_LOW_INSTEAD_OF_CHARGING",
                 /* defaultValue */ false,
                 Flags::getTopicsEpochJobBatteryNotLowInsteadOfCharging);
+    }
+
+    @Test
+    public void testGetTopicsEpochJobBatteryConstraintLoggingEnabled() {
+        testFlag(
+                "TOPICS_EPOCH_JOB_BATTERY_CONSTRAINT_LOGGING_ENABLED",
+                /* defaultValue */ false,
+                Flags::getTopicsEpochJobBatteryConstraintLoggingEnabled);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -828,11 +843,25 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetDeveloperModeFeatureEnabled() {
+        testFeatureFlag(
+                "DEFAULT_DEVELOPER_MODE_FEATURE_ENABLED", Flags::getDeveloperModeFeatureEnabled);
+    }
+
+    @Test
     public void testGetMeasurementMaxReinstallReattributionWindowSeconds() {
         testFlag(
                 "getMeasurementMaxReinstallReattributionWindowSeconds",
                 MEASUREMENT_MAX_REINSTALL_REATTRIBUTION_WINDOW_SECONDS,
                 Flags::getMeasurementMaxReinstallReattributionWindowSeconds);
+    }
+
+    @Test
+    public void testGetMeasurementMinReportLifespanForUninstallSeconds() {
+        testFlag(
+                "getMeasurementMinReportLifespanForUninstallSeconds",
+                MEASUREMENT_MIN_REPORT_LIFESPAN_FOR_UNINSTALL_SECONDS,
+                Flags::getMeasurementMinReportLifespanForUninstallSeconds);
     }
 
     @Test
@@ -923,10 +952,25 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetMeasurementValidFilteringIdMaxBytes() {
+        testFlag(
+                "getMeasurementValidFilteringIdMaxBytes",
+                MEASUREMENT_MAX_FILTERING_ID_MAX_BYTES,
+                Flags::getMeasurementMaxFilteringIdMaxBytes);
+    }
+
+    @Test
     public void testGetMeasurementEnableFlexibleContributionFiltering() {
         testFeatureFlag(
                 "MEASUREMENT_ENABLE_FLEXIBLE_CONTRIBUTION_FILTERING",
                 Flags::getMeasurementEnableFlexibleContributionFiltering);
+    }
+
+    @Test
+    public void testGetMeasurementEnableAggregateDebugReporting() {
+        testFeatureFlag(
+                "MEASUREMENT_ENABLE_AGGREGATE_DEBUG_REPORTING",
+                Flags::getMeasurementEnableAggregateDebugReporting);
     }
 
     @Test
@@ -946,6 +990,14 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetFledgeGetAdSelectionDataDeserializeOnlyAdRenderIds() {
+        testFlag(
+                "getFledgeGetAdSelectionDataDeserializeOnlyAdRenderIds",
+                FLEDGE_GET_AD_SELECTION_DATA_DESERIALIZE_ONLY_AD_RENDER_IDS,
+                Flags::getFledgeGetAdSelectionDataDeserializeOnlyAdRenderIds);
+    }
+
+    @Test
     public void testGetPasEncodingJobImprovementsEnabled() {
         testFeatureFlag(
                 "PAS_ENCODING_JOB_IMPROVEMENTS_ENABLED",
@@ -958,6 +1010,46 @@ public final class FlagsTest extends AdServicesUnitTestCase {
                 "getCobaltIgnoredReportIdList",
                 COBALT__IGNORED_REPORT_ID_LIST,
                 Flags::getCobaltIgnoredReportIdList);
+    }
+
+    @Test
+    public void testGetMddPackageDenyRegistryManifestFileUrl() {
+        testFlag(
+                "getMddPackageDenyRegistryManifestFileUrl()",
+                DEFAULT_MDD_PACKAGE_DENY_REGISTRY_MANIFEST_FILE_URL,
+                Flags::getMddPackageDenyRegistryManifestFileUrl);
+    }
+
+    @Test
+    public void testGetMeasurementAdrBudgetOriginXPublisherXWindow() {
+        testFlag(
+                "getMeasurementAdrBudgetOriginXPublisherXWindow",
+                MEASUREMENT_ADR_BUDGET_PER_ORIGIN_PUBLISHER_WINDOW,
+                Flags::getMeasurementAdrBudgetOriginXPublisherXWindow);
+    }
+
+    @Test
+    public void testGetMeasurementAdrBudgetPublisherXWindow() {
+        testFlag(
+                "getMeasurementAdrBudgetPublisherXWindow",
+                MEASUREMENT_ADR_BUDGET_PER_PUBLISHER_WINDOW,
+                Flags::getMeasurementAdrBudgetPublisherXWindow);
+    }
+
+    @Test
+    public void testGetMeasurementAdrBudgetWindowLengthMillis() {
+        testFlag(
+                "getMeasurementAdrBudgetWindowLengthMillis",
+                MEASUREMENT_ADR_BUDGET_WINDOW_LENGTH_MILLIS,
+                Flags::getMeasurementAdrBudgetWindowLengthMillis);
+    }
+
+    @Test
+    public void testGetMeasurementMaxAdrCountPerSource() {
+        testFlag(
+                "getMeasurementMaxAdrCountPerSource",
+                MEASUREMENT_MAX_ADR_COUNT_PER_SOURCE,
+                Flags::getMeasurementMaxAdrCountPerSource);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
