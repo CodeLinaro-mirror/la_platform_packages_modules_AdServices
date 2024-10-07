@@ -2117,25 +2117,6 @@ public interface Flags extends ModuleSharedFlags {
         return DebugFlags.getInstance().getConsentNotificationDebugMode();
     }
 
-    /** Returns the consent notification activity debug mode. */
-    default boolean getConsentNotificationActivityDebugMode() {
-        return DebugFlags.getInstance().getConsentNotificationActivityDebugMode();
-    }
-
-    /** Returns whether to suppress consent notified state. */
-    default boolean getConsentNotifiedDebugMode() {
-        return DebugFlags.getInstance().getConsentNotifiedDebugMode();
-    }
-
-    default boolean getConsentManagerDebugMode() {
-        return DebugFlags.getInstance().getConsentManagerDebugMode();
-    }
-
-    /** When enabled, the device is treated as OTA device. */
-    default boolean getConsentManagerOTADebugMode() {
-        return DebugFlags.getInstance().getConsentManagerOTADebugMode();
-    }
-
     boolean DEFAULT_RVC_POST_OTA_NOTIF_AGE_CHECK = false;
 
     /** When enabled, perform age check in rvc post ota notification channel. */
@@ -4625,6 +4606,20 @@ public interface Flags extends ModuleSharedFlags {
     /** Returns max length of attribution scope. */
     default int getMeasurementMaxAttributionScopeLength() {
         return MEASUREMENT_MAX_ATTRIBUTION_SCOPE_LENGTH;
+    }
+
+    @ConfigFlag int MEASUREMENT_MAX_LENGTH_PER_AGGREGATABLE_BUCKET = 50;
+
+    /** Returns max length of an attribution source's aggregatable bucket budget's key. */
+    default int getMeasurementMaxLengthPerAggregatableBucket() {
+        return MEASUREMENT_MAX_LENGTH_PER_AGGREGATABLE_BUCKET;
+    }
+
+    @ConfigFlag int MEASUREMENT_MAX_AGGREGATABLE_BUCKETS_PER_SOURCE_REGISTRATION = 20;
+
+    /** Returns max size of an attribution source's aggregatable attribution bucket budget list. */
+    default int getMeasurementMaxAggregatableBucketsPerSourceRegistration() {
+        return MEASUREMENT_MAX_AGGREGATABLE_BUCKETS_PER_SOURCE_REGISTRATION;
     }
 
     /** Default value of flag for logging consent migration metrics when OTA from S to T+. */
