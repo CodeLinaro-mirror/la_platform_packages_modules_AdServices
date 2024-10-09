@@ -108,6 +108,7 @@ import com.android.adservices.LoggerFactory;
 import com.android.adservices.MockWebServerRuleFactory;
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
 import com.android.adservices.common.DbTestUtil;
+import com.android.adservices.common.RecreateJSSandboxIsolateRule;
 import com.android.adservices.common.WebViewSupportUtil;
 import com.android.adservices.concurrency.AdServicesExecutors;
 import com.android.adservices.data.adselection.AdSelectionDatabase;
@@ -130,6 +131,7 @@ import com.android.adservices.data.encryptionkey.EncryptionKeyDao;
 import com.android.adservices.data.enrollment.EnrollmentDao;
 import com.android.adservices.data.signals.EncodedPayloadDao;
 import com.android.adservices.data.signals.ProtectedSignalsDatabase;
+import com.android.adservices.service.DebugFlags;
 import com.android.adservices.service.FakeFlagsFactory;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
@@ -202,6 +204,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 // injecting mocked flags everywhere is annoying and non-trivial for static methods
 @RequiresSdkLevelAtLeastS()
 @SpyStatic(FlagsFactory.class)
+@SpyStatic(DebugFlags.class)
 @SetFlagDisabled(KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_ENABLED)
 public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase {
 
@@ -649,6 +652,10 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
     @Rule(order = 12)
     public final MockWebServerRule mMockWebServerRule = MockWebServerRuleFactory.createForHttps();
 
+    @Rule(order = 13)
+    public final RecreateJSSandboxIsolateRule recreateJSSandboxIsolateRule =
+            new RecreateJSSandboxIsolateRule();
+
     // Mocking DevContextFilter to test behavior with and without override api authorization
     @Mock private DevContextFilter mDevContextFilter;
     @Mock private CallerMetadata mMockCallerMetadata;
@@ -700,6 +707,8 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
     @Before
     public void setUp() throws Exception {
         doReturn(new AdSelectionE2ETestFlags()).when(FlagsFactory::getFlags);
+        mocker.mockGetDebugFlags(mMockDebugFlags);
+        mocker.mockGetConsentNotificationDebugMode(false);
 
         mAdSelectionEntryDaoSpy =
                 Room.inMemoryDatabaseBuilder(mSpyContext, AdSelectionDatabase.class)
@@ -782,6 +791,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         mFakeFlags,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -1039,6 +1049,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithCPCEnabled,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -1171,6 +1182,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithDataVersionHeaderEnabled,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -1322,6 +1334,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithDataVersionHeaderEnabled,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -1469,6 +1482,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithDataVersionHeaderEnabled,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -1597,6 +1611,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithCPCDisabled,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -1821,6 +1836,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         prebuiltDisabledFlags,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -1925,6 +1941,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         mFakeFlags,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -2120,6 +2137,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithCPCEnabled,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -2250,6 +2268,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithDataVersionHeaderEnabled,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -2401,6 +2420,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithDataVersionHeaderEnabled,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -2548,6 +2568,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithDataVersionHeaderEnabled,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -2676,6 +2697,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithCPCDisabled,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -3231,6 +3253,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         mFakeFlags,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -3375,6 +3398,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithContextualAdsDisabled,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -4147,6 +4171,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         mFakeFlags,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -4270,6 +4295,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         mFakeFlags,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -4395,6 +4421,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         mFakeFlags,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -4523,6 +4550,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         mFakeFlags,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -4650,6 +4678,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         mFakeFlags,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -4793,6 +4822,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         mFakeFlags,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -5986,6 +6016,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithSmallerLimits,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -6239,6 +6270,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithLenientBuyerBiddingLimits,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -6315,6 +6347,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithTightBuyerBiddingLimits,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -6508,6 +6541,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithLenientBuyerBiddingLimits,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -6584,6 +6618,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithTightBuyerBiddingLimits,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -6703,6 +6738,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithSmallerLimits,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -7407,6 +7443,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithEnrollmentCheckEnabled,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -7544,6 +7581,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         throttlingFlags,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -7672,6 +7710,7 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
                         mSpyContext,
                         mAdServicesLoggerMock,
                         flagsWithEnrollmentCheckEnabled,
+                        mMockDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilterSpy,
                         mAdSelectionServiceFilter,
@@ -8243,11 +8282,6 @@ public final class AdSelectionE2ETest extends AdServicesExtendedMockitoTestCase 
 
         @Override
         public boolean getFledgeEventLevelDebugReportSendImmediately() {
-            return false;
-        }
-
-        @Override
-        public boolean getConsentNotificationDebugMode() {
             return false;
         }
     }

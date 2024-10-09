@@ -13,14 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.android.adservices.shared;
 
-package android.adservices.common;
+import com.android.adservices.shared.SharedMockitoTestCase.Mocker;
+import com.android.adservices.shared.meta_testing.AndroidMockerTestCase;
 
 /**
- * This interface defines the generic response of SetNotification API's.
- * An AdServicesCommonResponse is a Parcelable object that contains a status code and a nullable
- * error message.
- *
- * {@hide}
+ * Unit tests for {@link SharedMockitoTestCase.Mocker}'s implementation of {@link
+ * AndroidMockerTestCase com.android.adservices.mockito.AndroidMocker}.
  */
-parcelable AdServicesCommonResponse;
+public final class SharedMockitoTestCaseAndroidMockerTest extends AndroidMockerTestCase<Mocker> {
+
+    @Override
+    protected Mocker getMocker() {
+        return new Mocker();
+    }
+}
