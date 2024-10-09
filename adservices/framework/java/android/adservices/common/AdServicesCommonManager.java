@@ -22,6 +22,7 @@ import static android.adservices.common.AdServicesPermissions.MODIFY_ADSERVICES_
 import static android.adservices.common.AdServicesPermissions.MODIFY_ADSERVICES_STATE_COMPAT;
 import static android.adservices.common.AdServicesPermissions.UPDATE_PRIVILEGED_AD_ID;
 import static android.adservices.common.AdServicesPermissions.UPDATE_PRIVILEGED_AD_ID_COMPAT;
+import static android.adservices.common.AndroidRCommonUtil.invokeCallbackOnErrorOnRvc;
 
 import android.adservices.adid.AdId;
 import android.annotation.CallbackExecutor;
@@ -120,23 +121,6 @@ public class AdServicesCommonManager {
     public void isAdServicesEnabled(
             @NonNull @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Boolean, Exception> callback) {
-        isAdServicesEnabled(
-                executor, OutcomeReceiverConverter.toAdServicesOutcomeReceiver(callback));
-    }
-
-    /**
-     * Get the AdService's enablement state which represents whether AdServices feature is enabled
-     * or not. This API is for Android R, and uses the AdServicesOutcomeReceiver class because
-     * OutcomeReceiver is not available.
-     *
-     * @hide
-     */
-    @SystemApi
-    @FlaggedApi(Flags.FLAG_ADSERVICES_ENABLEMENT_CHECK_ENABLED)
-    @RequiresPermission(anyOf = {ACCESS_ADSERVICES_STATE, ACCESS_ADSERVICES_STATE_COMPAT})
-    public void isAdServicesEnabled(
-            @NonNull @CallbackExecutor Executor executor,
-            @NonNull AdServicesOutcomeReceiver<Boolean, Exception> callback) {
         final IAdServicesCommonService service = getService();
         try {
             service.isAdServicesEnabled(
@@ -162,6 +146,29 @@ public class AdServicesCommonManager {
             executor.execute(
                     () -> callback.onError(new IllegalStateException("Internal Error!", e)));
         }
+    }
+
+    /**
+     * Get the AdService's enablement state which represents whether AdServices feature is enabled
+     * or not. This API is for Android R, and uses the AdServicesOutcomeReceiver class because
+     * OutcomeReceiver is not available.
+     *
+     *     no longer supported.
+     * @hide
+     */
+    @SystemApi
+    @FlaggedApi(Flags.FLAG_ADSERVICES_ENABLEMENT_CHECK_ENABLED)
+    @RequiresPermission(anyOf = {ACCESS_ADSERVICES_STATE, ACCESS_ADSERVICES_STATE_COMPAT})
+    @SuppressWarnings("NewApi")
+    public void isAdServicesEnabled(
+            @NonNull @CallbackExecutor Executor executor,
+            @NonNull AdServicesOutcomeReceiver<Boolean, Exception> callback) {
+
+        if (invokeCallbackOnErrorOnRvc(callback)) {
+            return;
+        }
+
+        isAdServicesEnabled(executor, OutcomeReceiverConverter.toOutcomeReceiver(callback));
     }
 
     /**
@@ -223,168 +230,6 @@ public class AdServicesCommonManager {
             @NonNull AdServicesStates adServicesStates,
             @NonNull @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Boolean, Exception> callback) {
-        enableAdServices(
-                adServicesStates,
-                executor,
-                OutcomeReceiverConverter.toAdServicesOutcomeReceiver(callback));
-    }
-
-    /**
-     * Broadcast action: notify that a consent notification has been displayed to the user, and the
-     * user consent choices can be set by calling {@link #setAdServicesModuleUserChoices()}.
-     *
-     * @hide
-     */
-    @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
-    @FlaggedApi(Flags.FLAG_ADSERVICES_ENABLE_PER_MODULE_OVERRIDES_API)
-    @RequiresPermission(anyOf = {MODIFY_ADSERVICES_STATE, MODIFY_ADSERVICES_STATE_COMPAT})
-    public static final String ACTION_ADSERVICES_NOTIFICATION_DISPLAY =
-            "android.adservices.common.action.ADSERVICES_NOTIFICATION_DISPLAY";
-
-    /**
-     * Activity Action: Open the consent landing page activity on notification click. In the
-     * activity, user consent choices can be set, depending on user action, by calling {@link
-     * #setAdServicesModuleUserChoices()}.
-     *
-     * <p>Input: nothing
-     *
-     * <p>Output: nothing
-     *
-     * @hide
-     */
-    @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION)
-    @FlaggedApi(Flags.FLAG_ADSERVICES_ENABLE_PER_MODULE_OVERRIDES_API)
-    @RequiresPermission(anyOf = {MODIFY_ADSERVICES_STATE, MODIFY_ADSERVICES_STATE_COMPAT})
-    public static final String ACTION_ADSERVICES_NOTIFICATION_CLICK =
-            "android.adservices.common.action.ADSERVICES_NOTIFICATION_CLICK";
-
-    /**
-     * Sets overrides for the AdServices Module(s).
-     *
-     * <p>This API can enable/disable AdServices modules. Setting a module to off will hide the
-     * settings controls for any PPAPIs (Privacy Preserving APIs) associated with it. In addition,
-     * those PPAPIs will not operate for that user.
-     *
-     * <p>A notification type is also required to determine what type of notification should be
-     * shown to the user to notify them of these changes. The NotificationTypeParams can be Ongoing,
-     * Regular, or None.
-     *
-     * @param adServicesModuleStateList parcel containing state information for modules.
-     * @param notificationType parcel containing notification type.
-     * @param executor the executor for the callback.
-     * @param callback callback function to confirm modules overrides is set up correctly.
-     * @hide
-     */
-    @SystemApi
-    @FlaggedApi(Flags.FLAG_ADSERVICES_ENABLE_PER_MODULE_OVERRIDES_API)
-    @RequiresPermission(anyOf = {MODIFY_ADSERVICES_STATE, MODIFY_ADSERVICES_STATE_COMPAT})
-    public void setAdServicesModuleOverrides(
-            @NonNull List<AdServicesModuleState> adServicesModuleStateList,
-            @NonNull NotificationTypeParams notificationType,
-            @NonNull @CallbackExecutor Executor executor,
-            @NonNull AdServicesOutcomeReceiver<AdServicesCommonResponse, Exception> callback) {
-        Objects.requireNonNull(adServicesModuleStateList);
-        Objects.requireNonNull(notificationType);
-        Objects.requireNonNull(executor);
-        Objects.requireNonNull(callback);
-
-        final IAdServicesCommonService service = getService();
-        try {
-            service.setAdServicesModuleOverrides(
-                    adServicesModuleStateList,
-                    notificationType,
-                    new ISetAdServicesModuleOverridesCallback.Stub() {
-                        @Override
-                        public void onResult(AdServicesCommonResponse adServicesCommonResponse)
-                                throws RemoteException {
-                            callback.onResult(adServicesCommonResponse);
-                        }
-
-                        @Override
-                        public void onFailure(int statusCode) throws RemoteException {
-                            callback.onError(
-                                    new IllegalStateException(
-                                            "Internal Error! status code: " + statusCode));
-                        }
-                    });
-        } catch (RemoteException e) {
-            LogUtil.e(e, "RemoteException");
-            executor.execute(
-                    () -> callback.onError(new IllegalStateException("Internal Error!", e)));
-        }
-    }
-
-    /**
-     * Sets the user choices for AdServices Module(s).
-     *
-     * <p>This API sets the user consent value for each AdServices module (PAS, Measurement, Topic,
-     * etc). The user consent controls whether the PPAPIs associated with that module can operate or
-     * not.
-     *
-     * @param adServicesModuleUserChoiceList parcel containing user choices for modules.
-     * @param executor the executor for the callback.
-     * @param callback callback function to confirm module user choice is set up correctly.
-     * @hide
-     */
-    @SystemApi
-    @FlaggedApi(Flags.FLAG_ADSERVICES_ENABLE_PER_MODULE_OVERRIDES_API)
-    @RequiresPermission(anyOf = {MODIFY_ADSERVICES_STATE, MODIFY_ADSERVICES_STATE_COMPAT})
-    public void setAdServicesModuleUserChoices(
-            @NonNull List<AdServicesModuleUserChoice> adServicesModuleUserChoiceList,
-            @NonNull @CallbackExecutor Executor executor,
-            @NonNull AdServicesOutcomeReceiver<AdServicesCommonResponse, Exception> callback) {
-        Objects.requireNonNull(adServicesModuleUserChoiceList);
-        Objects.requireNonNull(executor);
-        Objects.requireNonNull(callback);
-
-        final IAdServicesCommonService service = getService();
-        try {
-            service.setAdServicesModuleUserChoices(
-                    adServicesModuleUserChoiceList,
-                    new ISetAdServicesModuleUserChoicesCallback.Stub() {
-                        @Override
-                        public void onResult(AdServicesCommonResponse adServicesCommonResponse)
-                                throws RemoteException {
-                            callback.onResult(adServicesCommonResponse);
-                        }
-
-                        @Override
-                        public void onFailure(int statusCode) throws RemoteException {
-                            callback.onError(
-                                    new IllegalStateException(
-                                            "Internal Error! status code: " + statusCode));
-                        }
-                    });
-        } catch (RemoteException e) {
-            LogUtil.e(e, "RemoteException");
-            executor.execute(
-                    () -> callback.onError(new IllegalStateException("Internal Error!", e)));
-        }
-    }
-
-    /**
-     * Enable AdServices based on the AdServicesStates input parameter. This API is for Android R,
-     * and uses the AdServicesOutcomeReceiver class because OutcomeReceiver is not available.
-     *
-     * <p>Based on the provided {@code AdServicesStates}, AdServices may be enabled. Specifically,
-     * users will be provided with an enrollment channel (such as notification) to become privacy
-     * sandbox users when:
-     *
-     * <ul>
-     *   <li>isAdServicesUiEnabled - true.
-     *   <li>isU18Account | isAdultAccount - true.
-     * </ul>
-     *
-     * @param adServicesStates parcel containing relevant AdServices state variables.
-     * @hide
-     */
-    @SystemApi
-    @FlaggedApi(Flags.FLAG_ENABLE_ADSERVICES_API_ENABLED)
-    @RequiresPermission(anyOf = {MODIFY_ADSERVICES_STATE, MODIFY_ADSERVICES_STATE_COMPAT})
-    public void enableAdServices(
-            @NonNull AdServicesStates adServicesStates,
-            @NonNull @CallbackExecutor Executor executor,
-            @NonNull AdServicesOutcomeReceiver<Boolean, Exception> callback) {
         Objects.requireNonNull(adServicesStates);
         Objects.requireNonNull(executor);
         Objects.requireNonNull(callback);
@@ -429,6 +274,181 @@ public class AdServicesCommonManager {
     }
 
     /**
+     * Broadcast action: notify that a consent notification has been displayed to the user, and the
+     * user consent choices can be set by calling {@link #requestAdServicesModuleUserChoices()}.
+     *
+     * @hide
+     */
+    @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
+    @FlaggedApi(Flags.FLAG_ADSERVICES_ENABLE_PER_MODULE_OVERRIDES_API)
+    @RequiresPermission(anyOf = {MODIFY_ADSERVICES_STATE, MODIFY_ADSERVICES_STATE_COMPAT})
+    public static final String ACTION_ADSERVICES_NOTIFICATION_DISPLAYED =
+            "android.adservices.common.action.ADSERVICES_NOTIFICATION_DISPLAYED";
+
+    /**
+     * Activity Action: Open the consent landing page activity. In the activity, user consent
+     * choices can be set, depending on user action, by calling {@link
+     * #requestAdServicesModuleUserChoices()}.
+     *
+     * <p>Input: nothing
+     *
+     * <p>Output: nothing
+     *
+     * @hide
+     */
+    @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION)
+    @FlaggedApi(Flags.FLAG_ADSERVICES_ENABLE_PER_MODULE_OVERRIDES_API)
+    @RequiresPermission(anyOf = {MODIFY_ADSERVICES_STATE, MODIFY_ADSERVICES_STATE_COMPAT})
+    public static final String ACTION_VIEW_ADSERVICES_CONSENT_PAGE =
+            "android.adservices.common.action.VIEW_ADSERVICES_CONSENT_PAGE";
+
+    /**
+     * Sets overrides for the AdServices Module(s).
+     *
+     * <p>This API can enable/disable AdServices modules. Setting a module to off will hide the
+     * settings controls for any PPAPIs (Privacy Preserving APIs) associated with it. In addition,
+     * those PPAPIs will not operate for that user.
+     *
+     * <p>A notification type is also required to determine what type of notification should be
+     * shown to the user to notify them of these changes. The NotificationTypeParams can be Ongoing,
+     * Regular, or None.
+     *
+     * @param adServicesModuleStateList parcel containing state information for modules.
+     * @param notificationType parcel containing notification type.
+     * @param executor the executor for the callback.
+     * @param callback callback function to confirm modules overrides is set up correctly.
+     * @hide
+     */
+    @SystemApi
+    @FlaggedApi(Flags.FLAG_ADSERVICES_ENABLE_PER_MODULE_OVERRIDES_API)
+    @RequiresPermission(anyOf = {MODIFY_ADSERVICES_STATE, MODIFY_ADSERVICES_STATE_COMPAT})
+    public void requestAdServicesModuleOverrides(
+            @NonNull List<AdServicesModuleState> adServicesModuleStateList,
+            @NonNull NotificationTypeParams notificationType,
+            @NonNull @CallbackExecutor Executor executor,
+            @NonNull AdServicesOutcomeReceiver<AdServicesCommonResponse, Exception> callback) {
+        Objects.requireNonNull(adServicesModuleStateList);
+        Objects.requireNonNull(notificationType);
+        Objects.requireNonNull(executor);
+        Objects.requireNonNull(callback);
+
+        if (invokeCallbackOnErrorOnRvc(callback)) {
+            return;
+        }
+
+        final IAdServicesCommonService service = getService();
+        try {
+            service.requestAdServicesModuleOverrides(
+                    adServicesModuleStateList,
+                    notificationType,
+                    new IRequestAdServicesModuleOverridesCallback.Stub() {
+                        @Override
+                        public void onResult(AdServicesCommonResponse adServicesCommonResponse)
+                                throws RemoteException {
+                            callback.onResult(adServicesCommonResponse);
+                        }
+
+                        @Override
+                        public void onFailure(int statusCode) throws RemoteException {
+                            callback.onError(
+                                    new IllegalStateException(
+                                            "Internal Error! status code: " + statusCode));
+                        }
+                    });
+        } catch (RemoteException e) {
+            LogUtil.e(e, "RemoteException");
+            executor.execute(
+                    () -> callback.onError(new IllegalStateException("Internal Error!", e)));
+        }
+    }
+
+    /**
+     * Sets the user choices for AdServices Module(s).
+     *
+     * <p>This API sets the user consent value for each AdServices module (PAS, Measurement, Topic,
+     * etc). The user consent controls whether the PPAPIs associated with that module can operate or
+     * not.
+     *
+     * @param adServicesModuleUserChoiceList parcel containing user choices for modules.
+     * @param executor the executor for the callback.
+     * @param callback callback function to confirm module user choice is set up correctly.
+     * @hide
+     */
+    @SystemApi
+    @FlaggedApi(Flags.FLAG_ADSERVICES_ENABLE_PER_MODULE_OVERRIDES_API)
+    @RequiresPermission(anyOf = {MODIFY_ADSERVICES_STATE, MODIFY_ADSERVICES_STATE_COMPAT})
+    public void requestAdServicesModuleUserChoices(
+            @NonNull List<AdServicesModuleUserChoice> adServicesModuleUserChoiceList,
+            @NonNull @CallbackExecutor Executor executor,
+            @NonNull AdServicesOutcomeReceiver<AdServicesCommonResponse, Exception> callback) {
+        Objects.requireNonNull(adServicesModuleUserChoiceList);
+        Objects.requireNonNull(executor);
+        Objects.requireNonNull(callback);
+
+        if (invokeCallbackOnErrorOnRvc(callback)) {
+            return;
+        }
+
+        final IAdServicesCommonService service = getService();
+        try {
+            service.requestAdServicesModuleUserChoices(
+                    adServicesModuleUserChoiceList,
+                    new IRequestAdServicesModuleUserChoicesCallback.Stub() {
+                        @Override
+                        public void onResult(AdServicesCommonResponse adServicesCommonResponse)
+                                throws RemoteException {
+                            callback.onResult(adServicesCommonResponse);
+                        }
+
+                        @Override
+                        public void onFailure(int statusCode) throws RemoteException {
+                            callback.onError(
+                                    new IllegalStateException(
+                                            "Internal Error! status code: " + statusCode));
+                        }
+                    });
+        } catch (RemoteException e) {
+            LogUtil.e(e, "RemoteException");
+            executor.execute(
+                    () -> callback.onError(new IllegalStateException("Internal Error!", e)));
+        }
+    }
+
+    /**
+     * Enable AdServices based on the AdServicesStates input parameter. This API is for Android R,
+     * and uses the AdServicesOutcomeReceiver class because OutcomeReceiver is not available.
+     *
+     * <p>Based on the provided {@code AdServicesStates}, AdServices may be enabled. Specifically,
+     * users will be provided with an enrollment channel (such as notification) to become privacy
+     * sandbox users when:
+     *
+     * <ul>
+     *   <li>isAdServicesUiEnabled - true.
+     *   <li>isU18Account | isAdultAccount - true.
+     * </ul>
+     *
+     * @param adServicesStates parcel containing relevant AdServices state variables.
+     *     instead. Android R is no longer supported.
+     * @hide
+     */
+    @SystemApi
+    @FlaggedApi(Flags.FLAG_ENABLE_ADSERVICES_API_ENABLED)
+    @RequiresPermission(anyOf = {MODIFY_ADSERVICES_STATE, MODIFY_ADSERVICES_STATE_COMPAT})
+    @SuppressWarnings("NewApi")
+    public void enableAdServices(
+            @NonNull AdServicesStates adServicesStates,
+            @NonNull @CallbackExecutor Executor executor,
+            @NonNull AdServicesOutcomeReceiver<Boolean, Exception> callback) {
+
+        if (invokeCallbackOnErrorOnRvc(callback)) {
+            return;
+        }
+
+        enableAdServices(
+                adServicesStates, executor, OutcomeReceiverConverter.toOutcomeReceiver(callback));
+    }
+
+    /**
      * Updates {@link AdId} in Adservices when the device changes {@link AdId}. This API is used by
      * AdIdProvider.
      *
@@ -439,16 +459,48 @@ public class AdServicesCommonManager {
      * @throws IllegalStateException when service is not available or the feature is not enabled, or
      *     if there is any {@code Binder} invocation error.
      * @throws SecurityException when the caller is not authorized to call this API.
+     *     Android R is no longer supported.
      * @hide
      */
     // TODO(b/295205476): Move exceptions into the callback.
     @SystemApi
     @FlaggedApi(Flags.FLAG_AD_ID_CACHE_ENABLED)
     @RequiresPermission(anyOf = {UPDATE_PRIVILEGED_AD_ID, UPDATE_PRIVILEGED_AD_ID_COMPAT})
+    @SuppressWarnings("NewApi")
     public void updateAdId(
             @NonNull UpdateAdIdRequest updateAdIdRequest,
             @NonNull @CallbackExecutor Executor executor,
             @NonNull AdServicesOutcomeReceiver<Boolean, Exception> callback) {
+
+        if (invokeCallbackOnErrorOnRvc(callback)) {
+            return;
+        }
+
+        updateAdId(
+                updateAdIdRequest, executor, OutcomeReceiverConverter.toOutcomeReceiver(callback));
+    }
+
+    /**
+     * Updates {@link AdId} in Adservices when the device changes {@link AdId}. This API is used by
+     * AdIdProvider.
+     *
+     * @param updateAdIdRequest the request that contains {@link AdId} information to update.
+     * @param executor the executor for the callback.
+     * @param callback the callback in type {@link OutcomeReceiver}, available on Android S and
+     *     above.
+     * @throws IllegalStateException when service is not available or the feature is not enabled, or
+     *     if there is any {@code Binder} invocation error.
+     * @throws SecurityException when the caller is not authorized to call this API.
+     * @hide
+     */
+    @SystemApi
+    @FlaggedApi(Flags.FLAG_AD_ID_CACHE_ENABLED)
+    @RequiresPermission(anyOf = {UPDATE_PRIVILEGED_AD_ID, UPDATE_PRIVILEGED_AD_ID_COMPAT})
+    @RequiresApi(Build.VERSION_CODES.S)
+    public void updateAdId(
+            @NonNull UpdateAdIdRequest updateAdIdRequest,
+            @NonNull @CallbackExecutor Executor executor,
+            @NonNull OutcomeReceiver<Boolean, Exception> callback) {
         Objects.requireNonNull(updateAdIdRequest);
         Objects.requireNonNull(executor);
         Objects.requireNonNull(callback);
@@ -479,33 +531,6 @@ public class AdServicesCommonManager {
     }
 
     /**
-     * Updates {@link AdId} in Adservices when the device changes {@link AdId}. This API is used by
-     * AdIdProvider.
-     *
-     * @param updateAdIdRequest the request that contains {@link AdId} information to update.
-     * @param executor the executor for the callback.
-     * @param callback the callback in type {@link OutcomeReceiver}, available on Android S and
-     *     above.
-     * @throws IllegalStateException when service is not available or the feature is not enabled, or
-     *     if there is any {@code Binder} invocation error.
-     * @throws SecurityException when the caller is not authorized to call this API.
-     * @hide
-     */
-    @SystemApi
-    @FlaggedApi(Flags.FLAG_AD_ID_CACHE_ENABLED)
-    @RequiresPermission(anyOf = {UPDATE_PRIVILEGED_AD_ID, UPDATE_PRIVILEGED_AD_ID_COMPAT})
-    @RequiresApi(Build.VERSION_CODES.S)
-    public void updateAdId(
-            @NonNull UpdateAdIdRequest updateAdIdRequest,
-            @NonNull @CallbackExecutor Executor executor,
-            @NonNull OutcomeReceiver<Boolean, Exception> callback) {
-        updateAdId(
-                updateAdIdRequest,
-                executor,
-                OutcomeReceiverConverter.toAdServicesOutcomeReceiver(callback));
-    }
-
-    /**
      * Get the AdService's common states.
      *
      * @param executor the executor for the callback.
@@ -521,6 +546,11 @@ public class AdServicesCommonManager {
             @NonNull @CallbackExecutor Executor executor,
             @NonNull
                     AdServicesOutcomeReceiver<AdServicesCommonStatesResponse, Exception> callback) {
+
+        if (invokeCallbackOnErrorOnRvc(callback)) {
+            return;
+        }
+
         final IAdServicesCommonService service = getService();
         CallerMetadata callerMetadata =
                 new CallerMetadata.Builder()

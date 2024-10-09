@@ -138,7 +138,6 @@ import com.android.adservices.service.common.UserProfileIdManager;
 import com.android.adservices.service.common.compat.PackageManagerCompatUtils;
 import com.android.adservices.service.common.feature.PrivacySandboxFeatureType;
 import com.android.adservices.service.encryptionkey.EncryptionKeyJobService;
-import com.android.adservices.service.extdata.AdServicesExtDataStorageServiceManager;
 import com.android.adservices.service.measurement.DeleteExpiredJobService;
 import com.android.adservices.service.measurement.DeleteUninstalledJobService;
 import com.android.adservices.service.measurement.MeasurementImpl;
@@ -251,7 +250,6 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
     @Mock private JobScheduler mJobSchedulerMock;
     @Mock private IAdServicesManager mMockIAdServicesManager;
     @Mock private AppSearchConsentManager mAppSearchConsentManagerMock;
-    @Mock private AdServicesExtDataStorageServiceManager mAdServicesExtDataManagerMock;
     @Mock private UserProfileIdManager mUserProfileIdManagerMock;
     @Mock private UxStatesDao mUxStatesDaoMock;
     @Mock private StatsdAdServicesLogger mStatsdAdServicesLoggerMock;
@@ -284,7 +282,6 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
 
         // Default to use PPAPI consent to test migration-irrelevant logics.
         mConsentManager = getConsentManagerByConsentSourceOfTruth(Flags.PPAPI_ONLY);
-
         mocker.mockGetFlags(mMockFlags);
         doReturn(true).when(mMockFlags).getFledgeFrequencyCapFilteringEnabled();
         doReturn(true).when(mMockFlags).getFledgeAppInstallFilteringEnabled();
@@ -3072,6 +3069,7 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
                         mUserProfileIdManagerMock,
                         mUxStatesDaoMock,
                         mMockFlags,
+                        mMockDebugFlags,
                         Flags.PPAPI_ONLY,
                         true);
         doNothing().when(mBlockedTopicsManagerMock).blockTopic(any());
@@ -3568,6 +3566,7 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
                 mUserProfileIdManagerMock,
                 mUxStatesDaoMock,
                 mMockFlags,
+                mMockDebugFlags,
                 consentSourceOfTruth,
                 true);
     }
