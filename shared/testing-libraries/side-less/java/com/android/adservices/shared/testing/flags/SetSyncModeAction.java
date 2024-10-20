@@ -15,17 +15,20 @@
  */
 package com.android.adservices.shared.testing.flags;
 
-
 import com.android.adservices.shared.testing.Logger;
+import com.android.adservices.shared.testing.Nullable;
 import com.android.adservices.shared.testing.device.DeviceConfig;
 import com.android.adservices.shared.testing.device.DeviceConfig.SyncDisabledModeForTest;
+
+import com.google.common.annotations.VisibleForTesting;
 
 import java.util.Objects;
 
 /** Action used to set {@code DeviceConfig}'s {@link SyncDisabledModeForTest}. */
 public final class SetSyncModeAction extends DeviceConfigAction {
 
-    private SyncDisabledModeForTest mPreviousMode;
+    @Nullable private SyncDisabledModeForTest mPreviousMode;
+
     private final SyncDisabledModeForTest mMode;
 
     /** Useless javadoc to make checkstyle happy... */
@@ -33,13 +36,13 @@ public final class SetSyncModeAction extends DeviceConfigAction {
             Logger logger, DeviceConfig deviceConfig, SyncDisabledModeForTest mode) {
         super(logger, deviceConfig);
         mMode = Objects.requireNonNull(mode, "mode cannot be null");
-        if (!isValidMode(mode)) {
+        if (!mode.isValid()) {
             throw new IllegalArgumentException("invalid mode: " + mode);
         }
     }
 
     @Override
-    protected boolean onExecute() throws Exception {
+    protected boolean onExecuteLocked() throws Exception {
         try {
             mPreviousMode = mDeviceConfig.getSyncDisabledMode();
         } catch (Exception e) {
@@ -54,30 +57,44 @@ public final class SetSyncModeAction extends DeviceConfigAction {
 
         mDeviceConfig.setSyncDisabledMode(mMode);
 
-        return mPreviousMode != null && isValidMode(mPreviousMode);
+        return mPreviousMode != null && mPreviousMode.isValid();
     }
 
     @Override
-    protected void onRevert() throws Exception {
-        if (mPreviousMode == null) {
+    protected void onRevertLocked() throws Exception {
+        if (mPreviousMode == null || !mPreviousMode.isValid()) {
             throw new IllegalStateException("should not have been called when it didn't change");
         }
         mDeviceConfig.setSyncDisabledMode(mPreviousMode);
     }
 
     @Override
-    public String toString() {
-        return "SetSyncModeAction[" + mMode + ']';
+    protected void onResetLocked() {
+        mPreviousMode = null;
     }
 
-    private static boolean isValidMode(SyncDisabledModeForTest mode) {
-        switch (mode) {
-            case NONE:
-            case PERSISTENT:
-            case UNTIL_REBOOT:
-                return true;
-            default:
-                return false;
-        }
+    @VisibleForTesting
+    @Nullable
+    SyncDisabledModeForTest getPreviousMode() {
+        return mPreviousMode;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mMode);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (getClass() != obj.getClass()) return false;
+        SetSyncModeAction other = (SetSyncModeAction) obj;
+        return mMode == other.mMode;
+    }
+
+    @Override
+    public String toString() {
+        return "SetSyncModeAction[mode=" + mMode + ", previousMode=" + mPreviousMode + ']';
     }
 }
