@@ -22,15 +22,14 @@ import static com.android.adservices.shared.testing.device.DeviceConfig.SyncDisa
 import static org.junit.Assert.assertThrows;
 
 import com.android.adservices.shared.meta_testing.FakeDeviceConfig;
-import com.android.adservices.shared.meta_testing.FakeLogger;
 import com.android.adservices.shared.meta_testing.SharedSidelessTestCase;
+import com.android.adservices.shared.testing.EqualsTester;
 import com.android.adservices.shared.testing.Logger;
 
 import org.junit.Test;
 
 public final class SetSyncModeActionTest extends SharedSidelessTestCase {
 
-    private final Logger mFakeLogger = new Logger(new FakeLogger(), SetSyncModeActionTest.class);
     private final FakeDeviceConfig mFakeDeviceConfig = new FakeDeviceConfig();
 
     @Test
@@ -66,7 +65,7 @@ public final class SetSyncModeActionTest extends SharedSidelessTestCase {
         boolean result = action.execute();
         mFakeDeviceConfig.onGetSyncDisabledModeCallback(null); // reset as we'll check state later
 
-        expect.withMessage("execute()").that(result).isTrue();
+        expect.withMessage("execute()").that(result).isFalse();
         expect.withMessage("device config mode after execute")
                 .that(mFakeDeviceConfig.getSyncDisabledMode())
                 .isEqualTo(UNTIL_REBOOT);
@@ -108,12 +107,36 @@ public final class SetSyncModeActionTest extends SharedSidelessTestCase {
 
         boolean result = action.execute();
 
-        expect.withMessage("execute()").that(result).isTrue();
+        expect.withMessage("execute()").that(result).isFalse();
         expect.withMessage("device config mode after execute")
                 .that(mFakeDeviceConfig.getSyncDisabledMode())
                 .isEqualTo(PERSISTENT);
 
         // Should not call it as it was null before
+        mFakeDeviceConfig.onSetSyncDisabledModeCallback(
+                () -> {
+                    throw new RuntimeException("Y U CALLED ME?");
+                });
+        action.revert();
+        expect.withMessage("device config mode after revert")
+                .that(mFakeDeviceConfig.getSyncDisabledMode())
+                .isEqualTo(PERSISTENT);
+    }
+
+    @Test
+    public void testExecuteAndRevert_previousReturnInvalid() throws Exception {
+        mFakeDeviceConfig.setSyncDisabledMode(UNSUPPORTED);
+        SetSyncModeAction action =
+                new SetSyncModeAction(mFakeLogger, mFakeDeviceConfig, PERSISTENT);
+
+        boolean result = action.execute();
+
+        expect.withMessage("execute()").that(result).isFalse();
+        expect.withMessage("device config mode after execute")
+                .that(mFakeDeviceConfig.getSyncDisabledMode())
+                .isEqualTo(PERSISTENT);
+
+        // Should not call it as it was UNSUPPORTED before
         mFakeDeviceConfig.onSetSyncDisabledModeCallback(
                 () -> {
                     throw new RuntimeException("Y U CALLED ME?");
@@ -162,12 +185,65 @@ public final class SetSyncModeActionTest extends SharedSidelessTestCase {
     }
 
     @Test
-    public void testToString() {
+    public void testOnRevertWhenNotExecuted() throws Exception {
+        // This is kind of an "overkill" test, as onRevert() should not be called directly, but it
+        // doesn't hurt to be sure...
+        mFakeDeviceConfig.setSyncDisabledMode(PERSISTENT);
+        SetSyncModeAction action =
+                new SetSyncModeAction(mFakeLogger, mFakeDeviceConfig, PERSISTENT);
+
+        action.execute();
+
+        assertThrows(IllegalStateException.class, () -> action.onRevertLocked());
+    }
+
+    @Test
+    public void testOnReset() throws Exception {
+        mFakeDeviceConfig.setSyncDisabledMode(PERSISTENT);
+        SetSyncModeAction action =
+                new SetSyncModeAction(mFakeLogger, mFakeDeviceConfig, UNTIL_REBOOT);
+        expect.withMessage("previous mode initially ").that(action.getPreviousMode()).isNull();
+        action.execute();
+        expect.withMessage("previous mode after execute")
+                .that(action.getPreviousMode())
+                .isEqualTo(PERSISTENT);
+
+        action.onResetLocked();
+
+        expect.withMessage("previous mode before reset").that(action.getPreviousMode()).isNull();
+    }
+
+    @Test
+    public void testEqualsAndHashCode() {
+        var baseline = new SetSyncModeAction(mFakeLogger, mFakeDeviceConfig, UNTIL_REBOOT);
+        var equal2 = new SetSyncModeAction(mFakeLogger, mFakeDeviceConfig, UNTIL_REBOOT);
+        var equal3 =
+                new SetSyncModeAction(
+                        new Logger(mFakeRealLogger, "whatever"), mFakeDeviceConfig, UNTIL_REBOOT);
+        var equal4 = new SetSyncModeAction(mFakeLogger, new FakeDeviceConfig(), UNTIL_REBOOT);
+        var different = new SetSyncModeAction(mFakeLogger, mFakeDeviceConfig, PERSISTENT);
+
+        var et = new EqualsTester(expect);
+
+        et.expectObjectsAreEqual(baseline, equal2);
+        et.expectObjectsAreEqual(baseline, equal3);
+        et.expectObjectsAreEqual(baseline, equal4);
+        et.expectObjectsAreNotEqual(baseline, different);
+    }
+
+    @Test
+    public void testToString() throws Exception {
         SetSyncModeAction action =
                 new SetSyncModeAction(mFakeLogger, mFakeDeviceConfig, UNTIL_REBOOT);
 
-        expect.withMessage("toString()")
+        expect.withMessage("toString() before execute")
                 .that(action.toString())
-                .isEqualTo("SetSyncModeAction[UNTIL_REBOOT]");
+                .isEqualTo("SetSyncModeAction[mode=UNTIL_REBOOT, previousMode=null]");
+
+        action.execute();
+
+        expect.withMessage("toString() after execute")
+                .that(action.toString())
+                .isEqualTo("SetSyncModeAction[mode=UNTIL_REBOOT, previousMode=NONE]");
     }
 }

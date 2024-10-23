@@ -15,33 +15,113 @@
  */
 package com.android.adservices.shared.meta_testing;
 
+import com.android.adservices.shared.testing.Action;
+import com.android.adservices.shared.testing.DynamicLogger;
+import com.android.adservices.shared.testing.Logger;
 import com.android.adservices.shared.testing.Nullable;
-import com.android.adservices.shared.testing.flags.Action;
 
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Fake action! */
 public final class FakeAction implements Action {
 
-    private boolean mExecuted;
-    private boolean mOnExecute;
-    private boolean mReverted;
-
+    @Nullable private final String mName;
+    @Nullable private final AtomicInteger mExecutionOrderCounter;
+    @Nullable private final AtomicInteger mReversionOrderCounter;
     @Nullable private Exception mOnExecuteException;
     @Nullable private Exception mOnRevertException;
+    @Nullable private RuntimeException mOnResetException;
+    @Nullable private Boolean mOnExecute;
+
+    private final AtomicInteger mNumberTimesExecuteCalled = new AtomicInteger();
+    private final Logger mLog = new Logger(DynamicLogger.getInstance(), FakeAction.class);
+
+    private boolean mReverted;
+    private int mExecutionOrder;
+    private int mReversionOrder;
+
+    /** Default constructor, don't set anything. */
+    public FakeAction() {
+        this(
+                /* checkNull= */ false,
+                /* name= */ null,
+                /* executionOrderCounter= */ null,
+                /* reversionOrderCounter= */ null);
+    }
+
+    /**
+     * Constructor used when tests need to check the order of multiple actions.
+     *
+     * @param name name of the object (used on {@link #toString()}
+     * @param executionOrderCounter counter that is incremented when {@link #execute()} is called.
+     * @param reversionOrderCounter counter that is incremented when {@link #revert()} is called.
+     */
+    public FakeAction(
+            String name, AtomicInteger executionOrderCounter, AtomicInteger reversionOrderCounter) {
+        this(/* checkNull= */ true, name, executionOrderCounter, reversionOrderCounter);
+    }
+
+    private FakeAction(
+            boolean checkNull,
+            String name,
+            AtomicInteger executionOrderCounter,
+            AtomicInteger reversionOrderCounter) {
+        if (checkNull) {
+            Objects.requireNonNull(name, "mName cannot be null");
+            Objects.requireNonNull(executionOrderCounter, "executionOrderCounter cannot be null");
+            Objects.requireNonNull(reversionOrderCounter, "reversionOrderCounter cannot be null");
+        }
+        mName = name;
+        mExecutionOrderCounter = executionOrderCounter;
+        mReversionOrderCounter = reversionOrderCounter;
+    }
+
+    @Override
+    public void reset() {
+        if (mOnResetException != null) {
+            throw mOnResetException;
+            // Don't need to set it to null - if it's set, it's because it should throw
+        }
+        if (mExecutionOrderCounter != null) {
+            mExecutionOrderCounter.set(0);
+        }
+        if (mReversionOrderCounter != null) {
+            mReversionOrderCounter.set(0);
+        }
+        mNumberTimesExecuteCalled.set(0);
+        mOnExecuteException = null;
+        mOnRevertException = null;
+        mOnExecute = null;
+        mReverted = false;
+        mExecutionOrder = 0;
+        mReversionOrder = 0;
+    }
 
     @Override
     public boolean execute() throws Exception {
-        mExecuted = true;
+        int callNumber = mNumberTimesExecuteCalled.incrementAndGet();
+        if (mExecutionOrderCounter != null) {
+            mExecutionOrder = mExecutionOrderCounter.incrementAndGet();
+        }
+        mLog.v(
+                "execute(): call #%d, mExecutionOrder=%d, mOnExecuteException=%s",
+                callNumber, mExecutionOrder, mOnExecuteException);
         if (mOnExecuteException != null) {
             throw mOnExecuteException;
         }
-        return mOnExecute;
+        return mOnExecute == null || mOnExecute;
     }
 
     @Override
     public void revert() throws Exception {
         mReverted = true;
+        if (mReversionOrderCounter != null) {
+            mReversionOrder = mReversionOrderCounter.incrementAndGet();
+        }
+        mLog.v(
+                "revert(): mReversionOrder=%d, mOnRevertException=%s",
+                mReversionOrder, mOnRevertException);
         if (mOnRevertException != null) {
             throw mOnRevertException;
         }
@@ -57,9 +137,27 @@ public final class FakeAction implements Action {
         mOnExecuteException = Objects.requireNonNull(exception, "exception cannot be null");
     }
 
-    /** Checks whether {@link #execute()} was called. */
-    public boolean executed() {
-        return mExecuted;
+    @Override
+    public boolean isExecuted() {
+        return mNumberTimesExecuteCalled.get() > 0;
+    }
+
+    /** Returns how many times {@link #execute()} was called. */
+    public int getNumberTimesExecuteCalled() {
+        return mNumberTimesExecuteCalled.get();
+    }
+
+    /**
+     * Gets the execution order of this action.
+     *
+     * @throws IllegalStateException if it was not constructed using {@link #FakeAction(String,
+     *     AtomicInteger, AtomicInteger)}.
+     */
+    public int getExecutionOrder() {
+        if (mExecutionOrderCounter == null) {
+            throw new IllegalStateException("Not created with executionOrder consttructor");
+        }
+        return mExecutionOrder;
     }
 
     /** Sets an exception to be thrown by {@link #revert()}. */
@@ -67,23 +165,58 @@ public final class FakeAction implements Action {
         mOnRevertException = Objects.requireNonNull(exception, "exception cannot be null");
     }
 
-    /** Checks whether {@link #revert()} was called. */
-    public boolean reverted() {
+    @Override
+    public boolean isReverted() {
         return mReverted;
+    }
+
+    /**
+     * Gets the reversion order of this action.
+     *
+     * @throws IllegalStateException if it was not constructed using {@link #FakeAction(String,
+     *     AtomicInteger, AtomicInteger)}.
+     */
+    public int getReversionOrder() {
+        if (mReversionOrderCounter == null) {
+            throw new IllegalStateException("Not created with reversionOrder consttructor");
+        }
+        return mReversionOrder;
+    }
+
+    /** Sets an exception to be thrown by {@link #reset()}. */
+    public void onResetThrows(RuntimeException exception) {
+        mOnResetException = Objects.requireNonNull(exception, "exception cannot be null");
     }
 
     @Override
     public String toString() {
-        return "FakeAction[mExecuted="
-                + mExecuted
-                + ", mReverted="
-                + mReverted
-                + ", mOnExecute="
-                + mOnExecute
-                + ", mOnExecuteException="
-                + mOnExecuteException
-                + ", mOnRevertException="
-                + mOnRevertException
-                + "]";
+        StringBuilder string = new StringBuilder("FakeAction[");
+        if (mName != null) {
+            string.append("name=").append(mName).append(", ");
+        }
+        string.append("mExecuted=")
+                .append(isExecuted())
+                .append(", mNumberTimesExecuteCalled=")
+                .append(mNumberTimesExecuteCalled.get())
+                .append(", mReverted=")
+                .append(mReverted)
+                .append(", mOnExecute=")
+                .append(mOnExecute);
+        if (mExecutionOrderCounter != null) {
+            string.append(", mExecutionOrder=")
+                    .append(mExecutionOrder)
+                    .append(", mReversionOrder=")
+                    .append(mReversionOrder);
+        }
+        if (mOnExecuteException != null) {
+            string.append(", mOnExecuteException=").append(mOnExecuteException);
+        }
+        if (mOnRevertException != null) {
+            string.append(", mOnRevertException=").append(mOnRevertException);
+        }
+        if (mOnResetException != null) {
+            string.append(", mOnResetException=").append(mOnResetException);
+        }
+        return string.append(']').toString();
     }
 }

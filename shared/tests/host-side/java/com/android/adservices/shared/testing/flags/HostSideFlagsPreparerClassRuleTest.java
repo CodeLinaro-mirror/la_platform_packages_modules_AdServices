@@ -16,15 +16,28 @@
 package com.android.adservices.shared.testing.flags;
 
 import com.android.adservices.shared.meta_testing.AbstractFlagsPreparerClassRuleTestCase;
+import com.android.adservices.shared.testing.SdkSandbox;
 import com.android.adservices.shared.testing.device.DeviceConfig;
 import com.android.adservices.shared.testing.device.DeviceConfig.SyncDisabledModeForTest;
+import com.android.adservices.shared.testing.flags.HostSideFlagsPreparerClassRuleTest.ConcreteHostSideFlagsPreparerClassRule;
 
 public final class HostSideFlagsPreparerClassRuleTest
-        extends AbstractFlagsPreparerClassRuleTestCase<HostSideFlagsPreparerClassRule> {
+        extends AbstractFlagsPreparerClassRuleTestCase<ConcreteHostSideFlagsPreparerClassRule> {
 
     @Override
-    protected HostSideFlagsPreparerClassRule newRule(
-            DeviceConfig deviceConfig, SyncDisabledModeForTest syncMode) {
-        return new HostSideFlagsPreparerClassRule(deviceConfig, syncMode) {};
+    protected ConcreteHostSideFlagsPreparerClassRule newRule(
+            SdkSandbox sdkSandbox, DeviceConfig deviceConfig, SyncDisabledModeForTest syncMode) {
+        return new ConcreteHostSideFlagsPreparerClassRule(sdkSandbox, deviceConfig, syncMode);
+    }
+
+    public static final class ConcreteHostSideFlagsPreparerClassRule
+            extends HostSideFlagsPreparerClassRule<ConcreteHostSideFlagsPreparerClassRule> {
+
+        public ConcreteHostSideFlagsPreparerClassRule(
+                SdkSandbox sdkSandbox,
+                DeviceConfig deviceConfig,
+                SyncDisabledModeForTest syncMode) {
+            super(sdkSandbox, deviceConfig, syncMode);
+        }
     }
 }
