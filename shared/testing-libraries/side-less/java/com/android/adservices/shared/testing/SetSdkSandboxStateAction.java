@@ -35,9 +35,14 @@ public final class SetSdkSandboxStateAction extends AbstractAction {
         super(logger);
         mSdkSandbox = Objects.requireNonNull(sandbox, "sandbox cannot be null");
         mState = Objects.requireNonNull(state, "state cannot be null");
-        if (!state.isValid()) {
+        if (!state.isSettable()) {
             throw new IllegalArgumentException("Invalid state: " + state);
         }
+    }
+
+    /** Gets the state that will be set by the action. */
+    public State getState() {
+        return mState;
     }
 
     @Override
@@ -57,12 +62,12 @@ public final class SetSdkSandboxStateAction extends AbstractAction {
             return false;
         }
         mSdkSandbox.setState(mState);
-        return mPreviousState != null && mPreviousState.isValid();
+        return mPreviousState != null && mPreviousState.isSettable();
     }
 
     @Override
     protected void onRevertLocked() throws Exception {
-        if (mPreviousState == null || !mPreviousState.isValid()) {
+        if (mPreviousState == null || !mPreviousState.isSettable()) {
             throw new IllegalStateException("should not have been called when it didn't change");
         }
         mSdkSandbox.setState(mPreviousState);
@@ -76,20 +81,6 @@ public final class SetSdkSandboxStateAction extends AbstractAction {
     @Override
     protected void onResetLocked() {
         mPreviousState = null;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(mState);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null) return false;
-        if (getClass() != obj.getClass()) return false;
-        SetSdkSandboxStateAction other = (SetSdkSandboxStateAction) obj;
-        return mState == other.mState;
     }
 
     @Override
