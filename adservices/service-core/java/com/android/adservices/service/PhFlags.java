@@ -130,11 +130,11 @@ import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_JOB_
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_JOB_EVENT_FALLBACK_REPORTING_KILL_SWITCH;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_JOB_EVENT_REPORTING_KILL_SWITCH;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_KILL_SWITCH;
-import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_AGGREGATABLE_BUCKETS_PER_SOURCE_REGISTRATION;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_ATTRIBUTION_SCOPES_PER_SOURCE;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_ATTRIBUTION_SCOPE_LENGTH;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_FILTERING_ID_MAX_BYTES;
-import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_LENGTH_PER_AGGREGATABLE_BUCKET;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_LENGTH_PER_BUDGET_NAME;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_NAMED_BUDGETS_PER_SOURCE_REGISTRATION;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_MAX_SOURCES_PER_CLICK;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_RECEIVER_DELETE_PACKAGES_KILL_SWITCH;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_RECEIVER_INSTALL_ATTRIBUTION_KILL_SWITCH;
@@ -416,6 +416,13 @@ public final class PhFlags implements Flags {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_TOPICS_EPOCH_JOB_BATTERY_NOT_LOW_INSTEAD_OF_CHARGING,
                 TOPICS_EPOCH_JOB_BATTERY_NOT_LOW_INSTEAD_OF_CHARGING);
+    }
+
+    @Override
+    public boolean getTopicsCleanDBWhenEpochJobSettingsChanged() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_TOPICS_CLEAN_DB_WHEN_EPOCH_JOB_SETTINGS_CHANGED,
+                TOPICS_CLEAN_DB_WHEN_EPOCH_JOB_SETTINGS_CHANGED);
     }
 
     @Override
@@ -1444,10 +1451,11 @@ public final class PhFlags implements Flags {
 
     @Override
     public boolean getFledgeEnableScheduleCustomAudienceUpdateAdditionalScheduleRequests() {
-        return getDeviceConfigFlag(
-                FlagsConstants
-                        .KEY_FLEDGE_ENABLE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ADDITIONAL_SCHEDULE_REQUESTS,
-                FLEDGE_ENABLE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ADDITIONAL_SCHEDULE_REQUESTS);
+        return getFledgeScheduleCustomAudienceUpdateEnabled()
+                && getDeviceConfigFlag(
+                        FlagsConstants
+                                .KEY_FLEDGE_ENABLE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ADDITIONAL_SCHEDULE_REQUESTS,
+                        FLEDGE_ENABLE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ADDITIONAL_SCHEDULE_REQUESTS);
     }
 
     @Override
@@ -3199,10 +3207,10 @@ public final class PhFlags implements Flags {
     }
 
     @Override
-    public boolean getMeasurementEnableAggregateContributionBudgetCapacity() {
+    public boolean getMeasurementEnableAggregatableNamedBudgets() {
         return getDeviceConfigFlag(
-                FlagsConstants.KEY_MEASUREMENT_ENABLE_AGGREGATE_CONTRIBUTION_BUDGET_CAPACITY,
-                MEASUREMENT_ENABLE_AGGREGATE_CONTRIBUTION_BUDGET_CAPACITY);
+                FlagsConstants.KEY_MEASUREMENT_ENABLE_AGGREGATABLE_NAMED_BUDGETS,
+                MEASUREMENT_ENABLE_AGGREGATABLE_NAMED_BUDGETS);
     }
 
     @Override
@@ -3511,17 +3519,16 @@ public final class PhFlags implements Flags {
     }
 
     @Override
-    public int getMeasurementMaxLengthPerAggregatableBucket() {
+    public int getMeasurementMaxLengthPerBudgetName() {
         return getDeviceConfigFlag(
-                KEY_MEASUREMENT_MAX_LENGTH_PER_AGGREGATABLE_BUCKET,
-                MEASUREMENT_MAX_LENGTH_PER_AGGREGATABLE_BUCKET);
+                KEY_MEASUREMENT_MAX_LENGTH_PER_BUDGET_NAME, MEASUREMENT_MAX_LENGTH_PER_BUDGET_NAME);
     }
 
     @Override
-    public int getMeasurementMaxAggregatableBucketsPerSourceRegistration() {
+    public int getMeasurementMaxNamedBudgetsPerSourceRegistration() {
         return getDeviceConfigFlag(
-                KEY_MEASUREMENT_MAX_AGGREGATABLE_BUCKETS_PER_SOURCE_REGISTRATION,
-                MEASUREMENT_MAX_AGGREGATABLE_BUCKETS_PER_SOURCE_REGISTRATION);
+                KEY_MEASUREMENT_MAX_NAMED_BUDGETS_PER_SOURCE_REGISTRATION,
+                MEASUREMENT_MAX_NAMED_BUDGETS_PER_SOURCE_REGISTRATION);
     }
 
     @Override
@@ -4127,10 +4134,9 @@ public final class PhFlags implements Flags {
 
         writer.println(
                 "\t"
-                        + FlagsConstants
-                                .KEY_MEASUREMENT_ENABLE_AGGREGATE_CONTRIBUTION_BUDGET_CAPACITY
+                        + FlagsConstants.KEY_MEASUREMENT_ENABLE_AGGREGATABLE_NAMED_BUDGETS
                         + " = "
-                        + getMeasurementEnableAggregateContributionBudgetCapacity());
+                        + getMeasurementEnableAggregatableNamedBudgets());
         writer.println(
                 "\t"
                         + FlagsConstants.KEY_MEASUREMENT_ENABLE_V1_SOURCE_TRIGGER_DATA
@@ -5744,14 +5750,14 @@ public final class PhFlags implements Flags {
                         + getMeasurementMaxAttributionScopesPerSource());
         writer.println(
                 "\t"
-                        + KEY_MEASUREMENT_MAX_LENGTH_PER_AGGREGATABLE_BUCKET
+                        + KEY_MEASUREMENT_MAX_LENGTH_PER_BUDGET_NAME
                         + " = "
-                        + getMeasurementMaxLengthPerAggregatableBucket());
+                        + getMeasurementMaxLengthPerBudgetName());
         writer.println(
                 "\t"
-                        + KEY_MEASUREMENT_MAX_AGGREGATABLE_BUCKETS_PER_SOURCE_REGISTRATION
+                        + KEY_MEASUREMENT_MAX_NAMED_BUDGETS_PER_SOURCE_REGISTRATION
                         + " = "
-                        + getMeasurementMaxAggregatableBucketsPerSourceRegistration());
+                        + getMeasurementMaxNamedBudgetsPerSourceRegistration());
         writer.println(
                 "\t"
                         + KEY_MEASUREMENT_ATTRIBUTION_SCOPE_MAX_INFO_GAIN_NAVIGATION
@@ -7445,5 +7451,12 @@ public final class PhFlags implements Flags {
     @Override
     public boolean getConsentNotificationDebugMode() {
         return DebugFlags.getInstance().getConsentNotificationDebugMode();
+    }
+
+    @Override
+    public boolean getEnableAtomicFileDatastoreBatchUpdateApi() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_ENABLE_ATOMIC_FILE_DATASTORE_BATCH_UPDATE_API,
+                DEFAULT_ENABLE_ATOMIC_FILE_DATASTORE_BATCH_UPDATE_API);
     }
 }

@@ -96,6 +96,9 @@ public final class FlagsConstants {
             "topics_job_scheduler_reschedule_enabled";
     public static final String KEY_TOPICS_EPOCH_JOB_BATTERY_NOT_LOW_INSTEAD_OF_CHARGING =
             "topics_epoch_job_battery_not_low_instead_of_charging";
+    public static final String
+            KEY_TOPICS_CLEAN_DB_WHEN_EPOCH_JOB_SETTINGS_CHANGED =
+            "Topics__clean_db_when_epoch_job_settings_changed";
     public static final String KEY_NUMBER_OF_EPOCHS_TO_KEEP_IN_HISTORY =
             "topics_number_of_epochs_to_keep_in_history";
     public static final String KEY_GLOBAL_BLOCKED_TOPIC_IDS = "topics_global_blocked_topic_ids";
@@ -1213,8 +1216,8 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_DEBUG_KEY_AD_ID_MATCHING_ENROLLMENT_BLOCKLIST =
             "measurement_debug_key_ad_id_matching_enrollment_blocklist";
 
-    public static final String KEY_MEASUREMENT_ENABLE_AGGREGATE_CONTRIBUTION_BUDGET_CAPACITY =
-            "Measurement__enable_aggregate_contribution_budget_capacity";
+    public static final String KEY_MEASUREMENT_ENABLE_AGGREGATABLE_NAMED_BUDGETS =
+            "Measurement__enable_aggregatable_named_budgets";
 
     public static final String KEY_MEASUREMENT_ENABLE_V1_SOURCE_TRIGGER_DATA =
             "measurement_enable_v1_source_trigger_data";
@@ -1381,11 +1384,11 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_MAX_ATTRIBUTION_SCOPE_LENGTH =
             "measurement_max_attribution_scope_length";
 
-    public static final String KEY_MEASUREMENT_MAX_LENGTH_PER_AGGREGATABLE_BUCKET =
-            "Measurement__max_length_per_aggregatable_bucket";
+    public static final String KEY_MEASUREMENT_MAX_LENGTH_PER_BUDGET_NAME =
+            "Measurement__max_length_per_budget_name";
 
-    public static final String KEY_MEASUREMENT_MAX_AGGREGATABLE_BUCKETS_PER_SOURCE_REGISTRATION =
-            "Measurement__max_aggregatable_buckets_per_source_registration";
+    public static final String KEY_MEASUREMENT_MAX_NAMED_BUDGETS_PER_SOURCE_REGISTRATION =
+            "Measurement__max_named_budgets_per_source_registration";
 
     public static final String KEY_MEASUREMENT_EVENT_API_DEFAULT_EPSILON =
             "measurement_event_api_default_epsilon";
@@ -1665,4 +1668,8 @@ public final class FlagsConstants {
     /** Key for MDD Package Deny registry manifest file url */
     public static final String KEY_MDD_PACKAGE_DENY_REGISTRY_MANIFEST_FILE_URL =
             "DownloadConfig__default_mdd_package_deny_manifest_file_url";
+
+    /** Key to enable AtomicFileDataStore update API for adservices apk. */
+    public static final String KEY_ENABLE_ATOMIC_FILE_DATASTORE_BATCH_UPDATE_API =
+            "AtomicFileDatastore__enable_batch_update_api_in_adservices_process";
 }
