@@ -56,7 +56,7 @@ import java.util.function.Supplier;
  *
  * <p>Tests in assets/msmt_interop_tests/ directory were copied from Chromium
  * src/content/test/data/attribution_reporting/interop GitHub commit
- * 3f65fe7a1a9ea5d7c0e2403f5200ab6652a3667e.
+ * c0f2cf42fa9c1463a1c6d9d1a5ed547bc4b4e972.
  */
 @RunWith(Parameterized.class)
 public class E2EInteropMockTest extends E2EAbstractMockTest {
@@ -219,7 +219,10 @@ public class E2EInteropMockTest extends E2EAbstractMockTest {
                             FlagsConstants.KEY_MEASUREMENT_MAX_ADR_COUNT_PER_SOURCE),
                     entry(
                             "max_aggregatable_debug_budget_per_context_site",
-                            FlagsConstants.KEY_MEASUREMENT_ADR_BUDGET_PER_PUBLISHER_WINDOW));
+                            FlagsConstants.KEY_MEASUREMENT_ADR_BUDGET_PER_PUBLISHER_WINDOW),
+                    entry(
+                            "max_aggregatable_reports_per_source",
+                            FlagsConstants.KEY_MEASUREMENT_MAX_AGGREGATE_REPORTS_PER_SOURCE));
 
     private static String preprocessor(String json) {
         // In a header response provided in string format, .test could also be surrounded by escaped
@@ -236,13 +239,8 @@ public class E2EInteropMockTest extends E2EAbstractMockTest {
     private static final Map<String, String> sPhFlagsForInterop =
             Map.ofEntries(
                     entry(
-                            FlagsConstants
-                                    .KEY_MEASUREMENT_SOURCE_REGISTRATION_TIME_OPTIONAL_FOR_AGG_REPORTS_ENABLED,
-                            "true"),
-                    entry(
                             FlagsConstants.KEY_MEASUREMENT_FLEXIBLE_EVENT_REPORTING_API_ENABLED,
                             "true"),
-                    entry(FlagsConstants.KEY_MEASUREMENT_ENABLE_TRIGGER_CONTEXT_ID, "true"),
                     entry(
                             FlagsConstants
                                     .KEY_MEASUREMENT_ENABLE_SOURCE_DEACTIVATION_AFTER_FILTERING,
@@ -269,7 +267,6 @@ public class E2EInteropMockTest extends E2EAbstractMockTest {
                             "11.46173"),
                     entry(FlagsConstants.KEY_MEASUREMENT_DEFAULT_DESTINATION_LIMIT_ALGORITHM, "1"),
                     entry(FlagsConstants.KEY_MEASUREMENT_ENABLE_LOOKBACK_WINDOW_FILTER, "true"),
-                    entry(FlagsConstants.KEY_MEASUREMENT_NULL_AGGREGATE_REPORT_ENABLED, "true"),
                     entry(FlagsConstants.KEY_MEASUREMENT_ENABLE_HEADER_ERROR_DEBUG_REPORT, "true"),
                     entry(
                             FlagsConstants.KEY_MEASUREMENT_ENABLE_EVENT_LEVEL_EPSILON_IN_SOURCE,
