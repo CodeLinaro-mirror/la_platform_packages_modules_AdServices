@@ -555,13 +555,6 @@ public final class PhFlags implements Flags {
     }
 
     @Override
-    public boolean getDeveloperModeFeatureEnabled() {
-        return getDeviceConfigFlag(
-                FlagsConstants.KEY_DEVELOPER_MODE_FEATURE_ENABLED,
-                DEFAULT_DEVELOPER_MODE_FEATURE_ENABLED);
-    }
-
-    @Override
     public int getEncryptionKeyNetworkConnectTimeoutMs() {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_ENCRYPTION_KEY_NETWORK_CONNECT_TIMEOUT_MS,
@@ -1245,6 +1238,20 @@ public final class PhFlags implements Flags {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_PROTECTED_SIGNALS_FETCH_SIGNAL_UPDATES_MAX_SIZE_BYTES,
                 PROTECTED_SIGNALS_FETCH_SIGNAL_UPDATES_MAX_SIZE_BYTES);
+    }
+
+    @Override
+    public boolean getFledgeEnableForcedEncodingAfterSignalsUpdate() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_FLEDGE_ENABLE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE,
+                FLEDGE_ENABLE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE);
+    }
+
+    @Override
+    public long getFledgeForcedEncodingAfterSignalsUpdateCooldownSeconds() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_FLEDGE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE_COOLDOWN_SECONDS,
+                FLEDGE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE_COOLDOWN_SECONDS);
     }
 
     @Override
@@ -2871,6 +2878,27 @@ public final class PhFlags implements Flags {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_FLEDGE_CUSTOM_AUDIENCE,
                 ENFORCE_FOREGROUND_STATUS_FLEDGE_CUSTOM_AUDIENCE);
+    }
+
+    @Override
+    public boolean getEnforceForegroundStatusForFetchAndJoinCustomAudience() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_FETCH_AND_JOIN_CUSTOM_AUDIENCE,
+                ENFORCE_FOREGROUND_STATUS_FETCH_AND_JOIN_CUSTOM_AUDIENCE);
+    }
+
+    @Override
+    public boolean getEnforceForegroundStatusForLeaveCustomAudience() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_LEAVE_CUSTOM_AUDIENCE,
+                ENFORCE_FOREGROUND_STATUS_LEAVE_CUSTOM_AUDIENCE);
+    }
+
+    @Override
+    public boolean getEnforceForegroundStatusForScheduleCustomAudience() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_SCHEDULE_CUSTOM_AUDIENCE,
+                ENFORCE_FOREGROUND_STATUS_SCHEDULE_CUSTOM_AUDIENCE);
     }
 
     @Override
