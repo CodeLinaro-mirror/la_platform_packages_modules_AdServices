@@ -65,20 +65,22 @@ import static com.android.adservices.service.Flags.DEFAULT_BLOCKED_TOPICS_SOURCE
 import static com.android.adservices.service.Flags.DEFAULT_COMPUTE_VERSION_FROM_MAPPINGS_ENABLED;
 import static com.android.adservices.service.Flags.DEFAULT_CONSENT_SOURCE_OF_TRUTH;
 import static com.android.adservices.service.Flags.DEFAULT_CUSTOM_ERROR_CODE_SAMPLING_ENABLED;
-import static com.android.adservices.service.Flags.DEFAULT_DEVELOPER_MODE_FEATURE_ENABLED;
 import static com.android.adservices.service.Flags.DEFAULT_EEA_PAS_UX_ENABLED;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_ADEXT_DATA_SERVICE_APIS;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_AD_SERVICES_SYSTEM_API;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_ATOMIC_FILE_DATASTORE_BATCH_UPDATE_API;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_BACK_COMPAT_INIT;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_CONSENT_MANAGER_V2;
+import static com.android.adservices.service.Flags.DEFAULT_ENABLE_ENROLLMENT_CONFIG_V3_DB;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_PACKAGE_DENY_BG_JOB;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_PACKAGE_DENY_JOB_ON_MDD_DOWNLOAD;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_PACKAGE_DENY_JOB_ON_PACKAGE_ADD;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_PACKAGE_DENY_MDD;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_PACKAGE_DENY_SERVICE;
+import static com.android.adservices.service.Flags.DEFAULT_ENABLE_REPORT_EVENT_FOR_COMPONENT_SELLER;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_TABLET_REGION_FIX;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_U18_APPSEARCH_MIGRATION;
+import static com.android.adservices.service.Flags.DEFAULT_ENABLE_WINNING_SELLER_ID_IN_AD_SELECTION_OUTCOME;
 import static com.android.adservices.service.Flags.DEFAULT_ENROLLMENT_PROTO_FILE_ENABLED;
 import static com.android.adservices.service.Flags.DEFAULT_FLEDGE_AUCTION_SERVER_ENABLE_PAS_UNLIMITED_EGRESS;
 import static com.android.adservices.service.Flags.DEFAULT_IS_GET_ADSERVICES_COMMON_STATES_API_ENABLED;
@@ -107,12 +109,15 @@ import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_PLATFORM_
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_PRIVACY_EPSILON;
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT;
 import static com.android.adservices.service.Flags.DEFAULT_NOTIFICATION_DISMISSED_ON_CLICK;
+import static com.android.adservices.service.Flags.DEFAULT_PACKAGE_DENY_BACKGROUND_JOB_PERIOD_MILLIS;
+import static com.android.adservices.service.Flags.DEFAULT_PACKAGE_DENY_ENABLE_INSTALLED_PACKAGE_FILTER;
 import static com.android.adservices.service.Flags.DEFAULT_PAS_SCRIPT_DOWNLOAD_CONNECTION_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.DEFAULT_PAS_SCRIPT_DOWNLOAD_READ_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.DEFAULT_PAS_SCRIPT_EXECUTION_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.DEFAULT_PAS_SIGNALS_DOWNLOAD_CONNECTION_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.DEFAULT_PAS_SIGNALS_DOWNLOAD_READ_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.DEFAULT_PAS_UX_ENABLED;
+import static com.android.adservices.service.Flags.DEFAULT_PROD_DEBUG_IN_AUCTION_SERVER;
 import static com.android.adservices.service.Flags.DEFAULT_R_NOTIFICATION_DEFAULT_CONSENT_FIX_ENABLED;
 import static com.android.adservices.service.Flags.DEFAULT_SPE_ON_ASYNC_REGISTRATION_FALLBACK_JOB_ENABLED;
 import static com.android.adservices.service.Flags.DEFAULT_SPE_ON_BACKGROUND_FETCH_JOB_ENABLED;
@@ -136,11 +141,14 @@ import static com.android.adservices.service.Flags.ENCRYPTION_KEY_JOB_PERIOD_MS;
 import static com.android.adservices.service.Flags.ENCRYPTION_KEY_JOB_REQUIRED_NETWORK_TYPE;
 import static com.android.adservices.service.Flags.ENCRYPTION_KEY_NETWORK_CONNECT_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.ENCRYPTION_KEY_NETWORK_READ_TIMEOUT_MS;
+import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_FETCH_AND_JOIN_CUSTOM_AUDIENCE;
 import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_FLEDGE_CUSTOM_AUDIENCE;
 import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_FLEDGE_OVERRIDES;
 import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_FLEDGE_REPORT_IMPRESSION;
 import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_FLEDGE_REPORT_INTERACTION;
 import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_FLEDGE_RUN_AD_SELECTION;
+import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_LEAVE_CUSTOM_AUDIENCE;
+import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_SCHEDULE_CUSTOM_AUDIENCE;
 import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_SIGNALS;
 import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_TOPICS;
 import static com.android.adservices.service.Flags.ENROLLMENT_API_BASED_SCHEMA_ENABLED;
@@ -235,6 +243,7 @@ import static com.android.adservices.service.Flags.FLEDGE_CUSTOM_AUDIENCE_MAX_OW
 import static com.android.adservices.service.Flags.FLEDGE_CUSTOM_AUDIENCE_MAX_TRUSTED_BIDDING_DATA_SIZE_B;
 import static com.android.adservices.service.Flags.FLEDGE_CUSTOM_AUDIENCE_MAX_USER_BIDDING_SIGNALS_SIZE_B;
 import static com.android.adservices.service.Flags.FLEDGE_CUSTOM_AUDIENCE_PER_APP_MAX_COUNT;
+import static com.android.adservices.service.Flags.FLEDGE_CUSTOM_AUDIENCE_PER_BUYER_MAX_COUNT;
 import static com.android.adservices.service.Flags.FLEDGE_CUSTOM_AUDIENCE_SERVICE_KILL_SWITCH;
 import static com.android.adservices.service.Flags.FLEDGE_DATA_VERSION_HEADER_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_DATA_VERSION_HEADER_METRICS_ENABLED;
@@ -264,6 +273,7 @@ import static com.android.adservices.service.Flags.FLEDGE_DEFAULT_KANON_SET_TYPE
 import static com.android.adservices.service.Flags.FLEDGE_DEFAULT_KANON_SIGN_BATCH_SIZE;
 import static com.android.adservices.service.Flags.FLEDGE_DEFAULT_KANON_SIGN_JOIN_FEATURE_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_DEFAULT_KANON_SIGN_JOIN_LOGGING_ENABLED;
+import static com.android.adservices.service.Flags.FLEDGE_ENABLE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE;
 import static com.android.adservices.service.Flags.FLEDGE_ENABLE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ADDITIONAL_SCHEDULE_REQUESTS;
 import static com.android.adservices.service.Flags.FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_BATCH_DELAY_SECONDS;
 import static com.android.adservices.service.Flags.FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_ENABLED;
@@ -275,6 +285,7 @@ import static com.android.adservices.service.Flags.FLEDGE_FETCH_CUSTOM_AUDIENCE_
 import static com.android.adservices.service.Flags.FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_RETRY_AFTER_VALUE_MS;
 import static com.android.adservices.service.Flags.FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_USER_BIDDING_SIGNALS_SIZE_B;
 import static com.android.adservices.service.Flags.FLEDGE_FETCH_CUSTOM_AUDIENCE_MIN_RETRY_AFTER_VALUE_MS;
+import static com.android.adservices.service.Flags.FLEDGE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE_COOLDOWN_SECONDS;
 import static com.android.adservices.service.Flags.FLEDGE_FREQUENCY_CAP_FILTERING_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_FREQUENCY_CAP_FILTERING_METRICS_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_GET_AD_SELECTION_DATA_BUYER_INPUT_CREATOR_VERSION;
@@ -301,6 +312,7 @@ import static com.android.adservices.service.Flags.FLEDGE_REPORT_INTERACTION_REQ
 import static com.android.adservices.service.Flags.FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_JOB_FLEX_MS;
 import static com.android.adservices.service.Flags.FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_JOB_PERIOD_MS;
+import static com.android.adservices.service.Flags.FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_MAX_BYTES;
 import static com.android.adservices.service.Flags.FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_MIN_DELAY_MINS_OVERRIDE;
 import static com.android.adservices.service.Flags.FLEDGE_SELECT_ADS_FROM_OUTCOMES_API_METRICS_ENABLED;
 import static com.android.adservices.service.Flags.FLEDGE_SELECT_ADS_KILL_SWITCH;
@@ -368,7 +380,6 @@ import static com.android.adservices.service.Flags.MEASUREMENT_DESTINATION_PER_D
 import static com.android.adservices.service.Flags.MEASUREMENT_DESTINATION_PER_DAY_RATE_LIMIT_WINDOW_IN_MS;
 import static com.android.adservices.service.Flags.MEASUREMENT_DESTINATION_RATE_LIMIT_WINDOW;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_AGGREGATABLE_NAMED_BUDGETS;
-import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_AGGREGATABLE_REPORT_PAYLOAD_PADDING;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_AGGREGATE_DEBUG_REPORTING;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_AGGREGATE_VALUE_FILTERS;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_API_STATUS_ALLOW_LIST_CHECK;
@@ -590,12 +601,12 @@ import static com.android.adservices.service.FlagsConstants.KEY_COBALT__ENABLE_A
 import static com.android.adservices.service.FlagsConstants.KEY_COBALT__FALL_BACK_TO_DEFAULT_BASE_REGISTRY;
 import static com.android.adservices.service.FlagsConstants.KEY_COBALT__IGNORED_REPORT_ID_LIST;
 import static com.android.adservices.service.FlagsConstants.KEY_COMPAT_LOGGING_KILL_SWITCH;
+import static com.android.adservices.service.FlagsConstants.KEY_CONFIG_DELIVERY__ENABLE_ENROLLMENT_CONFIG_V3_DB;
 import static com.android.adservices.service.FlagsConstants.KEY_CONSENT_ALREADY_INTERACTED_FIX_ENABLE;
 import static com.android.adservices.service.FlagsConstants.KEY_CONSENT_NOTIFICATION_RESET_TOKEN;
 import static com.android.adservices.service.FlagsConstants.KEY_CONSENT_SOURCE_OF_TRUTH;
 import static com.android.adservices.service.FlagsConstants.KEY_CUSTOM_ERROR_CODE_SAMPLING_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_DEBUG_UX;
-import static com.android.adservices.service.FlagsConstants.KEY_DEVELOPER_MODE_FEATURE_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_DISABLE_FLEDGE_ENROLLMENT_CHECK;
 import static com.android.adservices.service.FlagsConstants.KEY_DISABLE_MEASUREMENT_ENROLLMENT_CHECK;
 import static com.android.adservices.service.FlagsConstants.KEY_DISABLE_TOPICS_ENROLLMENT_CHECK;
@@ -623,11 +634,14 @@ import static com.android.adservices.service.FlagsConstants.KEY_ENCRYPTION_KEY_J
 import static com.android.adservices.service.FlagsConstants.KEY_ENCRYPTION_KEY_JOB_REQUIRED_NETWORK_TYPE;
 import static com.android.adservices.service.FlagsConstants.KEY_ENCRYPTION_KEY_NETWORK_CONNECT_TIMEOUT_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_ENCRYPTION_KEY_NETWORK_READ_TIMEOUT_MS;
+import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_FETCH_AND_JOIN_CUSTOM_AUDIENCE;
 import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_FLEDGE_CUSTOM_AUDIENCE;
 import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_FLEDGE_OVERRIDE;
 import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_FLEDGE_REPORT_IMPRESSION;
 import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_FLEDGE_REPORT_INTERACTION;
 import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_FLEDGE_RUN_AD_SELECTION;
+import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_LEAVE_CUSTOM_AUDIENCE;
+import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_SCHEDULE_CUSTOM_AUDIENCE;
 import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_SIGNALS;
 import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_TOPICS;
 import static com.android.adservices.service.FlagsConstants.KEY_ENROLLMENT_API_BASED_SCHEMA_ENABLED;
@@ -726,6 +740,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_CUSTOM_AU
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_TRUSTED_BIDDING_DATA_SIZE_B;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_USER_BIDDING_SIGNALS_SIZE_B;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_CUSTOM_AUDIENCE_PER_APP_MAX_COUNT;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_CUSTOM_AUDIENCE_PER_BUYER_MAX_COUNT;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_DATA_VERSION_HEADER_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_DATA_VERSION_HEADER_METRICS_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_DEBUG_REPORTI_SENDER_JOB_MAX_TIMEOUT_MS;
@@ -733,10 +748,14 @@ import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_DEBUG_REP
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_DEBUG_REPORTI_SENDER_JOB_NETWORK_READ_TIMEOUT_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_DEBUG_REPORT_SENDER_JOB_FLEX_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_DEBUG_REPORT_SENDER_JOB_PERIOD_MS;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_ENABLE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_ENABLE_KANON_AUCTION_SERVER_FEATURE;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_ENABLE_KANON_ON_DEVICE_AUCTION_FEATURE;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_ENABLE_KANON_SIGN_JOIN_FEATURE;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_ENABLE_PROD_DEBUG_IN_SERVER_AUCTION;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_ENABLE_REPORT_EVENT_FOR_COMPONENT_SELLER;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_ENABLE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ADDITIONAL_SCHEDULE_REQUESTS;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_ENABLE_WINNING_SELLER_ID_IN_AD_SELECTION_OUTCOME;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_BATCH_DELAY_SECONDS;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORTING_MAX_ITEMS_PER_BATCH;
@@ -747,6 +766,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_FETCH_CUS
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_RETRY_AFTER_VALUE_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_MAX_USER_BIDDING_SIGNALS_SIZE_B;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_FETCH_CUSTOM_AUDIENCE_MIN_RETRY_AFTER_VALUE_MS;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE_COOLDOWN_SECONDS;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_FREQUENCY_CAP_FILTERING_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_FREQUENCY_CAP_FILTERING_METRICS_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_GET_AD_SELECTION_DATA_BUYER_INPUT_CREATOR_VERSION;
@@ -790,6 +810,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_REPORT_IN
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_JOB_FLEX_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_JOB_PERIOD_MS;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_MAX_BYTES;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_MIN_DELAY_MINS_OVERRIDE;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SELECT_ADS_FROM_OUTCOMES_API_METRICS_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SELECT_ADS_KILL_SWITCH;
@@ -870,7 +891,6 @@ import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_DEST
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_DESTINATION_PER_DAY_RATE_LIMIT_WINDOW_IN_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_DESTINATION_RATE_LIMIT_WINDOW;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_AGGREGATABLE_NAMED_BUDGETS;
-import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_AGGREGATABLE_REPORT_PAYLOAD_PADDING;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_AGGREGATE_DEBUG_REPORTING;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_AGGREGATE_VALUE_FILTERS;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_API_STATUS_ALLOW_LIST_CHECK;
@@ -1030,6 +1050,8 @@ import static com.android.adservices.service.FlagsConstants.KEY_MSMT_REGISTRATIO
 import static com.android.adservices.service.FlagsConstants.KEY_MSMT_REPORTING_COBALT_LOGGING_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_NOTIFICATION_DISMISSED_ON_CLICK;
 import static com.android.adservices.service.FlagsConstants.KEY_NUMBER_OF_EPOCHS_TO_KEEP_IN_HISTORY;
+import static com.android.adservices.service.FlagsConstants.KEY_PACKAGE_DENY_BACKGROUND_JOB_PERIOD_MILLIS;
+import static com.android.adservices.service.FlagsConstants.KEY_PACKAGE_DENY_ENABLE_INSTALLED_PACKAGE_FILTER;
 import static com.android.adservices.service.FlagsConstants.KEY_PACKAGE_DENY__ENABLE_PACKAGE_DENY_BG_JOB;
 import static com.android.adservices.service.FlagsConstants.KEY_PACKAGE_DENY__ENABLE_PACKAGE_DENY_JOB_ON_MDD_DOWNLOAD;
 import static com.android.adservices.service.FlagsConstants.KEY_PACKAGE_DENY__ENABLE_PACKAGE_DENY_JOB_ON_PACKAGE_ADD;
@@ -1089,7 +1111,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_UI_OTA_RESOURCES
 import static com.android.adservices.service.FlagsConstants.KEY_UI_OTA_STRINGS_MANIFEST_FILE_URL;
 import static com.android.adservices.service.FlagsConstants.KEY_UI_TOGGLE_SPEED_BUMP_ENABLED;
 import static com.android.adservices.shared.common.flags.ModuleSharedFlags.ENCODED_ERROR_CODE_LIST_PER_SAMPLE_INTERVAL;
-import static com.android.adservices.shared.meta_testing.FlagsTestLittleHelper.expectDumpHasAllFlags;
+import static com.android.adservices.shared.meta_testing.FlagsTestLittleHelper.expectDumpHasAllGetters;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -1101,14 +1123,12 @@ import android.util.Log;
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
 import com.android.adservices.mockito.AdServicesExtendedMockitoRule;
 import com.android.adservices.service.fixture.TestableSystemProperties;
-import com.android.adservices.shared.testing.common.DumpHelper;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.modules.utils.testing.ExtendedMockitoRule.SpyStatic;
 import com.android.modules.utils.testing.TestableDeviceConfig;
 
 import com.google.common.collect.ImmutableList;
 
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.stream.Collectors;
@@ -2083,14 +2103,6 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
     }
 
     @Test
-    public void testGetMeasurementEnableAggregatableReportPayloadPadding() {
-        mFlagsTestHelper.testConfigFlag(
-                KEY_MEASUREMENT_ENABLE_AGGREGATABLE_REPORT_PAYLOAD_PADDING,
-                MEASUREMENT_ENABLE_AGGREGATABLE_REPORT_PAYLOAD_PADDING,
-                Flags::getMeasurementEnableAggregatableReportPayloadPadding);
-    }
-
-    @Test
     public void testGetMeasurementEnableDestinationRateLimit() {
         mFlagsTestHelper.testConfigFlag(
                 KEY_MEASUREMENT_ENABLE_DESTINATION_RATE_LIMIT,
@@ -2184,6 +2196,14 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
                 KEY_FLEDGE_CUSTOM_AUDIENCE_MAX_OWNER_COUNT,
                 FLEDGE_CUSTOM_AUDIENCE_MAX_OWNER_COUNT,
                 Flags::getFledgeCustomAudienceMaxOwnerCount);
+    }
+
+    @Test
+    public void testGetFledgeCustomAudiencePerBuyerMaxCount() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_FLEDGE_CUSTOM_AUDIENCE_PER_BUYER_MAX_COUNT,
+                FLEDGE_CUSTOM_AUDIENCE_PER_BUYER_MAX_COUNT,
+                Flags::getFledgeCustomAudiencePerBuyerMaxCount);
     }
 
     @Test
@@ -2507,6 +2527,22 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
     }
 
     @Test
+    public void testGetFledgeEnableForcedEncodingAfterSignalsUpdate() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_FLEDGE_ENABLE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE,
+                FLEDGE_ENABLE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE,
+                Flags::getFledgeEnableForcedEncodingAfterSignalsUpdate);
+    }
+
+    @Test
+    public void testGetFledgeForcedEncodingAfterSignalsUpdateCooldownSeconds() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_FLEDGE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE_COOLDOWN_SECONDS,
+                FLEDGE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE_COOLDOWN_SECONDS,
+                Flags::getFledgeForcedEncodingAfterSignalsUpdateCooldownSeconds);
+    }
+
+    @Test
     public void testGetFledgeRegisterAdBeaconEnabled() {
         mFlagsTestHelper.testConfigFlag(
                 KEY_FLEDGE_REGISTER_AD_BEACON_ENABLED,
@@ -2818,14 +2854,6 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
                 FeatureFlagType.FEATURE_FLAG,
                 value -> overrideGlobalKillSwitch(!value),
                 Flags::getAdServicesEnabled);
-    }
-
-    @Test
-    public void testGetDeveloperModeFeatureEnabled() {
-        mFlagsTestHelper.testConfigFlag(
-                KEY_DEVELOPER_MODE_FEATURE_ENABLED,
-                DEFAULT_DEVELOPER_MODE_FEATURE_ENABLED,
-                Flags::getDeveloperModeFeatureEnabled);
     }
 
     @Test
@@ -3448,6 +3476,14 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
     }
 
     @Test
+    public void testGetFledgeScheduleCustomAudienceUpdateMaxBytes() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_MAX_BYTES,
+                FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_MAX_BYTES,
+                Flags::getFledgeScheduleCustomAudienceUpdateMaxBytes);
+    }
+
+    @Test
     public void testGetFledgeReportImpressionMaxRegisteredAdBeaconsPerAdTechCount() {
         mFlagsTestHelper.testConfigFlag(
                 KEY_FLEDGE_REPORT_IMPRESSION_MAX_REGISTERED_AD_BEACONS_PER_AD_TECH_COUNT,
@@ -3573,23 +3609,9 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
                 Flags::getAsyncRegistrationJobQueueIntervalMs);
     }
 
-    // TODO(b/369385082): remove once testDump() is un-ignored
     @Test
-    public void testDump_doesntCrash() throws Exception {
-        // Trigger the dump to verify no crash
-        String dump = DumpHelper.dump((pw) -> mPhFlags.dump(pw, /* args= */ null));
-
-        expect.withMessage("dump()").that(dump).isNotEmpty();
-    }
-
-    @Test
-    @Ignore("TODO(b/369385082): remove @Ignore when all missing values are added")
     public void testDump() throws Exception {
-        expectDumpHasAllFlags(
-                expect,
-                FlagsConstants.class,
-                pw -> mPhFlags.dump(pw, /* args= */ null),
-                flag -> ("\t" + flag.second + " = "));
+        expectDumpHasAllGetters(expect, Flags.class, pw -> mPhFlags.dump(pw, /* args= */ null));
     }
 
     @Test
@@ -5789,6 +5811,14 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
     }
 
     @Test
+    public void testGetEnableEnrollmentConfigV3Db() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_CONFIG_DELIVERY__ENABLE_ENROLLMENT_CONFIG_V3_DB,
+                DEFAULT_ENABLE_ENROLLMENT_CONFIG_V3_DB,
+                Flags::getEnableEnrollmentConfigV3Db);
+    }
+
+    @Test
     public void testRNotificationDefaultConsentFixEnabled() {
         mFlagsTestHelper.testConfigFlag(
                 KEY_R_NOTIFICATION_DEFAULT_CONSENT_FIX_ENABLED,
@@ -5845,6 +5875,22 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
     }
 
     @Test
+    public void testGetEnableInstalledPackageFilter() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_PACKAGE_DENY_ENABLE_INSTALLED_PACKAGE_FILTER,
+                DEFAULT_PACKAGE_DENY_ENABLE_INSTALLED_PACKAGE_FILTER,
+                Flags::getPackageDenyEnableInstalledPackageFilter);
+    }
+
+    @Test
+    public void testGetBackgroundJobPeriodMillis() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_PACKAGE_DENY_BACKGROUND_JOB_PERIOD_MILLIS,
+                DEFAULT_PACKAGE_DENY_BACKGROUND_JOB_PERIOD_MILLIS,
+                Flags::getPackageDenyBackgroundJobPeriodMillis);
+    }
+
+    @Test
     public void testGetMddPackageDenyRegistryManifestFileUrl() {
         mFlagsTestHelper.testConfigFlag(
                 KEY_MDD_PACKAGE_DENY_REGISTRY_MANIFEST_FILE_URL,
@@ -5872,6 +5918,54 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
                 KEY_AD_ID_MIGRATION_ENABLED,
                 DEFAULT_AD_ID_MIGRATION_ENABLED,
                 Flags::getAdIdMigrationEnabled);
+    }
+
+    @Test
+    public void testGetEnableReportEventForComponentSeller() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_FLEDGE_ENABLE_REPORT_EVENT_FOR_COMPONENT_SELLER,
+                DEFAULT_ENABLE_REPORT_EVENT_FOR_COMPONENT_SELLER,
+                Flags::getEnableReportEventForComponentSeller);
+    }
+
+    @Test
+    public void testGetEnableWinningSellerIdInAdSelectionOutcome() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_FLEDGE_ENABLE_WINNING_SELLER_ID_IN_AD_SELECTION_OUTCOME,
+                DEFAULT_ENABLE_WINNING_SELLER_ID_IN_AD_SELECTION_OUTCOME,
+                Flags::getEnableWinningSellerIdInAdSelectionOutcome);
+    }
+
+    @Test
+    public void testGetEnableProdDebugInAuctionServer() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_FLEDGE_ENABLE_PROD_DEBUG_IN_SERVER_AUCTION,
+                DEFAULT_PROD_DEBUG_IN_AUCTION_SERVER,
+                Flags::getEnableProdDebugInAuctionServer);
+    }
+
+    @Test
+    public void testGetEnforceForegroundStatusForFetchAndJoinCustomAudience() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_ENFORCE_FOREGROUND_STATUS_FETCH_AND_JOIN_CUSTOM_AUDIENCE,
+                ENFORCE_FOREGROUND_STATUS_FETCH_AND_JOIN_CUSTOM_AUDIENCE,
+                Flags::getEnforceForegroundStatusForFetchAndJoinCustomAudience);
+    }
+
+    @Test
+    public void testGetEnforceForegroundStatusForLeaveCustomAudience() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_ENFORCE_FOREGROUND_STATUS_LEAVE_CUSTOM_AUDIENCE,
+                ENFORCE_FOREGROUND_STATUS_LEAVE_CUSTOM_AUDIENCE,
+                Flags::getEnforceForegroundStatusForLeaveCustomAudience);
+    }
+
+    @Test
+    public void testGetEnforceForegroundStatusForScheduleCustomAudience() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_ENFORCE_FOREGROUND_STATUS_SCHEDULE_CUSTOM_AUDIENCE,
+                ENFORCE_FOREGROUND_STATUS_SCHEDULE_CUSTOM_AUDIENCE,
+                Flags::getEnforceForegroundStatusForScheduleCustomAudience);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////

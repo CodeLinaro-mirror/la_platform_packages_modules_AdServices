@@ -169,6 +169,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @MockStatic(ConsentManager.class)
 @SpyStatic(FlagsFactory.class)
 @SpyStatic(DebugFlags.class)
+@MockStatic(BackgroundFetchJob.class)
 public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockitoTestCase {
     private static final int API_NAME =
             AD_SERVICES_API_CALLED__API_NAME__FETCH_AND_JOIN_CUSTOM_AUDIENCE;
@@ -256,7 +257,6 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
         doReturn(
                         CustomAudienceStats.builder()
                                 .setTotalCustomAudienceCount(1)
-                                .setBuyer(BUYER)
                                 .setOwner(VALID_OWNER)
                                 .setPerOwnerCustomAudienceCount(1)
                                 .setPerBuyerCustomAudienceCount(1)
@@ -264,7 +264,7 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
                                 .setTotalOwnerCount(1)
                                 .build())
                 .when(mCustomAudienceDaoMock)
-                .getCustomAudienceStats(eq(VALID_OWNER));
+                .getCustomAudienceStats(eq(VALID_OWNER), any());
 
         doReturn(false)
                 .when(mCustomAudienceDaoMock)
@@ -931,6 +931,9 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
                         eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_INVALID_ARGUMENT), anyInt());
+
+        // Verify background job was not scheduled since CA was not persisted
+        verify(() -> BackgroundFetchJob.schedule(any()), never());
     }
 
     @Test
@@ -1054,6 +1057,9 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
                         eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_SUCCESS), anyInt());
+
+        // Verify background job was scheduled since CA was persisted
+        verify(() -> BackgroundFetchJob.schedule(any()));
     }
 
     @Test
