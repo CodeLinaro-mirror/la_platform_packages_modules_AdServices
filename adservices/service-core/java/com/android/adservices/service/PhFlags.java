@@ -22,6 +22,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_JS_S
 import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_MODULE_JOB_POLICY;
 import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_RETRY_STRATEGY_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_CONFIG_DELIVERY__ENABLE_ENROLLMENT_CONFIG_V3_DB;
+import static com.android.adservices.service.FlagsConstants.KEY_CONFIG_DELIVERY__USE_CONFIGS_MANAGER_TO_QUERY_ENROLLMENT;
 import static com.android.adservices.service.FlagsConstants.KEY_CUSTOM_ERROR_CODE_SAMPLING_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_CONSENT_MANAGER_V2;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_MDD_ENCRYPTION_KEYS;
@@ -1255,6 +1256,29 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public int getProtectedSignalsMaxJsFailureExecutionOnCertainVersionBeforeStop() {
+        return getDeviceConfigFlag(
+                FlagsConstants
+                        .KEY_PROTECTED_SIGNALS_MAX_JS_FAILURE_EXECUTION_ON_CERTAIN_VERSION_BEFORE_STOP,
+                PROTECTED_SIGNALS_MAX_JS_FAILURE_EXECUTION_ON_CERTAIN_VERSION_BEFORE_STOP);
+    }
+
+    @Override
+    public int getProtectedSignalsMaxSignalSizePerBuyerBytes() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_PROTECTED_SIGNALS_MAX_SIGNAL_SIZE_PER_BUYER_BYTES,
+                PROTECTED_SIGNALS_MAX_SIGNAL_SIZE_PER_BUYER_BYTES);
+    }
+
+    @Override
+    public int getProtectedSignalsMaxSignalSizePerBuyerWithOversubsciptionBytes() {
+        return getDeviceConfigFlag(
+                FlagsConstants
+                        .KEY_PROTECTED_SIGNALS_MAX_SIGNAL_SIZE_PER_BUYER_WITH_OVERSUBSCIPTION_BYTES,
+                PROTECTED_SIGNALS_MAX_SIGNAL_SIZE_PER_BUYER_WITH_OVERSUBSCIPTION_BYTES);
+    }
+
+    @Override
     public int getAdSelectionMaxConcurrentBiddingCount() {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_FLEDGE_AD_SELECTION_MAX_CONCURRENT_BIDDING_COUNT,
@@ -2216,10 +2240,95 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public float getFledgeJoinCustomAudienceRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                FlagsConstants.KEY_FLEDGE_JOIN_CUSTOM_AUDIENCE_REQUEST_PERMITS_PER_SECOND,
+                FLEDGE_JOIN_CUSTOM_AUDIENCE_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
+    public float getFledgeFetchAndJoinCustomAudienceRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                FlagsConstants.KEY_FLEDGE_FETCH_AND_JOIN_CUSTOM_AUDIENCE_REQUEST_PERMITS_PER_SECOND,
+                FLEDGE_FETCH_AND_JOIN_CUSTOM_AUDIENCE_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
+    public float getFledgeScheduleCustomAudienceUpdateRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                FlagsConstants
+                        .KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_REQUEST_PERMITS_PER_SECOND,
+                FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
+    public float getFledgeLeaveCustomAudienceRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                FlagsConstants.KEY_FLEDGE_LEAVE_CUSTOM_AUDIENCE_REQUEST_PERMITS_PER_SECOND,
+                FLEDGE_LEAVE_CUSTOM_AUDIENCE_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
+    public float getFledgeUpdateSignalsRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                FlagsConstants.KEY_FLEDGE_UPDATE_SIGNALS_REQUEST_PERMITS_PER_SECOND,
+                FLEDGE_UPDATE_SIGNALS_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
+    public float getFledgeSelectAdsRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                FlagsConstants.KEY_FLEDGE_SELECT_ADS_REQUEST_PERMITS_PER_SECOND,
+                FLEDGE_SELECT_ADS_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
+    public float getFledgeSelectAdsWithOutcomesRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                FlagsConstants.KEY_FLEDGE_SELECT_ADS_WITH_OUTCOMES_REQUEST_PERMITS_PER_SECOND,
+                FLEDGE_SELECT_ADS_WITH_OUTCOMES_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
+    public float getFledgeGetAdSelectionDataRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                FlagsConstants.KEY_FLEDGE_GET_AD_SELECTION_DATA_REQUEST_PERMITS_PER_SECOND,
+                FLEDGE_GET_AD_SELECTION_DATA_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
+    public float getFledgePersistAdSelectionResultRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                FlagsConstants.KEY_FLEDGE_PERSIST_AD_SELECTION_RESULT_REQUEST_PERMITS_PER_SECOND,
+                FLEDGE_PERSIST_AD_SELECTION_RESULT_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
+    public float getFledgeReportImpressionRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                FlagsConstants.KEY_FLEDGE_REPORT_IMPRESSION_REQUEST_PERMITS_PER_SECOND,
+                FLEDGE_REPORT_IMPRESSION_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
     public float getFledgeReportInteractionRequestPermitsPerSecond() {
         return getPermitsPerSecond(
                 FlagsConstants.KEY_FLEDGE_REPORT_INTERACTION_REQUEST_PERMITS_PER_SECOND,
                 FLEDGE_REPORT_INTERACTION_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
+    public float getFledgeSetAppInstallAdvertisersRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                FlagsConstants.KEY_FLEDGE_SET_APP_INSTALL_ADVERTISERS_REQUEST_PERMITS_PER_SECOND,
+                FLEDGE_SET_APP_INSTALL_ADVERTISERS_REQUEST_PERMITS_PER_SECOND);
+    }
+
+    @Override
+    public float getFledgeUpdateAdCounterHistogramRequestPermitsPerSecond() {
+        return getPermitsPerSecond(
+                FlagsConstants.KEY_FLEDGE_UPDATE_AD_COUNTER_HISTOGRAM_REQUEST_PERMITS_PER_SECOND,
+                FLEDGE_UPDATE_AD_COUNTER_HISTOGRAM_REQUEST_PERMITS_PER_SECOND);
     }
 
     @SuppressWarnings("AvoidSystemPropertiesUsage")
@@ -2899,6 +3008,27 @@ public final class PhFlags implements Flags {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_SCHEDULE_CUSTOM_AUDIENCE,
                 ENFORCE_FOREGROUND_STATUS_SCHEDULE_CUSTOM_AUDIENCE);
+    }
+
+    @Override
+    public boolean getEnableCustomAudienceComponentAds() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_ENABLE_CUSTOM_AUDIENCE_COMPONENT_ADS,
+                ENABLE_CUSTOM_AUDIENCE_COMPONENT_ADS);
+    }
+
+    @Override
+    public int getMaxComponentAdsPerCustomAudience() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_MAX_COMPONENT_ADS_PER_CUSTOM_AUDIENCE,
+                MAX_COMPONENT_ADS_PER_CUSTOM_AUDIENCE);
+    }
+
+    @Override
+    public int getComponentAdRenderIdMaxLengthBytes() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_COMPONENT_AD_RENDER_ID_MAX_LENGTH_BYTES,
+                COMPONENT_AD_RENDER_ID_MAX_LENGTH_BYTES);
     }
 
     @Override
@@ -4745,6 +4875,13 @@ public final class PhFlags implements Flags {
         return getDeviceConfigFlag(
                 KEY_CONFIG_DELIVERY__ENABLE_ENROLLMENT_CONFIG_V3_DB,
                 DEFAULT_ENABLE_ENROLLMENT_CONFIG_V3_DB);
+    }
+
+    @Override
+    public boolean getUseConfigsManagerToQueryEnrollment() {
+        return getDeviceConfigFlag(
+                KEY_CONFIG_DELIVERY__USE_CONFIGS_MANAGER_TO_QUERY_ENROLLMENT,
+                DEFAULT_USE_CONFIGS_MANAGER_TO_QUERY_ENROLLMENT);
     }
 
     @Override
