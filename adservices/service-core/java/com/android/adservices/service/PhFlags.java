@@ -23,6 +23,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_MODU
 import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_RETRY_STRATEGY_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_CONFIG_DELIVERY__ENABLE_ENROLLMENT_CONFIG_V3_DB;
 import static com.android.adservices.service.FlagsConstants.KEY_CONFIG_DELIVERY__USE_CONFIGS_MANAGER_TO_QUERY_ENROLLMENT;
+import static com.android.adservices.service.FlagsConstants.KEY_CONFIG_DELIVERY__MDD_MANIFEST_URLS;
 import static com.android.adservices.service.FlagsConstants.KEY_CUSTOM_ERROR_CODE_SAMPLING_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_CONSENT_MANAGER_V2;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_MDD_ENCRYPTION_KEYS;
@@ -120,11 +121,10 @@ import static com.android.adservices.service.FlagsConstants.KEY_SPE_ON_BACKGROUN
 import static com.android.adservices.service.FlagsConstants.KEY_SPE_ON_EPOCH_JOB_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_SPE_ON_PILOT_JOBS_BATCH_2_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_SPE_ON_PILOT_JOBS_ENABLED;
-import static com.android.adservices.service.FlagsConstants.MAX_PERCENTAGE;
+import static com.android.adservices.shared.common.flags.Constants.MAX_PERCENTAGE;
 
 import static java.lang.Float.parseFloat;
 
-import android.annotation.NonNull;
 import android.os.SystemProperties;
 import android.text.TextUtils;
 
@@ -132,6 +132,7 @@ import androidx.annotation.Nullable;
 
 import com.android.adservices.AdServicesCommon;
 import com.android.adservices.LogUtil;
+import com.android.adservices.shared.common.flags.Constants;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.modules.utils.build.SdkLevel;
 
@@ -155,7 +156,6 @@ public final class PhFlags implements Flags {
     private static final PhFlags sSingleton = new PhFlags();
 
     /** Returns the singleton instance of the PhFlags. */
-    @NonNull
     static PhFlags getInstance() {
         return sSingleton;
     }
@@ -2450,7 +2450,7 @@ public final class PhFlags implements Flags {
         return Optional.ofNullable(bucketSizesString)
                 .map(
                         s ->
-                                Arrays.stream(s.split(FlagsConstants.ARRAY_SPLITTER_COMMA))
+                                Arrays.stream(s.split(Constants.ARRAY_SPLITTER_COMMA))
                                         .map(Integer::valueOf)
                                         .collect(Collectors.toList()))
                 .map(ImmutableList::copyOf)
@@ -3767,7 +3767,7 @@ public final class PhFlags implements Flags {
         if (TextUtils.isEmpty(blocklistFlag)) {
             return ImmutableList.of();
         }
-        String[] blocklistList = blocklistFlag.split(FlagsConstants.ARRAY_SPLITTER_COMMA);
+        String[] blocklistList = blocklistFlag.split(Constants.ARRAY_SPLITTER_COMMA);
         return ImmutableList.copyOf(blocklistList);
     }
 
@@ -3803,7 +3803,7 @@ public final class PhFlags implements Flags {
         String defaultGlobalBlockedTopicIds =
                 TOPICS_GLOBAL_BLOCKED_TOPIC_IDS.stream()
                         .map(String::valueOf)
-                        .collect(Collectors.joining(FlagsConstants.ARRAY_SPLITTER_COMMA));
+                        .collect(Collectors.joining(Constants.ARRAY_SPLITTER_COMMA));
 
         String globalBlockedTopicIds =
                 getDeviceConfigFlag(
@@ -3813,7 +3813,7 @@ public final class PhFlags implements Flags {
         }
         globalBlockedTopicIds = globalBlockedTopicIds.trim();
         String[] globalBlockedTopicIdsList =
-                globalBlockedTopicIds.split(FlagsConstants.ARRAY_SPLITTER_COMMA);
+                globalBlockedTopicIds.split(Constants.ARRAY_SPLITTER_COMMA);
 
         List<Integer> globalBlockedTopicIdsIntList = new ArrayList<>();
 
@@ -3834,7 +3834,7 @@ public final class PhFlags implements Flags {
         String defaultErrorCodeLoggingDenyStr =
                 ERROR_CODE_LOGGING_DENY_LIST.stream()
                         .map(String::valueOf)
-                        .collect(Collectors.joining(FlagsConstants.ARRAY_SPLITTER_COMMA));
+                        .collect(Collectors.joining(Constants.ARRAY_SPLITTER_COMMA));
 
         String errorCodeLoggingDenyStr =
                 getDeviceConfigFlag(
@@ -3845,7 +3845,7 @@ public final class PhFlags implements Flags {
         }
         errorCodeLoggingDenyStr = errorCodeLoggingDenyStr.trim();
         String[] errorCodeLoggingDenyStrList =
-                errorCodeLoggingDenyStr.split(FlagsConstants.ARRAY_SPLITTER_COMMA);
+                errorCodeLoggingDenyStr.split(Constants.ARRAY_SPLITTER_COMMA);
 
         List<Integer> errorCodeLoggingDenyIntList = new ArrayList<>();
 
@@ -4882,6 +4882,12 @@ public final class PhFlags implements Flags {
         return getDeviceConfigFlag(
                 KEY_CONFIG_DELIVERY__USE_CONFIGS_MANAGER_TO_QUERY_ENROLLMENT,
                 DEFAULT_USE_CONFIGS_MANAGER_TO_QUERY_ENROLLMENT);
+    }
+
+    @Override
+    public String getConfigDeliveryMddManifestUrls() {
+        return getDeviceConfigFlag(
+                KEY_CONFIG_DELIVERY__MDD_MANIFEST_URLS, DEFAULT_CONFIG_DELIVERY__MDD_MANIFEST_URLS);
     }
 
     @Override
