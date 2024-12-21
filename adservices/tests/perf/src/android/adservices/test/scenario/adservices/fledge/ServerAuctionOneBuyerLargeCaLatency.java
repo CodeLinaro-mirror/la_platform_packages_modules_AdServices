@@ -16,21 +16,6 @@
 
 package android.adservices.test.scenario.adservices.fledge;
 
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_FETCH_AND_JOIN_CUSTOM_AUDIENCE_REQUEST_PERMITS_PER_SECOND;
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_GET_AD_SELECTION_DATA_REQUEST_PERMITS_PER_SECOND;
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_JOIN_CUSTOM_AUDIENCE_REQUEST_PERMITS_PER_SECOND;
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_LEAVE_CUSTOM_AUDIENCE_REQUEST_PERMITS_PER_SECOND;
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_PERSIST_AD_SELECTION_RESULT_REQUEST_PERMITS_PER_SECOND;
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_REPORT_IMPRESSION_REQUEST_PERMITS_PER_SECOND;
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_REPORT_INTERACTION_REQUEST_PERMITS_PER_SECOND;
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_REQUEST_PERMITS_PER_SECOND;
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SELECT_ADS_REQUEST_PERMITS_PER_SECOND;
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SELECT_ADS_WITH_OUTCOMES_REQUEST_PERMITS_PER_SECOND;
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SET_APP_INSTALL_ADVERTISERS_REQUEST_PERMITS_PER_SECOND;
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_UPDATE_AD_COUNTER_HISTOGRAM_REQUEST_PERMITS_PER_SECOND;
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_UPDATE_SIGNALS_REQUEST_PERMITS_PER_SECOND;
-
-import android.Manifest;
 import android.adservices.adselection.AdSelectionOutcome;
 import android.adservices.adselection.GetAdSelectionDataOutcome;
 import android.adservices.adselection.GetAdSelectionDataRequest;
@@ -41,31 +26,21 @@ import android.adservices.customaudience.CustomAudience;
 import android.adservices.test.scenario.adservices.fledge.utils.CustomAudienceTestFixture;
 import android.adservices.test.scenario.adservices.fledge.utils.FakeAdExchangeServer;
 import android.adservices.test.scenario.adservices.fledge.utils.SelectAdResponse;
-import android.adservices.test.scenario.adservices.utils.SelectAdsFlagRule;
 import android.content.Context;
 import android.platform.test.option.StringOption;
-import android.platform.test.rule.CleanPackageRule;
-import android.platform.test.rule.KillAppsRule;
 import android.platform.test.scenario.annotation.Scenario;
 import android.util.Log;
 
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.platform.app.InstrumentationRegistry;
 
-import com.android.adservices.common.AdServicesFlagsSetterRule;
-import com.android.adservices.common.AdservicesTestHelper;
 import com.android.adservices.service.FlagsConstants;
-import com.android.adservices.shared.testing.annotations.SetIntegerFlag;
 
 import com.google.common.io.BaseEncoding;
 
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -74,32 +49,9 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-@SetIntegerFlag(name = KEY_FLEDGE_JOIN_CUSTOM_AUDIENCE_REQUEST_PERMITS_PER_SECOND, value = 1000)
-@SetIntegerFlag(
-        name = KEY_FLEDGE_FETCH_AND_JOIN_CUSTOM_AUDIENCE_REQUEST_PERMITS_PER_SECOND,
-        value = 1000)
-@SetIntegerFlag(
-        name = KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_REQUEST_PERMITS_PER_SECOND,
-        value = 1000)
-@SetIntegerFlag(name = KEY_FLEDGE_LEAVE_CUSTOM_AUDIENCE_REQUEST_PERMITS_PER_SECOND, value = 1000)
-@SetIntegerFlag(name = KEY_FLEDGE_UPDATE_SIGNALS_REQUEST_PERMITS_PER_SECOND, value = 1000)
-@SetIntegerFlag(name = KEY_FLEDGE_SELECT_ADS_REQUEST_PERMITS_PER_SECOND, value = 1000)
-@SetIntegerFlag(name = KEY_FLEDGE_SELECT_ADS_WITH_OUTCOMES_REQUEST_PERMITS_PER_SECOND, value = 1000)
-@SetIntegerFlag(name = KEY_FLEDGE_GET_AD_SELECTION_DATA_REQUEST_PERMITS_PER_SECOND, value = 1000)
-@SetIntegerFlag(
-        name = KEY_FLEDGE_PERSIST_AD_SELECTION_RESULT_REQUEST_PERMITS_PER_SECOND,
-        value = 1000)
-@SetIntegerFlag(name = KEY_FLEDGE_REPORT_IMPRESSION_REQUEST_PERMITS_PER_SECOND, value = 1000)
-@SetIntegerFlag(name = KEY_FLEDGE_REPORT_INTERACTION_REQUEST_PERMITS_PER_SECOND, value = 1000)
-@SetIntegerFlag(
-        name = KEY_FLEDGE_SET_APP_INSTALL_ADVERTISERS_REQUEST_PERMITS_PER_SECOND,
-        value = 1000)
-@SetIntegerFlag(
-        name = KEY_FLEDGE_UPDATE_AD_COUNTER_HISTOGRAM_REQUEST_PERMITS_PER_SECOND,
-        value = 1000)
 @Scenario
 @RunWith(JUnit4.class)
-public class ServerAuctionOneBuyerLargeCaLatency {
+public class ServerAuctionOneBuyerLargeCaLatency extends FledgePerfTestCase {
     private static final String TAG = "SelectAds";
 
     private static final Executor CALLBACK_EXECUTOR = Executors.newCachedThreadPool();
@@ -133,22 +85,6 @@ public class ServerAuctionOneBuyerLargeCaLatency {
     public static StringOption coordinatorUrlOption =
             new StringOption("coordinator-url").setRequired(true).setDefault("");
 
-    @Rule
-    public RuleChain rules =
-            RuleChain.outerRule(
-                            new KillAppsRule(
-                                    AdservicesTestHelper.getAdServicesPackageName(CONTEXT)))
-                    .around(
-                            // CleanPackageRule should not execute after each test method because
-                            // there's a chance it interferes with ShowmapSnapshotListener snapshot
-                            // at the end of the test, impacting collection of memory metrics for
-                            // AdServices process.
-                            new CleanPackageRule(
-                                    AdservicesTestHelper.getAdServicesPackageName(CONTEXT),
-                                    /* clearOnStarting= */ true,
-                                    /* clearOnFinished= */ false))
-                    .around(new SelectAdsFlagRule());
-
     private String getCoordinator() {
         return coordinatorUrlOption.get();
     }
@@ -157,21 +93,10 @@ public class ServerAuctionOneBuyerLargeCaLatency {
         return serverUrlOption.get();
     }
 
-    @Rule
-    public final AdServicesFlagsSetterRule flags =
-            AdServicesFlagsSetterRule.newInstance()
-                    .setFlag(
-                            FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_URI,
-                            getCoordinator());
-
-    /** Give the required permissions to the APK */
-    @BeforeClass
-    public static void setupBeforeClass() {
-        InstrumentationRegistry.getInstrumentation()
-                .getUiAutomation()
-                .adoptShellPermissionIdentity(
-                        Manifest.permission.WRITE_DEVICE_CONFIG,
-                        Manifest.permission.WRITE_ALLOWLISTED_DEVICE_CONFIG);
+    @Before
+    public void setupFlags() {
+        flags.setFlag(
+                FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_URI, getCoordinator());
     }
 
     @Before
