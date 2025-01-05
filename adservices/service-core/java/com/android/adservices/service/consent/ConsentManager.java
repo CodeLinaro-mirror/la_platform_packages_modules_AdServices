@@ -27,6 +27,7 @@ import static android.adservices.common.AdServicesCommonManager.MODULE_TOPICS;
 import static android.adservices.common.AdServicesCommonManager.ModuleState;
 import static android.adservices.common.AdServicesModuleUserChoice.USER_CHOICE_OPTED_IN;
 import static android.adservices.common.AdServicesModuleUserChoice.USER_CHOICE_OPTED_OUT;
+import static android.adservices.common.AdServicesModuleUserChoice.USER_CHOICE_UNKNOWN;
 import static android.adservices.common.Module.MEASUREMENT;
 import static android.adservices.common.Module.ON_DEVICE_PERSONALIZATION;
 import static android.adservices.common.Module.PROTECTED_APP_SIGNALS;
@@ -1900,9 +1901,9 @@ public final class ConsentManager {
                     TOPICS,
                     ON_DEVICE_PERSONALIZATION
                 };
-        for (int module : modules) {
-            data.putModuleState(module, manager.getConvertedModuleState(module));
-            data.putUserChoice(module, manager.getConvertedUserChoice(module));
+        for (int apiModule : modules) {
+            data.putModuleState(apiModule, manager.getConvertedModuleState(apiModule));
+            data.putUserChoice(apiModule, manager.getConvertedUserChoice(apiModule));
         }
 
         // store data
@@ -1939,7 +1940,7 @@ public final class ConsentManager {
         }
 
         return consent == null
-                ? AdServicesModuleUserChoice.USER_CHOICE_UNKNOWN
+                ? USER_CHOICE_UNKNOWN
                 : consent ? USER_CHOICE_OPTED_IN : USER_CHOICE_OPTED_OUT;
     }
 
@@ -2407,11 +2408,11 @@ public final class ConsentManager {
                 };
         boolean isAnyModuleEnabled = false;
         boolean isPersonalizedAdsModuleEnabled = false;
-        for (int module : allModules) {
-            int state = data.getModuleState(module);
+        for (int apiModule : allModules) {
+            int state = data.getModuleState(apiModule);
             if (state == MODULE_STATE_ENABLED) {
                 isAnyModuleEnabled = true;
-                if (module != MODULE_MEASUREMENT) {
+                if (apiModule != MODULE_MEASUREMENT) {
                     isPersonalizedAdsModuleEnabled = true;
                 }
             }
@@ -2442,13 +2443,13 @@ public final class ConsentManager {
     /**
      * Get module state for desired module.
      *
-     * @param module desired module
+     * @param apiModule desired module
      * @return module state
      */
     @ModuleState
-    public int getModuleState(@ModuleCode int module) {
+    public int getModuleState(@ModuleCode int apiModule) {
         EnrollmentData data = EnrollmentData.deserialize(getModuleEnrollmentState());
-        return data.getModuleState(module);
+        return data.getModuleState(apiModule);
     }
 
     /**
@@ -2465,28 +2466,28 @@ public final class ConsentManager {
     }
 
     private AdServicesApiConsent getUserChoice(AdServicesApiType apiType) {
-        int module = -1;
+        int apiModule = -1;
         switch (apiType) {
-            case TOPICS -> module = TOPICS;
-            case FLEDGE -> module = PROTECTED_AUDIENCE;
-            case MEASUREMENTS -> module = MEASUREMENT;
+            case TOPICS -> apiModule = TOPICS;
+            case FLEDGE -> apiModule = PROTECTED_AUDIENCE;
+            case MEASUREMENTS -> apiModule = MEASUREMENT;
             default -> {
                 LogUtil.v("Skipping ALL_API and UNKNOWN API Types for getUserChoice.");
             }
         }
-        return new AdServicesApiConsent(getUserChoice(module) == USER_CHOICE_OPTED_IN);
+        return new AdServicesApiConsent(getUserChoice(apiModule) == USER_CHOICE_OPTED_IN);
     }
 
     /**
      * Gets user choice for a module.
      *
-     * @param module Module to get
+     * @param apiModule Module to get
      * @return User choice of the module
      */
     @ModuleUserChoiceCode
-    public int getUserChoice(@ModuleCode int module) {
+    public int getUserChoice(@ModuleCode int apiModule) {
         EnrollmentData data = EnrollmentData.deserialize(getModuleEnrollmentState());
-        return data.getUserChoice(module);
+        return data.getUserChoice(apiModule);
     }
 
     private void setUserChoice(AdServicesApiType apiType, @ModuleUserChoiceCode int userChoice) {
@@ -2497,14 +2498,6 @@ public final class ConsentManager {
             }
             case FLEDGE -> {
                 userChoices.add(new AdServicesModuleUserChoice(PROTECTED_AUDIENCE, userChoice));
-                if (mFlags.getPasUxEnabled() || mFlags.getEeaPasUxEnabled()) {
-                    userChoices.add(
-                            new AdServicesModuleUserChoice(PROTECTED_APP_SIGNALS, userChoice));
-                    userChoices.add(
-                            new AdServicesModuleUserChoice(ON_DEVICE_PERSONALIZATION, userChoice));
-                    // set in case flag is ramped down, so legacy logic will still work
-                    recordPasNotificationOpened(true);
-                }
             }
             case MEASUREMENTS -> {
                 userChoices.add(new AdServicesModuleUserChoice(MEASUREMENT, userChoice));
@@ -2517,9 +2510,30 @@ public final class ConsentManager {
     }
 
     /**
-     * Sets user choice for a module.
+     * Aligns user choices to module states by setting user choice to unknown if a module state is
+     * not enabled.
      *
-     * @param module Module to set
+     * <p>This method should only be called specifically after a notification is shown to ensure the
+     * user choices are erased if a module state is now disabled or unknown. This method is also a
+     * safeguard, since a request to set user choices to unknown can also be made instead.
+     */
+    public void alignUserChoicesIfNeeded() {
+        EnrollmentData data = EnrollmentData.deserialize(getModuleEnrollmentState());
+        List<AdServicesModuleUserChoice> userChoices = new ArrayList<>();
+        SparseIntArray moduleStates = data.getModuleStates();
+        for (int i = 0; i < moduleStates.size(); i++) {
+            int moduleState = moduleStates.keyAt(i);
+            int state = moduleStates.valueAt(i);
+            if (state != MODULE_STATE_ENABLED) {
+                userChoices.add(new AdServicesModuleUserChoice(moduleState, USER_CHOICE_UNKNOWN));
+            }
+        }
+        setUserChoices(userChoices);
+    }
+
+    /**
+     * Sets user choice for modules.
+     *
      * @param userChoices User choices to store
      */
     public void setUserChoices(List<AdServicesModuleUserChoice> userChoices) {
@@ -2589,10 +2603,10 @@ public final class ConsentManager {
     }
 
     /**
-     * get pas consent for fledge, pasUxEnable flag has checked iseea, thus we don't need to check
-     * this again
+     * Gets PAS consent for fledge, pasUxEnable flag has checked is eea, thus we don't need to check
+     * this again.
      */
-    public boolean isPasFledgeConsentGiven() {
+    public boolean isPasConsentGiven() {
         if (FlagsFactory.getFlags().getEnableConsentManagerV2()) {
             return ConsentManagerV2.getInstance().isPasFledgeConsentGiven();
         }
@@ -2600,8 +2614,8 @@ public final class ConsentManager {
             return true;
         }
         if (mFlags.getAdServicesConsentBusinessLogicMigrationEnabled()) {
-            return (mFlags.getPasUxEnabled() || mFlags.getEeaPasUxEnabled())
-                    && getConsent(AdServicesApiType.FLEDGE).isGiven();
+            return getUserChoice(PROTECTED_AUDIENCE) == USER_CHOICE_OPTED_IN
+                    && getUserChoice(PROTECTED_APP_SIGNALS) == USER_CHOICE_OPTED_IN;
         }
         if (mFlags.getEeaPasUxEnabled()) {
             if (DeviceRegionProvider.isEuDevice(ApplicationContextSingleton.get())) {
@@ -2614,13 +2628,43 @@ public final class ConsentManager {
                 && getConsent(AdServicesApiType.FLEDGE).isGiven();
     }
 
-    /** get pas conset for measurement */
-    public boolean isPasMeasurementConsentGiven() {
+    /**
+     * Gets ODP consent for fledge, pasUxEnable flag has checked is eea, thus we don't need to check
+     * this again.
+     */
+    public boolean isOdpFledgeConsentGiven() {
+        if (FlagsFactory.getFlags().getEnableConsentManagerV2()) {
+            return ConsentManagerV2.getInstance().isPasFledgeConsentGiven();
+        }
+        if (mDebugFlags.getConsentManagerDebugMode()) {
+            return true;
+        }
+        if (mFlags.getAdServicesConsentBusinessLogicMigrationEnabled()) {
+            return getUserChoice(PROTECTED_AUDIENCE) == USER_CHOICE_OPTED_IN
+                    && getUserChoice(ON_DEVICE_PERSONALIZATION) == USER_CHOICE_OPTED_IN;
+        }
+        if (mFlags.getEeaPasUxEnabled()) {
+            if (DeviceRegionProvider.isEuDevice(ApplicationContextSingleton.get())) {
+                return wasPasNotificationOpened() && getConsent(AdServicesApiType.FLEDGE).isGiven();
+            }
+        }
+
+        return mFlags.getPasUxEnabled()
+                && wasPasNotificationDisplayed()
+                && getConsent(AdServicesApiType.FLEDGE).isGiven();
+    }
+
+    /** Gets ODP consent for measurement. */
+    public boolean isOdpMeasurementConsentGiven() {
         if (FlagsFactory.getFlags().getEnableConsentManagerV2()) {
             return ConsentManagerV2.getInstance().isPasMeasurementConsentGiven();
         }
         if (mDebugFlags.getConsentManagerDebugMode()) {
             return true;
+        }
+        if (mFlags.getAdServicesConsentBusinessLogicMigrationEnabled()) {
+            return getUserChoice(MEASUREMENT) == USER_CHOICE_OPTED_IN
+                    && getUserChoice(ON_DEVICE_PERSONALIZATION) == USER_CHOICE_OPTED_IN;
         }
         if (mFlags.getEeaPasUxEnabled()) {
             if (DeviceRegionProvider.isEuDevice(ApplicationContextSingleton.get())) {
