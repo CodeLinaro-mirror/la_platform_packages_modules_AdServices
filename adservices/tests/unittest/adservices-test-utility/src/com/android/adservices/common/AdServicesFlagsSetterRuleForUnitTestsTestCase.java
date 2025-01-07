@@ -21,6 +21,8 @@ import com.android.adservices.service.Flags;
 import com.android.adservices.shared.meta_testing.CommonDescriptions.AClassHasNoNothingAtAll;
 import com.android.adservices.shared.meta_testing.SimpleStatement;
 
+import com.google.common.truth.StandardSubjectBuilder;
+
 import org.junit.Test;
 import org.junit.runner.Description;
 
@@ -33,14 +35,11 @@ import java.util.function.BiConsumer;
 // DeviceConfig abstractions.
 /** Base test class for {@link AdServicesFlagsSetterRuleForUnitTests} implementations. */
 abstract class AdServicesFlagsSetterRuleForUnitTestsTestCase<
-                R extends AdServicesFlagsSetterRuleForUnitTests<R, F>, F extends Flags>
+                R extends AdServicesFlagsSetterRuleForUnitTests<R>>
         extends AdServicesUnitTestCase {
 
-    /** Creates a new instance of the flags. */
-    protected abstract F newFlags();
-
     /** Creates a new instance of the rule. */
-    protected abstract R newRule(F flags);
+    protected abstract R newRule();
 
     @Test
     public final void testSetDefaultFledgeFlagsMethod() throws Throwable {
@@ -59,14 +58,16 @@ abstract class AdServicesFlagsSetterRuleForUnitTestsTestCase<
         Description description =
                 Description.createTestDescription(
                         AClassSetsAllDefaultFledgeTags.class, "butItHasATest");
-        onTest(
-                description,
-                (rule, flags) -> {
-                    assertDefaultFledgeFlags(flags);
-                });
+        onTest(description, (rule, flags) -> assertDefaultFledgeFlags(flags));
     }
 
-    private void assertDefaultFledgeFlags(F flags) {
+    private void assertDefaultFledgeFlags(Flags flags) {
+        assertDefaultFledgeFlags(expect, flags);
+    }
+
+    // TODO(b/384798806): merge with instance method once FakeFlagsFactoryTest is gone or doesn't
+    // use it anymore
+    public static void assertDefaultFledgeFlags(StandardSubjectBuilder expect, Flags flags) {
         // TODO(b/384798806): pass R as well and assert size of changed flags is 16
         expect.withMessage("getAdSelectionBiddingTimeoutPerCaMs()")
                 .that(flags.getAdSelectionBiddingTimeoutPerCaMs())
@@ -140,7 +141,7 @@ abstract class AdServicesFlagsSetterRuleForUnitTestsTestCase<
      * @param consumer consumer of flags instantiated by {@link #newFlags()} and a rule instantiated
      *     by {@link #newRule(Flags)} (passing that flags).
      */
-    protected void onTest(BiConsumer<R, F> consumer) throws Throwable {
+    protected void onTest(BiConsumer<R, Flags> consumer) throws Throwable {
         onTest(
                 Description.createTestDescription(AClassHasNoNothingAtAll.class, "butItHasATest"),
                 consumer);
@@ -153,18 +154,19 @@ abstract class AdServicesFlagsSetterRuleForUnitTestsTestCase<
      * @param consumer consumer of flags instantiated by {@link #newFlags()} and a rule instantiated
      *     by {@link #newRule(Flags)} (passing that flags).
      */
-    protected void onTest(Description description, BiConsumer<R, F> consumer) throws Throwable {
+    protected void onTest(Description description, BiConsumer<R, Flags> consumer) throws Throwable {
         Objects.requireNonNull(description, "description cannot be null");
         Objects.requireNonNull(consumer, "consumer cannot be null");
 
-        F flags = newFlags();
-        if (flags == null) {
-            throw new IllegalStateException("newFlags() returned null");
-        }
-        R rule = newRule(flags);
+        R rule = newRule();
         if (rule == null) {
             throw new IllegalStateException("newRule() returned null");
         }
+        Flags flags = rule.getFlags();
+        if (flags == null) {
+            throw new IllegalStateException("rule.getFlags() returned null");
+        }
+
         SimpleStatement test = new SimpleStatement();
 
         test.onEvaluate(() -> consumer.accept(rule, flags));

@@ -1520,7 +1520,7 @@ public final class FlagsConstants {
     public static final String KEY_KANON_FETCH_PARAMETERS_URL = "kanon_fetch_parameters_url";
 
     /** Key for get challenge url. */
-    public static final String KEY_ANON_GET_CHALLENGE_URl = "kanon_get_challenge_url";
+    public static final String KEY_ANON_GET_CHALLENGE_URL = "kanon_get_challenge_url";
 
     /** Key for kanon register client parameters url. */
     public static final String KEY_FLEDGE_KANON_REGISTER_CLIENT_PARAMETERS_URL =
@@ -1739,4 +1739,8 @@ public final class FlagsConstants {
 
     /** Key to enable the AdServices latency metrics {@code RbATrace}. */
     public static final String KEY_ENABLE_RB_ATRACE = "enable_rb_atrace";
+
+    /** Key to enable prod debug feature in server auctions */
+    public static final String KEY_MSMT_REGISTER_SOURCE_PACKAGE_DENY_LIST =
+            "Measurement__enable_register_source_package_deny_list";
 }

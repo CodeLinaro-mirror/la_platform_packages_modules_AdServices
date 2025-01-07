@@ -3941,7 +3941,7 @@ public class RawFlags implements Flags {
 
     @Override
     public final String getFledgeKAnonGetChallengeUrl() {
-        return mBackend.getFlag(KEY_ANON_GET_CHALLENGE_URl, FLEDGE_DEFAULT_GET_CHALLENGE_URL);
+        return mBackend.getFlag(KEY_ANON_GET_CHALLENGE_URL, FLEDGE_DEFAULT_GET_CHALLENGE_URL);
     }
 
     @Override
@@ -4336,5 +4336,12 @@ public class RawFlags implements Flags {
     @Override
     public final boolean getEnableRbAtrace() {
         return mBackend.getFlag(KEY_ENABLE_RB_ATRACE, DEFAULT_ENABLE_RB_ATRACE);
+    }
+
+    @Override
+    public boolean getEnableMsmtRegisterSourcePackageDenyList() {
+        return mBackend.getFlag(
+                KEY_MSMT_REGISTER_SOURCE_PACKAGE_DENY_LIST,
+                DEFAULT_MSMT_REGISTER_SOURCE_PACKAGE_DENY_LIST);
     }
 }
