@@ -15,8 +15,6 @@
  */
 package com.android.adservices.service;
 
-import com.android.adservices.common.AdServicesFakeFlagsSetterRule.FakeFlags;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -29,10 +27,10 @@ public final class FakeFlagsFactory {
 
     // TODO(b/332723427): once this class is gone, make it standalone here or move to the same
     // package as the other similar annotations (if we want it to be supported by the CTS rule)
-    /** Used by {@code FlagSetter} rules to set the default values used by FLEDGE tests. */
+    /** Used by {@code FlagSetter} rules to provide common values that are used in tests. */
     @Retention(RetentionPolicy.RUNTIME)
     @Target({ElementType.METHOD, ElementType.TYPE})
-    public @interface SetDefaultFledgeFlags {}
+    public @interface SetFakeFlagsFactoryFlags {}
 
     /**
      * @deprecated TODO(b/332723427): each API should use its own fake factory.
@@ -40,7 +38,7 @@ public final class FakeFlagsFactory {
     @Deprecated
     public static Flags getFlagsForTest() {
         // Use the Flags that has constant values.
-        return new FakeFlags().setDefaultFledgeFlags();
+        return FakeFlags.createFakeFlagsForFakeFlagsFactoryPurposesOnly();
     }
 
     private FakeFlagsFactory() {
