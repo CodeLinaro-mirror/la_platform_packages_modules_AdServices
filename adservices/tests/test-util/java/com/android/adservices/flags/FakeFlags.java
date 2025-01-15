@@ -13,16 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.android.adservices.flags;
 
-package com.android.adservices.common;
+import static com.android.adservices.flags.MissingFlagBehavior.USES_EXPLICIT_DEFAULT;
 
-import static com.android.adservices.common.MissingFlagBehavior.USES_EXPLICIT_DEFAULT;
-
-import com.android.adservices.service.FakeFlagsFactory;
 import com.android.adservices.service.Flags;
-import com.android.adservices.service.RawFlags;
 import com.android.adservices.shared.flags.FlagsBackend;
 import com.android.adservices.shared.testing.AndroidLogger;
+import com.android.adservices.shared.testing.Identifiable;
 import com.android.adservices.shared.testing.Logger;
 import com.android.adservices.shared.testing.NameValuePair;
 
@@ -34,90 +32,90 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-/** {@code FlagsSetterRule} that uses a fake flags implementation. */
-public final class AdServicesFakeFlagsSetterRule
-        extends AdServicesFlagsSetterRuleForUnitTests<AdServicesFakeFlagsSetterRule> {
+// TODO(b/384798806): make it package protected once FakeFlagsFactory is moved to this package
+public final class FakeFlags extends RawFlags implements Identifiable {
 
-    private final FakeFlagsBackend mFakeFlagsBackend;
+    private static int sNextId;
 
-    public AdServicesFakeFlagsSetterRule() {
-        this(new FakeFlags());
+    private final String mId = String.valueOf(++sNextId);
+    private final boolean mImmutable;
+
+    private FakeFlags(boolean immutable) {
+        this(new FakeFlagsBackend(), immutable);
     }
 
-    private AdServicesFakeFlagsSetterRule(FakeFlags fakeFlags) {
-        super(fakeFlags, fakeFlags.getFakeFlagsBackend());
-        mFakeFlagsBackend = fakeFlags.getFakeFlagsBackend();
+    private FakeFlags(FlagsBackend backend, boolean immutable) {
+        super(backend);
+        mImmutable = immutable;
     }
 
-    @Override
-    public AdServicesFakeFlagsSetterRule setMissingFlagBehavior(MissingFlagBehavior behavior) {
-        mLog.i("setMissingFlagBehavior(): from %s to %s", mFakeFlagsBackend.mBehavior, behavior);
-        mFakeFlagsBackend.mBehavior = Objects.requireNonNull(behavior, "behavior cannot be null");
-        return getThis();
+    private FakeFlagsBackend getFakeFlagsBackend() {
+        return (FakeFlagsBackend) mBackend;
     }
 
-    @Override
-    public Flags getFlagsSnapshot() {
-        var flags = mFakeFlagsBackend.mFlags;
-        mLog.v("getFlagsSnapshot(): cloning %s", flags);
-        if (!isRunning()) {
-            throw new IllegalStateException("getFlagsSnapshot() can only be called inside a test");
-        }
-        return new FakeFlags(new FakeFlagsBackend(new HashMap<>(mFakeFlagsBackend.mFlags)));
+    static FakeFlags createFakeFlagsForFlagSetterRulePurposesOnly() {
+        return new FakeFlags(/* immutable= */ false);
+    }
+
+    // TODO(b/384798806): make it package protected once FakeFlagsFactory is moved to this package
+    public static FakeFlags createFakeFlagsForFakeFlagsFactoryPurposesOnly() {
+        return new FakeFlags(/* immutable= */ true).setFakeFlagsFactoryFlags();
+    }
+
+    Consumer<NameValuePair> getFlagsSetter() {
+        return getFakeFlagsBackend();
     }
 
     @VisibleForTesting
-    MissingFlagBehavior getMissingFlagBehavior() {
-        return mFakeFlagsBackend.mBehavior;
+    void setFlag(String name, String value) {
+        if (mImmutable) {
+            throw new UnsupportedOperationException(
+                    "setFlag(" + name + ", " + value + "): not supported on immutable Flags");
+        }
+        getFakeFlagsBackend().setFlag(name, value);
     }
 
-    // NOTE: this class is internal on purpose, so tests use the rule approach. But we could make it
-    // standalone if needed (it must be public because it's used in the constructor that takes a
-    // Consumer<NameValuePair> lambda, but it's constructor is private)
-    public static final class FakeFlags extends RawFlags {
+    void setMissingFlagBehavior(MissingFlagBehavior behavior) {
+        getFakeFlagsBackend().mBehavior =
+                Objects.requireNonNull(behavior, "behavior cannot be null");
+    }
 
-        // TODO(b/384798806): make it package protected once FakeFlagsFactory doesn't use it anymore
-        // (need to refactor tests to use AdServicesFakeFlagsSetterRule first)
-        public FakeFlags() {
-            this(new FakeFlagsBackend());
-        }
+    MissingFlagBehavior getMissingFlagBehavior() {
+        return getFakeFlagsBackend().mBehavior;
+    }
 
-        private FakeFlags(FlagsBackend backend) {
-            super(backend);
-        }
+    Flags getSnapshot() {
+        Map<String, NameValuePair> flags = getFakeFlagsBackend().mFlags;
+        return new FakeFlags(new FakeFlagsBackend(new HashMap<>(flags)), /* immutable= */ true);
+    }
 
-        private FakeFlagsBackend getFakeFlagsBackend() {
-            return (FakeFlagsBackend) mBackend;
-        }
+    private FakeFlags setFakeFlagsFactoryFlags() {
+        var backend = getFakeFlagsBackend();
+        AdServicesFlagsSetterRuleForUnitTests.setFakeFlagsFactoryFlags(
+                (name, value) -> backend.setFlag(name, value));
+        return this;
+    }
 
-        // NOTE: public because it's used by FakeFlagsFactory.getFlagsForTest()
-        /**
-         * Set flags that used to be set by {@code FakeFlagsFactory.TestFlags}.
-         *
-         * @deprecated tests should use {@link FakeFlagsFactory.SetFakeFlagsFactoryFlags} instead.
-         */
-        @Deprecated
-        public FakeFlags setFakeFlagsFactoryFlags() {
-            var backend = getFakeFlagsBackend();
-            AdServicesFlagsSetterRuleForUnitTests.setFakeFlagsFactoryFlags(
-                    (name, value) -> backend.setFlag(name, value));
-            return this;
-        }
+    @Override
+    public String getId() {
+        return mId;
+    }
 
-        @Override
-        public String toString() {
-            var flags = getFakeFlagsBackend().mFlags;
-            if (flags.isEmpty()) {
-                return "FakeFlags{empty}";
-            }
-            return flags.entrySet().stream()
-                    .sorted(Map.Entry.comparingByKey()) // sort by key
-                    .map(entry -> entry.getValue().toString())
-                    .collect(Collectors.joining(", ", "FakeFlags{", "}"));
+    @Override
+    public String toString() {
+        var prefix = "FakeFlags#" + mId + "{";
+        var flags = getFakeFlagsBackend().mFlags;
+        if (flags.isEmpty()) {
+            return prefix + "empty}";
         }
+        return flags.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey()) // sort by key
+                .map(entry -> entry.getValue().toString())
+                .collect(Collectors.joining(", ", prefix, "}"));
     }
 
     private static class FakeFlagsBackend implements FlagsBackend, Consumer<NameValuePair> {
+
         private final Map<String, NameValuePair> mFlags;
 
         private final Logger mLog = new Logger(AndroidLogger.getInstance(), "FakeFlags");
@@ -230,7 +228,7 @@ public final class AdServicesFakeFlagsSetterRule
             mFlags.put(flag.name, flag);
         }
 
-        private void setFlag(String name, String value) {
+        void setFlag(String name, String value) {
             accept(new NameValuePair(name, value));
         }
     }

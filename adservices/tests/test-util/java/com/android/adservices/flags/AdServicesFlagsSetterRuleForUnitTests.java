@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.adservices.common;
+package com.android.adservices.flags;
 
 import static com.android.adservices.service.FlagsConstants.KEY_DISABLE_FLEDGE_ENROLLMENT_CHECK;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_DATABASE_SCHEMA_VERSION_8;
@@ -37,7 +37,7 @@ import android.os.Build;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
-import com.android.adservices.service.FakeFlagsFactory.SetFakeFlagsFactoryFlags;
+import com.android.adservices.common.AbstractAdServicesFlagsSetterRule;
 import com.android.adservices.service.Flags;
 import com.android.adservices.shared.testing.AndroidLogger;
 import com.android.adservices.shared.testing.NameValuePair;
@@ -100,7 +100,8 @@ public abstract class AdServicesFlagsSetterRuleForUnitTests<
         return getThis();
     }
 
-    static void setFakeFlagsFactoryFlags(BiConsumer<String, String> nameValueSetter) {
+    /** TODO(b/384798806): make it package protected. */
+    public static void setFakeFlagsFactoryFlags(BiConsumer<String, String> nameValueSetter) {
         nameValueSetter.accept(KEY_FLEDGE_AD_SELECTION_BIDDING_TIMEOUT_PER_CA_MS, "10000");
         nameValueSetter.accept(KEY_FLEDGE_AD_SELECTION_SCORING_TIMEOUT_MS, "10000");
         nameValueSetter.accept(KEY_FLEDGE_AD_SELECTION_OVERALL_TIMEOUT_MS, "600000");

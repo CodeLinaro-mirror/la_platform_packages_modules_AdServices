@@ -205,7 +205,7 @@ public final class MeasurementDaoTest extends AdServicesExtendedMockitoTestCase 
 
     @Before
     public void before() {
-        mocker.mockGetFlagsForTesting();
+        mocker.mockGetFlags(mFakeFlags);
         mDatastoreManager =
                 new SQLDatastoreManager(
                         MeasurementDbHelper.getInstance(),
@@ -3944,7 +3944,7 @@ public final class MeasurementDaoTest extends AdServicesExtendedMockitoTestCase 
     }
 
     @Test
-    public void getNumAggregateReportsPerSource_returnsExpected() {
+    public void countNumAggregateReportsPerSource_returnsExpected() {
         List<Source> sources =
                 Arrays.asList(
                         SourceFixture.getMinimalValidSourceBuilder()
@@ -3975,7 +3975,16 @@ public final class MeasurementDaoTest extends AdServicesExtendedMockitoTestCase 
                                 WebUtil.validUrl("https://destination-2.test"),
                                 3,
                                 "source2",
+                                // This report should not be counted because it includes a trigger
+                                // context ID.
                                 AggregateReportFixture.ValidAggregateReportParams.API),
+                        generateMockAggregateReportBuilder(
+                                WebUtil.validUrl("https://destination-2.test"),
+                                33,
+                                "source2",
+                                AggregateReportFixture.ValidAggregateReportParams.API)
+                                        .setTriggerContextId("12345")
+                                        .build(),
                         generateMockAggregateReport(
                                 WebUtil.validUrl("https://destination-1.test"),
                                 4,
@@ -4006,6 +4015,9 @@ public final class MeasurementDaoTest extends AdServicesExtendedMockitoTestCase 
                             MeasurementTables.AggregateReport.ATTRIBUTION_DESTINATION,
                             aggregateReport.getAttributionDestination().toString());
                     values.put(MeasurementTables.AggregateReport.API, aggregateReport.getApi());
+                    values.put(
+                            MeasurementTables.AggregateReport.TRIGGER_CONTEXT_ID,
+                            aggregateReport.getTriggerContextId());
                     db.insert(MeasurementTables.AggregateReport.TABLE, null, values);
                 };
         reports.forEach(aggregateReportConsumer);
@@ -8508,6 +8520,9 @@ public final class MeasurementDaoTest extends AdServicesExtendedMockitoTestCase 
         values.put(
                 SourceContract.REINSTALL_REATTRIBUTION_WINDOW,
                 source.getReinstallReattributionWindow());
+        if (source.getDebugKey() != null) {
+            values.put(SourceContract.DEBUG_KEY, source.getDebugKey().getValue());
+        }
         long row = db.insert(SourceContract.TABLE, null, values);
         assertNotEquals("Source insertion failed", -1, row);
 
@@ -13170,6 +13185,78 @@ public final class MeasurementDaoTest extends AdServicesExtendedMockitoTestCase 
                 .isEqualTo(expectedUpdatedContributions);
     }
 
+    /** Test that records in SourceContract Table are fetched properly. */
+    @Test
+    public void testFetchAllSourceRegistrations_pass() {
+        Source source1 =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setId("1")
+                        .setEventTime(8640000000L)
+                        .setExpiryTime(8640000010L)
+                        .setDebugKey(new UnsignedLong(7834690L))
+                        .build();
+        insertSource(source1, source1.getId());
+
+        Source source2 =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setId("2")
+                        .setEventTime(8640000000L)
+                        .setExpiryTime(8640000010L)
+                        .setDebugKey(new UnsignedLong(7834690L))
+                        .build();
+        insertSource(source2, source2.getId());
+
+        List<Source> fetchedAllSourceRegistration =
+                mDatastoreManager
+                        .runInTransactionWithResult(dao -> dao.fetchAllSourceRegistrations())
+                        .orElseThrow();
+
+        assertNotNull(fetchedAllSourceRegistration);
+        assertThat(fetchedAllSourceRegistration.size()).isEqualTo(2);
+
+        assertThat(fetchedAllSourceRegistration.get(0)).isEqualTo(source1);
+        assertThat(fetchedAllSourceRegistration.get(1)).isEqualTo(source2);
+    }
+
+    @Test
+    public void testFetchAllSourceRegistrations_passMultipleDestinations() {
+        List<Uri> webDestinations1 =
+                List.of(
+                        Uri.parse("https://first-place.test"),
+                        Uri.parse("https://second-place.test"),
+                        Uri.parse("https://third-place.test"));
+
+        Source source1 =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setId("1")
+                        .setWebDestinations(webDestinations1)
+                        .build();
+        insertSource(source1, source1.getId());
+
+        List<Uri> webDestinations2 =
+                List.of(
+                        Uri.parse("https://not-first-place.test"),
+                        Uri.parse("https://not-second-place.test"),
+                        Uri.parse("https://third-place.test"));
+        Source source2 =
+                SourceFixture.getMinimalValidSourceBuilder()
+                        .setId("2")
+                        .setWebDestinations(webDestinations2)
+                        .build();
+        insertSource(source2, source2.getId());
+
+        List<Source> fetchedAllSourceRegistration =
+                mDatastoreManager
+                        .runInTransactionWithResult(dao -> dao.fetchAllSourceRegistrations())
+                        .orElseThrow();
+
+        assertNotNull(fetchedAllSourceRegistration);
+        assertThat(fetchedAllSourceRegistration.size()).isEqualTo(2);
+
+        assertThat(fetchedAllSourceRegistration.get(0)).isEqualTo(source1);
+        assertThat(fetchedAllSourceRegistration.get(1)).isEqualTo(source2);
+    }
+
     private Source getFirstSourceFromDb() {
         return mDatastoreManager
                 .runInTransactionWithResult(
@@ -13791,14 +13878,19 @@ public final class MeasurementDaoTest extends AdServicesExtendedMockitoTestCase 
                 .build();
     }
 
-    private AggregateReport generateMockAggregateReport(
+    private AggregateReport.Builder generateMockAggregateReportBuilder(
             String attributionDestination, int id, String sourceId, String api) {
         return new AggregateReport.Builder()
                 .setId(String.valueOf(id))
                 .setSourceId(sourceId)
                 .setAttributionDestination(Uri.parse(attributionDestination))
-                .setApi(api)
-                .build();
+                .setApi(api);
+    }
+
+    private AggregateReport generateMockAggregateReport(
+            String attributionDestination, int id, String sourceId, String api) {
+        return generateMockAggregateReportBuilder(
+                attributionDestination, id, sourceId, api).build();
     }
 
     private AggregateReport generateMockAggregateReport(
