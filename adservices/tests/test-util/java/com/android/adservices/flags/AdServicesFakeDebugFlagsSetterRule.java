@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 The Android Open Source Project
+ * Copyright (C) 2025 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.adservices.common;
+package com.android.adservices.flags;
 
 import com.android.adservices.shared.testing.AndroidLogger;
 import com.android.adservices.shared.testing.NameValuePairSetter;
-import com.android.adservices.shared.testing.device.DeviceGateway;
 
-public final class AdServicesFlagsSetterRuleTest
-        extends AbstractAdServicesFlagsSetterRuleTestCase<AdServicesFlagsSetterRule> {
+/** {@code DebugFlagsSetterRule} that uses a fake {@code DebugFlags} implementation. */
+public final class AdServicesFakeDebugFlagsSetterRule
+        extends AbstractAdServicesDebugFlagsSetterRule<AdServicesFakeDebugFlagsSetterRule> {
 
-    @Override
-    protected AdServicesFlagsSetterRule newRule(
-            DeviceGateway deviceGateway, NameValuePairSetter flagsSetter) {
-        return new AdServicesFlagsSetterRule(AndroidLogger.getInstance(), flagsSetter);
+    protected AdServicesFakeDebugFlagsSetterRule(NameValuePairSetter setter) {
+        super(AndroidLogger.getInstance(), setter);
     }
 }
