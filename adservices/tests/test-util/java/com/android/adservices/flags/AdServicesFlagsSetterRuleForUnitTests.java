@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.adservices.common;
+package com.android.adservices.flags;
 
 import static com.android.adservices.service.FlagsConstants.KEY_DISABLE_FLEDGE_ENROLLMENT_CHECK;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_DATABASE_SCHEMA_VERSION_8;
@@ -37,17 +37,17 @@ import android.os.Build;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
-import com.android.adservices.service.FakeFlagsFactory.SetFakeFlagsFactoryFlags;
+import com.android.adservices.common.AbstractAdServicesFlagsSetterRule;
 import com.android.adservices.service.Flags;
 import com.android.adservices.shared.testing.AndroidLogger;
 import com.android.adservices.shared.testing.NameValuePair;
+import com.android.adservices.shared.testing.NameValuePairSetter;
 
 import org.junit.runner.Description;
 
 import java.lang.annotation.Annotation;
 import java.util.Objects;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 /**
  * Base class of {@code FlagsSetterRule} to be used by unit tests.
@@ -63,8 +63,7 @@ public abstract class AdServicesFlagsSetterRuleForUnitTests<
 
     protected final Flags mFlags;
 
-    protected AdServicesFlagsSetterRuleForUnitTests(
-            Flags flags, Consumer<NameValuePair> flagsSetter) {
+    protected AdServicesFlagsSetterRuleForUnitTests(Flags flags, NameValuePairSetter flagsSetter) {
         super(AndroidLogger.getInstance(), flagsSetter);
         mFlags = Objects.requireNonNull(flags, "flags cannot be null");
         mLog.d("Constructed for %s", flags);
