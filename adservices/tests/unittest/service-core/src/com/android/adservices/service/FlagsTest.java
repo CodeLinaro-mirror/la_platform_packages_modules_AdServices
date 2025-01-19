@@ -34,6 +34,7 @@ import static com.android.adservices.service.Flags.DEFAULT_PAS_SIGNALS_DOWNLOAD_
 import static com.android.adservices.service.Flags.DEFAULT_PAS_SIGNALS_DOWNLOAD_READ_TIMEOUT_MS;
 import static com.android.adservices.service.Flags.ENABLE_APPSEARCH_CONSENT_DATA;
 import static com.android.adservices.service.Flags.ENABLE_CUSTOM_AUDIENCE_COMPONENT_ADS;
+import static com.android.adservices.service.Flags.ENABLE_PAS_COMPONENT_ADS;
 import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_FETCH_AND_JOIN_CUSTOM_AUDIENCE;
 import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_LEAVE_CUSTOM_AUDIENCE;
 import static com.android.adservices.service.Flags.ENFORCE_FOREGROUND_STATUS_SCHEDULE_CUSTOM_AUDIENCE;
@@ -73,6 +74,7 @@ import static com.android.adservices.service.Flags.MEASUREMENT_DESTINATION_PER_D
 import static com.android.adservices.service.Flags.MEASUREMENT_DESTINATION_RATE_LIMIT_WINDOW;
 import static com.android.adservices.service.Flags.MEASUREMENT_KILL_SWITCH;
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_ADR_COUNT_PER_SOURCE;
+import static com.android.adservices.service.Flags.MEASUREMENT_MAX_AGGREGATE_REPORTS_PER_SOURCE;
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_FILTERING_ID_MAX_BYTES;
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_LENGTH_PER_BUDGET_NAME;
 import static com.android.adservices.service.Flags.MEASUREMENT_MAX_NAMED_BUDGETS_PER_SOURCE_REGISTRATION;
@@ -453,6 +455,21 @@ public final class FlagsTest extends AdServicesUnitTestCase {
                 "getMeasurementMaxNamedBudgetsPerSourceRegistration()",
                 MEASUREMENT_MAX_NAMED_BUDGETS_PER_SOURCE_REGISTRATION,
                 Flags::getMeasurementMaxNamedBudgetsPerSourceRegistration);
+    }
+
+    @Test
+    public void testGetMeasurementMaxAggregateReportsPerSource() {
+        testFlag(
+                "getMeasurementMaxAggregateReportsPerSource()",
+                MEASUREMENT_MAX_AGGREGATE_REPORTS_PER_SOURCE,
+                Flags::getMeasurementMaxAggregateReportsPerSource);
+    }
+
+    @Test
+    public void testGetMeasurementEnableUnboundedReportsWithTriggerContextId() {
+        testFeatureFlag(
+                "MEASUREMENT_ENABLE_UNBOUNDED_REPORTS_WITH_TRIGGER_CONTEXT_ID",
+                Flags::getMeasurementEnableUnboundedReportsWithTriggerContextId);
     }
 
     @Test
@@ -1310,6 +1327,14 @@ public final class FlagsTest extends AdServicesUnitTestCase {
                 "getEnableCustomAudienceComponentAds",
                 ENABLE_CUSTOM_AUDIENCE_COMPONENT_ADS,
                 Flags::getEnableCustomAudienceComponentAds);
+    }
+
+    @Test
+    public void testGetEnablePasComponentAds() {
+        testFlag(
+                "getEnablePasComponentAds",
+                ENABLE_PAS_COMPONENT_ADS,
+                Flags::getEnablePasComponentAds);
     }
 
     @Test
