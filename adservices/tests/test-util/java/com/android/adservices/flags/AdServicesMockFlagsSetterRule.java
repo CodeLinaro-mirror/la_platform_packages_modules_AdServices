@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.adservices.common;
+package com.android.adservices.flags;
 
 import static com.android.adservices.service.FlagsConstants.KEY_DISABLE_FLEDGE_ENROLLMENT_CHECK;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_DATABASE_SCHEMA_VERSION_8;
@@ -69,7 +69,12 @@ public final class AdServicesMockFlagsSetterRule
      * @param mockFlags mock whose expectations will be set
      */
     public AdServicesMockFlagsSetterRule(Flags mockFlags) {
-        super(mockFlags, f -> setExpectation(mockFlags, f));
+        super(
+                mockFlags,
+                f -> {
+                    setExpectation(mockFlags, f);
+                    return null;
+                });
         if (!MockitoHelper.isMock(mockFlags)) {
             throw new IllegalArgumentException("not a mock: " + mockFlags);
         }

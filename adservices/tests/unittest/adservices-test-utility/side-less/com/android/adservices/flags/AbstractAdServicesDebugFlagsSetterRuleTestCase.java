@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 The Android Open Source Project
+ * Copyright (C) 2025 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,11 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.adservices.service;
+package com.android.adservices.flags;
 
-public final class SmartFlagsTest extends PhFlagsTest {
+import com.android.adservices.shared.meta_testing.AbstractDebugFlagsSetterRuleTestCase;
 
-    public SmartFlagsTest() {
-        super(new SmartFlags(), /* isRaw= */ false);
-    }
-}
+abstract class AbstractAdServicesDebugFlagsSetterRuleTestCase<
+                R extends AbstractAdServicesDebugFlagsSetterRule<R>>
+        extends AbstractDebugFlagsSetterRuleTestCase<R> {}

@@ -1003,12 +1003,18 @@ public interface Flags extends ModuleSharedFlags {
             24 * 60 * 60 * 1000; // 24 hours in ms
 
     @FeatureFlag boolean ENABLE_CUSTOM_AUDIENCE_COMPONENT_ADS = false;
+    @FeatureFlag boolean ENABLE_PAS_COMPONENT_ADS = false;
     @ConfigFlag int MAX_COMPONENT_ADS_PER_CUSTOM_AUDIENCE = 40;
     @ConfigFlag int COMPONENT_AD_RENDER_ID_MAX_LENGTH_BYTES = 12;
 
     /** Returns true if the component ads feature is enabled for custom audiences. */
     default boolean getEnableCustomAudienceComponentAds() {
         return ENABLE_CUSTOM_AUDIENCE_COMPONENT_ADS;
+    }
+
+    /** Returns true if the component ads feature is enabled for protected app signals. */
+    default boolean getEnablePasComponentAds() {
+        return ENABLE_PAS_COMPONENT_ADS;
     }
 
     /** Returns the maximum number of component ads per custom audience. */
@@ -4065,6 +4071,14 @@ public interface Flags extends ModuleSharedFlags {
     /** Returns maximum Aggregate Reports per source. */
     default int getMeasurementMaxAggregateReportsPerSource() {
         return MEASUREMENT_MAX_AGGREGATE_REPORTS_PER_SOURCE;
+    }
+
+    /** Enable unbounded reports with trigger context id. */
+    @FeatureFlag boolean MEASUREMENT_ENABLE_UNBOUNDED_REPORTS_WITH_TRIGGER_CONTEXT_ID = false;
+
+    /** Returns if Measurement has enabled unbounded reports with trigger context ID. */
+    default boolean getMeasurementEnableUnboundedReportsWithTriggerContextId() {
+        return MEASUREMENT_ENABLE_UNBOUNDED_REPORTS_WITH_TRIGGER_CONTEXT_ID;
     }
 
     /** Maximum number of aggregation keys allowed during source registration. */

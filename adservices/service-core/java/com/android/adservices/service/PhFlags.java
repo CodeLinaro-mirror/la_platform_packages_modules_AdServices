@@ -3041,6 +3041,12 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getEnablePasComponentAds() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_ENABLE_PAS_COMPONENT_ADS, ENABLE_PAS_COMPONENT_ADS);
+    }
+
+    @Override
     public int getMaxComponentAdsPerCustomAudience() {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_MAX_COMPONENT_ADS_PER_CUSTOM_AUDIENCE,
@@ -3520,6 +3526,13 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getMeasurementEnableUnboundedReportsWithTriggerContextId() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_MEASUREMENT_ENABLE_UNBOUNDED_REPORTS_WITH_TRIGGER_CONTEXT_ID,
+                MEASUREMENT_ENABLE_UNBOUNDED_REPORTS_WITH_TRIGGER_CONTEXT_ID);
+    }
+
+    @Override
     public boolean getMeasurementEnableFifoDestinationsDeleteAggregateReports() {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_MEASUREMENT_ENABLE_FIFO_DESTINATIONS_DELETE_AGGREGATE_REPORTS,
@@ -3983,6 +3996,9 @@ public final class PhFlags implements Flags {
                 isGetAdServicesCommonStatesApiEnabled());
         uxMap.put(FlagsConstants.KEY_PAS_UX_ENABLED, getPasUxEnabled());
         uxMap.put(FlagsConstants.KEY_EEA_PAS_UX_ENABLED, getEeaPasUxEnabled());
+        uxMap.put(
+                KEY_ADSERVICES_CONSENT_BUSINESS_LOGIC_MIGRATION_ENABLED,
+                getAdServicesConsentBusinessLogicMigrationEnabled());
         return uxMap;
     }
 

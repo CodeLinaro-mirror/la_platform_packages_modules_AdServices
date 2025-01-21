@@ -142,6 +142,7 @@ import static com.android.adservices.service.Flags.ENABLE_DATABASE_SCHEMA_VERSIO
 import static com.android.adservices.service.Flags.ENABLE_ENROLLMENT_TEST_SEED;
 import static com.android.adservices.service.Flags.ENABLE_LOGGED_TOPIC;
 import static com.android.adservices.service.Flags.ENABLE_MDD_ENCRYPTION_KEYS;
+import static com.android.adservices.service.Flags.ENABLE_PAS_COMPONENT_ADS;
 import static com.android.adservices.service.Flags.ENCRYPTION_KEY_JOB_PERIOD_MS;
 import static com.android.adservices.service.Flags.ENCRYPTION_KEY_JOB_REQUIRED_NETWORK_TYPE;
 import static com.android.adservices.service.Flags.ENCRYPTION_KEY_NETWORK_CONNECT_TIMEOUT_MS;
@@ -436,6 +437,7 @@ import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_SOURCE_DEB
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_TRIGGER_DATA_MATCHING;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_TRIGGER_DEBUG_REPORT;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_TRIGGER_DEBUG_SIGNAL;
+import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_UNBOUNDED_REPORTS_WITH_TRIGGER_CONTEXT_ID;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_UPDATE_TRIGGER_REGISTRATION_HEADER_LIMIT;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_V1_SOURCE_TRIGGER_DATA;
 import static com.android.adservices.service.Flags.MEASUREMENT_ENABLE_XNA;
@@ -652,6 +654,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_DATABASE_
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_ENROLLMENT_TEST_SEED;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_LOGGED_TOPIC;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_MDD_ENCRYPTION_KEYS;
+import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_PAS_COMPONENT_ADS;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_RB_ATRACE;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_TABLET_REGION_FIX;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_U18_APPSEARCH_MIGRATION;
@@ -970,6 +973,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENAB
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_TRIGGER_DATA_MATCHING;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_TRIGGER_DEBUG_REPORT;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_TRIGGER_DEBUG_SIGNAL;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_UNBOUNDED_REPORTS_WITH_TRIGGER_CONTEXT_ID;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_UPDATE_TRIGGER_REGISTRATION_HEADER_LIMIT;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_V1_SOURCE_TRIGGER_DATA;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_XNA;
@@ -5275,6 +5279,14 @@ public class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
     }
 
     @Test
+    public void testGetMeasurementEnableUnboundedReportsWithTriggerContextId() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_MEASUREMENT_ENABLE_UNBOUNDED_REPORTS_WITH_TRIGGER_CONTEXT_ID,
+                MEASUREMENT_ENABLE_UNBOUNDED_REPORTS_WITH_TRIGGER_CONTEXT_ID,
+                Flags::getMeasurementEnableUnboundedReportsWithTriggerContextId);
+    }
+
+    @Test
     public void testGetMeasurementRegisterInteractionApiEnabled() {
         mFlagsTestHelper.testConfigFlag(
                 KEY_FLEDGE_MEASUREMENT_REPORT_AND_REGISTER_EVENT_API_ENABLED,
@@ -6217,6 +6229,14 @@ public class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
                 KEY_ENABLE_CUSTOM_AUDIENCE_COMPONENT_ADS,
                 ENABLE_CUSTOM_AUDIENCE_COMPONENT_ADS,
                 Flags::getEnableCustomAudienceComponentAds);
+    }
+
+    @Test
+    public void testGetEnablePasComponentAds() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_ENABLE_PAS_COMPONENT_ADS,
+                ENABLE_PAS_COMPONENT_ADS,
+                Flags::getEnablePasComponentAds);
     }
 
     @Test
