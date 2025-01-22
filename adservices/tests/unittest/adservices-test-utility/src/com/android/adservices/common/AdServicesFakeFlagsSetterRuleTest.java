@@ -21,10 +21,14 @@ import static com.android.adservices.common.MissingFlagBehavior.USES_JAVA_LANGUA
 import static com.android.adservices.service.Flags.FLEDGE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE_COOLDOWN_SECONDS;
 import static com.android.adservices.service.Flags.GLOBAL_KILL_SWITCH;
 import static com.android.adservices.service.Flags.MEASUREMENT_REGISTER_WEB_TRIGGER_REQUEST_PERMITS_PER_SECOND;
+import static com.android.adservices.service.Flags.TOPICS_EPOCH_JOB_PERIOD_MS;
 import static com.android.adservices.service.Flags.TOPICS_PERCENTAGE_FOR_RANDOM_TOPIC;
 import static com.android.adservices.service.Flags.UI_OTA_STRINGS_MANIFEST_FILE_URL;
+import static com.android.adservices.service.FlagsConstants.KEY_TOPICS_EPOCH_JOB_PERIOD_MS;
 
 import static org.junit.Assert.assertThrows;
+
+import com.android.adservices.service.FlagsConstants;
 
 import org.junit.Test;
 
@@ -48,6 +52,84 @@ public final class AdServicesFakeFlagsSetterRuleTest
         var rule = newRule();
 
         testSetMissingFlagBehaviorDefaultBehavior(rule, "by default");
+    }
+
+    @Test
+    public void testGetFlagsSnapshot_beforeTest() {
+        var rule = newRule();
+
+        assertThrows(IllegalStateException.class, () -> rule.getFlagsSnapshot());
+    }
+
+    @Test
+    public void smokeTest() throws Throwable {
+        // This test checks some "crucial" flags; for example, non-final getters on RawFlags
+        onTest(
+                (rule, flags) -> {
+                    long defaultTopicsEpochJobPeriodMs = TOPICS_EPOCH_JOB_PERIOD_MS;
+                    expect.withMessage("getTopicsEpochJobPeriodMs() by default")
+                            .that(flags.getTopicsEpochJobPeriodMs())
+                            .isEqualTo(defaultTopicsEpochJobPeriodMs);
+
+                    long newTopicsEpochJobPeriodMs = -defaultTopicsEpochJobPeriodMs;
+                    rule.setFlag(KEY_TOPICS_EPOCH_JOB_PERIOD_MS, newTopicsEpochJobPeriodMs);
+                    expect.withMessage("getTopicsEpochJobPeriodMs() after setting it")
+                            .that(flags.getTopicsEpochJobPeriodMs())
+                            .isEqualTo(newTopicsEpochJobPeriodMs);
+                });
+    }
+
+    @Test
+    public void testGetFlagsSnapshot() throws Throwable {
+        onTest(
+                (rule, flags) -> {
+                    rule.setFlag(FlagsConstants.KEY_AD_ID_CACHE_TTL_MS, 4815162342L);
+                    expect.withMessage("flags.getAdIdCacheTtlMs() after setting it")
+                            .that(flags.getAdIdCacheTtlMs())
+                            .isEqualTo(4815162342L);
+
+                    var snapshot = rule.getFlagsSnapshot();
+                    expect.withMessage("clonedFlags.getAdIdCacheTtlMs() after cloning")
+                            .that(snapshot.getAdIdCacheTtlMs())
+                            .isEqualTo(4815162342L);
+
+                    rule.setFlag(FlagsConstants.KEY_AD_ID_CACHE_TTL_MS, 108);
+                    expect.withMessage("flags.getAdIdCacheTtlMs() after updating it")
+                            .that(flags.getAdIdCacheTtlMs())
+                            .isEqualTo(108);
+                    expect.withMessage("clonedFlags.getAdIdCacheTtlMs() after updating source")
+                            .that(snapshot.getAdIdCacheTtlMs())
+                            .isEqualTo(4815162342L);
+                });
+    }
+
+    @Test
+    public void testToString() throws Throwable {
+        onTest(
+                (rule, flags) -> {
+                    expect.withMessage("toString() right away")
+                            .that(flags.toString())
+                            .isEqualTo("FakeFlags{empty}");
+
+                    rule.setFlag("dude", "sweet");
+                    expect.withMessage("toString() after setting 1 flag")
+                            .that(flags.toString())
+                            .isEqualTo("FakeFlags{dude=sweet}");
+                    rule.setFlag("sweet", "lord");
+                    expect.withMessage("toString() after setting 2 flags")
+                            .that(flags.toString())
+                            .isEqualTo("FakeFlags{dude=sweet, sweet=lord}");
+                    // make sure they're sorted
+                    rule.setFlag("a flag", "has a name");
+                    expect.withMessage("toString() after setting 3 flags")
+                            .that(flags.toString())
+                            .isEqualTo("FakeFlags{a flag=has a name, dude=sweet, sweet=lord}");
+                    // update a value
+                    rule.setFlag("dude", "SWEEET");
+                    expect.withMessage("toString() after updating value of 1st flag")
+                            .that(flags.toString())
+                            .isEqualTo("FakeFlags{a flag=has a name, dude=SWEEET, sweet=lord}");
+                });
     }
 
     @Test
