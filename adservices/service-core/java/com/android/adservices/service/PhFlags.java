@@ -26,6 +26,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_CONFIG_DELIVERY_
 import static com.android.adservices.service.FlagsConstants.KEY_CONFIG_DELIVERY__USE_CONFIGS_MANAGER_TO_QUERY_ENROLLMENT;
 import static com.android.adservices.service.FlagsConstants.KEY_CUSTOM_ERROR_CODE_SAMPLING_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_CONSENT_MANAGER_V2;
+import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_LOG_SAMPLING_INFRA;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_MDD_ENCRYPTION_KEYS;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_TABLET_REGION_FIX;
 import static com.android.adservices.service.FlagsConstants.KEY_ENCODED_ERROR_CODE_LIST_PER_SAMPLE_INTERVAL;
@@ -82,6 +83,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENAB
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_FAKE_REPORT_TRIGGER_TIME;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_INSTALL_ATTRIBUTION_ON_S;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_MIN_REPORT_LIFESPAN_FOR_UNINSTALL;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_PACKAGE_NAME_UID_CHECK;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_REINSTALL_REATTRIBUTION;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_SEPARATE_DEBUG_REPORT_TYPES_FOR_ATTRIBUTION_RATE_LIMIT;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_SESSION_STABLE_KILL_SWITCHES;
@@ -4650,6 +4652,13 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getMeasurementEnablePackageNameUidCheck() {
+        return getDeviceConfigFlag(
+                KEY_MEASUREMENT_ENABLE_PACKAGE_NAME_UID_CHECK,
+                DEFAULT_MEASUREMENT_ENABLE_PACKAGE_NAME_UID_CHECK);
+    }
+
+    @Override
     public boolean getEnableAdExtDataServiceApis() {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_ENABLE_ADEXT_DATA_SERVICE_APIS,
@@ -5164,5 +5173,11 @@ public final class PhFlags implements Flags {
         return getDeviceConfigFlag(
                 KEY_MSMT_REGISTER_SOURCE_PACKAGE_DENY_LIST,
                 DEFAULT_MSMT_REGISTER_SOURCE_PACKAGE_DENY_LIST);
+    }
+
+    @Override
+    public boolean getEnableLogSamplingInfra() {
+        return getDeviceConfigFlag(
+                KEY_ENABLE_LOG_SAMPLING_INFRA, DEFAULT_ENABLE_LOG_SAMPLING_INFRA);
     }
 }

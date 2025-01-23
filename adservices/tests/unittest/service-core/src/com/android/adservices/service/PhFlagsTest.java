@@ -73,6 +73,7 @@ import static com.android.adservices.service.Flags.DEFAULT_ENABLE_ATOMIC_FILE_DA
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_BACK_COMPAT_INIT;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_CONSENT_MANAGER_V2;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_ENROLLMENT_CONFIG_V3_DB;
+import static com.android.adservices.service.Flags.DEFAULT_ENABLE_LOG_SAMPLING_INFRA;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_PACKAGE_DENY_BG_JOB;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_PACKAGE_DENY_JOB_ON_MDD_DOWNLOAD;
 import static com.android.adservices.service.Flags.DEFAULT_ENABLE_PACKAGE_DENY_JOB_ON_PACKAGE_ADD;
@@ -96,6 +97,7 @@ import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_ATTRIBUTI
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_DEBUG_JOIN_KEY_ENROLLMENT_ALLOWLIST;
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_DEBUG_JOIN_KEY_HASH_LIMIT;
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_ENABLE_COARSE_EVENT_REPORT_DESTINATIONS;
+import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_ENABLE_PACKAGE_NAME_UID_CHECK;
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_MAX_AGGREGATE_DEDUPLICATION_KEYS_PER_REGISTRATION;
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_MAX_AGGREGATE_REPORT_UPLOAD_RETRY_WINDOW_MS;
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_MAX_ATTRIBUTIONS_PER_INVOCATION;
@@ -653,6 +655,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_DATABASE_
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_DATABASE_SCHEMA_VERSION_9;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_ENROLLMENT_TEST_SEED;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_LOGGED_TOPIC;
+import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_LOG_SAMPLING_INFRA;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_MDD_ENCRYPTION_KEYS;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_PAS_COMPONENT_ADS;
 import static com.android.adservices.service.FlagsConstants.KEY_ENABLE_RB_ATRACE;
@@ -958,6 +961,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENAB
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_MIN_REPORT_LIFESPAN_FOR_UNINSTALL;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_NAVIGATION_REPORTING_ORIGIN_CHECK;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_ODP_WEB_TRIGGER_REGISTRATION;
+import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_PACKAGE_NAME_UID_CHECK;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_PREINSTALL_CHECK;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_REINSTALL_REATTRIBUTION;
 import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_ENABLE_REPORTING_JOBS_THROW_CRYPTO_EXCEPTION;
@@ -2135,6 +2139,14 @@ public class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
                 KEY_MEASUREMENT_MAX_ADR_COUNT_PER_SOURCE,
                 MEASUREMENT_MAX_ADR_COUNT_PER_SOURCE,
                 Flags::getMeasurementMaxAdrCountPerSource);
+    }
+
+    @Test
+    public void testGetMeasurementEnablePackageNameUidCheck() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_MEASUREMENT_ENABLE_PACKAGE_NAME_UID_CHECK,
+                DEFAULT_MEASUREMENT_ENABLE_PACKAGE_NAME_UID_CHECK,
+                Flags::getMeasurementEnablePackageNameUidCheck);
     }
 
     @Test
@@ -6267,6 +6279,14 @@ public class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
                 KEY_MSMT_REGISTER_SOURCE_PACKAGE_DENY_LIST,
                 DEFAULT_MSMT_REGISTER_SOURCE_PACKAGE_DENY_LIST,
                 Flags::getEnableMsmtRegisterSourcePackageDenyList);
+    }
+
+    @Test
+    public void testGetEnableLogSamplingInfra() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_ENABLE_LOG_SAMPLING_INFRA,
+                DEFAULT_ENABLE_LOG_SAMPLING_INFRA,
+                Flags::getEnableLogSamplingInfra);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
