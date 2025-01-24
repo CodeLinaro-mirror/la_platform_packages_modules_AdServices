@@ -29,6 +29,7 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Trace;
 import android.util.Pair;
 
 import androidx.annotation.Nullable;
@@ -181,6 +182,7 @@ class AttributionJobHandler {
      * @return false if there are datastore failures or pending {@link Trigger} left, true otherwise
      */
     ProcessingResult performPendingAttributions() {
+        Trace.beginSection("AttributionJobHandler#performPendingAttributions");
         Optional<List<String>> pendingTriggersOpt = mDatastoreManager
                 .runInTransactionWithResult(IMeasurementDao::getPendingTriggerIds);
         if (!pendingTriggersOpt.isPresent()) {
@@ -203,6 +205,7 @@ class AttributionJobHandler {
             }
         }
 
+        Trace.endSection();
         // Reschedule if there are unprocessed pending triggers.
         return pendingTriggers.size() > numRecordsToProcess
                 ? ProcessingResult.SUCCESS_WITH_PENDING_RECORDS
@@ -545,16 +548,8 @@ class AttributionJobHandler {
             return TriggeringStatus.DROPPED;
         }
 
-        if (measurementDao.countNumAggregateReportsPerSource(source.getId(), API)
-                >= mFlags.getMeasurementMaxAggregateReportsPerSource()) {
-            LoggerFactory.getMeasurementLogger()
-                    .d(
-                            String.format(
-                                    Locale.ENGLISH,
-                                    "Aggregate reports for source %1$s exceeds system"
-                                            + " health limit of %2$d.",
-                                    source.getId(),
-                                    mFlags.getMeasurementMaxAggregateReportsPerSource()));
+        if (!isAggregatableReportQuotaAvailable(measurementDao, source.getId(),
+                  trigger.getTriggerContextId())) {
             mDebugReportApi.scheduleTriggerDebugReport(
                     source,
                     trigger,
@@ -717,6 +712,27 @@ class AttributionJobHandler {
                                     + " parse aggregate fields.");
             return TriggeringStatus.DROPPED;
         }
+    }
+
+    private boolean isAggregatableReportQuotaAvailable(IMeasurementDao measurementDao,
+            String sourceId, @Nullable String triggerContextId) throws DatastoreException {
+        boolean restrictAggregatableReportsByCount =
+                mFlags.getMeasurementEnableUnboundedReportsWithTriggerContextId()
+                        ? triggerContextId == null
+                        : true;
+        boolean limitReached = restrictAggregatableReportsByCount
+                && measurementDao.countNumAggregateReportsPerSource(sourceId, API)
+                        >= mFlags.getMeasurementMaxAggregateReportsPerSource();
+        if (limitReached) {
+            LoggerFactory.getMeasurementLogger()
+                    .d(
+                            String.format(
+                                    Locale.ENGLISH,
+                                    "Aggregate reports for source %1$s reached limit of %2$d.",
+                                    sourceId,
+                                    mFlags.getMeasurementMaxAggregateReportsPerSource()));
+        }
+        return !limitReached;
     }
 
     @Nullable
@@ -1570,11 +1586,6 @@ class AttributionJobHandler {
         trigger.setStatus(Trigger.Status.ATTRIBUTED);
         measurementDao.updateTriggerStatus(
                 Collections.singletonList(trigger.getId()), Trigger.Status.ATTRIBUTED);
-    }
-
-    private static void insertAttribution(Source source, Trigger trigger,
-            IMeasurementDao measurementDao) throws DatastoreException {
-        measurementDao.insertAttribution(createAttributionBuilder(source, trigger).build());
     }
 
     private static void insertAttribution(
