@@ -16,6 +16,11 @@
 
 package com.android.adservices.service.customaudience;
 
+import static com.android.adservices.service.FlagsConstants.KEY_DISABLE_FLEDGE_ENROLLMENT_CHECK;
+import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_SCHEDULE_CUSTOM_AUDIENCE;
+import static com.android.adservices.service.FlagsConstants.KEY_ENFORCE_FOREGROUND_STATUS_SIGNALS;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_ENABLE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ADDITIONAL_SCHEDULE_REQUESTS;
+import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ENABLED;
 import static com.android.adservices.service.common.Throttler.ApiKey.FLEDGE_API_SCHEDULE_CUSTOM_AUDIENCE_UPDATE;
 import static com.android.adservices.service.customaudience.ScheduleCustomAudienceUpdateTestUtils.ScheduleUpdateTestCallback;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_API_CALLED__API_NAME__SCHEDULE_CUSTOM_AUDIENCE_UPDATE;
@@ -56,6 +61,7 @@ import com.android.adservices.data.customaudience.CustomAudienceDatabase;
 import com.android.adservices.data.customaudience.DBCustomAudience;
 import com.android.adservices.data.customaudience.DBScheduledCustomAudienceUpdate;
 import com.android.adservices.service.DebugFlags;
+import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.common.CustomAudienceServiceFilter;
 import com.android.adservices.service.common.FledgeAuthorizationFilter;
@@ -63,6 +69,8 @@ import com.android.adservices.service.consent.ConsentManager;
 import com.android.adservices.service.devapi.DevContext;
 import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.adservices.service.stats.ScheduledCustomAudienceUpdateScheduleAttemptedStats;
+import com.android.adservices.shared.testing.annotations.SetFlagFalse;
+import com.android.adservices.shared.testing.annotations.SetFlagTrue;
 import com.android.modules.utils.testing.ExtendedMockitoRule.MockStatic;
 import com.android.modules.utils.testing.ExtendedMockitoRule.SpyStatic;
 
@@ -85,6 +93,12 @@ import java.util.concurrent.CountDownLatch;
 @MockStatic(ConsentManager.class)
 @SpyStatic(FlagsFactory.class)
 @SpyStatic(DebugFlags.class)
+@SetFlagFalse(KEY_FLEDGE_ENABLE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ADDITIONAL_SCHEDULE_REQUESTS)
+@SetFlagTrue(KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ENABLED)
+@SetFlagFalse(KEY_DISABLE_FLEDGE_ENROLLMENT_CHECK)
+@SetFlagTrue(KEY_ENFORCE_FOREGROUND_STATUS_SIGNALS)
+// NOTE: flag below was not set initially, when test was using mocks
+@SetFlagFalse(KEY_ENFORCE_FOREGROUND_STATUS_SCHEDULE_CUSTOM_AUDIENCE)
 public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtendedMockitoTestCase {
     private static final int API_NAME =
             AD_SERVICES_API_CALLED__API_NAME__SCHEDULE_CUSTOM_AUDIENCE_UPDATE;
@@ -112,15 +126,15 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
     private DevContext mDevContext;
     private CustomAudienceDao mCustomAudienceDao;
 
+    // TODO(b/384949821): move to superclass
+    private final Flags mFakeFlags = flags.getFlags();
+
     @Before
     public void setup() {
         mBackgroundExecutorService = AdServicesExecutors.getBackgroundExecutor();
         mCallingAppUid = CallingAppUidSupplierProcessImpl.create().getCallingAppUid();
-        mocker.mockGetFlags(mMockFlags);
+        mocker.mockGetFlags(flags.getFlags());
         mocker.mockGetDebugFlags(mMockDebugFlags);
-        when(mMockFlags.getFledgeEnableScheduleCustomAudienceUpdateAdditionalScheduleRequests())
-                .thenReturn(false);
-        when(mMockFlags.getFledgeScheduleCustomAudienceUpdateEnabled()).thenReturn(true);
         when(mConsentManagerMock.isFledgeConsentRevokedForAppAfterSettingFledgeUse(eq(PACKAGE)))
                 .thenReturn(false);
         mDevContext = DevContext.builder(PACKAGE).setDeviceDevOptionsEnabled(false).build();
@@ -146,14 +160,12 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
                         mContext,
                         mConsentManagerMock,
                         mCallingAppUid,
-                        mMockFlags,
+                        mFakeFlags,
                         mMockDebugFlags,
                         mAdServicesLoggerMock,
                         mBackgroundExecutorService,
                         mCustomAudienceServiceFilterMock,
                         mCustomAudienceDaoMock);
-        when(mMockFlags.getDisableFledgeEnrollmentCheck()).thenReturn(false);
-        when(mMockFlags.getEnforceForegroundStatusForSignals()).thenReturn(true);
         mocker.mockGetConsentNotificationDebugMode(false);
 
         doNothing()
@@ -262,12 +274,11 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
     }
 
     @Test
+    @SetFlagTrue(KEY_FLEDGE_ENABLE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ADDITIONAL_SCHEDULE_REQUESTS)
     public void
             testScheduleCustomAudienceUpdate_withShouldReplacePendingUpdateFalse_WithAdditionalScheduleRequestsTrue()
                     throws Exception {
         mocker.mockGetConsentNotificationDebugMode(true);
-        when(mMockFlags.getFledgeEnableScheduleCustomAudienceUpdateAdditionalScheduleRequests())
-                .thenReturn(true);
 
         when(mCustomAudienceServiceFilterMock.filterRequestAndExtractIdentifier(
                         eq(UPDATE_URI),
@@ -287,7 +298,7 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
                         mContext,
                         mConsentManagerMock,
                         mCallingAppUid,
-                        mMockFlags,
+                        mFakeFlags,
                         mMockDebugFlags,
                         mAdServicesLoggerMock,
                         mBackgroundExecutorService,
@@ -334,6 +345,7 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
     }
 
     @Test
+    @SetFlagFalse(KEY_FLEDGE_ENABLE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ADDITIONAL_SCHEDULE_REQUESTS)
     public void
             testScheduleCustomAudienceUpdate_withShouldReplacePendingUpdateFalse_SuccessWithAdditionalScheduleRequestsFalse()
                     throws Exception {
@@ -351,9 +363,6 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
                         eq(FLEDGE_API_SCHEDULE_CUSTOM_AUDIENCE_UPDATE),
                         eq(mDevContext)))
                 .thenReturn(BUYER);
-
-        when(mMockFlags.getFledgeEnableScheduleCustomAudienceUpdateAdditionalScheduleRequests())
-                .thenReturn(false);
 
         ScheduleCustomAudienceUpdateInput input =
                 new ScheduleCustomAudienceUpdateInput.Builder(
@@ -442,7 +451,7 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
                         mContext,
                         mConsentManagerMock,
                         mCallingAppUid,
-                        mMockFlags,
+                        mFakeFlags,
                         mMockDebugFlags,
                         mAdServicesLoggerMock,
                         mBackgroundExecutorService,
@@ -483,7 +492,7 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
                         mContext,
                         mConsentManagerMock,
                         mCallingAppUid,
-                        mMockFlags,
+                        mFakeFlags,
                         mMockDebugFlags,
                         mAdServicesLoggerMock,
                         mBackgroundExecutorService,
@@ -538,7 +547,7 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
                         mContext,
                         mConsentManagerMock,
                         mCallingAppUid,
-                        mMockFlags,
+                        mFakeFlags,
                         mMockDebugFlags,
                         mAdServicesLoggerMock,
                         mBackgroundExecutorService,
@@ -595,7 +604,7 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
                         mContext,
                         mConsentManagerMock,
                         mCallingAppUid,
-                        mMockFlags,
+                        mFakeFlags,
                         mMockDebugFlags,
                         mAdServicesLoggerMock,
                         mBackgroundExecutorService,
@@ -646,7 +655,7 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
                         mContext,
                         mConsentManagerMock,
                         mCallingAppUid,
-                        mMockFlags,
+                        mFakeFlags,
                         mMockDebugFlags,
                         mAdServicesLoggerMock,
                         mBackgroundExecutorService,
@@ -763,7 +772,7 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
                         mContext,
                         mConsentManagerMock,
                         mCallingAppUid,
-                        mMockFlags,
+                        mFakeFlags,
                         mMockDebugFlags,
                         mAdServicesLoggerMock,
                         mBackgroundExecutorService,
@@ -808,7 +817,7 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
                         mContext,
                         mConsentManagerMock,
                         mCallingAppUid,
-                        mMockFlags,
+                        mFakeFlags,
                         mMockDebugFlags,
                         mAdServicesLoggerMock,
                         mBackgroundExecutorService,
@@ -823,9 +832,8 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
     }
 
     @Test
+    @SetFlagTrue(KEY_ENFORCE_FOREGROUND_STATUS_SCHEDULE_CUSTOM_AUDIENCE)
     public void testScheduleCAUpdate_ForegroundEnforcement_FiltersRequest() throws Exception {
-        when(mMockFlags.getEnforceForegroundStatusForScheduleCustomAudience()).thenReturn(true);
-
         when(mCustomAudienceServiceFilterMock.filterRequestAndExtractIdentifier(
                         eq(UPDATE_URI),
                         eq(PACKAGE),
@@ -844,7 +852,7 @@ public final class ScheduleCustomAudienceUpdateImplTest extends AdServicesExtend
                         mContext,
                         mConsentManagerMock,
                         mCallingAppUid,
-                        mMockFlags,
+                        mFakeFlags,
                         mMockDebugFlags,
                         mAdServicesLoggerMock,
                         mBackgroundExecutorService,

@@ -18,7 +18,6 @@ package com.android.adservices.service;
 
 import static com.android.adservices.common.DeviceConfigUtil.setAdservicesFlag;
 import static com.android.adservices.service.DeviceConfigAndSystemPropertiesExpectations.mockGetAdServicesFlag;
-import static com.android.adservices.service.DeviceConfigAndSystemPropertiesExpectations.verifyGetBooleanDeviceConfigFlagNotCalled;
 import static com.android.adservices.service.Flags.ADID_KILL_SWITCH;
 import static com.android.adservices.service.Flags.ADID_REQUEST_PERMITS_PER_SECOND;
 import static com.android.adservices.service.Flags.ADSERVICES_APK_SHA_CERTIFICATE;
@@ -111,6 +110,7 @@ import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_PLATFORM_
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_PLATFORM_DEBUG_AD_ID_MATCHING_LIMIT;
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_PRIVACY_EPSILON;
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_VTC_CONFIGURABLE_MAX_EVENT_REPORTS_COUNT;
+import static com.android.adservices.service.Flags.DEFAULT_MSMT_REGISTER_SOURCE_PACKAGE_DENY_LIST;
 import static com.android.adservices.service.Flags.DEFAULT_NOTIFICATION_DISMISSED_ON_CLICK;
 import static com.android.adservices.service.Flags.DEFAULT_PACKAGE_DENY_BACKGROUND_JOB_PERIOD_MILLIS;
 import static com.android.adservices.service.Flags.DEFAULT_PACKAGE_DENY_ENABLE_INSTALLED_PACKAGE_FILTER;
@@ -1085,6 +1085,7 @@ import static com.android.adservices.service.FlagsConstants.KEY_MEASUREMENT_VTC_
 import static com.android.adservices.service.FlagsConstants.KEY_MSMT_API_APP_ALLOW_LIST;
 import static com.android.adservices.service.FlagsConstants.KEY_MSMT_API_APP_BLOCK_LIST;
 import static com.android.adservices.service.FlagsConstants.KEY_MSMT_ATTRIBUTION_COBALT_LOGGING_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_MSMT_REGISTER_SOURCE_PACKAGE_DENY_LIST;
 import static com.android.adservices.service.FlagsConstants.KEY_MSMT_REGISTRATION_COBALT_LOGGING_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_MSMT_REPORTING_COBALT_LOGGING_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_NOTIFICATION_DISMISSED_ON_CLICK;
@@ -1157,8 +1158,9 @@ import static com.android.adservices.shared.meta_testing.FlagsTestLittleHelper.e
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assume.assumeFalse;
+
 import android.provider.DeviceConfig;
-import android.util.Log;
 
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
 import com.android.adservices.mockito.AdServicesExtendedMockitoRule;
@@ -1171,19 +1173,32 @@ import com.google.common.collect.ImmutableList;
 
 import org.junit.Test;
 
+import java.util.Objects;
 import java.util.stream.Collectors;
 
+// TODO(b/384798806): not final because it's extends by RawFlagsTest; we should create a common
+// superclass instead (like AdServicesFlagsTestCase), but for now we're using the same class to
+// preserve git history (and make sure each refactoring step doesn't break anything)
 /** Unit tests for {@link com.android.adservices.service.PhFlags} */
 @SpyStatic(SdkLevel.class)
-public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
+public class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
 
-    private final Flags mPhFlags = PhFlags.getInstance();
+    private final Flags mPhFlags;
     private final Flags mTestFlags = FakeFlagsFactory.getFlagsForTest();
+    private final PhFlagsTestHelper mFlagsTestHelper;
+    private final FlagGuard mMsmtKillSwitchGuard;
+    private final boolean mIsRaw;
 
-    private final PhFlagsTestHelper mFlagsTestHelper = new PhFlagsTestHelper(mPhFlags, expect);
+    public PhFlagsTest() {
+        this(PhFlags.getInstance(), /* isRaw= */ false);
+    }
 
-    private final FlagGuard mMsmtKillSwitchGuard =
-            value -> mFlagsTestHelper.setMsmtKillSwitch(!value);
+    protected PhFlagsTest(Flags flags, boolean isRaw) {
+        mPhFlags = Objects.requireNonNull(flags, "flags cannot be null");
+        mFlagsTestHelper = new PhFlagsTestHelper(flags, isRaw, expect);
+        mMsmtKillSwitchGuard = value -> mFlagsTestHelper.setMsmtKillSwitch(!value);
+        mIsRaw = isRaw;
+    }
 
     @Override
     protected AdServicesExtendedMockitoRule getAdServicesExtendedMockitoRule() {
@@ -2944,6 +2959,7 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
 
     @Test
     public void testGetMeasurementEnabled() {
+        // TODO(b/384798806): test should call mFlagsTestHelper
         // Disable global_kill_switch so that this flag can be tested.
         disableGlobalKillSwitch();
 
@@ -2951,16 +2967,11 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
         boolean phOverridingKsValue = !defaultKsValue;
         boolean expectedDefaultValue = !defaultKsValue;
         boolean expectedOverriddenValue = !expectedDefaultValue;
-        Log.v(
-                mTag,
-                "defaultKsValue(MEASUREMENT_KILL_SWITCH)="
-                        + defaultKsValue
-                        + ", phOverridingKsValue="
-                        + phOverridingKsValue
-                        + ", expectedDefaultValue="
-                        + expectedDefaultValue
-                        + ", expectedOverriddenValue="
-                        + expectedOverriddenValue);
+
+        mLog.v(
+                "defaultKsValue(MEASUREMENT_KILL_SWITCH)=%s, phOverridingKsValue=%s,"
+                        + " expectedDefaultValue=%s,expectedOverriddenValue=%s",
+                defaultKsValue, phOverridingKsValue, expectedDefaultValue, expectedOverriddenValue);
 
         // Without any overriding, the value is the hard coded constant.
         expect.withMessage("getMeasurementEnabled() by default")
@@ -2977,6 +2988,7 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
 
     @Test
     public void testGetMeasurementEnabled_globalOverride() {
+        skipOnRawFlags();
         enableGlobalKillSwitch();
         setMeasurementKillSwitch(false);
 
@@ -3175,6 +3187,13 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
         assertThat(mPhFlags.getFledgeAuctionServerKillSwitch())
                 .isEqualTo(FLEDGE_AUCTION_SERVER_KILL_SWITCH);
 
+        if (mIsRaw) {
+            // TODO(b/384798806): shouldn't need to check mIsRaw, test should call mFlagsTestHelper
+            mLog.d(
+                    "test_fledgeSelectAdsServiceKillSwitch_shouldOverrideOtherKillSwitches():"
+                            + " skipping kill-switch part on raw flags");
+            return;
+        }
         enableSelectAdsKillSwitch();
         assertThat(mPhFlags.getFledgeOnDeviceAuctionKillSwitch()).isEqualTo(true);
         assertThat(mPhFlags.getFledgeAuctionServerKillSwitch()).isEqualTo(true);
@@ -3182,6 +3201,8 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
 
     @Test
     public void testGetFledgeGlobalKillSwitchOverridesOtherFledgeKillSwitches() {
+        // TODO(b/384798806): shouldn't need to check mIsRaw, test should call mFlagsTestHelper
+        skipOnRawFlags();
         // Disable global_kill_switch so that this flag can be tested.
         disableGlobalKillSwitch();
 
@@ -4066,6 +4087,7 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
 
     private void testEnableBackCompat(
             boolean sdkAtleastT, boolean enableBackCompat, boolean expected) {
+        skipOnRawFlags();
         mocker.mockIsAtLeastT(sdkAtleastT);
         mockGetAdServicesFlag(KEY_ENABLE_BACK_COMPAT, enableBackCompat);
 
@@ -4165,6 +4187,14 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
                 KEY_IS_EEA_DEVICE,
                 Boolean.toString(true),
                 /* makeDefault */ false);
+
+        // TODO(b/384798806): refactor this method to use mFlagsTestHelper
+        if (mIsRaw) {
+            mLog.d(
+                    "testPasUxEnabled_isEeaUser_postEeaUpdate(): skipping guard-dependent part on"
+                            + " raw flags");
+            return;
+        }
 
         boolean phOverridingValue = !DEFAULT_EEA_PAS_UX_ENABLED;
         DeviceConfig.setProperty(
@@ -6211,16 +6241,20 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
                 KEY_ENABLE_RB_ATRACE, DEFAULT_ENABLE_RB_ATRACE, Flags::getEnableRbAtrace);
     }
 
+    @Test
+    public void testGetEnableMsmtRegisterSourcePackageDenyList() {
+        mFlagsTestHelper.testConfigFlag(
+                KEY_MSMT_REGISTER_SOURCE_PACKAGE_DENY_LIST,
+                DEFAULT_MSMT_REGISTER_SOURCE_PACKAGE_DENY_LIST,
+                Flags::getEnableMsmtRegisterSourcePackageDenyList);
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////
     // NOTE: do NOT add new tests below, only helper methods                                      //
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
     private void setMeasurementKillSwitch(boolean value) {
         setAdservicesFlag(KEY_MEASUREMENT_KILL_SWITCH, value);
-    }
-
-    private void verifyGetBooleanNotCalled(String name) {
-        verifyGetBooleanDeviceConfigFlagNotCalled(DeviceConfig.NAMESPACE_ADSERVICES, name);
     }
 
     private void overrideGlobalKillSwitch(boolean phOverridingValue) {
@@ -6269,6 +6303,10 @@ public final class PhFlagsTest extends AdServicesExtendedMockitoTestCase {
 
     private void setGlobalBlockedTopicIds(String blockedTopicIds) {
         mockGetAdServicesFlag(KEY_GLOBAL_BLOCKED_TOPIC_IDS, blockedTopicIds);
+    }
+
+    private void skipOnRawFlags() {
+        assumeFalse("Skipping on raw flags", mIsRaw);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////

@@ -16,6 +16,7 @@
 
 package com.android.adservices.service.signals;
 
+import static com.android.adservices.service.FakeFlagsFactory.SetDefaultFledgeFlags;
 import static com.android.adservices.service.signals.SignalsFixture.ADTECH;
 import static com.android.adservices.service.signals.SignalsFixture.BASE64_KEY_1;
 import static com.android.adservices.service.signals.SignalsFixture.BASE64_VALUE_1;
@@ -61,6 +62,7 @@ import androidx.room.Room;
 import com.android.adservices.MockWebServerRuleFactory;
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
 import com.android.adservices.common.DbTestUtil;
+import com.android.adservices.common.annotations.SetPasAppAllowList;
 import com.android.adservices.common.logging.annotations.ExpectErrorLogUtilCall;
 import com.android.adservices.common.logging.annotations.ExpectErrorLogUtilWithExceptionCall;
 import com.android.adservices.concurrency.AdServicesExecutors;
@@ -69,6 +71,7 @@ import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.customaudience.CustomAudienceDatabase;
 import com.android.adservices.data.customaudience.DBCustomAudience;
 import com.android.adservices.data.enrollment.EnrollmentDao;
+import com.android.adservices.data.measurement.DatastoreManager;
 import com.android.adservices.data.signals.DBProtectedSignal;
 import com.android.adservices.data.signals.EncoderEndpointsDao;
 import com.android.adservices.data.signals.EncoderLogicHandler;
@@ -77,7 +80,7 @@ import com.android.adservices.data.signals.EncoderPersistenceDao;
 import com.android.adservices.data.signals.ProtectedSignalsDao;
 import com.android.adservices.data.signals.ProtectedSignalsDatabase;
 import com.android.adservices.service.DebugFlags;
-import com.android.adservices.service.FakeFlagsFactory;
+import com.android.adservices.service.FakeFlagsFactory.SetDefaultFledgeFlags;
 import com.android.adservices.service.Flags;
 import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.common.AdTechUriValidator;
@@ -114,6 +117,7 @@ import com.google.mockwebserver.MockResponse;
 import org.json.JSONException;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -131,6 +135,8 @@ import java.util.concurrent.TimeUnit;
 @RequiresSdkLevelAtLeastT
 @MockStatic(FlagsFactory.class)
 @MockStatic(DebugFlags.class)
+@SetDefaultFledgeFlags
+@SetPasAppAllowList
 public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCase {
     private static final AdTechIdentifier BUYER = AdTechIdentifier.fromString("localhost");
     private static final Uri URI = Uri.parse("https://localhost");
@@ -152,10 +158,14 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
     @Mock private AdServicesHttpsClient mAdServicesHttpsClientMock;
     @Mock private DevContextFilter mDevContextFilterMock;
     @Mock private UpdateSignalsProcessReportedLogger mUpdateSignalsProcessReportedLoggerMock;
+    @Mock private DatastoreManager mDatastoreManager;
+
+    // TODO(b/384949821): move to superclass
+    private final Flags mFakeFlags = flags.getFlags();
 
     @Spy
-    FledgeAllowListsFilter mFledgeAllowListsFilterSpy =
-            new FledgeAllowListsFilter(new SignalsIntakeE2ETestFlags(), mAdServicesLoggerMock);
+    private FledgeAllowListsFilter mFledgeAllowListsFilterSpy =
+            new FledgeAllowListsFilter(mFakeFlags, mAdServicesLoggerMock);
 
     private ProtectedSignalsDao mSignalsDao;
     private EncoderEndpointsDao mEncoderEndpointsDao;
@@ -174,13 +184,11 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
     private EncoderPersistenceDao mEncoderPersistenceDao;
     private ExecutorService mLightweightExecutorService;
     private ListeningExecutorService mBackgroundExecutorService;
-    private Flags mFakeFlags;
     private EnrollmentDao mEnrollmentDao;
     private ForcedEncoder mForcedEncoder;
 
     @Before
     public void setup() {
-        mFakeFlags = new SignalsIntakeE2ETestFlags();
         mocker.mockGetFlags(mFakeFlags);
         mSignalsDao =
                 Room.inMemoryDatabaseBuilder(mSpyContext, ProtectedSignalsDatabase.class)
@@ -264,7 +272,8 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
                         customAudienceDao,
                         sharedStorageDatabase.appInstallDao(),
                         sharedStorageDatabase.frequencyCapDao(),
-                        mSignalsDao);
+                        mSignalsDao,
+                        mDatastoreManager);
         mProtectedSignalsServiceFilter =
                 new ProtectedSignalsServiceFilter(
                         mSpyContext,
@@ -274,7 +283,7 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
                         mFledgeAuthorizationFilter,
                         mFledgeAllowListsFilterSpy,
                         mFledgeApiThrottleFilterMock);
-        when(mConsentManagerMock.isPasFledgeConsentGiven()).thenReturn(true);
+        when(mConsentManagerMock.isPasConsentGiven()).thenReturn(true);
         doReturn(DevContext.createForDevOptionsDisabled())
                 .when(mDevContextFilterMock)
                 .createDevContext();
@@ -343,6 +352,7 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
         assertSignalsUnorderedListEqualsExceptIdAndTime(expected, actual);
     }
 
+    @Ignore("b/376480141")
     @Test
     public void testPut_beforeDevSession_signalIsCleared() throws Exception {
         setupService(true);
@@ -359,6 +369,7 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
         mDevSessionHelper.endDevSession();
     }
 
+    @Ignore("b/376480141")
     @Test
     public void testPut_duringDevSession_signalIsCleared() throws Exception {
         setupService(true);
@@ -806,7 +817,7 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
     public void testNoConsentCallerPackageHasNoConsent() throws Exception {
         when(mConsentManagerMock.isFledgeConsentRevokedForAppAfterSettingFledgeUse(any()))
                 .thenReturn(true);
-        when(mConsentManagerMock.isPasFledgeConsentGiven()).thenReturn(true);
+        when(mConsentManagerMock.isPasConsentGiven()).thenReturn(true);
         baseTestNoConsent();
     }
 
@@ -817,7 +828,7 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
     public void testNoConsentUserNotSeenNotification() throws Exception {
         when(mConsentManagerMock.isFledgeConsentRevokedForAppAfterSettingFledgeUse(any()))
                 .thenReturn(false);
-        when(mConsentManagerMock.isPasFledgeConsentGiven()).thenReturn(false);
+        when(mConsentManagerMock.isPasConsentGiven()).thenReturn(false);
         baseTestNoConsent();
     }
 
@@ -895,12 +906,5 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
                 .setCreationTime(Instant.now())
                 .setPackageName(CommonFixture.TEST_PACKAGE_NAME)
                 .build();
-    }
-
-    private static final class SignalsIntakeE2ETestFlags extends FakeFlagsFactory.TestFlags {
-        @Override
-        public String getPasAppAllowList() {
-            return CommonFixture.TEST_PACKAGE_NAME;
-        }
     }
 }
