@@ -71,7 +71,7 @@ public final class NameValuePairAction extends AbstractAction {
             throw new IllegalStateException("should not have been called when it didn't change");
         }
         if (mPreviousNvp == null) {
-            mSetter.remove(mNvp.name);
+            mSetter.set(new NameValuePair(mNvp.name, null));
             return;
         }
         mSetter.set(mPreviousNvp);
@@ -105,5 +105,17 @@ public final class NameValuePairAction extends AbstractAction {
                 + ", set="
                 + mSet
                 + ']';
+    }
+
+    @Override
+    public String toStringForTestFailure() {
+        StringBuilder string =
+                new StringBuilder().append(mNvp.name).append('=').append(mNvp.value).append(" (");
+        if (mPreviousNvp == null) {
+            string.append("not set before");
+        } else {
+            string.append("before: ").append(mPreviousNvp.value);
+        }
+        return string.append(')').toString();
     }
 }

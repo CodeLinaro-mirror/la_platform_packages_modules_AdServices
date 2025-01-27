@@ -15,84 +15,46 @@
  */
 package com.android.adservices.flags;
 
-import com.android.adservices.service.Flags;
-import com.android.adservices.shared.flags.FlagsBackend;
 import com.android.adservices.shared.testing.Identifiable;
-import com.android.adservices.shared.testing.NameValuePair;
-import com.android.adservices.shared.testing.NameValuePairSetter;
+import com.android.adservices.shared.testing.flags.FakeFlagsBackend;
 
 import com.google.common.annotations.VisibleForTesting;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 // TODO(b/384798806): make it package protected once FakeFlagsFactory is moved to this package
-public final class FakeFlags extends RawFlags implements Identifiable {
-
-    private static final String TAG = FakeFlags.class.getSimpleName();
+public final class FakeFlags extends RawFlagsForTests<FakeFlagsBackend> implements Identifiable {
 
     private static int sNextId;
 
     private final String mId = String.valueOf(++sNextId);
-    private final boolean mImmutable;
 
-    private FakeFlags(boolean immutable) {
-        this(new FakeFlagsBackend(TAG), immutable);
-    }
-
-    private FakeFlags(FlagsBackend backend, boolean immutable) {
+    private FakeFlags(FakeFlagsBackend backend) {
         super(backend);
-        mImmutable = immutable;
-    }
-
-    private FakeFlagsBackend getFakeFlagsBackend() {
-        return (FakeFlagsBackend) mBackend;
     }
 
     static FakeFlags createFakeFlagsForFlagSetterRulePurposesOnly() {
-        return new FakeFlags(/* immutable= */ false);
+        return new FakeFlags(new FakeFlagsBackend(FakeFlags.class));
+    }
+
+    @VisibleForTesting
+    static FakeFlags createFakeFlagsForFakeFlagsTestPurposesOnly() {
+        // In theory test could call createFakeFlagsForFlagSetterRulePurposesOnly() directly, but it
+        // doesn't hurt to offer a proper method...
+        return createFakeFlagsForFlagSetterRulePurposesOnly();
     }
 
     // TODO(b/384798806): make it package protected once FakeFlagsFactory is moved to this package
     public static FakeFlags createFakeFlagsForFakeFlagsFactoryPurposesOnly() {
-        return new FakeFlags(/* immutable= */ true).setFakeFlagsFactoryFlags();
-    }
-
-    NameValuePairSetter getFlagsSetter() {
-        return getFakeFlagsBackend();
-    }
-
-    @VisibleForTesting
-    void setFlag(String name, String value) {
-        if (mImmutable) {
-            throw new UnsupportedOperationException(
-                    "setFlag(" + name + ", " + value + "): not supported on immutable Flags");
-        }
-        getFakeFlagsBackend().setFlag(name, value);
-    }
-
-    void setMissingFlagBehavior(MissingFlagBehavior behavior) {
-        getFakeFlagsBackend().mBehavior =
-                Objects.requireNonNull(behavior, "behavior cannot be null");
-    }
-
-    MissingFlagBehavior getMissingFlagBehavior() {
-        return getFakeFlagsBackend().mBehavior;
-    }
-
-    Flags getSnapshot() {
-        Map<String, NameValuePair> flags = getFakeFlagsBackend().getFlags();
-        return new FakeFlags(
-                new FakeFlagsBackend(TAG, new HashMap<>(flags)), /* immutable= */ true);
-    }
-
-    private FakeFlags setFakeFlagsFactoryFlags() {
-        var backend = getFakeFlagsBackend();
+        var backend = new FakeFlagsBackend(FakeFlags.class);
         AdServicesFlagsSetterRuleForUnitTests.setFakeFlagsFactoryFlags(
                 (name, value) -> backend.setFlag(name, value));
-        return this;
+        return new FakeFlags(backend.cloneForSnapshot());
+    }
+
+    FakeFlags getSnapshot() {
+        return new FakeFlags(mBackend.cloneForSnapshot());
     }
 
     @Override
@@ -103,7 +65,7 @@ public final class FakeFlags extends RawFlags implements Identifiable {
     @Override
     public String toString() {
         var prefix = "FakeFlags#" + mId + "{";
-        var flags = getFakeFlagsBackend().getFlags();
+        var flags = mBackend.getFlags();
         if (flags.isEmpty()) {
             return prefix + "empty}";
         }
