@@ -27,6 +27,7 @@ import com.android.adservices.shared.testing.annotations.DisableDebugFlags;
 import com.android.adservices.shared.testing.annotations.EnableDebugFlag;
 import com.android.adservices.shared.testing.annotations.EnableDebugFlags;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import org.junit.runner.Description;
@@ -49,7 +50,7 @@ import java.util.Objects;
 public abstract class AbstractDebugFlagsSetterRule<R extends AbstractDebugFlagsSetterRule<R>>
         extends ActionBasedRule<R> {
 
-    private final NameValuePairSetter mSetter;
+    protected final NameValuePairSetter mSetter;
 
     protected AbstractDebugFlagsSetterRule(RealLogger logger, NameValuePairSetter setter) {
         super(logger);
@@ -88,6 +89,14 @@ public abstract class AbstractDebugFlagsSetterRule<R extends AbstractDebugFlagsS
                 "createActionsForTest(%s): returning %s from %s",
                 getTestName(), actions, annotations);
         return ImmutableList.copyOf(actions.values());
+    }
+
+    @Override
+    @VisibleForTesting
+    public String getTestFailureHeader(int numberExecutedActions) {
+        return numberExecutedActions == 1
+                ? "Test set 1 DebugFlag"
+                : "Test set " + numberExecutedActions + " DebugFlags";
     }
 
     private void add(Map<String, Action> actions, NameValuePairAction action) {

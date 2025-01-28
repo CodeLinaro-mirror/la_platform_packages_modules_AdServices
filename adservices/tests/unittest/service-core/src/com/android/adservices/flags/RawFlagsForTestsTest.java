@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 The Android Open Source Project
+ * Copyright (C) 2025 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,23 +17,23 @@ package com.android.adservices.flags;
 
 import static org.junit.Assert.assertThrows;
 
-import android.provider.DeviceConfig;
-
 import com.android.adservices.service.PhFlagsTest;
-import com.android.adservices.shared.flags.DeviceConfigFlagsBackend;
+import com.android.adservices.shared.testing.flags.FakeFlagsBackend;
 
 import org.junit.Test;
 
-public final class RawFlagsTest extends PhFlagsTest {
+public final class RawFlagsForTestsTest extends PhFlagsTest {
 
-    public RawFlagsTest() {
+    public RawFlagsForTestsTest() {
         super(
-                new RawFlags(new DeviceConfigFlagsBackend(DeviceConfig.NAMESPACE_ADSERVICES)),
+                new RawFlagsForTests<FakeFlagsBackend>(
+                        new FakeFlagsBackend(RawFlagsForTestsTest.class)),
                 /* isRaw= */ true);
     }
 
     @Test
     public void testNullConstructor() {
-        assertThrows(NullPointerException.class, () -> new RawFlags(null));
+        assertThrows(
+                NullPointerException.class, () -> new RawFlagsForTests<FakeFlagsBackend>(null));
     }
 }

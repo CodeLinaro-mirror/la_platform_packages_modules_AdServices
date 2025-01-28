@@ -13,41 +13,97 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.adservices.flags;
+package com.android.adservices.shared.testing.flags;
 
-import static com.android.adservices.flags.MissingFlagBehavior.USES_EXPLICIT_DEFAULT;
+import static com.android.adservices.shared.testing.flags.MissingFlagBehavior.USES_EXPLICIT_DEFAULT;
 
-import com.android.adservices.shared.flags.FlagsBackend;
-import com.android.adservices.shared.testing.AndroidLogger;
+import com.android.adservices.shared.testing.DynamicLogger;
+import com.android.adservices.shared.testing.FakeNameValuePairContainer;
+import com.android.adservices.shared.testing.ImmutableNameValuePairContainer;
 import com.android.adservices.shared.testing.Logger;
 import com.android.adservices.shared.testing.NameValuePair;
-import com.android.adservices.shared.testing.NameValuePairSetter;
+import com.android.adservices.shared.testing.NameValuePairContainer;
+import com.android.adservices.shared.testing.Nullable;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
+
 import java.util.Objects;
 
 /** In-memory container for flag-related backends. */
-class FakeFlagsBackend implements FlagsBackend, NameValuePairSetter {
+public final class FakeFlagsBackend implements TestableFlagsBackend {
 
-    private final Map<String, NameValuePair> mFlags;
-
+    private final NameValuePairContainer mContainer;
     private final Logger mLog;
 
-    MissingFlagBehavior mBehavior = USES_EXPLICIT_DEFAULT;
+    private MissingFlagBehavior mBehavior = USES_EXPLICIT_DEFAULT;
 
-    FakeFlagsBackend(String tagName) {
-        this(tagName, new HashMap<>());
+    /**
+     * Default constructor.
+     *
+     * @param tagName tag used to log messages.
+     */
+    public FakeFlagsBackend(String tagName) {
+        this(
+                new Logger(DynamicLogger.getInstance(), tagName),
+                new FakeNameValuePairContainer(tagName));
     }
 
-    FakeFlagsBackend(String tagName, Map<String, NameValuePair> flags) {
-        Objects.requireNonNull(tagName, "tagName cannot be null");
-        mLog = new Logger(AndroidLogger.getInstance(), tagName);
-        mFlags = Objects.requireNonNull(flags, "flags cannot be null");
+    /**
+     * Default constructor.
+     *
+     * @param clazz used to derive the tag name
+     */
+    public FakeFlagsBackend(Class<?> clazz) {
+        this(Objects.requireNonNull(clazz, "clazz cannot be null").getSimpleName());
     }
 
-    Map<String, NameValuePair> getFlags() {
-        return mFlags;
+    /**
+     * Custom constructor.
+     *
+     * @param logger used to log messages.
+     * @param container used to manage the flags.
+     */
+    public FakeFlagsBackend(Logger logger, NameValuePairContainer container) {
+        mContainer = Objects.requireNonNull(container, "container cannot be null");
+        mLog = Objects.requireNonNull(logger, "logger cannot be null");
+    }
+
+    // Constructor used to create a snapshot
+    private FakeFlagsBackend(FakeFlagsBackend source) {
+        this(source.mLog, new ImmutableNameValuePairContainer(source.mContainer.getAll()));
+    }
+
+    @VisibleForTesting
+    String getTagName() {
+        return mLog.getTag();
+    }
+
+    // TODO(b/373446366): ideally it should be @Visible for testing, but it's used by
+    // AdServicesFakeFlagsSetterRule's constructor and it would require changing too many classes to
+    // encapsulate that, so it's not worth the effort (at least not for now)
+    public NameValuePairContainer getContainer() {
+        return mContainer;
+    }
+
+    /** Gets a {@link FakeFlagsBackend} that has the same flags, but it's immutable. */
+    public FakeFlagsBackend cloneForSnapshot() {
+        return new FakeFlagsBackend(this);
+    }
+
+    /** Gets a snapshot of the current flags. */
+    public ImmutableMap<String, NameValuePair> getFlags() {
+        return mContainer.getAll();
+    }
+
+    /** Gets the getters behaviors when the flag is missing. */
+    public MissingFlagBehavior getMissingFlagBehavior() {
+        return mBehavior;
+    }
+
+    /** Sets the getters behaviors when the flag is missing. */
+    public void setMissingFlagBehavior(MissingFlagBehavior behavior) {
+        mBehavior = Objects.requireNonNull(behavior, "behavior cannot be null");
     }
 
     @Override
@@ -135,21 +191,15 @@ class FakeFlagsBackend implements FlagsBackend, NameValuePairSetter {
         }
     }
 
+    @Nullable
     private NameValuePair getFlagChecked(String name) {
         Objects.requireNonNull(name, "name cannot be null");
-        var value = mFlags.get(name);
-        return value == null ? null : value;
+        return mContainer.get(name);
     }
 
     @Override
-    public NameValuePair set(NameValuePair flag) {
-        Objects.requireNonNull(flag, "internal error: NameValuePair cannot be null");
-        var previous = mFlags.put(flag.name, flag);
-        mLog.v("set(%s): returning %s", flag, previous);
-        return previous;
-    }
-
-    void setFlag(String name, String value) {
-        set(new NameValuePair(name, value));
+    public void setFlag(String name, @Nullable String value) {
+        mLog.v("setFlag(%s, %s)", name, value);
+        mContainer.set(new NameValuePair(name, value));
     }
 }
