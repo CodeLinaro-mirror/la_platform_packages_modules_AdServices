@@ -155,6 +155,7 @@ import com.android.adservices.service.stats.ScheduledCustomAudienceUpdatePerform
 import com.android.adservices.service.stats.ScheduledCustomAudienceUpdatePerformedStats;
 import com.android.adservices.service.stats.ScheduledCustomAudienceUpdateScheduleAttemptedStats;
 import com.android.adservices.shared.errorlogging.AdServicesErrorLogger;
+import com.android.adservices.shared.testing.SkipLoggingUsageRule;
 import com.android.adservices.shared.testing.concurrency.FailableOnResultSyncCallback;
 import com.android.adservices.testutils.DevSessionHelper;
 import com.android.adservices.testutils.FetchCustomAudienceTestSyncCallback;
@@ -194,6 +195,9 @@ import java.util.stream.Collectors;
 @SpyStatic(DebugFlags.class)
 @SpyStatic(ScheduleCustomAudienceUpdateJobService.class)
 @MockStatic(BackgroundFetchJob.class)
+// TODO (b/384952360): refine CEL related verifications later
+@SkipLoggingUsageRule(reason = "b/384952360")
+@SuppressWarnings("DoNotMockErrorLogUtilBehavior") // TODO(b/384952360)
 public final class CustomAudienceServiceEndToEndTest extends AdServicesExtendedMockitoTestCase {
 
     @Rule(order = 11)
@@ -332,8 +336,10 @@ public final class CustomAudienceServiceEndToEndTest extends AdServicesExtendedM
 
     @Before
     public void setup() {
-        doReturn(new CustomAudienceServiceE2ETestFlags()).when(FlagsFactory::getFlags);
-
+        // TODO (b/384952360): Delete doNothingOnErrorLogUtilError when all CEL logs in this test
+        // are captured properly.
+        doNothingOnErrorLogUtilError();
+        mocker.mockGetFlags(new CustomAudienceServiceE2ETestFlags());
         mFetchUri = mMockWebServerRule.uriForPath("/fetch");
 
         mCustomAudienceDao =
@@ -422,7 +428,7 @@ public final class CustomAudienceServiceEndToEndTest extends AdServicesExtendedM
                         mAdServicesLoggerMock,
                         mAppImportanceFilter,
                         COMMON_FLAGS_WITH_FILTERS_ENABLED,
-                        mMockDebugFlags,
+                        mFakeDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         new CustomAudienceServiceFilter(
                                 mContext,
@@ -516,7 +522,7 @@ public final class CustomAudienceServiceEndToEndTest extends AdServicesExtendedM
                         mAdServicesLoggerMock,
                         mAppImportanceFilter,
                         COMMON_FLAGS_WITH_FILTERS_ENABLED,
-                        mMockDebugFlags,
+                        mFakeDebugFlags,
                         CallingAppUidSupplierFailureImpl.create(),
                         new CustomAudienceServiceFilter(
                                 mContext,
@@ -1416,7 +1422,7 @@ public final class CustomAudienceServiceEndToEndTest extends AdServicesExtendedM
                         mAdServicesLoggerMock,
                         mAppImportanceFilter,
                         COMMON_FLAGS_WITH_FILTERS_ENABLED,
-                        mMockDebugFlags,
+                        mFakeDebugFlags,
                         CallingAppUidSupplierFailureImpl.create(),
                         new CustomAudienceServiceFilter(
                                 mContext,
@@ -4844,7 +4850,7 @@ public final class CustomAudienceServiceEndToEndTest extends AdServicesExtendedM
                                 mAdServicesLoggerMock,
                                 mAppImportanceFilter,
                                 flagsWithLowRateLimit,
-                                mMockDebugFlags,
+                                mFakeDebugFlags,
                                 CallingAppUidSupplierProcessImpl.create(),
                                 new CustomAudienceServiceFilter(
                                         mContext,
@@ -5028,7 +5034,7 @@ public final class CustomAudienceServiceEndToEndTest extends AdServicesExtendedM
                         mAdServicesLoggerMock,
                         mAppImportanceFilter,
                         flags,
-                        mMockDebugFlags,
+                        mFakeDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         new CustomAudienceServiceFilter(
                                 mContext,
@@ -5210,7 +5216,7 @@ public final class CustomAudienceServiceEndToEndTest extends AdServicesExtendedM
                         mAdServicesLoggerMock,
                         mAppImportanceFilter,
                         flags,
-                        mMockDebugFlags,
+                        mFakeDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         new CustomAudienceServiceFilter(
                                 mContext,

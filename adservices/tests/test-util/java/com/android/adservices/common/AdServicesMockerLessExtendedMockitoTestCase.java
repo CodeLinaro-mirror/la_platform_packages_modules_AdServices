@@ -21,7 +21,6 @@ import static com.android.dx.mockito.inline.extended.ExtendedMockito.doNothing;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.mock;
 
 import android.annotation.CallSuper;
 import android.annotation.Nullable;
@@ -63,7 +62,7 @@ import com.android.adservices.shared.testing.concurrency.ResultSyncCallback;
 import com.android.adservices.shared.util.Clock;
 import com.android.adservices.spe.AdServicesJobScheduler;
 import com.android.adservices.spe.AdServicesJobServiceFactory;
-import com.android.modules.utils.testing.ExtendedMockitoRule.SpyStatic;
+import com.android.modules.utils.testing.ExtendedMockitoRule.MockStatic;
 
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -79,13 +78,11 @@ import org.mockito.quality.Strictness;
  * @param <M> mocker type
  */
 @ClearInlineMocksMode(CLEAR_AFTER_TEST_CLASS)
-@SpyStatic(ErrorLogUtil.class)
+@MockStatic(ErrorLogUtil.class)
 public abstract class AdServicesMockerLessExtendedMockitoTestCase<M extends InternalMocker>
         extends AdServicesUnitTestCase {
 
     @Mock protected Context mMockContext;
-
-    protected final DebugFlags mMockDebugFlags = mock(DebugFlags.class);
 
     /** Spy the {@link AdServicesUnitTestCase#mContext} */
     @Spy protected final Context mSpyContext = mContext;
@@ -115,7 +112,7 @@ public abstract class AdServicesMockerLessExtendedMockitoTestCase<M extends Inte
             AdServicesLoggingUsageRule.errorLogUtilUsageRule();
 
     /** Provides common expectations. */
-    public final M mocker = newMocker(extendedMockito, mMockFlags, mMockDebugFlags);
+    public final M mocker = newMocker(extendedMockito, mMockFlags);
 
     /**
      * Gets the {@link AdServicesExtendedMockitoRule} that will be set as the {@code
@@ -136,8 +133,7 @@ public abstract class AdServicesMockerLessExtendedMockitoTestCase<M extends Inte
     }
 
     /** Returns the object that will be referenced by {@code mocker}. */
-    protected abstract M newMocker(
-            AdServicesExtendedMockitoRule rule, Flags mockFlags, DebugFlags mockDebugFlags);
+    protected abstract M newMocker(AdServicesExtendedMockitoRule rule, Flags mockFlags);
 
     /**
      * Creates a new {@link AdServicesExtendedMockitoRule.Builder} with the default properties.
