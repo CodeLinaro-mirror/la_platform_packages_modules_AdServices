@@ -221,7 +221,7 @@ public final class AdSelectionFailureE2ETest extends AdServicesExtendedMockitoTe
     @Mock private AdSelectionServiceFilter mMockAdSelectionServiceFilter;
     @Mock private ObliviousHttpEncryptor mMockObliviousHttpEncryptor;
 
-    private Flags mFakeFlags;
+    private Flags mLegacyFakeFlags;
     private FledgeAuthorizationFilter mFledgeAuthorizationFilter;
     private AdServicesLogger mAdServicesLogger;
     private ExecutorService mLightweightExecutorService;
@@ -250,10 +250,10 @@ public final class AdSelectionFailureE2ETest extends AdServicesExtendedMockitoTe
         assumeFalse(
                 "JavaScriptSandbox is available on the device, skipping test",
                 WebViewSupportUtil.isJSSandboxAvailable(mContext));
-        mFakeFlags = new AdSelectionFailureE2ETestFlags();
-        mocker.mockGetFlags(mFakeFlags);
-        mocker.mockGetDebugFlags(mMockDebugFlags);
-        mocker.mockGetConsentNotificationDebugMode(false);
+        mLegacyFakeFlags = new AdSelectionFailureE2ETestFlags();
+        mocker.mockGetFlags(mLegacyFakeFlags);
+        mocker.mockGetDebugFlags(mFakeDebugFlags);
+        mockGetConsentNotificationDebugMode(false);
         mAdSelectionEntryDao =
                 Room.inMemoryDatabaseBuilder(mSpyContext, AdSelectionDatabase.class)
                         .build()
@@ -284,12 +284,12 @@ public final class AdSelectionFailureE2ETest extends AdServicesExtendedMockitoTe
 
         SharedDbHelper dbHelper = DbTestUtil.getSharedDbHelperForTest();
         mEncryptionKeyDao = new EncryptionKeyDao(dbHelper, mAdServicesLogger);
-        mEnrollmentDao = new EnrollmentDao(mSpyContext, dbHelper, mFakeFlags);
+        mEnrollmentDao = new EnrollmentDao(mSpyContext, dbHelper, mLegacyFakeFlags);
         mFledgeAuthorizationFilter =
                 new FledgeAuthorizationFilter(
                         mSpyContext.getPackageManager(), mEnrollmentDao, mAdServicesLogger);
         mAdFilteringFeatureFactory =
-                new AdFilteringFeatureFactory(mAppInstallDao, mFrequencyCapDao, mFakeFlags);
+                new AdFilteringFeatureFactory(mAppInstallDao, mFrequencyCapDao, mLegacyFakeFlags);
         mMultiCloudSupportStrategy =
                 MultiCloudTestStrategyFactory.getDisabledTestStrategy(mMockObliviousHttpEncryptor);
 
@@ -439,8 +439,8 @@ public final class AdSelectionFailureE2ETest extends AdServicesExtendedMockitoTe
                         mScheduledExecutor,
                         mSpyContext,
                         mAdServicesLogger,
-                        mFakeFlags,
-                        mMockDebugFlags,
+                        mLegacyFakeFlags,
+                        mFakeDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilter,
                         mMockAdSelectionServiceFilter,
@@ -530,8 +530,8 @@ public final class AdSelectionFailureE2ETest extends AdServicesExtendedMockitoTe
                         mScheduledExecutor,
                         mContext,
                         mAdServicesLogger,
-                        mFakeFlags,
-                        mMockDebugFlags,
+                        mLegacyFakeFlags,
+                        mFakeDebugFlags,
                         CallingAppUidSupplierProcessImpl.create(),
                         mFledgeAuthorizationFilter,
                         mMockAdSelectionServiceFilter,
