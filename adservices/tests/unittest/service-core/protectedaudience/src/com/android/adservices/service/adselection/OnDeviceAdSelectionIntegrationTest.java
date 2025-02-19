@@ -271,7 +271,6 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 @SetFlagFalse(KEY_FLEDGE_EVENT_LEVEL_DEBUG_REPORT_SEND_IMMEDIATELY)
 // TODO (b/384952360): refine CEL related verifications later
 @SkipLoggingUsageRule(reason = "b/384952360")
-@SuppressWarnings("DoNotMockErrorLogUtilBehavior") // TODO(b/384952360)
 public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtendedMockitoTestCase {
 
     private static final LoggerFactory.Logger sLogger = LoggerFactory.getFledgeLogger();
@@ -767,9 +766,6 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
 
     @Before
     public void setUp() throws Exception {
-        // TODO (b/384952360): Delete doNothingOnErrorLogUtilError when all CEL logs in this test
-        // are captured properly.
-        doNothingOnErrorLogUtilError();
         mocker.mockGetFlags(mFakeFlags);
         mocker.mockGetDebugFlags(mFakeDebugFlags);
         mockGetConsentNotificationDebugMode(false);
@@ -1055,11 +1051,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -1169,11 +1167,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -1291,11 +1291,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         // Instantiate new adSelectionConfig with data version header in trusted seller signals
         AdSelectionConfig adSelectionConfig =
@@ -1434,11 +1436,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         // Instantiate new adSelectionConfig with data version header in trusted seller signals
         AdSelectionConfig adSelectionConfig =
@@ -1572,11 +1576,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -1695,11 +1701,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -1781,11 +1789,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         String paramKey = "reportingUrl";
         String paramValue = "https://www.test.com/reporting/seller";
@@ -1896,11 +1906,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         String paramKey = "reportingUrl";
         String paramValue = "https://www.test.com/reporting/seller";
@@ -2013,11 +2025,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -2089,11 +2103,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -2201,11 +2217,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -2323,11 +2341,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         // Instantiate new adSelectionConfig with data version header in trusted seller signals
         AdSelectionConfig adSelectionConfig =
@@ -2466,11 +2486,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         // Instantiate new adSelectionConfig with data version header in trusted seller signals
         AdSelectionConfig adSelectionConfig =
@@ -2604,11 +2626,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -2725,11 +2749,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -2811,11 +2837,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -2880,11 +2908,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -2949,11 +2979,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         DBCustomAudienceOverride dbCustomAudienceOverride1 =
                 DBCustomAudienceOverride.builder()
@@ -3057,11 +3089,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, adSelectionConfig, CALLER_PACKAGE_NAME);
@@ -3153,11 +3187,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         final String fakeDecisionLogicForBuyer = "\"reportWin() { completely fake }\"";
         // Set dev override for  ad selection
@@ -3334,11 +3370,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionServiceImpl adSelectionService =
                 new AdSelectionServiceImpl(
@@ -3780,11 +3818,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -3857,11 +3897,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         when(mDevContextFilter.createDevContext())
                 .thenReturn(DevContext.createForDevOptionsDisabled());
@@ -3881,7 +3923,8 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
             mCustomAudienceDao.insertOrOverwriteCustomAudience(
                     dBCustomAudienceForBuyerX,
                     CustomAudienceFixture.getValidDailyUpdateUriByBuyer(buyerX),
-                    false);
+                    false,
+                    List.of());
 
             participatingBuyers.add(buyerX);
         }
@@ -3971,11 +4014,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         when(mDevContextFilter.createDevContext())
                 .thenReturn(DevContext.createForDevOptionsDisabled());
@@ -3995,7 +4040,8 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
             mCustomAudienceDao.insertOrOverwriteCustomAudience(
                     dBCustomAudienceForBuyerX,
                     CustomAudienceFixture.getValidDailyUpdateUriByBuyer(buyerX),
-                    false);
+                    false,
+                    List.of());
 
             participatingBuyers.add(buyerX);
         }
@@ -4061,11 +4107,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         when(mDevContextFilter.createDevContext())
                 .thenReturn(DevContext.createForDevOptionsDisabled());
@@ -4089,7 +4137,8 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
             mCustomAudienceDao.insertOrOverwriteCustomAudience(
                     dBCustomAudienceX,
                     CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                    false);
+                    false,
+                    List.of());
         }
 
         AdSelectionConfig adSelectionConfig =
@@ -4184,11 +4233,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         when(mDevContextFilter.createDevContext())
                 .thenReturn(DevContext.createForDevOptionsDisabled());
@@ -4212,7 +4263,8 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
             mCustomAudienceDao.insertOrOverwriteCustomAudience(
                     dBCustomAudienceX,
                     CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                    false);
+                    false,
+                    List.of());
         }
 
         AdSelectionConfig adSelectionConfig =
@@ -4307,11 +4359,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         when(mDevContextFilter.createDevContext())
                 .thenReturn(DevContext.createForDevOptionsDisabled());
@@ -4336,7 +4390,8 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
             mCustomAudienceDao.insertOrOverwriteCustomAudience(
                     dBCustomAudienceX,
                     CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                    false);
+                    false,
+                    List.of());
         }
 
         AdSelectionConfig adSelectionConfig =
@@ -4435,11 +4490,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         when(mDevContextFilter.createDevContext())
                 .thenReturn(DevContext.createForDevOptionsDisabled());
@@ -4464,7 +4521,8 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
             mCustomAudienceDao.insertOrOverwriteCustomAudience(
                     dBCustomAudienceX,
                     CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                    false);
+                    false,
+                    List.of());
         }
 
         AdSelectionConfig adSelectionConfig =
@@ -4651,11 +4709,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -4794,11 +4854,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -4884,15 +4946,18 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dbCustomAudienceActive,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceInactive,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceExpired,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_3),
-                false);
+                false,
+                List.of());
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
         runAdSelectionProcessLoggerLatch.await();
@@ -4976,15 +5041,18 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceInactive,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceExpired,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceOutdated,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_3),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -5150,11 +5218,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -5289,11 +5359,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -5402,11 +5474,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -5516,11 +5590,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -5630,11 +5706,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -5754,11 +5832,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -5877,11 +5957,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -6036,11 +6118,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -6117,11 +6201,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         when(mDevContextFilter.createDevContext())
                 .thenReturn(DevContext.createForDevOptionsDisabled());
@@ -6145,7 +6231,8 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
             mCustomAudienceDao.insertOrOverwriteCustomAudience(
                     dBCustomAudienceX,
                     CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_3),
-                    false);
+                    false,
+                    List.of());
         }
 
         AdSelectionConfig adSelectionConfig =
@@ -6334,11 +6421,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         when(mDevContextFilter.createDevContext())
                 .thenReturn(DevContext.createForDevOptionsDisabled());
@@ -6362,7 +6451,8 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
             mCustomAudienceDao.insertOrOverwriteCustomAudience(
                     dBCustomAudienceX,
                     CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_3),
-                    false);
+                    false,
+                    List.of());
         }
 
         AdSelectionConfig adSelectionConfig =
@@ -6629,11 +6719,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -6780,11 +6872,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -6881,11 +6975,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -6994,11 +7090,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -7082,11 +7180,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, invalidPackageName);
@@ -7170,11 +7270,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -7287,11 +7389,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);
@@ -7400,11 +7504,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         // First call to Ad Selection should succeed
         AdSelectionTestCallback resultsCallbackFirstCall =
@@ -7533,11 +7639,13 @@ public final class OnDeviceAdSelectionIntegrationTest extends AdServicesExtended
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer1,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_1),
-                false);
+                false,
+                List.of());
         mCustomAudienceDao.insertOrOverwriteCustomAudience(
                 dBCustomAudienceForBuyer2,
                 CustomAudienceFixture.getValidDailyUpdateUriByBuyer(BUYER_2),
-                false);
+                false,
+                List.of());
 
         AdSelectionTestCallback resultsCallback =
                 invokeSelectAds(mAdSelectionService, mAdSelectionConfig, CALLER_PACKAGE_NAME);

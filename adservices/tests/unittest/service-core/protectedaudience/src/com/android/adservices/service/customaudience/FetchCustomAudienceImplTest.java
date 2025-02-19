@@ -71,6 +71,7 @@ import static com.android.adservices.service.customaudience.FetchCustomAudienceF
 import static com.android.adservices.service.customaudience.FetchCustomAudienceFixture.getFullSuccessfulJsonResponse;
 import static com.android.adservices.service.customaudience.FetchCustomAudienceFixture.getFullSuccessfulJsonResponseString;
 import static com.android.adservices.service.customaudience.FetchCustomAudienceFixture.getFullSuccessfulJsonResponseStringWithAdRenderId;
+import static com.android.adservices.service.customaudience.FetchCustomAudienceFixture.getFullSuccessfulJsonResponseWithComponentAds;
 import static com.android.adservices.service.customaudience.FetchCustomAudienceImpl.FUSED_CUSTOM_AUDIENCE_EXCEEDS_SIZE_LIMIT_MESSAGE;
 import static com.android.adservices.service.customaudience.FetchCustomAudienceImpl.FUSED_CUSTOM_AUDIENCE_INCOMPLETE_MESSAGE;
 import static com.android.adservices.service.customaudience.FetchCustomAudienceImpl.REQUEST_CUSTOM_HEADER_EXCEEDS_SIZE_LIMIT_MESSAGE;
@@ -79,8 +80,28 @@ import static com.android.adservices.service.customaudience.FetchCustomAudienceR
 import static com.android.adservices.service.customaudience.FetchCustomAudienceReader.EXPIRATION_TIME_KEY;
 import static com.android.adservices.service.customaudience.FetchCustomAudienceReader.NAME_KEY;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_API_CALLED__API_NAME__FETCH_AND_JOIN_CUSTOM_AUDIENCE;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__AD_SERVICES_HTTPS_CLIENT_HTTP_REQUEST_ERROR;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__AD_SERVICES_HTTPS_CLIENT_HTTP_REQUEST_RETRIABLE_ERROR;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__CUSTOM_AUDIENCE_QUANTITY_CHECKER_REACHED_MAX_NUMBER_OF_CUSTOM_AUDIENCE_PER_OWNER;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__CUSTOM_AUDIENCE_QUANTITY_CHECKER_REACHED_MAX_NUMBER_OF_TOTAL_CUSTOM_AUDIENCE;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_DISABLED;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_FUSED_CUSTOM_AUDIENCE_EXCEEDS_SIZE_LIMIT;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_INCOMPLETE_FUSED_CUSTOM_AUDIENCE;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_INVALID_JSON_RESPONSE;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_FILTER_EXCEPTION_BACKGROUND_CALLER;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_FILTER_EXCEPTION_CALLER_NOT_ALLOWED;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_FILTER_EXCEPTION_RATE_LIMIT_REACHED;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_FILTER_EXCEPTION_UNAUTHORIZED;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_ILLEGAL_ARGUMENT_ERROR;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_INTERNAL_ERROR;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_INVALID_OBJECT_ERROR;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_SERVER_RATE_LIMIT_REACHED;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_QUARANTINED;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_REQUEST_CUSTOM_HEADER_EXCEEDS_SIZE_LIMIT;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_UNABLE_TO_SEND_FAILURE_TO_CALLBACK;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_UNABLE_TO_SEND_SUCCESSFUL_RESULT_TO_CALLBACK;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__COMMON;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__FETCH_AND_JOIN_CUSTOM_AUDIENCE;
 import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__FLEDGE;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.anyInt;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doAnswer;
@@ -102,10 +123,14 @@ import static org.mockito.Mockito.times;
 import android.adservices.common.AdTechIdentifier;
 import android.adservices.common.CallingAppUidSupplierProcessImpl;
 import android.adservices.common.CommonFixture;
+import android.adservices.common.ComponentAdData;
+import android.adservices.common.ComponentAdDataFixture;
 import android.adservices.common.FledgeErrorResponse;
 import android.adservices.customaudience.CustomAudienceFixture;
 import android.adservices.customaudience.FetchAndJoinCustomAudienceCallback;
 import android.adservices.customaudience.FetchAndJoinCustomAudienceInput;
+import android.adservices.exceptions.AdServicesNetworkException;
+import android.adservices.exceptions.RetryableAdServicesNetworkException;
 import android.adservices.http.MockWebServerRule;
 import android.net.Uri;
 import android.os.LimitExceededException;
@@ -115,6 +140,8 @@ import android.os.RemoteException;
 import com.android.adservices.MockWebServerRuleFactory;
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
 import com.android.adservices.common.logging.annotations.ExpectErrorLogUtilCall;
+import com.android.adservices.common.logging.annotations.ExpectErrorLogUtilWithExceptionCall;
+import com.android.adservices.common.logging.annotations.SetErrorLogUtilDefaultParams;
 import com.android.adservices.concurrency.AdServicesExecutors;
 import com.android.adservices.data.adselection.AppInstallDao;
 import com.android.adservices.data.adselection.FrequencyCapDao;
@@ -138,6 +165,7 @@ import com.android.adservices.service.common.cache.CacheProviderFactory;
 import com.android.adservices.service.common.httpclient.AdServicesHttpsClient;
 import com.android.adservices.service.consent.ConsentManager;
 import com.android.adservices.service.devapi.DevContext;
+import com.android.adservices.service.exception.FilterException;
 import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.adservices.service.stats.AdServicesLoggerImpl;
 import com.android.adservices.testutils.FetchCustomAudienceTestSyncCallback;
@@ -152,6 +180,7 @@ import com.google.mockwebserver.MockResponse;
 import com.google.mockwebserver.MockWebServer;
 import com.google.mockwebserver.RecordedRequest;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.Assert;
 import org.junit.Before;
@@ -162,6 +191,7 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.stubbing.Answer;
 
+import java.io.InvalidObjectException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.List;
@@ -173,6 +203,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 @MockStatic(ConsentManager.class)
 @SpyStatic(FlagsFactory.class)
 @SpyStatic(DebugFlags.class)
+@SetErrorLogUtilDefaultParams(
+        ppapiName = AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__FETCH_AND_JOIN_CUSTOM_AUDIENCE)
 @MockStatic(BackgroundFetchJob.class)
 public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockitoTestCase {
     private static final int API_NAME =
@@ -187,6 +219,7 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     @Mock private CustomAudienceDao mCustomAudienceDaoMock;
     @Mock private AppInstallDao mAppInstallDaoMock;
     @Mock private FrequencyCapDao mFrequencyCapDaoMock;
+    @Mock private ComponentAdsStrategy mComponentAdsStrategyMock;
     private final AdRenderIdValidator mAdRenderIdValidator =
             AdRenderIdValidator.createEnabledInstance(100);
     private AdFilteringFeatureFactory mAdFilteringFeatureFactory;
@@ -275,6 +308,13 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_INTERNAL_ERROR,
+            throwable = IllegalStateException.class)
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode = AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_DISABLED,
+            throwable = IllegalStateException.class)
     public void testImpl_disabled() throws Exception {
         // Use flag value to disable the API.
         mFetchCustomAudienceImpl =
@@ -305,6 +345,10 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_FILTER_EXCEPTION_UNAUTHORIZED,
+            throwable = FilterException.class)
     public void testImpl_invalidPackageName_throws() throws Exception {
         String otherPackageName = VALID_OWNER + "incorrectPackage";
 
@@ -342,6 +386,10 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_FILTER_EXCEPTION_RATE_LIMIT_REACHED,
+            throwable = FilterException.class)
     public void testImpl_throttled_throws() throws Exception {
         doThrow(new LimitExceededException(RATE_LIMIT_REACHED_ERROR_MESSAGE))
                 .when(mCustomAudienceServiceFilterMock)
@@ -377,6 +425,10 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_FILTER_EXCEPTION_BACKGROUND_CALLER,
+            throwable = FilterException.class)
     public void testImpl_failedForegroundCheck_throws() throws Exception {
         doThrow(new AppImportanceFilter.WrongCallingApplicationStateException())
                 .when(mCustomAudienceServiceFilterMock)
@@ -413,6 +465,10 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_FILTER_EXCEPTION_CALLER_NOT_ALLOWED,
+            throwable = FilterException.class)
     public void testImpl_failedEnrollmentCheck_throws() throws Exception {
         doThrow(new FledgeAuthorizationFilter.AdTechNotAllowedException())
                 .when(mCustomAudienceServiceFilterMock)
@@ -450,6 +506,10 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_FILTER_EXCEPTION_CALLER_NOT_ALLOWED,
+            throwable = FilterException.class)
     public void testImpl_appCannotUsePPAPI_throws() throws Exception {
         doThrow(new FledgeAllowListsFilter.AppNotAllowedException())
                 .when(mCustomAudienceServiceFilterMock)
@@ -570,11 +630,17 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
 
     @Test
     @ExpectErrorLogUtilCall(
-            errorCode = AD_SERVICES_ERROR_REPORTED__ERROR_CODE__CUSTOM_AUDIENCE_QUANTITY_CHECKER_REACHED_MAX_NUMBER_OF_TOTAL_CUSTOM_AUDIENCE,
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__CUSTOM_AUDIENCE_QUANTITY_CHECKER_REACHED_MAX_NUMBER_OF_TOTAL_CUSTOM_AUDIENCE,
             ppapiName = AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__FLEDGE)
     @ExpectErrorLogUtilCall(
-            errorCode = AD_SERVICES_ERROR_REPORTED__ERROR_CODE__CUSTOM_AUDIENCE_QUANTITY_CHECKER_REACHED_MAX_NUMBER_OF_CUSTOM_AUDIENCE_PER_OWNER,
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__CUSTOM_AUDIENCE_QUANTITY_CHECKER_REACHED_MAX_NUMBER_OF_CUSTOM_AUDIENCE_PER_OWNER,
             ppapiName = AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__FLEDGE)
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_ILLEGAL_ARGUMENT_ERROR,
+            throwable = IllegalArgumentException.class)
     public void testImpl_invalidRequest_quotaExhausted_throws() throws Exception {
         // Use flag values with a clearly small quota limits.
         mFetchCustomAudienceImpl =
@@ -618,6 +684,10 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_ILLEGAL_ARGUMENT_ERROR,
+            throwable = IllegalArgumentException.class)
     public void testImpl_invalidRequest_invalidName_throws() throws Exception {
         // Use flag value with a clearly small size limit.
         mFetchCustomAudienceImpl =
@@ -655,6 +725,10 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_ILLEGAL_ARGUMENT_ERROR,
+            throwable = IllegalArgumentException.class)
     public void testImpl_invalidRequest_invalidActivationTime_throws() throws Exception {
         mInputBuilder.setActivationTime(INVALID_DELAYED_ACTIVATION_TIME);
 
@@ -689,6 +763,10 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_ILLEGAL_ARGUMENT_ERROR,
+            throwable = IllegalArgumentException.class)
     public void testImpl_invalidRequest_invalidExpirationTime_throws() throws Exception {
         mInputBuilder.setExpirationTime(INVALID_BEYOND_MAX_EXPIRATION_TIME);
 
@@ -720,6 +798,10 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_ILLEGAL_ARGUMENT_ERROR,
+            throwable = IllegalArgumentException.class)
     public void testImpl_invalidRequest_invalidUserBiddingSignals_throws() throws Exception {
         // Use flag value with a clearly small size limit.
         mFetchCustomAudienceImpl =
@@ -757,6 +839,14 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_REQUEST_CUSTOM_HEADER_EXCEEDS_SIZE_LIMIT,
+            throwable = IllegalArgumentException.class)
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_ILLEGAL_ARGUMENT_ERROR,
+            throwable = IllegalArgumentException.class)
     public void testImpl_customHeaderExceedsLimit_throws() throws Exception {
         // Use flag value with a clearly small size limit.
         mFetchCustomAudienceImpl =
@@ -784,6 +874,14 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_INVALID_JSON_RESPONSE,
+            throwable = JSONException.class)
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_INVALID_OBJECT_ERROR,
+            throwable = InvalidObjectException.class)
     public void testImpl_invalidResponse_invalidJSONObject() throws Exception {
         String jsonString = "Not[A]VALID[JSON]";
         MockWebServer mockWebServer =
@@ -809,6 +907,14 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_INCOMPLETE_FUSED_CUSTOM_AUDIENCE,
+            throwable = InvalidObjectException.class)
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_INVALID_OBJECT_ERROR,
+            throwable = InvalidObjectException.class)
     public void testImpl_invalidFused_missingField() throws Exception {
         // Remove ads from the response, resulting in an incomplete fused custom audience.
         JSONObject validResponse =
@@ -837,6 +943,14 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_INCOMPLETE_FUSED_CUSTOM_AUDIENCE,
+            throwable = InvalidObjectException.class)
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_INVALID_OBJECT_ERROR,
+            throwable = InvalidObjectException.class)
     public void testImpl_invalidFused_missingFieldAuctionServerFlagsEnabled() throws Exception {
         enableAuctionServerRequestFlags();
 
@@ -867,6 +981,14 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_INCOMPLETE_FUSED_CUSTOM_AUDIENCE,
+            throwable = InvalidObjectException.class)
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_INVALID_OBJECT_ERROR,
+            throwable = InvalidObjectException.class)
     public void testImpl_invalidFused_missingFieldSellerConfigurationFlagEnabled()
             throws Exception {
         enableSellerConfigurationFlag();
@@ -898,6 +1020,10 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_ILLEGAL_ARGUMENT_ERROR,
+            throwable = IllegalArgumentException.class)
     public void testImpl_invalidFused_invalidField() throws Exception {
         // Replace buyer to cause mismatch.
         JSONObject validResponse =
@@ -946,6 +1072,14 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_FUSED_CUSTOM_AUDIENCE_EXCEEDS_SIZE_LIMIT,
+            throwable = InvalidObjectException.class)
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_INVALID_OBJECT_ERROR,
+            throwable = InvalidObjectException.class)
     public void testImpl_invalidFused_exceedsSizeLimit() throws Exception {
         // Use flag value with a clearly small size limit.
         mFetchCustomAudienceImpl =
@@ -1002,11 +1136,13 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
         callback.assertResultReceived();
 
         assertEquals(1, mockWebServer.getRequestCount());
-        verify(mCustomAudienceDaoMock)
-                .insertOrOverwriteCustomAudience(
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
                         FetchCustomAudienceFixture.getFullSuccessfulDBCustomAudience(),
                         getValidDailyUpdateUriByBuyer(BUYER),
-                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled());
+                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled(),
+                        List.of());
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
                         eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_SUCCESS), anyInt());
@@ -1034,11 +1170,13 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
 
         assertEquals(1, mockWebServer.getRequestCount());
         // Assert the response value is in fact discarded in favor of the request value.
-        verify(mCustomAudienceDaoMock)
-                .insertOrOverwriteCustomAudience(
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
                         FetchCustomAudienceFixture.getFullSuccessfulDBCustomAudience(),
                         getValidDailyUpdateUriByBuyer(BUYER),
-                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled());
+                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled(),
+                        List.of());
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
                         eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_SUCCESS), anyInt());
@@ -1058,11 +1196,13 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
         callback.assertResultReceived();
 
         assertEquals(1, mockWebServer.getRequestCount());
-        verify(mCustomAudienceDaoMock)
-                .insertOrOverwriteCustomAudience(
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
                         FetchCustomAudienceFixture.getFullSuccessfulDBCustomAudience(),
                         getValidDailyUpdateUriByBuyer(BUYER),
-                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled());
+                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled(),
+                        List.of());
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
                         eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_SUCCESS), anyInt());
@@ -1072,6 +1212,10 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_UNABLE_TO_SEND_SUCCESSFUL_RESULT_TO_CALLBACK,
+            throwable = RemoteException.class)
     public void testImpl_runNormally_CallbackThrowsException() throws Exception {
         // Respond with a complete custom audience including the request values as is.
         MockWebServer mockWebServer =
@@ -1094,6 +1238,14 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_UNABLE_TO_SEND_FAILURE_TO_CALLBACK,
+            throwable = RemoteException.class)
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_FILTER_EXCEPTION_CALLER_NOT_ALLOWED,
+            throwable = FilterException.class)
     public void testImpl_runWithFailure_CallbackThrowsException() throws Exception {
 
         // Just want the service to throw an exception so we trigger the failure callback
@@ -1149,13 +1301,15 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
         callback.assertResultReceived();
 
         assertEquals(1, mockWebServer.getRequestCount());
-        verify(mCustomAudienceDaoMock)
-                .insertOrOverwriteCustomAudience(
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
                         FetchCustomAudienceFixture
                                 .getFullSuccessfulDBCustomAudienceWithAuctionServerRequestFlags(
                                         FLAG_AUCTION_SERVER_REQUEST_OMIT_ADS),
                         getValidDailyUpdateUriByBuyer(BUYER),
-                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled());
+                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled(),
+                        List.of());
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
                         eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_SUCCESS), anyInt());
@@ -1185,11 +1339,83 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
 
         assertEquals(1, mockWebServer.getRequestCount());
         // Expect a CA without auction server request flags
-        verify(mCustomAudienceDaoMock)
-                .insertOrOverwriteCustomAudience(
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
                         FetchCustomAudienceFixture.getFullSuccessfulDBCustomAudience(),
                         getValidDailyUpdateUriByBuyer(BUYER),
-                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled());
+                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled(),
+                        List.of());
+        verify(mAdServicesLoggerMock)
+                .logFledgeApiCallStats(
+                        eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_SUCCESS), anyInt());
+    }
+
+    @Test
+    public void testImpl_runNormally_completeResponseWithComponentAdsDisabled() throws Exception {
+        disableComponentAds();
+
+        List<ComponentAdData> componentAdDataList =
+                ComponentAdDataFixture.getValidComponentAdsByBuyer(BUYER);
+
+        // Respond with a complete custom audience including the request values as is and auction
+        // request flags
+        MockWebServer mockWebServer =
+                mMockWebServerRule.startMockWebServer(
+                        List.of(
+                                new MockResponse()
+                                        .setBody(
+                                                getFullSuccessfulJsonResponseWithComponentAds(
+                                                                componentAdDataList, BUYER)
+                                                        .toString())));
+
+        FetchCustomAudienceTestSyncCallback callback =
+                callFetchCustomAudience(mInputBuilder.build());
+        callback.assertResultReceived();
+
+        assertEquals(1, mockWebServer.getRequestCount());
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
+                        FetchCustomAudienceFixture.getFullSuccessfulDBCustomAudience(),
+                        getValidDailyUpdateUriByBuyer(BUYER),
+                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled(),
+                        List.of());
+        verify(mAdServicesLoggerMock)
+                .logFledgeApiCallStats(
+                        eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_SUCCESS), anyInt());
+    }
+
+    @Test
+    public void testImpl_runNormally_completeResponseWithComponentAdsEnabled() throws Exception {
+        enableComponentAds();
+
+        List<ComponentAdData> componentAdDataList =
+                ComponentAdDataFixture.getValidComponentAdsByBuyer(BUYER);
+
+        // Respond with a complete custom audience including the request values as is and auction
+        // request flags
+        MockWebServer mockWebServer =
+                mMockWebServerRule.startMockWebServer(
+                        List.of(
+                                new MockResponse()
+                                        .setBody(
+                                                getFullSuccessfulJsonResponseWithComponentAds(
+                                                                componentAdDataList, BUYER)
+                                                        .toString())));
+
+        FetchCustomAudienceTestSyncCallback callback =
+                callFetchCustomAudience(mInputBuilder.build());
+        callback.assertResultReceived();
+
+        assertEquals(1, mockWebServer.getRequestCount());
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
+                        FetchCustomAudienceFixture.getFullSuccessfulDBCustomAudience(),
+                        getValidDailyUpdateUriByBuyer(BUYER),
+                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled(),
+                        componentAdDataList);
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
                         eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_SUCCESS), anyInt());
@@ -1269,11 +1495,13 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
 
         assertEquals(1, mockWebServer.getRequestCount());
         // Expect a CA without auction server request flags
-        verify(mCustomAudienceDaoMock)
-                .insertOrOverwriteCustomAudience(
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
                         FetchCustomAudienceFixture.getFullSuccessfulDBCustomAudience(),
                         getValidDailyUpdateUriByBuyer(BUYER),
-                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled());
+                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled(),
+                        List.of());
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
                         eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_SUCCESS), anyInt());
@@ -1302,12 +1530,14 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
         callback.assertResultReceived();
 
         assertEquals(1, mockWebServer.getRequestCount());
-        verify(mCustomAudienceDaoMock)
-                .insertOrOverwriteCustomAudience(
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
                         FetchCustomAudienceFixture.getFullSuccessfulDBCustomAudienceWithPriority(
                                 VALID_PRIORITY_1),
                         getValidDailyUpdateUriByBuyer(BUYER),
-                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled());
+                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled(),
+                        List.of());
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
                         eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_SUCCESS), anyInt());
@@ -1336,11 +1566,13 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
         callback.assertResultReceived();
 
         assertEquals(1, mockWebServer.getRequestCount());
-        verify(mCustomAudienceDaoMock)
-                .insertOrOverwriteCustomAudience(
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
                         FetchCustomAudienceFixture.getFullSuccessfulDBCustomAudience(),
                         getValidDailyUpdateUriByBuyer(BUYER),
-                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled());
+                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled(),
+                        List.of());
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
                         eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_SUCCESS), anyInt());
@@ -1363,11 +1595,13 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
 
         callback.assertResultReceived();
         assertEquals(1, mockWebServer.getRequestCount());
-        verify(mCustomAudienceDaoMock)
-                .insertOrOverwriteCustomAudience(
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
                         FetchCustomAudienceFixture.getFullSuccessfulDBCustomAudience(),
                         getValidDailyUpdateUriByBuyer(BUYER),
-                        /* debuggable= */ true);
+                        /* debuggable= */ true,
+                        List.of());
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
                         eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_SUCCESS), anyInt());
@@ -1400,18 +1634,24 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
         callback.assertResultReceived();
 
         assertEquals(1, mockWebServer.getRequestCount());
-        verify(mCustomAudienceDaoMock)
-                .insertOrOverwriteCustomAudience(
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
                         FetchCustomAudienceFixture
                                 .getFullSuccessfulDBCustomAudienceWithAdRenderId(),
                         getValidDailyUpdateUriByBuyer(BUYER),
-                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled());
+                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled(),
+                        List.of());
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
                         eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_SUCCESS), anyInt());
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_ILLEGAL_ARGUMENT_ERROR,
+            throwable = IllegalArgumentException.class)
     public void testImpl_withAdRenderId_onlyInvalidAdRenderIds_fail() throws Exception {
         // Enable server auction Ad Render Ids
         mFetchCustomAudienceImpl =
@@ -1481,11 +1721,13 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
                 ArgumentCaptor.forClass(DBCustomAudience.class);
 
         assertEquals(1, mockWebServer.getRequestCount());
-        verify(mCustomAudienceDaoMock)
-                .insertOrOverwriteCustomAudience(
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        eq(mCustomAudienceDaoMock),
                         argumentDBCustomAudience.capture(),
                         eq(getValidDailyUpdateUriByBuyer(BUYER)),
-                        eq(DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled()));
+                        eq(DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled()),
+                        eq(List.of()));
         DBCustomAudience dbCustomAudience = argumentDBCustomAudience.getValue();
         Assert.assertNotEquals(
                 FetchCustomAudienceFixture.getFullSuccessfulDBCustomAudienceWithAdRenderId(),
@@ -1533,27 +1775,39 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
         FetchCustomAudienceTestSyncCallback callback1 =
                 callFetchCustomAudience(mInputBuilder.build());
         callback1.assertResultReceived();
-        verify(mCustomAudienceDaoMock)
-                .insertOrOverwriteCustomAudience(
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
                         FetchCustomAudienceFixture.getFullSuccessfulDBCustomAudience(),
                         getValidDailyUpdateUriByBuyer(BUYER),
-                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled());
+                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled(),
+                        List.of());
 
         FetchCustomAudienceTestSyncCallback callback2 =
                 callFetchCustomAudience(mInputBuilder.build());
         callback2.assertResultReceived();
-        verify(mCustomAudienceDaoMock)
-                .insertOrOverwriteCustomAudience(
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
                         FetchCustomAudienceFixture.getFullSuccessfulDBCustomAudience(),
-                        differentDailyUpdateUri,
-                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled());
-
+                        getValidDailyUpdateUriByBuyer(BUYER),
+                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled(),
+                        List.of());
         verify(mAdServicesLoggerMock, times(2))
                 .logFledgeApiCallStats(
                         eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_SUCCESS), anyInt());
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_INTERNAL_ERROR,
+            throwable = AdServicesNetworkException.class)
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__AD_SERVICES_HTTPS_CLIENT_HTTP_REQUEST_ERROR,
+            ppapiName = AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__COMMON,
+            throwable = AdServicesNetworkException.class)
     public void testImpl_requestRejectedByServer() throws Exception {
         // Respond with a 403
         MockWebServer mockWebServer =
@@ -1566,14 +1820,23 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
         assertNotNull(errorResponse);
         assertEquals(1, mockWebServer.getRequestCount());
         assertEquals(STATUS_INTERNAL_ERROR, errorResponse.getStatusCode());
-        verify(mCustomAudienceDaoMock, times(/* wantedNumberOfInvocations= */ 0))
-                .insertOrOverwriteCustomAudience(any(), any(), anyBoolean());
+        verify(mComponentAdsStrategyMock, never())
+                .persistCustomAudiencesWithComponentAds(any(), any(), any(), anyBoolean(), any());
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
                         eq(API_NAME), eq(TEST_PACKAGE_NAME), eq(STATUS_INTERNAL_ERROR), anyInt());
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_SERVER_RATE_LIMIT_REACHED,
+            throwable = RetryableAdServicesNetworkException.class)
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__AD_SERVICES_HTTPS_CLIENT_HTTP_REQUEST_RETRIABLE_ERROR,
+            ppapiName = AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__COMMON,
+            throwable = RetryableAdServicesNetworkException.class)
     public void testImpl_AddsToQuarantineTableWhenServerReturns429() throws Exception {
         // Respond with a 429
         MockWebServer mockWebServer =
@@ -1598,6 +1861,14 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
     }
 
     @Test
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_QUARANTINED,
+            throwable = LimitExceededException.class)
+    @ExpectErrorLogUtilWithExceptionCall(
+            errorCode =
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__FETCH_CUSTOM_AUDIENCE_IMPL_NOTIFY_FAILURE_SERVER_RATE_LIMIT_REACHED,
+            throwable = LimitExceededException.class)
     public void testImpl_ReturnsServerRateLimitReachedWhenEntryIsInQuarantineTable()
             throws Exception {
         doReturn(true)
@@ -1649,11 +1920,13 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
         verify(mCustomAudienceDaoMock).doesCustomAudienceQuarantineExist(VALID_OWNER, BUYER);
         verify(mCustomAudienceDaoMock).getCustomAudienceQuarantineExpiration(VALID_OWNER, BUYER);
         verify(mCustomAudienceDaoMock).deleteQuarantineEntry(VALID_OWNER, BUYER);
-        verify(mCustomAudienceDaoMock)
-                .insertOrOverwriteCustomAudience(
+        verify(mComponentAdsStrategyMock)
+                .persistCustomAudiencesWithComponentAds(
+                        mCustomAudienceDaoMock,
                         FetchCustomAudienceFixture.getFullSuccessfulDBCustomAudience(),
                         getValidDailyUpdateUriByBuyer(BUYER),
-                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled());
+                        DevContext.createForDevOptionsDisabled().getDeviceDevOptionsEnabled(),
+                        List.of());
 
         verify(mAdServicesLoggerMock)
                 .logFledgeApiCallStats(
@@ -1668,6 +1941,30 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
                             @Override
                             public boolean getFledgeAuctionServerRequestFlagsEnabled() {
                                 return true;
+                            }
+                        });
+    }
+
+    private void enableComponentAds() {
+        // Enable auction server request flags
+        mFetchCustomAudienceImpl =
+                getImplWithFlags(
+                        new FetchCustomAudienceFlags() {
+                            @Override
+                            public boolean getEnableCustomAudienceComponentAds() {
+                                return true;
+                            }
+                        });
+    }
+
+    private void disableComponentAds() {
+        // Enable auction server request flags
+        mFetchCustomAudienceImpl =
+                getImplWithFlags(
+                        new FetchCustomAudienceFlags() {
+                            @Override
+                            public boolean getEnableCustomAudienceComponentAds() {
+                                return false;
                             }
                         });
     }
@@ -1724,7 +2021,8 @@ public final class FetchCustomAudienceImplTest extends AdServicesExtendedMockito
                 mHttpClientSpy,
                 mAdFilteringFeatureFactory.getFrequencyCapAdDataValidator(),
                 mAdRenderIdValidator,
-                AD_DATA_CONVERSION_STRATEGY);
+                AD_DATA_CONVERSION_STRATEGY,
+                mComponentAdsStrategyMock);
     }
 
     private static final class FetchCustomAudienceTestThrowingCallback
