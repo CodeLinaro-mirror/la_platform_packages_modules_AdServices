@@ -114,6 +114,7 @@ import com.android.adservices.data.customaudience.DBCustomAudienceToLeave;
 import com.android.adservices.data.customaudience.DBPartialCustomAudience;
 import com.android.adservices.data.customaudience.DBScheduledCustomAudienceUpdate;
 import com.android.adservices.data.customaudience.DBScheduledCustomAudienceUpdateRequest;
+import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.adselection.AdFilteringFeatureFactory;
 import com.android.adservices.service.common.AdRenderIdValidator;
 import com.android.adservices.service.common.FledgeAuthorizationFilter;
@@ -132,6 +133,7 @@ import com.android.adservices.service.stats.ScheduledCustomAudienceUpdateBackgro
 import com.android.adservices.service.stats.ScheduledCustomAudienceUpdatePerformedFailureStats;
 import com.android.adservices.service.stats.ScheduledCustomAudienceUpdatePerformedStats;
 import com.android.adservices.service.stats.ScheduledCustomAudienceUpdateScheduleAttemptedStats;
+import com.android.adservices.shared.testing.SkipLoggingUsageRule;
 import com.android.adservices.shared.testing.annotations.SetFlagTrue;
 import com.android.adservices.shared.testing.annotations.SetIntegerFlag;
 import com.android.adservices.shared.testing.annotations.SetLongFlag;
@@ -170,7 +172,11 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 @MockStatic(BackgroundFetchJob.class)
+@MockStatic(FlagsFactory.class)
 @SetFlagTrue(KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ENABLED)
+// TODO (b/384952360): refine CEL related verifications later
+@SkipLoggingUsageRule(reason = "b/384952360")
+@SuppressWarnings("DoNotMockErrorLogUtilBehavior") // TODO(b/384952360)
 public final class ScheduledUpdatesHandlerTest extends AdServicesExtendedMockitoTestCase {
 
     private static final String OWNER = CustomAudienceFixture.VALID_OWNER;
@@ -248,6 +254,10 @@ public final class ScheduledUpdatesHandlerTest extends AdServicesExtendedMockito
 
     @Before
     public void setup() throws Exception {
+        // TODO (b/384952360): Delete doNothingOnErrorLogUtilError when all CEL logs in this test
+        // are captured properly.
+        doNothingOnErrorLogUtilError();
+        mocker.mockGetFlags(mFakeFlags);
         mAdFilteringFeatureFactory =
                 new AdFilteringFeatureFactory(mAppInstallDaoMock, mFrequencyCapDaoMock, mFakeFlags);
 
