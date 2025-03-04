@@ -16,6 +16,7 @@
 
 package com.android.adservices.service.common;
 
+import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,7 +28,6 @@ import static org.mockito.Mockito.when;
 import com.android.adservices.common.AdServicesMockitoTestCase;
 import com.android.adservices.data.adselection.AppInstallDao;
 import com.android.adservices.data.adselection.FrequencyCapDao;
-import com.android.adservices.data.adselection.ProtectedServersEncryptionConfigDao;
 import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.measurement.DatastoreManager;
 import com.android.adservices.data.signals.EncodedPayloadDao;
@@ -54,7 +54,6 @@ public final class DatabaseClearerTest extends AdServicesMockitoTestCase {
     @Mock private EncodedPayloadDao mEncodedPayloadDao;
     @Mock private ProtectedSignalsDao mProtectedSignalsDao;
     @Mock private DatastoreManager mDatastoreManager;
-    @Mock private ProtectedServersEncryptionConfigDao mProtectedServersEncryptionConfigDao;
     private DatabaseClearer mDatabaseClearer;
 
     @Before
@@ -78,115 +77,92 @@ public final class DatabaseClearerTest extends AdServicesMockitoTestCase {
                         mProtectedSignalsDao,
                         mEncodedPayloadDao,
                         mDatastoreManager,
-                        mProtectedServersEncryptionConfigDao,
                         backgroundExecutor);
     }
 
     @Test
-    public void testDeleteProtectedAudienceAppSignalsAndEncryptionConfigData_success()
-            throws Exception {
-        ListenableFuture<Void> future =
-                mDatabaseClearer.deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
+    public void testDeleteAllProtectedAudienceAndAppSignals_Data_success() throws Exception {
+        ListenableFuture<Boolean> future =
+                mDatabaseClearer.deleteProtectedAudienceAndAppSignalsData(
                         /* deleteCustomAudienceUpdate= */ true,
                         /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ true);
+                        /* deleteProtectedSignals= */ true);
 
-        future.get(); // Wait for the future to complete
+        assertThat(future.get()).isTrue(); // Wait for the future to complete
 
         verify(mCustomAudienceDao, times(1)).deleteAllCustomAudienceData(true);
         verify(mFrequencyCapDao, times(1)).deleteAllHistogramData();
         verify(mAppInstallDao, times(1)).deleteAllAppInstallData();
         verify(mProtectedSignalsDao, times(1)).deleteAllSignals();
         verify(mEncodedPayloadDao, times(1)).deleteAllEncodedPayloads();
-        verify(mProtectedServersEncryptionConfigDao, times(1)).deleteAllEncryptionKeys();
     }
 
     @Test
-    public void
-            testDeleteProtectedAudienceAppSignalsAndEncryptionConfigData_customAudienceDaoFails() {
+    public void testDeleteAllProtectedAudienceAndAppSignals_customAudienceDaoFailsData() {
         doThrow(new RuntimeException("Custom Audience DAO failed"))
                 .when(mCustomAudienceDao)
                 .deleteAllCustomAudienceData(true);
 
-        ListenableFuture<Void> future =
-                mDatabaseClearer.deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
+        ListenableFuture<Boolean> future =
+                mDatabaseClearer.deleteProtectedAudienceAndAppSignalsData(
                         /* deleteCustomAudienceUpdate= */ true,
                         /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ true);
+                        /* deleteProtectedSignals= */ true);
 
-        assertThrows(ExecutionException.class, future::get);
+        assertThrows(
+                ExecutionException.class,
+                () -> {
+                    assertThat(future.get()).isTrue(); // Wait for the future to complete
+                });
     }
 
     @Test
-    public void
-            testDeleteProtectedAudienceAppSignalsAndEncryptionConfigData_frequencyCapDaoFails() {
+    public void testDeleteAllProtectedAudienceAndAppSignals_Data_frequencyCapDaoFails() {
         doThrow(new RuntimeException("Frequency Cap DAO failed"))
                 .when(mFrequencyCapDao)
                 .deleteAllHistogramData();
 
-        ListenableFuture<Void> future =
-                mDatabaseClearer.deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
+        ListenableFuture<Boolean> future =
+                mDatabaseClearer.deleteProtectedAudienceAndAppSignalsData(
                         /* deleteCustomAudienceUpdate= */ true,
                         /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ true);
+                        /* deleteProtectedSignals= */ true);
 
-        assertThrows(ExecutionException.class, future::get);
+        assertThrows(ExecutionException.class, () -> assertThat(future.get()).isTrue());
     }
 
     @Test
-    public void testDeleteProtectedAudienceAppSignalsAndEncryptionConfigData_appInstallDaoFails() {
+    public void testDeleteAllProtectedAudienceAndAppSignals_appInstallDaoFailsData() {
         doThrow(new RuntimeException("App Install DAO failed"))
                 .when(mAppInstallDao)
                 .deleteAllAppInstallData();
 
-        ListenableFuture<Void> future =
-                mDatabaseClearer.deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
+        ListenableFuture<Boolean> future =
+                mDatabaseClearer.deleteProtectedAudienceAndAppSignalsData(
                         /* deleteCustomAudienceUpdate= */ true,
                         /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ true);
+                        /* deleteProtectedSignals= */ true);
 
-        assertThrows(ExecutionException.class, future::get);
+        assertThrows(ExecutionException.class, () -> assertThat(future.get()).isTrue());
     }
 
     @Test
-    public void
-            testDeleteProtectedAudienceAppSignalsAndEncryptionConfigData_protectedSignalsDaoFails() {
+    public void testDeleteAllProtectedAudienceAndAppSignals_protectedSignalsDataDaoFails() {
         doThrow(new RuntimeException("Protected Signals DAO failed"))
                 .when(mProtectedSignalsDao)
                 .deleteAllSignals();
 
-        ListenableFuture<Void> future =
-                mDatabaseClearer.deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
+        ListenableFuture<Boolean> future =
+                mDatabaseClearer.deleteProtectedAudienceAndAppSignalsData(
                         /* deleteCustomAudienceUpdate= */ true,
                         /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ true);
+                        /* deleteProtectedSignals= */ true);
 
-        assertThrows(ExecutionException.class, future::get);
+        assertThrows(ExecutionException.class, () -> assertThat(future.get()).isTrue());
     }
 
     @Test
-    public void testDeleteProtectedAudienceAppSignalsAndEncryptionConfigData_encryptionDaoFails() {
-        doThrow(new RuntimeException("Encryption Config DAO failed"))
-                .when(mProtectedServersEncryptionConfigDao)
-                .deleteAllEncryptionKeys();
-
-        ListenableFuture<Void> future =
-                mDatabaseClearer.deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
-                        /* deleteCustomAudienceUpdate= */ true,
-                        /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ true);
-
-        assertThrows(ExecutionException.class, future::get);
-    }
-
-    @Test
-    public void testDeleteProtectedAudienceAppSignalsAndEncryptionConfigData_allDaosFail() {
+    public void testDeleteAllProtectedAudienceAndAppSignals_Data_allDaosFail() {
         doThrow(new RuntimeException("Custom Audience DAO failed"))
                 .when(mCustomAudienceDao)
                 .deleteAllCustomAudienceData(true);
@@ -199,18 +175,14 @@ public final class DatabaseClearerTest extends AdServicesMockitoTestCase {
         doThrow(new RuntimeException("Protected Signals DAO failed"))
                 .when(mProtectedSignalsDao)
                 .deleteAllSignals();
-        doThrow(new RuntimeException("Encryption Config DAO failed"))
-                .when(mProtectedServersEncryptionConfigDao)
-                .deleteAllEncryptionKeys();
 
-        ListenableFuture<Void> future =
-                mDatabaseClearer.deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
+        ListenableFuture<Boolean> future =
+                mDatabaseClearer.deleteProtectedAudienceAndAppSignalsData(
                         /* deleteCustomAudienceUpdate= */ true,
                         /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ true);
+                        /* deleteProtectedSignals= */ true);
 
-        assertThrows(ExecutionException.class, future::get);
+        assertThrows(ExecutionException.class, () -> assertThat(future.get()).isTrue());
     }
 
     @Test

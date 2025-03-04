@@ -118,7 +118,6 @@ import com.android.adservices.service.devapi.DevContextFilter;
 import com.android.adservices.service.enrollment.EnrollmentData;
 import com.android.adservices.service.kanon.KAnonSignJoinFactory;
 import com.android.adservices.service.measurement.MeasurementImpl;
-import com.android.adservices.service.measurement.countunique.CountUniqueRegistrar;
 import com.android.adservices.service.measurement.inputverification.ClickVerifier;
 import com.android.adservices.service.measurement.noising.SourceNoiseHandler;
 import com.android.adservices.service.measurement.ondevicepersonalization.IOdpDelegationWrapper;
@@ -208,6 +207,8 @@ public final class ReportAndRegisterEventIntegrationTest extends AdServicesExten
     private AdFilteringFeatureFactory mAdFilteringFeatureFactory;
     @Mock private AdSelectionServiceFilter mAdSelectionServiceFilterMock;
     @Mock private ObliviousHttpEncryptor mObliviousHttpEncryptor;
+    private MultiCloudSupportStrategy mMultiCloudSupportStrategy =
+            MultiCloudTestStrategyFactory.getDisabledTestStrategy(mObliviousHttpEncryptor);
     @Mock private AdSelectionDebugReportDao mAdSelectionDebugReportDaoMock;
     @Mock private AdIdFetcher mAdIdFetcher;
     @Mock private KAnonSignJoinFactory mUnusedKAnonSignJoinFactory;
@@ -272,15 +273,12 @@ public final class ReportAndRegisterEventIntegrationTest extends AdServicesExten
     @Mock private AggregateDebugReportApi mAdrApiMock;
     @Mock private DebugReportApi mDebugReportApiMock;
 
-    @Mock private CountUniqueRegistrar mCountUniqueMock;
-
     @Spy
     private AsyncSourceFetcher mAsyncSourceFetcherSpy =
             new AsyncSourceFetcher(
                     mContext,
                     mEnrollmentDaoMock,
                     mFakeFlags,
-                    mCountUniqueMock,
                     mDatastoreManagerSpy,
                     mDebugReportApiMock);
 
@@ -1002,7 +1000,7 @@ public final class ReportAndRegisterEventIntegrationTest extends AdServicesExten
                 mAdSelectionServiceFilterMock,
                 mAdFilteringFeatureFactory,
                 mConsentManagerMock,
-                mObliviousHttpEncryptor,
+                mMultiCloudSupportStrategy,
                 mAdSelectionDebugReportDaoMock,
                 mAdIdFetcher,
                 mUnusedKAnonSignJoinFactory,

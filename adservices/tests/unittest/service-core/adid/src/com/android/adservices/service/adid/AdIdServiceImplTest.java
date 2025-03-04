@@ -32,6 +32,7 @@ import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICE
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -64,18 +65,23 @@ import com.android.adservices.service.common.AppImportanceFilter;
 import com.android.adservices.service.common.AppImportanceFilter.WrongCallingApplicationStateException;
 import com.android.adservices.service.common.Throttler;
 import com.android.adservices.service.stats.AdServicesLogger;
+import com.android.adservices.service.stats.AdServicesLoggerImpl;
 import com.android.adservices.service.stats.ApiCallStats;
 import com.android.adservices.shared.testing.IntFailureSyncCallback;
 import com.android.adservices.shared.testing.annotations.RequiresSdkLevelAtLeastT;
-import com.android.adservices.shared.testing.concurrency.ResultSyncCallback;
 import com.android.adservices.shared.util.Clock;
 import com.android.modules.utils.testing.ExtendedMockitoRule.SpyStatic;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.stubbing.Answer;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /** Unit test for {@link com.android.adservices.service.adid.AdIdServiceImpl}. */
 @SpyStatic(Binder.class)
@@ -88,14 +94,16 @@ public final class AdIdServiceImplTest extends AdServicesExtendedMockitoTestCase
     private static final String INVALID_PACKAGE_NAME = "com.do_not_exists";
     private static final String SOME_SDK_NAME = "SomeSdkName";
     private static final int BINDER_CONNECTION_TIMEOUT_MS = 5_000;
+    private static final int LOGGER_EVENT_TIMEOUT_MS = 5_000;
     private static final String SDK_PACKAGE_NAME = "test_package_name";
     // See android.os.Process, that FIRST_SDK_SANDBOX_UID = 20000 and LAST_SDK_SANDBOX_UID = 29999.
     private static final int SANDBOX_UID = 25000;
+
+    private final AdServicesLogger mSpyAdServicesLogger = spy(AdServicesLoggerImpl.getInstance());
     private CallerMetadata mCallerMetadata;
     private AdIdWorker mAdIdWorker;
     private GetAdIdParam mRequest;
 
-    @Mock private AdServicesLogger mMockAdServicesLogger;
     @Mock private PackageManager mMockPackageManager;
     @Mock private Clock mMockClock;
     @Mock private Context mMockSdkContext;
@@ -266,15 +274,16 @@ public final class AdIdServiceImplTest extends AdServicesExtendedMockitoTestCase
                         .build();
 
         SyncIGetAdIdCallback callback = new SyncIGetAdIdCallback(BINDER_CONNECTION_TIMEOUT_MS);
-
-        ResultSyncCallback<ApiCallStats> logApiCallStatsCallback =
-                mocker.mockLogApiCallStats(mMockAdServicesLogger, BINDER_CONNECTION_TIMEOUT_MS);
+        CountDownLatch logOperationCalledLatch = new CountDownLatch(1);
+        mockLoggerEvent(logOperationCalledLatch);
 
         adidService.getAdId(mRequest, mCallerMetadata, callback);
         callback.assertFailed(STATUS_CALLER_NOT_ALLOWED_PACKAGE_NOT_IN_ALLOWLIST);
 
         // Verify the logger event has occurred.
-        logApiCallStatsCallback.assertCalled();
+        assertWithMessage("Logger event:")
+                .that(logOperationCalledLatch.await(LOGGER_EVENT_TIMEOUT_MS, TimeUnit.MILLISECONDS))
+                .isTrue();
     }
 
     @Test
@@ -323,14 +332,14 @@ public final class AdIdServiceImplTest extends AdServicesExtendedMockitoTestCase
             boolean checkLoggingStatus)
             throws InterruptedException {
         SyncIGetAdIdCallback callback = new SyncIGetAdIdCallback(BINDER_CONNECTION_TIMEOUT_MS);
-        ResultSyncCallback<ApiCallStats> logApiCallStatsCallback =
-                mocker.mockLogApiCallStats(mMockAdServicesLogger, BINDER_CONNECTION_TIMEOUT_MS);
+        CountDownLatch logOperationCalledLatch = new CountDownLatch(1);
+        mockLoggerEvent(logOperationCalledLatch);
 
         mAdIdServiceImpl =
                 new AdIdServiceImpl(
                         context,
                         mAdIdWorker,
-                        mMockAdServicesLogger,
+                        mSpyAdServicesLogger,
                         mMockClock,
                         mMockFlags,
                         mMockThrottler,
@@ -340,11 +349,15 @@ public final class AdIdServiceImplTest extends AdServicesExtendedMockitoTestCase
 
         if (checkLoggingStatus) {
             // Verify the logger event has occurred.
-            logApiCallStatsCallback.assertCalled();
+            assertWithMessage("Logger event:")
+                    .that(
+                            logOperationCalledLatch.await(
+                                    LOGGER_EVENT_TIMEOUT_MS, TimeUnit.MILLISECONDS))
+                    .isTrue();
 
             ArgumentCaptor<ApiCallStats> argument = ArgumentCaptor.forClass(ApiCallStats.class);
 
-            verify(mMockAdServicesLogger).logApiCallStats(argument.capture());
+            verify(mSpyAdServicesLogger).logApiCallStats(argument.capture());
             assertThat(argument.getValue().getCode()).isEqualTo(AD_SERVICES_API_CALLED);
             assertThat(argument.getValue().getApiClass())
                     .isEqualTo(AD_SERVICES_API_CALLED__API_CLASS__ADID);
@@ -363,13 +376,15 @@ public final class AdIdServiceImplTest extends AdServicesExtendedMockitoTestCase
         GetAdIdResult expectedGetAdIdResult =
                 new GetAdIdResult.Builder().setAdId(AdId.ZERO_OUT).setLatEnabled(false).build();
 
-        ResultSyncCallback<ApiCallStats> logApiCallStatsCallback =
-                mocker.mockLogApiCallStats(mMockAdServicesLogger, BINDER_CONNECTION_TIMEOUT_MS);
+        CountDownLatch loggerCountDownLatch = new CountDownLatch(1);
+        mockLoggerEvent(loggerCountDownLatch);
         final GetAdIdResult getAdIdResult = getAdIdResults(adIdServiceImpl);
         assertThat(getAdIdResult.getAdId()).isEqualTo(expectedGetAdIdResult.getAdId());
 
         // Verify the logger event has occurred.
-        logApiCallStatsCallback.assertCalled();
+        assertWithMessage("Logger event:")
+                .that(loggerCountDownLatch.await(LOGGER_EVENT_TIMEOUT_MS, TimeUnit.MILLISECONDS))
+                .isTrue();
     }
 
     @NonNull
@@ -386,7 +401,7 @@ public final class AdIdServiceImplTest extends AdServicesExtendedMockitoTestCase
         return new AdIdServiceImpl(
                 mSpyContext,
                 mAdIdWorker,
-                mMockAdServicesLogger,
+                mSpyAdServicesLogger,
                 mMockClock,
                 mMockFlags,
                 mMockThrottler,
@@ -398,7 +413,7 @@ public final class AdIdServiceImplTest extends AdServicesExtendedMockitoTestCase
         return new AdIdServiceImpl(
                 mMockSdkContext,
                 mAdIdWorker,
-                mMockAdServicesLogger,
+                mSpyAdServicesLogger,
                 mMockClock,
                 mMockFlags,
                 mMockThrottler,
@@ -412,6 +427,19 @@ public final class AdIdServiceImplTest extends AdServicesExtendedMockitoTestCase
         doReturn(packageInfo)
                 .when(mMockPackageManager)
                 .getPackageInfo(eq(packageName), eq(PackageManager.GET_PERMISSIONS));
+    }
+
+    private void mockLoggerEvent(CountDownLatch loggerCountDownLatch) {
+        Mockito.doAnswer(
+                        (Answer<Object>)
+                                invocation -> {
+                                    // The method logAPiCallStats is called.
+                                    invocation.callRealMethod();
+                                    loggerCountDownLatch.countDown();
+                                    return null;
+                                })
+                .when(mSpyAdServicesLogger)
+                .logApiCallStats(ArgumentMatchers.any(ApiCallStats.class));
     }
 
     private static final class SyncIGetAdIdCallback extends IntFailureSyncCallback<GetAdIdResult>

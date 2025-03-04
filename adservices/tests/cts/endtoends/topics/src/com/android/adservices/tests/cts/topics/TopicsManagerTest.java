@@ -31,13 +31,14 @@ import android.adservices.topics.GetTopicsResponse;
 import android.adservices.topics.Topic;
 import android.adservices.topics.TopicsManager;
 
+import androidx.test.filters.FlakyTest;
+
 import com.android.adservices.common.AdservicesTestHelper;
 import com.android.adservices.service.FlagsConstants;
 import com.android.adservices.shared.common.exception.ServiceUnavailableException;
 import com.android.adservices.shared.testing.OutcomeReceiverForTests;
 import com.android.adservices.shared.testing.annotations.EnableDebugFlag;
 import com.android.adservices.shared.testing.annotations.RequiresLowRamDevice;
-import com.android.adservices.shared.testing.annotations.RequiresSdkLevelAtLeastS;
 import com.android.adservices.topics.TopicsTestHelper;
 import com.android.compatibility.common.util.ShellUtils;
 
@@ -52,7 +53,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 @EnableDebugFlag(KEY_RECORD_TOPICS_COMPLETE_BROADCAST_ENABLED)
-@RequiresSdkLevelAtLeastS
 public final class TopicsManagerTest extends CtsTopicsEndToEndTestCase {
 
     // Test constants for testing encryption
@@ -116,6 +116,7 @@ public final class TopicsManagerTest extends CtsTopicsEndToEndTestCase {
     }
 
     @Test
+    @FlakyTest(bugId = 349347165)
     // @RequiresGlobalKillSwitchDisabled // TODO(b/284971005): re-add when it uses the rule / runner
     public void testTopicsManager_testTopicsKillSwitch() throws Exception {
         // Override Topics kill switch to disable Topics API.
@@ -145,6 +146,7 @@ public final class TopicsManagerTest extends CtsTopicsEndToEndTestCase {
     }
 
     @Test
+    @FlakyTest(bugId = 349347165)
     public void testTopicsManager_disableDirectAppCalls_testEmptySdkNameRequests()
             throws Exception {
         flags.setFlag(FlagsConstants.KEY_TOPICS_DISABLE_DIRECT_APP_CALLS, true);
@@ -164,6 +166,7 @@ public final class TopicsManagerTest extends CtsTopicsEndToEndTestCase {
     }
 
     @Test
+    @FlakyTest(bugId = 349347165)
     public void testTopicsManager_testOnDeviceKillSwitch_shouldUsePrecomputedList()
             throws Exception {
         // Override Topics on device classifier kill switch to disable on device classifier.
@@ -221,12 +224,14 @@ public final class TopicsManagerTest extends CtsTopicsEndToEndTestCase {
     }
 
     @Test
+    @FlakyTest(bugId = 349347165)
     public void testTopicsManager_runDefaultClassifier_usingGetMethodToCreateManager()
             throws Exception {
         testTopicsManager_runDefaultClassifier(/* useGetMethodToCreateManager */ true);
     }
 
     @Test
+    @FlakyTest(bugId = 349347165)
     public void testTopicsManager_runDefaultClassifier() throws Exception {
         testTopicsManager_runDefaultClassifier(/* useGetMethodToCreateManager */ false);
     }
@@ -298,6 +303,7 @@ public final class TopicsManagerTest extends CtsTopicsEndToEndTestCase {
     }
 
     @Test
+    @FlakyTest(bugId = 349347165)
     @Ignore("b/353956086")
     public void testTopicsManager_runOnDeviceClassifier_usingGetMethodToCreateManager()
             throws Exception {
@@ -305,6 +311,7 @@ public final class TopicsManagerTest extends CtsTopicsEndToEndTestCase {
     }
 
     @Test
+    @FlakyTest(bugId = 349347165)
     @Ignore("b/353956086")
     public void testTopicsManager_runOnDeviceClassifier() throws Exception {
         testTopicsManager_runOnDeviceClassifier(false);
@@ -386,12 +393,14 @@ public final class TopicsManagerTest extends CtsTopicsEndToEndTestCase {
     }
 
     @Test
+    @FlakyTest(bugId = 349347165)
     public void testTopicsManager_runPrecomputedClassifier_usingGetMethodToCreateManager()
             throws Exception {
         testTopicsManager_runPrecomputedClassifier(/* useGetMethodToCreateManager= */ true);
     }
 
     @Test
+    @FlakyTest(bugId = 349347165)
     public void testTopicsManager_runPrecomputedClassifier() throws Exception {
         testTopicsManager_runPrecomputedClassifier(/* useGetMethodToCreateManager= */ false);
     }
@@ -449,6 +458,7 @@ public final class TopicsManagerTest extends CtsTopicsEndToEndTestCase {
     }
 
     @Test
+    @FlakyTest(bugId = 349347165)
     public void testTopicsManager_runPrecomputedClassifier_encryptedTopics_usingGetManager()
             throws Exception {
         testTopicsManager_runPrecomputedClassifier_encryptedTopics(
@@ -456,6 +466,7 @@ public final class TopicsManagerTest extends CtsTopicsEndToEndTestCase {
     }
 
     @Test
+    @FlakyTest(bugId = 349347165)
     public void testTopicsManager_runPrecomputedClassifier_encryptedTopics() throws Exception {
         testTopicsManager_runPrecomputedClassifier_encryptedTopics(
                 /* useGetMethodToCreateManager= */ false);

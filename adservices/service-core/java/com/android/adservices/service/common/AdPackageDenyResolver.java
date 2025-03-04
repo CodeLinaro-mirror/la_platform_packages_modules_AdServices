@@ -79,16 +79,7 @@ public final class AdPackageDenyResolver {
     @Nullable
     private final GuavaDataStore<PackageToApiDenyGroupsCacheMap> mPackageDenyCacheDataStore;
 
-    // Lazy initialization holder class idiom for static fields as described in Effective Java Item
-    // 83 - this is needed because otherwise the singleton would be initialized in unit tests, even
-    // when they (correctly) call newInstance() instead of getInstance().
-    private static final class FieldHolder {
-        private static final AdPackageDenyResolver sSingleton;
-
-        static { // static initialization
-            sSingleton = newInstance();
-        }
-    }
+    private static final AdPackageDenyResolver sAdPackageDenyResolver = newInstance();
 
     private AdPackageDenyResolver(
             @Nullable MobileDataDownload mobileDataDownload,
@@ -166,7 +157,7 @@ public final class AdPackageDenyResolver {
      * @return The singleton instance of `AdPackageDenyResolver`.
      */
     public static AdPackageDenyResolver getInstance() {
-        return FieldHolder.sSingleton;
+        return sAdPackageDenyResolver;
     }
 
     /**

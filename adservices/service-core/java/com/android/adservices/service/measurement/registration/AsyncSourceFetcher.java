@@ -41,8 +41,6 @@ import com.android.adservices.service.measurement.MeasurementHttpClient;
 import com.android.adservices.service.measurement.Source;
 import com.android.adservices.service.measurement.TriggerSpec;
 import com.android.adservices.service.measurement.TriggerSpecs;
-import com.android.adservices.service.measurement.countunique.CountUniqueRegistrar;
-import com.android.adservices.service.measurement.countunique.ICountUniqueRegistrar;
 import com.android.adservices.service.measurement.reporting.DebugReportApi;
 import com.android.adservices.service.measurement.util.Enrollment;
 import com.android.adservices.service.measurement.util.UnsignedLong;
@@ -87,8 +85,6 @@ public class AsyncSourceFetcher {
     private final EnrollmentDao mEnrollmentDao;
     private final Flags mFlags;
     private final Context mContext;
-
-    private final ICountUniqueRegistrar mCountUniqueRegistrar;
     private final DatastoreManager mDatastoreManager;
     private final DebugReportApi mDebugReportApi;
 
@@ -97,7 +93,6 @@ public class AsyncSourceFetcher {
                 context,
                 EnrollmentDao.getInstance(),
                 FlagsFactory.getFlags(),
-                new CountUniqueRegistrar(DatastoreManagerFactory.getDatastoreManager()),
                 DatastoreManagerFactory.getDatastoreManager(),
                 new DebugReportApi(context, FlagsFactory.getFlags()));
     }
@@ -107,14 +102,12 @@ public class AsyncSourceFetcher {
             Context context,
             EnrollmentDao enrollmentDao,
             Flags flags,
-            ICountUniqueRegistrar countUniqueRegistrar,
             DatastoreManager datastoreManager,
             DebugReportApi debugReportApi) {
         mContext = context;
         mEnrollmentDao = enrollmentDao;
         mFlags = flags;
         mNetworkConnection = new MeasurementHttpClient(context);
-        mCountUniqueRegistrar = countUniqueRegistrar;
         mDatastoreManager = datastoreManager;
         mDebugReportApi = debugReportApi;
     }
@@ -1344,35 +1337,7 @@ public class AsyncSourceFetcher {
             return Optional.empty();
         }
 
-        try {
-            if (isCountUniqueEnabled(asyncRegistration)) {
-                List<String> metadataHeader =
-                        headers.get(CountUniqueHeaderContract.HEADER_COUNT_UNIQUE_METADATA);
-                if (metadataHeader != null) {
-                    mCountUniqueRegistrar.registerCountUniqueMetadata(
-                            asyncRegistration, metadataHeader);
-                }
-
-                List<String> eventHeader =
-                        headers.get(CountUniqueHeaderContract.HEADER_COUNT_UNIQUE_EVENT);
-                if (eventHeader != null) {
-                    mCountUniqueRegistrar.registerCountUniqueEvent(asyncRegistration, eventHeader);
-                }
-            }
-        } catch (Exception e) {
-            // Catching generic exception to not fail ARA source registration flow
-            LoggerFactory.getMeasurementLogger()
-                    .e(e, "AsyncSourceFetcher: Failure when handling count unique header");
-        }
         return parseSource(asyncRegistration, enrollmentId.get(), headers, asyncFetchStatus);
-    }
-
-    private boolean isCountUniqueEnabled(AsyncRegistration asyncRegistration) {
-        return mFlags.getMeasurementEnableCountUniqueService()
-                && asyncRegistration.isAppRequest()
-                && AllowLists.isPackageAllowListed(
-                        mFlags.getMeasurementCountUniqueAppAllowlist(),
-                        asyncRegistration.getRegistrant().toString());
     }
 
     private boolean isSourceHeaderPresent(Map<String, List<String>> headers) {
@@ -1498,10 +1463,5 @@ public class AsyncSourceFetcher {
 
     private interface SourceRequestContract {
         String SOURCE_INFO = "Attribution-Reporting-Source-Info";
-    }
-
-    public interface CountUniqueHeaderContract {
-        String HEADER_COUNT_UNIQUE_EVENT = "Count-Unique-Event";
-        String HEADER_COUNT_UNIQUE_METADATA = "Count-Unique-Metadata";
     }
 }

@@ -111,10 +111,8 @@ import com.android.adservices.MockWebServerRuleFactory;
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
 import com.android.adservices.concurrency.AdServicesExecutors;
 import com.android.adservices.customaudience.DBCustomAudienceFixture;
-import com.android.adservices.data.adselection.AdSelectionServerDatabase;
 import com.android.adservices.data.adselection.AppInstallDao;
 import com.android.adservices.data.adselection.FrequencyCapDao;
-import com.android.adservices.data.adselection.ProtectedServersEncryptionConfigDao;
 import com.android.adservices.data.adselection.SharedStorageDatabase;
 import com.android.adservices.data.common.DBAdData;
 import com.android.adservices.data.customaudience.AdDataConversionStrategyFactory;
@@ -336,7 +334,6 @@ public final class CustomAudienceServiceEndToEndTest extends AdServicesExtendedM
     private DevSessionHelper mDevSessionHelper;
     private ScheduleCustomAudienceUpdateStrategy mStrategy;
     private ComponentAdsStrategy mComponentAdsStrategy;
-    private ProtectedServersEncryptionConfigDao mProtectedServersEncryptionConfigDao;
 
     @Captor
     private ArgumentCaptor<ScheduledCustomAudienceUpdateScheduleAttemptedStats>
@@ -405,11 +402,6 @@ public final class CustomAudienceServiceEndToEndTest extends AdServicesExtendedM
                         MeasurementDbHelper.getInstance(),
                         Mockito.mock(AdServicesErrorLogger.class));
 
-        mProtectedServersEncryptionConfigDao =
-                Room.inMemoryDatabaseBuilder(mContext, AdSelectionServerDatabase.class)
-                        .build()
-                        .protectedServersEncryptionConfigDao();
-
         mDevSessionHelper =
                 new DevSessionHelper(
                         mCustomAudienceDao,
@@ -417,8 +409,7 @@ public final class CustomAudienceServiceEndToEndTest extends AdServicesExtendedM
                         mFrequencyCapDao,
                         protectedSignalsDao,
                         encodedPayloadDao,
-                        mMeasurementDatastoreManager,
-                        mProtectedServersEncryptionConfigDao);
+                        mMeasurementDatastoreManager);
 
         mCustomAudienceValidator =
                 new CustomAudienceValidator(

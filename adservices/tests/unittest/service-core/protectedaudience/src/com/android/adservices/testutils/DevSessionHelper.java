@@ -25,7 +25,6 @@ import com.android.adservices.LoggerFactory;
 import com.android.adservices.concurrency.AdServicesExecutors;
 import com.android.adservices.data.adselection.AppInstallDao;
 import com.android.adservices.data.adselection.FrequencyCapDao;
-import com.android.adservices.data.adselection.ProtectedServersEncryptionConfigDao;
 import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.measurement.DatastoreManager;
 import com.android.adservices.data.signals.EncodedPayloadDao;
@@ -75,8 +74,7 @@ public class DevSessionHelper {
             FrequencyCapDao frequencyCapDao,
             ProtectedSignalsDao protectedSignalsDao,
             EncodedPayloadDao encodedPayloadDao,
-            DatastoreManager measurementDatastoreManager,
-            ProtectedServersEncryptionConfigDao mProtectedServersEncryptionConfigDao) {
+            DatastoreManager measurementDatastoreManager) {
         this.mDevSessionController =
                 new DevSessionControllerImpl(
                         new DatabaseClearer(
@@ -88,7 +86,6 @@ public class DevSessionHelper {
                                 protectedSignalsDao,
                                 encodedPayloadDao,
                                 measurementDatastoreManager,
-                                mProtectedServersEncryptionConfigDao,
                                 AdServicesExecutors.getBackgroundExecutor()),
                         new DevSessionInMemoryDataStore(),
                         AdServicesExecutors.getLightWeightExecutor());
@@ -104,7 +101,7 @@ public class DevSessionHelper {
         try {
             assertThat(
                             mDevSessionController
-                                    .startDevSession(false)
+                                    .startDevSession()
                                     .get(DEV_SESSION_TIMEOUT_SEC, TimeUnit.SECONDS))
                     .isEqualTo(SUCCESS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {

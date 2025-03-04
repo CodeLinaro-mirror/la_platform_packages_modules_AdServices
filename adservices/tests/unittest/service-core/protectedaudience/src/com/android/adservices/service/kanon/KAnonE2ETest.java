@@ -129,6 +129,8 @@ import com.android.adservices.service.adselection.AuctionServerPayloadFormatter;
 import com.android.adservices.service.adselection.AuctionServerPayloadFormatterFactory;
 import com.android.adservices.service.adselection.AuctionServerPayloadUnformattedData;
 import com.android.adservices.service.adselection.MockAdIdWorker;
+import com.android.adservices.service.adselection.MultiCloudSupportStrategy;
+import com.android.adservices.service.adselection.MultiCloudTestStrategyFactory;
 import com.android.adservices.service.adselection.debug.AuctionServerDebugConfigurationGenerator;
 import com.android.adservices.service.adselection.debug.ConsentedDebugConfigurationGeneratorFactory;
 import com.android.adservices.service.adselection.encryption.AdSelectionEncryptionKeyManager;
@@ -340,6 +342,7 @@ public final class KAnonE2ETest extends AdServicesExtendedMockitoTestCase {
     private AdSelectionDebugReportDao mAdSelectionDebugReportDaoSpy;
     private AdIdFetcher mAdIdFetcher;
     private MockAdIdWorker mMockAdIdWorker;
+    private MultiCloudSupportStrategy mMultiCloudSupportStrategy;
 
     private ClientParametersDao mClientParametersDao;
     private ServerParametersDao mServerParametersDao;
@@ -425,6 +428,8 @@ public final class KAnonE2ETest extends AdServicesExtendedMockitoTestCase {
         mAdIdFetcher =
                 new AdIdFetcher(
                         mContext, mMockAdIdWorker, mLightweightExecutorService, mScheduledExecutor);
+        mMultiCloudSupportStrategy =
+                MultiCloudTestStrategyFactory.getDisabledTestStrategy(mObliviousHttpEncryptorMock);
         mPayloadFormatter =
                 AuctionServerPayloadFormatterFactory.createPayloadFormatter(
                         mFakeFlags.getFledgeAuctionServerPayloadFormatVersion(),
@@ -1748,7 +1753,7 @@ public final class KAnonE2ETest extends AdServicesExtendedMockitoTestCase {
                 mAdSelectionServiceFilterMock,
                 mAdFilteringFeatureFactory,
                 mConsentManagerMock,
-                mObliviousHttpEncryptorMock,
+                mMultiCloudSupportStrategy,
                 mAdSelectionDebugReportDaoSpy,
                 mAdIdFetcher,
                 mKAnonSignJoinFactoryMock,

@@ -19,7 +19,6 @@ package com.android.adservices.service.shell.attributionreporting;
 import static com.android.adservices.service.shell.attributionreporting.AttributionReportingHelper.replaceWithAggregatable;
 import static com.android.adservices.service.stats.ShellCommandStats.COMMAND_ATTRIBUTION_REPORTING_LIST_TRIGGER_REGISTRATIONS;
 import static com.android.adservices.service.stats.ShellCommandStats.RESULT_DEV_MODE_UNCONFIRMED;
-import static com.android.adservices.service.stats.ShellCommandStats.RESULT_GENERIC_ERROR;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -245,13 +244,9 @@ public class AttributionReportingListTriggerRegistrationsCommandTest
 
         Result result = runCommandAndGetResult();
 
-        String errorMessage =
-                "Failed to list trigger registrations: Error in retrieving triggers from database";
-        expectFailure(
-                result,
-                errorMessage,
-                COMMAND_ATTRIBUTION_REPORTING_LIST_TRIGGER_REGISTRATIONS,
-                RESULT_GENERIC_ERROR);
+        expectSuccess(result, COMMAND_ATTRIBUTION_REPORTING_LIST_TRIGGER_REGISTRATIONS);
+
+        assertThat(result.mOut).isEqualTo("Error in retrieving triggers from database");
     }
 
     @Test
@@ -285,21 +280,6 @@ public class AttributionReportingListTriggerRegistrationsCommandTest
         testRunListTriggerRegistrationsWithSchema(sources, args);
     }
 
-    @Test
-    public void testRunListTriggerRegistrations_invalidSchema() {
-        String[] args = {SCHEMA_SUB_COMMAND, "invalid_schema"};
-        Result result = runCommandAndGetResult(args);
-
-        String errorMessage =
-                "Failed to list trigger registrations: Invalid schema. The 'schema' parameter must"
-                        + " be either 'partial' or 'full'. Check for typos.";
-        expectFailure(
-                result,
-                errorMessage,
-                COMMAND_ATTRIBUTION_REPORTING_LIST_TRIGGER_REGISTRATIONS,
-                RESULT_GENERIC_ERROR);
-    }
-
     private void testRunListTriggerRegistrationsWithSchema(List<Trigger> triggers, String[] schema)
             throws JSONException {
         doReturn(Optional.ofNullable(triggers))
@@ -329,7 +309,7 @@ public class AttributionReportingListTriggerRegistrationsCommandTest
         stringArray[0] = AttributionReportingShellCommandFactory.COMMAND_PREFIX;
         stringArray[1] = AttributionReportingListTriggerRegistrationsCommand.CMD;
         for (int i = 0; i < args.length; i++) {
-            stringArray[i + 2] = args[i];
+            stringArray[i + 1] = args[i];
         }
         return run(
                 new AttributionReportingListTriggerRegistrationsCommand(

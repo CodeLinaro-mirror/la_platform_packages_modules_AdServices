@@ -16,22 +16,9 @@ aconfig_declarations {
     name: "sdk_sandbox_flags",
     package: "com.android.sdksandbox.flags",
     container: "com.android.adservices",
-    exportable: true,
     srcs: ["sandbox_flags.aconfig"],
     visibility: [
         "//frameworks/base/api",
-    ],
-}
-
-java_aconfig_library {
-    name: "sdk_sandbox_exported_flags_lib",
-    aconfig_declarations: "sdk_sandbox_flags",
-    mode: "exported",
-    defaults: ["framework-minus-apex-aconfig-java-defaults"],
-    visibility: [
-        "//frameworks/base",
-        "//frameworks/base/core",
-        "//frameworks/base/services/core",
     ],
 }
 
@@ -40,6 +27,9 @@ java_aconfig_library {
     aconfig_declarations: "sdk_sandbox_flags",
     defaults: ["framework-minus-apex-aconfig-java-defaults"],
     visibility: [
+        "//frameworks/base",
+        "//frameworks/base/core",
+        "//frameworks/base/services/core",
         "//packages/modules/AdServices:__subpackages__",
         "//cts/tests/tests/os:__subpackages__",
     ],

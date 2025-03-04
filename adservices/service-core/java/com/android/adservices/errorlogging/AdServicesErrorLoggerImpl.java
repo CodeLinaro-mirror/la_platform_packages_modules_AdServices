@@ -43,9 +43,7 @@ public final class AdServicesErrorLoggerImpl extends AbstractAdServicesErrorLogg
                     sSingleton =
                             new AdServicesErrorLoggerImpl(
                                     FlagsFactory.getFlags(),
-                                    FlagsFactory.getFlags().getEnableLogSamplingInfra()
-                                            ? SampledStatsdAdServicesErrorLoggerImpl.getInstance()
-                                            : StatsdAdServicesErrorLoggerImpl.getInstance());
+                                    StatsdAdServicesErrorLoggerImpl.getInstance());
                 }
             }
         }

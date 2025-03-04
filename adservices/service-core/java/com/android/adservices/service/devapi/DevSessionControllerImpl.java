@@ -38,8 +38,6 @@ import java.util.concurrent.Executor;
 public final class DevSessionControllerImpl implements DevSessionController {
 
     private static final LoggerFactory.Logger sLogger = LoggerFactory.getLogger();
-    private static final boolean PROD_MODE_SERVER_AUCTION_TEST_KEYS_DISABLED = false;
-
     private final DatabaseClearer mDatabaseClearer;
     private final DevSessionDataStore mDevSessionDataStore;
     private final Executor mLightWeightExecutor;
@@ -58,33 +56,26 @@ public final class DevSessionControllerImpl implements DevSessionController {
     }
 
     @Override
-    public ListenableFuture<DevSessionControllerResult> startDevSession(
-            boolean setServerAuctionTestKeysEnabled) throws IllegalStateException {
-        return tryUpdateDevSession(true, setServerAuctionTestKeysEnabled);
+    public ListenableFuture<DevSessionControllerResult> startDevSession()
+            throws IllegalStateException {
+        return tryUpdateDevSessionState(true);
     }
 
     @Override
     public ListenableFuture<DevSessionControllerResult> endDevSession()
             throws IllegalStateException {
-        return tryUpdateDevSession(
-                /* setDevSessionEnabled */ false, PROD_MODE_SERVER_AUCTION_TEST_KEYS_DISABLED);
+        return tryUpdateDevSessionState(false);
     }
 
-    private ListenableFuture<DevSessionControllerResult> tryUpdateDevSession(
-            boolean setDevSessionEnabled, boolean setServerAuctionTestKeysEnabled)
-            throws IllegalStateException {
-        sLogger.d(
-                "Beginning DevSessionControllerImpl.set(%b, %b)",
-                setDevSessionEnabled, setServerAuctionTestKeysEnabled);
+    private ListenableFuture<DevSessionControllerResult> tryUpdateDevSessionState(
+            boolean setDevSessionEnabled) throws IllegalStateException {
+        sLogger.d("Beginning DevSessionControllerImpl.set(%b)", setDevSessionEnabled);
         return FluentFuture.from(mDevSessionDataStore.get())
                 .transformAsync(
                         devSession -> {
                             sLogger.d(
-                                    "devSession: %s, setDevSessionEnabled: %b and"
-                                            + " setServerAuctionTestKeysEnabled: %b",
-                                    devSession,
-                                    setDevSessionEnabled,
-                                    setServerAuctionTestKeysEnabled);
+                                    "devSession: %s and setDevSessionEnabled: %b",
+                                    devSession, setDevSessionEnabled);
 
                             DevSessionState state = devSession.getState();
                             if ((!setDevSessionEnabled && state == IN_PROD)
@@ -95,7 +86,7 @@ public final class DevSessionControllerImpl implements DevSessionController {
                             // them when doing the check below.
                             if (setDevSessionEnabled) {
                                 // Note this also handles all the transitory states.
-                                return handleProdOrRecoveryToDev(setServerAuctionTestKeysEnabled);
+                                return handleProdOrRecoveryToDev();
                             } else {
                                 // Otherwise, we are moving from IN_DEV to IN_PROD.
                                 return handleDevToProd();
@@ -106,15 +97,9 @@ public final class DevSessionControllerImpl implements DevSessionController {
 
     @SuppressWarnings("FutureReturnValueIgnored") // TODO(b/331285831): fix this
     private ListenableFuture<DevSessionControllerResult> handleDevToProd() {
-        return FluentFuture.from(
-                        setDevSession(
-                                TRANSITIONING_DEV_TO_PROD,
-                                PROD_MODE_SERVER_AUCTION_TEST_KEYS_DISABLED))
+        return FluentFuture.from(setDevSessionState(TRANSITIONING_DEV_TO_PROD))
                 .transformAsync(this::clearDatabase, mLightWeightExecutor)
-                .transformAsync(
-                        ignoreVoid ->
-                                setDevSession(IN_PROD, PROD_MODE_SERVER_AUCTION_TEST_KEYS_DISABLED),
-                        mLightWeightExecutor)
+                .transformAsync(success -> setDevSessionState(IN_PROD), mLightWeightExecutor)
                 .transform(
                         state -> {
                             sLogger.v("completed transition to IN_PROD");
@@ -131,16 +116,10 @@ public final class DevSessionControllerImpl implements DevSessionController {
     }
 
     @SuppressWarnings("FutureReturnValueIgnored") // TODO(b/331285831): fix this
-    private ListenableFuture<DevSessionControllerResult> handleProdOrRecoveryToDev(
-            boolean setServerAuctionTestKeysEnabled) {
-        return FluentFuture.from(
-                        setDevSession(
-                                TRANSITIONING_PROD_TO_DEV,
-                                PROD_MODE_SERVER_AUCTION_TEST_KEYS_DISABLED))
+    private ListenableFuture<DevSessionControllerResult> handleProdOrRecoveryToDev() {
+        return FluentFuture.from(setDevSessionState(TRANSITIONING_PROD_TO_DEV))
                 .transformAsync(this::clearDatabase, mLightWeightExecutor)
-                .transformAsync(
-                        ignoreVoid -> setDevSession(IN_DEV, setServerAuctionTestKeysEnabled),
-                        mLightWeightExecutor)
+                .transformAsync(success -> setDevSessionState(IN_DEV), mLightWeightExecutor)
                 .transform(
                         state -> {
                             sLogger.v("completed transition to IN_DEV");
@@ -156,30 +135,20 @@ public final class DevSessionControllerImpl implements DevSessionController {
                         mLightWeightExecutor);
     }
 
-    private ListenableFuture<DevSession> setDevSession(
-            DevSessionState desiredState, boolean setServerAuctionTestKeysEnabled) {
-        sLogger.d(
-                "Beginning setDevSession(%s, setServerAuctionTestKeysEnabled: %b)",
-                desiredState, setServerAuctionTestKeysEnabled);
-        return mDevSessionDataStore.set(
-                DevSession.builder()
-                        .setState(desiredState)
-                        .setServerAuctionTestKeysEnabled(setServerAuctionTestKeysEnabled)
-                        .build());
+    private ListenableFuture<DevSession> setDevSessionState(DevSessionState desiredState) {
+        sLogger.d("Beginning setDevSessionState(%s)", desiredState);
+        return mDevSessionDataStore.set(DevSession.builder().setState(desiredState).build());
     }
 
-    private ListenableFuture<Void> clearDatabase(DevSession devSession) {
+    private ListenableFuture<Void> clearDatabase(DevSession unused) {
         sLogger.d("Beginning clearDatabase()");
-        boolean shouldDeleteEncryptionConfigData =
-                devSession.getState() == DevSessionState.TRANSITIONING_DEV_TO_PROD;
         return FluentFuture.from(
-                        mDatabaseClearer.deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
+                        mDatabaseClearer.deleteProtectedAudienceAndAppSignalsData(
                                 /* deleteCustomAudienceUpdate= */ true,
                                 /* deleteAppInstallFiltering= */ true,
-                                /* deleteProtectedSignals= */ true,
-                                shouldDeleteEncryptionConfigData))
+                                /* deleteProtectedSignals= */ true))
                 .transformAsync(
-                        ignoreVoid -> mDatabaseClearer.deleteMeasurementData(),
+                        deletionStatus -> mDatabaseClearer.deleteMeasurementData(),
                         mLightWeightExecutor);
     }
 }

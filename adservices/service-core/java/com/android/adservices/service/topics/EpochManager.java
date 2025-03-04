@@ -391,12 +391,8 @@ public class EpochManager {
                     Instant.ofEpochMilli(origin).toString());
         }
 
-        long currentEpochId =
-                (long) Math.floor((currentTimeStamp - origin) / (double) epochJobPeriodsMs);
-        sLogger.v(
-                "Current Epoch ID is %d, Epoch length is %d, retrieved Epoch origin as %d",
-                currentEpochId, epochJobPeriodsMs, origin);
-        return currentEpochId;
+        sLogger.v("Epoch length is  %d", epochJobPeriodsMs);
+        return (long) Math.floor((currentTimeStamp - origin) / (double) epochJobPeriodsMs);
     }
 
     // Return a Map from Topic to set of App or Sdk that can learn about that topic.

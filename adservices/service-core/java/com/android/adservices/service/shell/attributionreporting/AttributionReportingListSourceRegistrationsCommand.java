@@ -83,10 +83,20 @@ public final class AttributionReportingListSourceRegistrationsCommand extends Ab
                     COMMAND_ATTRIBUTION_REPORTING_LIST_SOURCE_REGISTRATIONS);
         }
 
+        String schema;
         String output;
+        try {
+            schema = AttributionReportingArgParserHelper.parseAttributionReportingSchema(args);
+        } catch (IllegalArgumentException exception) {
+            output = "IllegalArgumentException while running list-source-registrations command";
+            Log.e(TAG, output, exception);
+            out.print(output);
+            out.flush();
+            return invalidArgsError(
+                    HELP, err, COMMAND_ATTRIBUTION_REPORTING_LIST_SOURCE_REGISTRATIONS, args);
+        }
 
         try {
-            String schema = AttributionReportingUtil.parseAttributionReportingSchema(args, 2, out);
             ListenableFuture<Optional<List<Source>>> futureResult =
                     queryForListSourceRegistrationsCommand();
             Optional<List<Source>> result = futureResult.get(TIMEOUT_SEC, SECONDS);
@@ -94,16 +104,16 @@ public final class AttributionReportingListSourceRegistrationsCommand extends Ab
                 output = createOutputJson(result, schema).toString();
             } else {
                 output = "Error in retrieving sources from database";
-                throw new IllegalStateException(output);
             }
             out.print(output);
             out.flush();
             return toShellCommandResult(
                     RESULT_SUCCESS, COMMAND_ATTRIBUTION_REPORTING_LIST_SOURCE_REGISTRATIONS);
         } catch (Exception e) {
-            String errorMessage = "Failed to list source registrations: " + e.getMessage();
-            err.print(errorMessage);
-            err.flush();
+            output = "Failed to generate JSON: " + e.getMessage();
+            Log.e(TAG, String.format(output));
+            out.print(output);
+            out.flush();
             return toShellCommandResult(
                     ShellCommandStats.RESULT_GENERIC_ERROR,
                     COMMAND_ATTRIBUTION_REPORTING_LIST_SOURCE_REGISTRATIONS);

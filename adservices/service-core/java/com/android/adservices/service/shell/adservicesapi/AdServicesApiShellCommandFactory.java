@@ -23,7 +23,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
 import com.android.adservices.concurrency.AdServicesExecutors;
-import com.android.adservices.data.adselection.AdSelectionServerDatabase;
 import com.android.adservices.data.adselection.AppInstallDao;
 import com.android.adservices.data.adselection.FrequencyCapDao;
 import com.android.adservices.data.adselection.SharedStorageDatabase;
@@ -94,8 +93,6 @@ public final class AdServicesApiShellCommandFactory implements ShellCommandFacto
                                 ProtectedSignalsDatabase.getInstance().protectedSignalsDao(),
                                 ProtectedSignalsDatabase.getInstance().getEncodedPayloadDao(),
                                 datastoreManager,
-                                AdSelectionServerDatabase.getInstance()
-                                        .protectedServersEncryptionConfigDao(),
                                 AdServicesExecutors.getBackgroundExecutor()),
                         DevSessionDataStoreFactory.get(),
                         AdServicesExecutors.getLightWeightExecutor()),

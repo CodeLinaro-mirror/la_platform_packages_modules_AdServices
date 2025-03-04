@@ -17,7 +17,6 @@
 package com.android.adservices.service.devapi;
 
 import static com.android.adservices.devapi.DevSessionFixture.IN_DEV;
-import static com.android.adservices.devapi.DevSessionFixture.IN_DEV_WITH_TEST_KEYS_ENABLED;
 import static com.android.adservices.devapi.DevSessionFixture.IN_PROD;
 import static com.android.adservices.devapi.DevSessionFixture.TRANSITIONING_DEV_TO_PROD;
 import static com.android.adservices.devapi.DevSessionFixture.TRANSITIONING_PROD_TO_DEV;
@@ -25,15 +24,12 @@ import static com.android.adservices.service.devapi.DevSessionControllerResult.F
 import static com.android.adservices.service.devapi.DevSessionControllerResult.NO_OP;
 import static com.android.adservices.service.devapi.DevSessionControllerResult.SUCCESS;
 
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
-import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
@@ -43,10 +39,8 @@ import com.android.adservices.service.common.DatabaseClearer;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
-import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
@@ -68,11 +62,10 @@ public class DevSessionControllerImplTest extends AdServicesMockitoTestCase {
 
         doReturn(immediateVoidFuture())
                 .when(mMockDatabaseClearer)
-                .deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
-                        /* deleteCustomAudienceUpdate= */ anyBoolean(),
-                        /* deleteAppInstallFiltering= */ anyBoolean(),
-                        /* deleteProtectedSignals= */ anyBoolean(),
-                        /* deleteEncryptionConfigData= */ anyBoolean());
+                .deleteProtectedAudienceAndAppSignalsData(
+                        /* deleteCustomAudienceUpdate= */ true,
+                        /* deleteAppInstallFiltering= */ true,
+                        /* deleteProtectedSignals= */ true);
         doReturn(immediateVoidFuture()).when(mMockDatabaseClearer).deleteMeasurementData();
     }
 
@@ -83,40 +76,27 @@ public class DevSessionControllerImplTest extends AdServicesMockitoTestCase {
                 .thenReturn(immediateFuture(TRANSITIONING_PROD_TO_DEV))
                 .thenReturn(immediateFuture(IN_DEV));
 
-        Future<DevSessionControllerResult> resultFuture =
-                mDevSessionController.startDevSession(false);
+        Future<DevSessionControllerResult> resultFuture = mDevSessionController.startDevSession();
 
         expect.withMessage("DevSession future").that(wait(resultFuture)).isEqualTo(SUCCESS);
-        verify(mMockDatabaseClearer)
-                .deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
-                        /* deleteCustomAudienceUpdate= */ true,
-                        /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ false);
     }
 
     @Test
-    public void
-            startDevSession_withFailingProtectedAudienceAppSignalsAndEncryptionConfigDataClear_returnsFailure()
-                    throws Exception {
+    public void startDevSession_withFailingProtectedAudienceAndAppSignalsDataClear_returnsFailure()
+            throws Exception {
         when(mMockDevSessionDataStore.get()).thenReturn(immediateFuture(IN_PROD));
         when(mMockDevSessionDataStore.set(any(DevSession.class)))
                 .thenReturn(immediateFuture(TRANSITIONING_PROD_TO_DEV))
                 .thenReturn(immediateFuture(IN_DEV));
-        when(mMockDatabaseClearer.deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
-                        anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean()))
-                .thenThrow(new RuntimeException());
-
-        Future<DevSessionControllerResult> resultFuture =
-                mDevSessionController.startDevSession(false);
-
-        expect.withMessage("DevSession future").that(wait(resultFuture)).isEqualTo(FAILURE);
-        verify(mMockDatabaseClearer)
-                .deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
+        when(mMockDatabaseClearer.deleteProtectedAudienceAndAppSignalsData(
                         /* deleteCustomAudienceUpdate= */ true,
                         /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ false);
+                        /* deleteProtectedSignals= */ true))
+                .thenThrow(new RuntimeException());
+
+        Future<DevSessionControllerResult> resultFuture = mDevSessionController.startDevSession();
+
+        expect.withMessage("DevSession future").that(wait(resultFuture)).isEqualTo(FAILURE);
     }
 
     @Test
@@ -127,16 +107,9 @@ public class DevSessionControllerImplTest extends AdServicesMockitoTestCase {
                 .thenReturn(immediateFuture(IN_DEV));
         when(mMockDatabaseClearer.deleteMeasurementData()).thenThrow(new RuntimeException());
 
-        Future<DevSessionControllerResult> resultFuture =
-                mDevSessionController.startDevSession(false);
+        Future<DevSessionControllerResult> resultFuture = mDevSessionController.startDevSession();
 
         expect.withMessage("DevSession future").that(wait(resultFuture)).isEqualTo(FAILURE);
-        verify(mMockDatabaseClearer)
-                .deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
-                        /* deleteCustomAudienceUpdate= */ true,
-                        /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ false);
     }
 
     @Test
@@ -147,16 +120,9 @@ public class DevSessionControllerImplTest extends AdServicesMockitoTestCase {
                 .thenReturn(immediateFuture(TRANSITIONING_DEV_TO_PROD))
                 .thenReturn(immediateFuture(IN_PROD));
 
-        Future<DevSessionControllerResult> resultFuture =
-                mDevSessionController.startDevSession(false);
+        Future<DevSessionControllerResult> resultFuture = mDevSessionController.startDevSession();
 
         expect.withMessage("DevSession future").that(wait(resultFuture)).isEqualTo(SUCCESS);
-        verify(mMockDatabaseClearer)
-                .deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
-                        /* deleteCustomAudienceUpdate= */ true,
-                        /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ true);
     }
 
     @Test
@@ -166,24 +132,16 @@ public class DevSessionControllerImplTest extends AdServicesMockitoTestCase {
                 .thenReturn(immediateFuture(TRANSITIONING_PROD_TO_DEV))
                 .thenReturn(immediateFuture(IN_DEV));
 
-        Future<DevSessionControllerResult> resultFuture =
-                mDevSessionController.startDevSession(false);
+        Future<DevSessionControllerResult> resultFuture = mDevSessionController.startDevSession();
 
         expect.withMessage("DevSession future").that(wait(resultFuture)).isEqualTo(SUCCESS);
-        verify(mMockDatabaseClearer)
-                .deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
-                        /* deleteCustomAudienceUpdate= */ true,
-                        /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ false);
     }
 
     @Test
     public void startDevSession_withDevSessionActive_returnsNoOp() throws Exception {
         when(mMockDevSessionDataStore.get()).thenReturn(immediateFuture(IN_DEV));
 
-        Future<DevSessionControllerResult> resultFuture =
-                mDevSessionController.startDevSession(false);
+        Future<DevSessionControllerResult> resultFuture = mDevSessionController.startDevSession();
 
         expect.withMessage("DevSession future").that(wait(resultFuture)).isEqualTo(NO_OP);
         verifyZeroInteractions(mMockDatabaseClearer);
@@ -193,8 +151,7 @@ public class DevSessionControllerImplTest extends AdServicesMockitoTestCase {
     public void startDevSession_withDevSessionActiveButExpired_returnsNoOp() throws Exception {
         when(mMockDevSessionDataStore.get()).thenReturn(immediateFuture(IN_DEV));
 
-        Future<DevSessionControllerResult> resultFuture =
-                mDevSessionController.startDevSession(false);
+        Future<DevSessionControllerResult> resultFuture = mDevSessionController.startDevSession();
 
         expect.withMessage("DevSession future").that(wait(resultFuture)).isEqualTo(NO_OP);
         verifyZeroInteractions(mMockDatabaseClearer);
@@ -210,12 +167,6 @@ public class DevSessionControllerImplTest extends AdServicesMockitoTestCase {
         Future<DevSessionControllerResult> resultFuture = mDevSessionController.endDevSession();
 
         expect.withMessage("DevSession future").that(wait(resultFuture)).isEqualTo(SUCCESS);
-        verify(mMockDatabaseClearer)
-                .deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
-                        /* deleteCustomAudienceUpdate= */ true,
-                        /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ true);
     }
 
     @Test
@@ -228,12 +179,6 @@ public class DevSessionControllerImplTest extends AdServicesMockitoTestCase {
         Future<DevSessionControllerResult> resultFuture = mDevSessionController.endDevSession();
 
         expect.withMessage("DevSession future").that(wait(resultFuture)).isEqualTo(SUCCESS);
-        verify(mMockDatabaseClearer)
-                .deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
-                        /* deleteCustomAudienceUpdate= */ true,
-                        /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ true);
     }
 
     @Test
@@ -246,12 +191,6 @@ public class DevSessionControllerImplTest extends AdServicesMockitoTestCase {
         Future<DevSessionControllerResult> resultFuture = mDevSessionController.endDevSession();
 
         expect.withMessage("DevSession future").that(wait(resultFuture)).isEqualTo(SUCCESS);
-        verify(mMockDatabaseClearer)
-                .deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
-                        /* deleteCustomAudienceUpdate= */ true,
-                        /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ true);
     }
 
     @Test
@@ -265,55 +204,32 @@ public class DevSessionControllerImplTest extends AdServicesMockitoTestCase {
     }
 
     @Test
-    public void
-            startDevSession_failingToDeleteProtectedAudienceAppSignalsAndEncryptionConfigData_serverAuctionTestKeysEnabled_returnsFailure()
-                    throws Exception {
-        when(mMockDatabaseClearer.deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
-                        anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean()))
-                .thenThrow(new RuntimeException());
+    public void startDevSession_withClearsAllDatabases_returnsSuccess() throws Exception {
+        when(mMockDevSessionDataStore.get()).thenReturn(immediateFuture(IN_PROD));
+        when(mMockDevSessionDataStore.set(any(DevSession.class)))
+                .thenReturn(immediateFuture(TRANSITIONING_PROD_TO_DEV))
+                .thenReturn(immediateFuture(IN_DEV));
+
+        Future<DevSessionControllerResult> resultFuture = mDevSessionController.startDevSession();
+
+        expect.withMessage("DevSession future").that(wait(resultFuture)).isEqualTo(SUCCESS);
+    }
+
+    @Test
+    public void startDevSession_failingToDeleteProtectedAudienceAndAppSignalsData_returnsFailure()
+            throws Exception {
+        when(mMockDatabaseClearer.deleteProtectedAudienceAndAppSignalsData(
+                        /* deleteCustomAudienceUpdate= */ true,
+                        /* deleteAppInstallFiltering= */ true,
+                        /* deleteProtectedSignals= */ true))
+                .thenReturn(immediateFailedFuture(new Exception("Database clear failed")));
         when(mMockDevSessionDataStore.get()).thenReturn(immediateFuture(IN_PROD));
         when(mMockDevSessionDataStore.set(any(DevSession.class)))
                 .thenReturn(immediateFuture(TRANSITIONING_PROD_TO_DEV));
 
-        Future<DevSessionControllerResult> resultFuture =
-                mDevSessionController.startDevSession(true);
+        Future<DevSessionControllerResult> resultFuture = mDevSessionController.startDevSession();
 
         expect.withMessage("DevSession future").that(wait(resultFuture)).isEqualTo(FAILURE);
-        verify(mMockDatabaseClearer)
-                .deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
-                        /* deleteCustomAudienceUpdate= */ true,
-                        /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ false);
-    }
-
-    @Test
-    public void startDevSession_withDevSessionDisabled_serverAuctionTestKeysEnabled_returnsSuccess()
-            throws Exception {
-        when(mMockDevSessionDataStore.get()).thenReturn(immediateFuture(IN_PROD));
-        when(mMockDevSessionDataStore.set(any(DevSession.class)))
-                .thenReturn(immediateFuture(TRANSITIONING_PROD_TO_DEV))
-                .thenReturn(immediateFuture(IN_DEV_WITH_TEST_KEYS_ENABLED));
-
-        Future<DevSessionControllerResult> resultFuture =
-                mDevSessionController.startDevSession(true);
-
-        expect.withMessage("DevSession future").that(wait(resultFuture)).isEqualTo(SUCCESS);
-
-        ArgumentCaptor<DevSession> argCaptor = ArgumentCaptor.forClass(DevSession.class);
-        verify(mMockDevSessionDataStore, times(2)).set(argCaptor.capture());
-
-        List<DevSession> capturedArguments = argCaptor.getAllValues();
-        assertEquals(TRANSITIONING_PROD_TO_DEV, capturedArguments.get(0));
-        assertEquals(IN_DEV_WITH_TEST_KEYS_ENABLED, capturedArguments.get(1));
-
-        verify(mMockDatabaseClearer)
-                .deleteProtectedAudienceAppSignalsAndEncryptionConfigData(
-                        /* deleteCustomAudienceUpdate= */ true,
-                        /* deleteAppInstallFiltering= */ true,
-                        /* deleteProtectedSignals= */ true,
-                        /* deleteEncryptionConfigData= */ false);
-        verify(mMockDatabaseClearer).deleteMeasurementData();
     }
 
     private static <T> T wait(Future<T> future) throws Exception {

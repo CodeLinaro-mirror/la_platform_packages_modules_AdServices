@@ -26,10 +26,8 @@ import androidx.room.Room;
 
 import com.android.adservices.LoggerFactory;
 import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
-import com.android.adservices.data.adselection.AdSelectionServerDatabase;
 import com.android.adservices.data.adselection.AppInstallDao;
 import com.android.adservices.data.adselection.FrequencyCapDao;
-import com.android.adservices.data.adselection.ProtectedServersEncryptionConfigDao;
 import com.android.adservices.data.adselection.SharedStorageDatabase;
 import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.customaudience.CustomAudienceDatabase;
@@ -69,7 +67,6 @@ public class MeasurementDevSessionTest extends AdServicesExtendedMockitoTestCase
     private CustomAudienceDao mCustomAudienceDao;
     private AppInstallDao mAppInstallDao;
     private FrequencyCapDao mFrequencyCapDao;
-    private ProtectedServersEncryptionConfigDao mProtectedServersEncryptionConfigDao;
 
     @Before
     public void setup() {
@@ -100,11 +97,6 @@ public class MeasurementDevSessionTest extends AdServicesExtendedMockitoTestCase
                         MeasurementDbHelper.getInstance(),
                         Mockito.mock(AdServicesErrorLogger.class));
 
-        mProtectedServersEncryptionConfigDao =
-                Room.inMemoryDatabaseBuilder(mContext, AdSelectionServerDatabase.class)
-                        .build()
-                        .protectedServersEncryptionConfigDao();
-
         mDevSessionHelper =
                 new DevSessionHelper(
                         mCustomAudienceDao,
@@ -112,8 +104,7 @@ public class MeasurementDevSessionTest extends AdServicesExtendedMockitoTestCase
                         mFrequencyCapDao,
                         protectedSignalsDao,
                         encodedPayloadDao,
-                        mMeasurementDatastoreManager,
-                        mProtectedServersEncryptionConfigDao);
+                        mMeasurementDatastoreManager);
     }
 
     @After

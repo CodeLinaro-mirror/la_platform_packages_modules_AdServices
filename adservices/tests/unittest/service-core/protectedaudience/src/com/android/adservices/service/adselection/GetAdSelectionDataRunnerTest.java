@@ -187,6 +187,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
     private ScheduledThreadPoolExecutor mScheduledExecutor;
     private CustomAudienceDao mCustomAudienceDao;
     private EncodedPayloadDao mEncodedPayloadDao;
+    private MultiCloudSupportStrategy mMultiCloudSupportStrategyFlagOff;
+    private MultiCloudSupportStrategy mMultiCloudSupportStrategyFlagOn;
     private AdSelectionEntryDao mAdSelectionEntryDaoSpy;
     @Mock private ObliviousHttpEncryptor mObliviousHttpEncryptorMock;
     @Mock private AdSelectionServiceFilter mAdSelectionServiceFilterMock;
@@ -218,6 +220,11 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
         mLegacyFakeFlags = new GetAdSelectionDataRunnerTestFlags();
         mocker.mockGetDebugFlags(mFakeDebugFlags);
         mockGetConsentNotificationDebugMode(false);
+        mMultiCloudSupportStrategyFlagOff =
+                MultiCloudTestStrategyFactory.getDisabledTestStrategy(mObliviousHttpEncryptorMock);
+        mMultiCloudSupportStrategyFlagOn =
+                MultiCloudTestStrategyFactory.getEnabledTestStrategy(
+                        mObliviousHttpEncryptorMock, ALLOW_LIST_COORDINATORS);
         mLightweightExecutorService = AdServicesExecutors.getLightWeightExecutor();
         mBackgroundExecutorService = AdServicesExecutors.getBackgroundExecutor();
         mScheduledExecutor = AdServicesExecutors.getScheduler();
@@ -282,7 +289,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
         doReturn(FluentFuture.from(immediateFuture(CIPHER_TEXT_BYTES)))
                 .when(mObliviousHttpEncryptorMock)
                 .encryptBytes(any(), anyLong(), anyLong(), any(), any());
-        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger();
+        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger(
+                MultiCloudTestStrategyFactory.getDisabledTestStrategy(mObliviousHttpEncryptorMock));
 
         createAndPersistDBCustomAudiencesWithAdRenderId();
         GetAdSelectionDataInput inputParams =
@@ -327,7 +335,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
         doReturn(FluentFuture.from(immediateFuture(CIPHER_TEXT_BYTES)))
                 .when(mObliviousHttpEncryptorMock)
                 .encryptBytes(any(), anyLong(), anyLong(), any(), any());
-        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger();
+        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger(
+                MultiCloudTestStrategyFactory.getDisabledTestStrategy(mObliviousHttpEncryptorMock));
 
         createAndPersistDBCustomAudiencesWithAdRenderId();
         GetAdSelectionDataInput inputParams =
@@ -406,7 +415,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
                 initRunner(
                         flags,
                         mAdsRelevanceExecutionLogger,
-                        mObliviousHttpEncryptorMock,
+                        MultiCloudTestStrategyFactory.getDisabledTestStrategy(
+                                mObliviousHttpEncryptorMock),
                         new AuctionServerPayloadMetricsStrategyEnabled(
                                 mAdServicesLoggerSpy,
                                 new SellerConfigurationMetricsStrategyEnabled(),
@@ -517,7 +527,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
                 initRunner(
                         flags,
                         mAdsRelevanceExecutionLogger,
-                        mObliviousHttpEncryptorMock,
+                        MultiCloudTestStrategyFactory.getDisabledTestStrategy(
+                                mObliviousHttpEncryptorMock),
                         new AuctionServerPayloadMetricsStrategyEnabled(
                                 mAdServicesLoggerSpy,
                                 new SellerConfigurationMetricsStrategyEnabled(),
@@ -631,7 +642,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
                 initRunner(
                         flags,
                         mAdsRelevanceExecutionLogger,
-                        mObliviousHttpEncryptorMock,
+                        MultiCloudTestStrategyFactory.getDisabledTestStrategy(
+                                mObliviousHttpEncryptorMock),
                         new AuctionServerPayloadMetricsStrategyEnabled(
                                 mAdServicesLoggerSpy,
                                 new SellerConfigurationMetricsStrategyEnabled(),
@@ -756,7 +768,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
                 initRunner(
                         flags,
                         mAdsRelevanceExecutionLogger,
-                        mObliviousHttpEncryptorMock,
+                        MultiCloudTestStrategyFactory.getDisabledTestStrategy(
+                                mObliviousHttpEncryptorMock),
                         new AuctionServerPayloadMetricsStrategyEnabled(
                                 mAdServicesLoggerSpy,
                                 new SellerConfigurationMetricsStrategyEnabled(),
@@ -875,7 +888,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
                 initRunner(
                         mLegacyFakeFlags,
                         mAdsRelevanceExecutionLogger,
-                        mObliviousHttpEncryptorMock,
+                        MultiCloudTestStrategyFactory.getDisabledTestStrategy(
+                                mObliviousHttpEncryptorMock),
                         new AuctionServerPayloadMetricsStrategyEnabled(
                                 mAdServicesLoggerSpy,
                                 new SellerConfigurationMetricsStrategyDisabled(),
@@ -982,7 +996,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
                 initRunner(
                         mLegacyFakeFlags,
                         mAdsRelevanceExecutionLogger,
-                        mObliviousHttpEncryptorMock,
+                        MultiCloudTestStrategyFactory.getDisabledTestStrategy(
+                                mObliviousHttpEncryptorMock),
                         new AuctionServerPayloadMetricsStrategyWithKeyFetchEnabled(
                                 mAdServicesLoggerSpy,
                                 new SellerConfigurationMetricsStrategyDisabled(),
@@ -1069,6 +1084,7 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
     public void
             testRunner_getAdSelectionData_returnsSuccessMetricsEnabled_withApiSourceCoordinator()
                     throws Exception {
+        mLegacyFakeFlags = new GetAdSelectionDataRunnerTestFlagsWithMultiCloudEnabled(true);
         ArgumentCaptor<GetAdSelectionDataApiCalledStats> apiCalledArgumentCaptor =
                 ArgumentCaptor.forClass(GetAdSelectionDataApiCalledStats.class);
         ArgumentCaptor<GetAdSelectionDataBuyerInputGeneratedStats>
@@ -1091,7 +1107,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
                 initRunner(
                         mLegacyFakeFlags,
                         mAdsRelevanceExecutionLogger,
-                        mObliviousHttpEncryptorMock,
+                        MultiCloudTestStrategyFactory.getEnabledTestStrategy(
+                                mObliviousHttpEncryptorMock, ALLOW_LIST_COORDINATORS),
                         new AuctionServerPayloadMetricsStrategyWithKeyFetchEnabled(
                                 mAdServicesLoggerSpy,
                                 new SellerConfigurationMetricsStrategyDisabled(),
@@ -1181,9 +1198,11 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
     @ExpectErrorLogUtilCall(
             errorCode =
                     AD_SERVICES_ERROR_REPORTED__ERROR_CODE__GET_AD_SELECTION_DATA_RUNNER_NOTIFY_FAILURE_INVALID_ARGUMENT)
-    public void testRunner_getAdSelectionData_invalidCoordinator_throwsError() throws Exception {
+    public void testRunner_getAdSelectionData_multiCloudFlagOn_invalidCoordinator_throwsError()
+            throws Exception {
 
-        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger();
+        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger(
+                mMultiCloudSupportStrategyFlagOn);
 
         mocker.mockGetFlags(mLegacyFakeFlags);
 
@@ -1207,14 +1226,17 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
     }
 
     @Test
-    public void testRunner_getAdSelectionData_validCoordinator_IsSuccess() throws Exception {
+    public void testRunner_getAdSelectionData_multiCloudFlagOn_validCoordinator_IsSuccess()
+            throws Exception {
         mocker.mockGetFlags(mLegacyFakeFlags);
 
         doReturn(FluentFuture.from(immediateFuture(CIPHER_TEXT_BYTES)))
                 .when(mObliviousHttpEncryptorMock)
                 .encryptBytes(any(), anyLong(), anyLong(), any(), any());
 
-        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger();
+        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger(
+                MultiCloudTestStrategyFactory.getEnabledTestStrategy(
+                        mObliviousHttpEncryptorMock, ALLOW_LIST_COORDINATORS));
 
         createAndPersistDBCustomAudiencesWithAdRenderId();
         GetAdSelectionDataInput inputParams =
@@ -1233,7 +1255,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
     }
 
     @Test
-    public void testRunner_getAdSelectionData_nullCoordinator_IsSuccess() throws Exception {
+    public void testRunner_getAdSelectionData_multiCloudFlagOn_nullCoordinator_IsSuccess()
+            throws Exception {
 
         mocker.mockGetFlags(mLegacyFakeFlags);
 
@@ -1241,7 +1264,9 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
                 .when(mObliviousHttpEncryptorMock)
                 .encryptBytes(any(), anyLong(), anyLong(), any(), any());
 
-        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger();
+        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger(
+                MultiCloudTestStrategyFactory.getEnabledTestStrategy(
+                        mObliviousHttpEncryptorMock, ALLOW_LIST_COORDINATORS));
 
         createAndPersistDBCustomAudiencesWithAdRenderId();
         GetAdSelectionDataInput inputParams =
@@ -1260,6 +1285,35 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
     }
 
     @Test
+    public void testRunner_getAdSelectionData_multiCloudFlagOff_invalidCoordinator_IsSuccess()
+            throws Exception {
+
+        mocker.mockGetFlags(mLegacyFakeFlags);
+
+        doReturn(FluentFuture.from(immediateFuture(CIPHER_TEXT_BYTES)))
+                .when(mObliviousHttpEncryptorMock)
+                .encryptBytes(any(), anyLong(), anyLong(), any(), any());
+
+        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger(
+                MultiCloudTestStrategyFactory.getDisabledTestStrategy(mObliviousHttpEncryptorMock));
+
+        createAndPersistDBCustomAudiencesWithAdRenderId();
+        GetAdSelectionDataInput inputParams =
+                new GetAdSelectionDataInput.Builder()
+                        .setSeller(SELLER)
+                        .setCallerPackageName(CALLER_PACKAGE_NAME)
+                        .setCoordinatorOriginUri(Uri.parse("a/b/c"))
+                        .build();
+
+        GetAdSelectionDataTestCallback callback =
+                invokeGetAdSelectionData(mGetAdSelectionDataRunner, inputParams);
+
+        Assert.assertTrue("Call should have succeeded", callback.mIsSuccess);
+
+        verifyGetAdSelectionDataApiUsageLog(STATUS_SUCCESS);
+    }
+
+    @Test
     public void testRunner_getAdSelectionData_returnsSuccessWithExcessiveSizeFormatterVersion()
             throws Exception {
         doReturn(FluentFuture.from(immediateFuture(CIPHER_TEXT_BYTES)))
@@ -1267,7 +1321,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
                 .encryptBytes(any(), anyLong(), anyLong(), any(), any());
 
         mLegacyFakeFlags = new GetAdSelectionDataRunnerTestFlagsWithExcessiveSizeFormatter();
-        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger();
+        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger(
+                MultiCloudTestStrategyFactory.getDisabledTestStrategy(mObliviousHttpEncryptorMock));
 
         mocker.mockGetFlags(mLegacyFakeFlags);
 
@@ -1321,7 +1376,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
     public void testRunner_getAdSelectionData_returnsInternalErrorWhenEncounteringIOException()
             throws Exception {
         mLegacyFakeFlags = new GetAdSelectionDataRunnerTestFlagsWithExcessiveSizeFormatter();
-        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger();
+        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger(
+                mMultiCloudSupportStrategyFlagOff);
         doThrow(new IOException())
                 .when(() -> AssetFileDescriptorUtil.setupAssetFileDescriptorResponse(any(), any()));
 
@@ -1477,7 +1533,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
                         .build();
         long adSelectionId = 234L;
         mocker.mockGetFlags(mLegacyFakeFlags);
-        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger();
+        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger(
+                mMultiCloudSupportStrategyFlagOff);
         AuctionServerDebugConfiguration auctionServerDebugConfiguration =
                 AuctionServerDebugConfiguration.builder()
                         .setDebugReportingEnabled(isDebugReportingEnabled)
@@ -1558,11 +1615,14 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
                                 new Returns(
                                         FluentFuture.from(immediateFuture(CIPHER_TEXT_BYTES)))));
 
-        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger();
+        mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger(
+                mMultiCloudSupportStrategyFlagOff);
         GetAdSelectionDataRunner getAdSelectionDataRunner =
                 new GetAdSelectionDataRunner(
+                        mContext,
                         E2E_TRACE_COOKIE,
-                        mObliviousHttpEncryptorMock,
+                        MultiCloudTestStrategyFactory.getDisabledTestStrategy(
+                                mObliviousHttpEncryptorMock),
                         mAdSelectionEntryDaoSpy,
                         mCustomAudienceDao,
                         mEncodedPayloadDao,
@@ -1615,18 +1675,19 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
         return initRunner(
                 flags,
                 adsRelevanceExecutionLogger,
-                mObliviousHttpEncryptorMock,
+                mMultiCloudSupportStrategyFlagOff,
                 new AuctionServerPayloadMetricsStrategyDisabled());
     }
 
     private GetAdSelectionDataRunner initRunner(
             Flags flags,
             AdsRelevanceExecutionLogger adsRelevanceExecutionLogger,
-            ObliviousHttpEncryptor obliviousHttpEncryptor,
+            MultiCloudSupportStrategy multiCloudSupportStrategy,
             AuctionServerPayloadMetricsStrategy auctionServerPayloadMetricsStrategy) {
         return new GetAdSelectionDataRunner(
+                mContext,
                 E2E_TRACE_COOKIE,
-                obliviousHttpEncryptor,
+                multiCloudSupportStrategy,
                 mAdSelectionEntryDaoSpy,
                 mCustomAudienceDao,
                 mEncodedPayloadDao,
@@ -1701,7 +1762,8 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
         return callback;
     }
 
-    private void mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger() {
+    private void mockGetAdSelectionDataRunnerWithFledgeAuctionServerExecutionLogger(
+            MultiCloudSupportStrategy multiCloudSupportStrategy) {
         when(mFledgeAuctionServerExecutionLoggerClockMock.elapsedRealtime())
                 .thenReturn(
                         BINDER_ELAPSED_TIMESTAMP,
@@ -1713,7 +1775,7 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
                 initRunner(
                         mLegacyFakeFlags,
                         mAdsRelevanceExecutionLogger,
-                        mObliviousHttpEncryptorMock,
+                        multiCloudSupportStrategy,
                         new AuctionServerPayloadMetricsStrategyDisabled());
     }
 
@@ -1752,11 +1814,6 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
         public boolean getFledgeAuctionServerKeyFetchMetricsEnabled() {
             return FLEDGE_AUCTION_SERVER_KEY_FETCH_METRICS_ENABLED_IN_TEST;
         }
-
-        @Override
-        public String getFledgeAuctionServerCoordinatorUrlAllowlist() {
-            return ALLOW_LIST_COORDINATORS;
-        }
     }
 
     static class GetAdSelectionDataRunnerTestFlagsWithExcessiveSizeFormatter
@@ -1780,6 +1837,26 @@ public final class GetAdSelectionDataRunnerTest extends AdServicesExtendedMockit
         @Override
         public boolean getEnableCustomAudienceComponentAds() {
             return false;
+        }
+    }
+
+    static class GetAdSelectionDataRunnerTestFlagsWithMultiCloudEnabled
+            extends GetAdSelectionDataRunnerTestFlags {
+
+        private final boolean mMultiCloudEnabled;
+
+        GetAdSelectionDataRunnerTestFlagsWithMultiCloudEnabled(boolean multiCloudEnabled) {
+            this.mMultiCloudEnabled = multiCloudEnabled;
+        }
+
+        @Override
+        public boolean getFledgeAuctionServerMultiCloudEnabled() {
+            return mMultiCloudEnabled;
+        }
+
+        @Override
+        public String getFledgeAuctionServerCoordinatorUrlAllowlist() {
+            return "https://example.com";
         }
     }
 
