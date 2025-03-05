@@ -74,6 +74,8 @@ import com.android.adservices.service.measurement.AsyncRegistrationFixture;
 import com.android.adservices.service.measurement.AsyncRegistrationFixture.ValidAsyncRegistrationParams;
 import com.android.adservices.service.measurement.AttributedTrigger;
 import com.android.adservices.service.measurement.Attribution;
+import com.android.adservices.service.measurement.CountUniqueMetadata;
+import com.android.adservices.service.measurement.CountUniqueReport;
 import com.android.adservices.service.measurement.EventReport;
 import com.android.adservices.service.measurement.EventReportFixture;
 import com.android.adservices.service.measurement.EventSurfaceType;
@@ -3356,6 +3358,367 @@ public final class MeasurementDaoTest extends AdServicesExtendedMockitoTestCase 
                 Arrays.asList(
                         "IA1", "IA2", "IA3", "IA4", "IA5", "IA6", "IA7", "IA8", "IA8", "IA10"),
                 db);
+    }
+
+    @Test
+    public void testInsertCountUniqueReport_forValidEvent_isSuccess() {
+        String reportId = "reportId";
+        String payload = "payload";
+        Uri reportingOrigin = Uri.parse("https://test.foo");
+        int status = CountUniqueReport.Status.PENDING;
+        Long scheduledReportTime = 1726874188124L;
+        String version = "0.1";
+        String debugKey = "asadsadsa=";
+        String contextId = "testContextId";
+
+        CountUniqueReport report =
+                createCountUniqueReport(
+                        reportId,
+                        payload,
+                        reportingOrigin,
+                        status,
+                        scheduledReportTime,
+                        version,
+                        debugKey,
+                        contextId);
+
+        boolean result =
+                mDatastoreManager.runInTransaction(
+                        (dao) -> {
+                            dao.insertCountUniqueReport(report);
+                        });
+        assertThat(result).isTrue();
+        try (Cursor cursor =
+                MeasurementDbHelper.getInstance()
+                        .getReadableDatabase()
+                        .query(
+                                MeasurementTables.CountUniqueReportingContract.TABLE,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null)) {
+
+            assertThat(cursor.getCount()).isEqualTo(1);
+            List<CountUniqueReport> reports = new ArrayList<>();
+
+            while (cursor.moveToNext()) {
+                CountUniqueReport reportFromDb =
+                        SqliteObjectMapper.constructCountUniqueReport(cursor);
+                reports.add(reportFromDb);
+            }
+
+            for (CountUniqueReport r : reports) {
+                assertThat(r.getReportId()).isEqualTo(reportId);
+                assertThat(r.getPayload()).isEqualTo(payload);
+                assertThat(r.getReportingOrigin()).isEqualTo(reportingOrigin);
+                assertThat(r.getStatus()).isEqualTo(status);
+                assertThat(r.getScheduledReportTime()).isEqualTo(scheduledReportTime);
+                assertThat(r.getApiVersion()).isEqualTo(version);
+                assertThat(r.getDebugKey()).isEqualTo(debugKey);
+                assertThat(r.getContextId()).isEqualTo(contextId);
+            }
+        }
+    }
+
+    @Test
+    public void testInsertCountUniqueMetadata_setIgnoreIfPresentTrue_ignoresIfPresent() {
+        String key = "key1";
+        Integer value1 = 1;
+        Integer value2 = 2;
+        Long expirationTime = 1726874188124L;
+        Uri reportingOrigin = Uri.parse("https://test.foo");
+
+        CountUniqueMetadata metadata =
+                new CountUniqueMetadata.Builder()
+                        .setKey(key)
+                        .setValue(value1)
+                        .setExpirationTime(expirationTime)
+                        .setReportingOrigin(reportingOrigin)
+                        .build();
+        CountUniqueMetadata metadata2 =
+                new CountUniqueMetadata.Builder()
+                        .setKey(key)
+                        .setValue(value2)
+                        .setExpirationTime(expirationTime)
+                        .setReportingOrigin(reportingOrigin)
+                        .build();
+
+        boolean result =
+                mDatastoreManager.runInTransaction(
+                        (dao) -> {
+                            dao.insertCountUniqueMetadata(metadata, true);
+                        });
+        assertThat(result).isTrue();
+        try (Cursor cursor =
+                MeasurementDbHelper.getInstance()
+                        .getReadableDatabase()
+                        .query(
+                                MeasurementTables.CountUniqueMetadataContract.TABLE,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null)) {
+
+            assertThat(cursor.getCount()).isEqualTo(1);
+            cursor.moveToNext();
+            CountUniqueMetadata metadataFromDb =
+                    SqliteObjectMapper.constructCountUniqueMetadata(cursor);
+            assertThat(metadataFromDb.getKey()).isEqualTo(key);
+            assertThat(metadataFromDb.getValue()).isEqualTo(value1);
+            assertThat(metadataFromDb.getReportingOrigin()).isEqualTo(reportingOrigin);
+            assertThat(metadataFromDb.getExpirationTime()).isEqualTo(expirationTime);
+        }
+
+        result =
+                mDatastoreManager.runInTransaction(
+                        (dao) -> {
+                            dao.insertCountUniqueMetadata(metadata2, true);
+                        });
+        assertThat(result).isTrue();
+        try (Cursor cursor =
+                MeasurementDbHelper.getInstance()
+                        .getReadableDatabase()
+                        .query(
+                                MeasurementTables.CountUniqueMetadataContract.TABLE,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null)) {
+
+            assertThat(cursor.getCount()).isEqualTo(1);
+            cursor.moveToNext();
+            CountUniqueMetadata metadataFromDb =
+                    SqliteObjectMapper.constructCountUniqueMetadata(cursor);
+            assertThat(metadataFromDb.getKey()).isEqualTo(key);
+            assertThat(metadataFromDb.getValue()).isEqualTo(value1); // should not be value2
+            assertThat(metadataFromDb.getReportingOrigin()).isEqualTo(reportingOrigin);
+            assertThat(metadataFromDb.getExpirationTime()).isEqualTo(expirationTime);
+        }
+    }
+
+    @Test
+    public void testInsertCountUniqueMetadata_setIgnoreIfPresentFalse_updatesRecord() {
+        String key = "key1";
+        Integer value1 = 1;
+        Integer value2 = 2;
+        Long expirationTime = 1726874188124L;
+        Uri reportingOrigin = Uri.parse("https://test.foo");
+
+        CountUniqueMetadata metadata1 =
+                new CountUniqueMetadata.Builder()
+                        .setKey(key)
+                        .setValue(value1)
+                        .setExpirationTime(expirationTime)
+                        .setReportingOrigin(reportingOrigin)
+                        .build();
+
+        CountUniqueMetadata metadata2 =
+                new CountUniqueMetadata.Builder()
+                        .setKey(key)
+                        .setValue(value2)
+                        .setExpirationTime(expirationTime)
+                        .setReportingOrigin(reportingOrigin)
+                        .build();
+
+        boolean result =
+                mDatastoreManager.runInTransaction(
+                        (dao) -> {
+                            dao.insertCountUniqueMetadata(metadata1, false);
+                        });
+        assertThat(result).isTrue();
+        try (Cursor cursor =
+                MeasurementDbHelper.getInstance()
+                        .getReadableDatabase()
+                        .query(
+                                MeasurementTables.CountUniqueMetadataContract.TABLE,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null)) {
+
+            assertThat(cursor.getCount()).isEqualTo(1);
+            cursor.moveToNext();
+            CountUniqueMetadata metadataFromDb =
+                    SqliteObjectMapper.constructCountUniqueMetadata(cursor);
+            assertThat(metadataFromDb.getKey()).isEqualTo(key);
+            assertThat(metadataFromDb.getValue()).isEqualTo(value1);
+            assertThat(metadataFromDb.getReportingOrigin()).isEqualTo(reportingOrigin);
+            assertThat(metadataFromDb.getExpirationTime()).isEqualTo(expirationTime);
+        }
+
+        result =
+                mDatastoreManager.runInTransaction(
+                        (dao) -> {
+                            dao.insertCountUniqueMetadata(metadata2, false);
+                        });
+        assertThat(result).isTrue();
+        try (Cursor cursor =
+                MeasurementDbHelper.getInstance()
+                        .getReadableDatabase()
+                        .query(
+                                MeasurementTables.CountUniqueMetadataContract.TABLE,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null)) {
+
+            assertThat(cursor.getCount()).isEqualTo(1);
+            cursor.moveToNext();
+            CountUniqueMetadata metadataFromDb =
+                    SqliteObjectMapper.constructCountUniqueMetadata(cursor);
+            assertThat(metadataFromDb.getKey()).isEqualTo(key);
+            assertThat(metadataFromDb.getValue()).isEqualTo(value2); // record updated to value2
+            assertThat(metadataFromDb.getReportingOrigin()).isEqualTo(reportingOrigin);
+            assertThat(metadataFromDb.getExpirationTime()).isEqualTo(expirationTime);
+        }
+    }
+
+    @Test
+    public void testDeleteCountUniqueMetadata_forKeyAndOrigin_deletesRecord() {
+        String key1 = "key1";
+        String key2 = "key2";
+        Integer value1 = 1;
+        Integer value2 = 2;
+        Long expirationTime = 1726874188124L;
+        Uri reportingOrigin = Uri.parse("https://test.foo");
+
+        CountUniqueMetadata metadata1 =
+                new CountUniqueMetadata.Builder()
+                        .setKey(key1)
+                        .setValue(value1)
+                        .setExpirationTime(expirationTime)
+                        .setReportingOrigin(reportingOrigin)
+                        .build();
+        CountUniqueMetadata metadata2 =
+                new CountUniqueMetadata.Builder()
+                        .setKey(key2)
+                        .setValue(value2)
+                        .setExpirationTime(expirationTime)
+                        .setReportingOrigin(reportingOrigin)
+                        .build();
+
+        boolean result =
+                mDatastoreManager.runInTransaction(
+                        (dao) -> {
+                            dao.insertCountUniqueMetadata(metadata1, false);
+                            dao.insertCountUniqueMetadata(metadata2, false);
+                        });
+        assertThat(result).isTrue();
+        try (Cursor cursor =
+                MeasurementDbHelper.getInstance()
+                        .getReadableDatabase()
+                        .query(
+                                MeasurementTables.CountUniqueMetadataContract.TABLE,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null)) {
+            assertThat(cursor.getCount()).isEqualTo(2);
+        }
+
+        result =
+                mDatastoreManager.runInTransaction(
+                        (dao) -> {
+                            dao.deleteCountUniqueMetadata(key1, reportingOrigin);
+                        });
+        assertThat(result).isTrue();
+        try (Cursor cursor =
+                MeasurementDbHelper.getInstance()
+                        .getReadableDatabase()
+                        .query(
+                                MeasurementTables.CountUniqueMetadataContract.TABLE,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null)) {
+            assertThat(cursor.getCount()).isEqualTo(1);
+        }
+
+        // verify if deletion for key that does not exist fails silently
+        result =
+                mDatastoreManager.runInTransaction(
+                        (dao) -> {
+                            dao.deleteCountUniqueMetadata(key1, reportingOrigin);
+                        });
+        assertThat(result).isTrue();
+        try (Cursor cursor =
+                MeasurementDbHelper.getInstance()
+                        .getReadableDatabase()
+                        .query(
+                                MeasurementTables.CountUniqueMetadataContract.TABLE,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null)) {
+            assertThat(cursor.getCount()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    public void testGetCountUniqueMetadata_IfPresent_returnsMetadata() {
+        String key = "key1";
+        Integer value1 = 1;
+        Long expirationTime = 1726874188124L;
+        Uri reportingOrigin = Uri.parse("https://test.foo");
+
+        CountUniqueMetadata m =
+                new CountUniqueMetadata.Builder()
+                        .setKey(key)
+                        .setValue(value1)
+                        .setExpirationTime(expirationTime)
+                        .setReportingOrigin(reportingOrigin)
+                        .build();
+
+        mDatastoreManager.runInTransaction(
+                (dao) -> {
+                    dao.insertCountUniqueMetadata(m, true);
+                    CountUniqueMetadata metadata = dao.getCountUniqueMetadata(key, reportingOrigin);
+                    assertThat(metadata.getKey()).isEqualTo(key);
+                    assertThat(metadata.getValue()).isEqualTo(value1);
+                    assertThat(metadata.getReportingOrigin()).isEqualTo(reportingOrigin);
+                    assertThat(metadata.getExpirationTime()).isEqualTo(expirationTime);
+                });
+    }
+
+    @Test
+    public void testGetCountUniqueMetadata_IfAbsent_throwsException() {
+        String key = "key1";
+        String key2 = "key2";
+        Integer value1 = 1;
+        Long expirationTime = 1726874188124L;
+        Uri reportingOrigin = Uri.parse("https://test.foo");
+
+        CountUniqueMetadata m =
+                new CountUniqueMetadata.Builder()
+                        .setKey(key)
+                        .setValue(value1)
+                        .setExpirationTime(expirationTime)
+                        .setReportingOrigin(reportingOrigin)
+                        .build();
+
+        mDatastoreManager.runInTransaction(
+                (dao) -> {
+                    dao.insertCountUniqueMetadata(m, true);
+                    assertThrows(
+                            DatastoreException.class,
+                            () -> dao.getCountUniqueMetadata(key2, reportingOrigin));
+                });
     }
 
     @Test
@@ -14592,5 +14955,26 @@ public final class MeasurementDaoTest extends AdServicesExtendedMockitoTestCase 
                 .runInTransactionWithResult(
                         measurementDao -> measurementDao.getMatchingActiveSources(trigger))
                 .orElseThrow();
+    }
+
+    private CountUniqueReport createCountUniqueReport(
+            String reportId,
+            String payload,
+            Uri reportingOrigin,
+            int status,
+            Long scheduledReportTime,
+            String version,
+            String debugKey,
+            String contextId) {
+        CountUniqueReport.Builder builder = new CountUniqueReport.Builder();
+        builder.setReportId(reportId);
+        builder.setPayload(payload);
+        builder.setReportingOrigin(reportingOrigin);
+        builder.setStatus(status);
+        builder.setScheduledReportTime(scheduledReportTime);
+        builder.setApiVersion(version);
+        builder.setDebugKey(debugKey);
+        builder.setContextId(contextId);
+        return builder.build();
     }
 }

@@ -63,7 +63,6 @@ import android.adservices.exceptions.AdServicesException;
 import android.adservices.exceptions.UnsupportedPayloadSizeException;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
 import android.os.Build;
@@ -156,18 +155,17 @@ public class GetAdSelectionDataRunner {
     private final int mPayloadFormatterVersion;
     private final ImmutableList<Integer> mPayloadBucketSizes;
 
-    @NonNull private final CoordinatorOriginUriValidator mCoordinatorOriginUriValidator;
     @NonNull private final AdsRelevanceExecutionLogger mAdsRelevanceExecutionLogger;
     @NonNull private final AdServicesLogger mAdServicesLogger;
     @NonNull private final AuctionServerPayloadMetricsStrategy mAuctionServerPayloadMetricsStrategy;
     private final BuyerInputGeneratorArgumentsPreparer mBuyerInputGeneratorArgumentsPreparer;
     private final AuctionServerDebugConfigurationGenerator
             mAuctionServerDebugConfigurationGenerator;
+    private final CoordinatorOriginUriValidator mCoordinatorOriginUriValidator;
 
     public GetAdSelectionDataRunner(
-            @NonNull final Context context,
             int e2eTraceCookie,
-            @NonNull final MultiCloudSupportStrategy multiCloudSupportStrategy,
+            @NonNull final ObliviousHttpEncryptor obliviousHttpEncryptor,
             @NonNull final AdSelectionEntryDao adSelectionEntryDao,
             @NonNull final CustomAudienceDao customAudienceDao,
             @NonNull final EncodedPayloadDao encodedPayloadDao,
@@ -187,8 +185,9 @@ public class GetAdSelectionDataRunner {
             @NonNull final AppInstallAdFilterer appInstallAdFilterer,
             @NonNull
                     final AuctionServerDebugConfigurationGenerator
-                            auctionServerDebugConfigurationGenerator) {
-        Objects.requireNonNull(multiCloudSupportStrategy);
+                            auctionServerDebugConfigurationGenerator,
+            @NonNull final CoordinatorOriginUriValidator coordinatorOriginUriValidator) {
+        Objects.requireNonNull(obliviousHttpEncryptor);
         Objects.requireNonNull(adSelectionEntryDao);
         Objects.requireNonNull(customAudienceDao);
         Objects.requireNonNull(encodedPayloadDao);
@@ -204,12 +203,10 @@ public class GetAdSelectionDataRunner {
         Objects.requireNonNull(auctionServerPayloadMetricsStrategy);
         Objects.requireNonNull(appInstallAdFilterer);
         Objects.requireNonNull(auctionServerDebugConfigurationGenerator);
+        Objects.requireNonNull(coordinatorOriginUriValidator);
 
         mE2ETraceCookie = e2eTraceCookie;
-        mObliviousHttpEncryptor =
-                multiCloudSupportStrategy.getObliviousHttpEncryptor(context, flags);
-        mCoordinatorOriginUriValidator =
-                multiCloudSupportStrategy.getCoordinatorOriginUriValidator();
+        mObliviousHttpEncryptor = obliviousHttpEncryptor;
         mAdSelectionEntryDao = adSelectionEntryDao;
         mCustomAudienceDao = customAudienceDao;
         mEncodedPayloadDao = encodedPayloadDao;
@@ -269,13 +266,13 @@ public class GetAdSelectionDataRunner {
         mAdsRelevanceExecutionLogger = adsRelevanceExecutionLogger;
         mAdServicesLogger = adServicesLogger;
         mAuctionServerDebugConfigurationGenerator = auctionServerDebugConfigurationGenerator;
+        mCoordinatorOriginUriValidator = coordinatorOriginUriValidator;
     }
 
     @VisibleForTesting
     GetAdSelectionDataRunner(
-            @NonNull final Context context,
             final int e2ETraceCookie,
-            @NonNull final MultiCloudSupportStrategy multiCloudSupportStrategy,
+            @NonNull final ObliviousHttpEncryptor obliviousHttpEncryptor,
             @NonNull final AdSelectionEntryDao adSelectionEntryDao,
             @NonNull final CustomAudienceDao customAudienceDao,
             @NonNull final EncodedPayloadDao encodedPayloadDao,
@@ -296,8 +293,9 @@ public class GetAdSelectionDataRunner {
             @NonNull final AppInstallAdFilterer appInstallAdFilterer,
             @NonNull
                     final AuctionServerDebugConfigurationGenerator
-                            auctionServerDebugConfigurationGenerator) {
-        Objects.requireNonNull(multiCloudSupportStrategy);
+                            auctionServerDebugConfigurationGenerator,
+            @NonNull final CoordinatorOriginUriValidator coordinatorOriginUriValidator) {
+        Objects.requireNonNull(obliviousHttpEncryptor);
         Objects.requireNonNull(adSelectionEntryDao);
         Objects.requireNonNull(customAudienceDao);
         Objects.requireNonNull(encodedPayloadDao);
@@ -314,12 +312,10 @@ public class GetAdSelectionDataRunner {
         Objects.requireNonNull(auctionServerPayloadMetricsStrategy);
         Objects.requireNonNull(appInstallAdFilterer);
         Objects.requireNonNull(auctionServerDebugConfigurationGenerator);
+        Objects.requireNonNull(coordinatorOriginUriValidator);
 
         mE2ETraceCookie = e2ETraceCookie;
-        mObliviousHttpEncryptor =
-                multiCloudSupportStrategy.getObliviousHttpEncryptor(context, flags);
-        mCoordinatorOriginUriValidator =
-                multiCloudSupportStrategy.getCoordinatorOriginUriValidator();
+        mObliviousHttpEncryptor = obliviousHttpEncryptor;
         mAdSelectionEntryDao = adSelectionEntryDao;
         mCustomAudienceDao = customAudienceDao;
         mEncodedPayloadDao = encodedPayloadDao;
@@ -378,6 +374,7 @@ public class GetAdSelectionDataRunner {
         mAdsRelevanceExecutionLogger = adsRelevanceExecutionLogger;
         mAdServicesLogger = adServicesLogger;
         mAuctionServerDebugConfigurationGenerator = auctionServerDebugConfigurationGenerator;
+        mCoordinatorOriginUriValidator = coordinatorOriginUriValidator;
     }
 
     /** Orchestrates GetAdSelectionData process. */
@@ -832,7 +829,7 @@ public class GetAdSelectionDataRunner {
 
     @AdsRelevanceStatusUtils.ServerAuctionCoordinatorSource
     private int getServerAuctionCoordinatorSourceFromUri(@Nullable Uri coordinatorUri) {
-        if (mFlags.getFledgeAuctionServerMultiCloudEnabled() && coordinatorUri != null) {
+        if (coordinatorUri != null) {
             return SERVER_AUCTION_COORDINATOR_SOURCE_API;
         }
         return SERVER_AUCTION_COORDINATOR_SOURCE_DEFAULT;

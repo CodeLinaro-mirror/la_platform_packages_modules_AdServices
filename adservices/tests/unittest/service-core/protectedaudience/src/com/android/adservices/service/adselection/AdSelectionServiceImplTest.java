@@ -161,6 +161,7 @@ import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.adselection.AppInstallAdvertisersSetterTest.SetAppInstallAdvertisersTestCallback;
 import com.android.adservices.service.adselection.debug.AuctionServerDebugConfigurationGenerator;
 import com.android.adservices.service.adselection.encryption.ObliviousHttpEncryptor;
+import com.android.adservices.service.adselection.encryption.ServerAuctionCoordinatorUriStrategyFactory;
 import com.android.adservices.service.common.AdSelectionServiceFilter;
 import com.android.adservices.service.common.AppImportanceFilter;
 import com.android.adservices.service.common.AppImportanceFilter.WrongCallingApplicationStateException;
@@ -361,7 +362,6 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
     private CustomAudienceSignals mCustomAudienceSignals;
     private AdTechIdentifier mSeller;
     private AdFilteringFeatureFactory mAdFilteringFeatureFactory;
-    private MultiCloudSupportStrategy mMultiCloudSupportStrategy;
     private RetryStrategyFactory mRetryStrategyFactory;
 
     @Mock private AdServicesLogger mAdServicesLoggerMock;
@@ -378,6 +378,10 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
 
     @Mock
     private AuctionServerDebugConfigurationGenerator mAuctionServerDebugConfigurationGenerator;
+
+    @Mock
+    private ServerAuctionCoordinatorUriStrategyFactory
+            mServerAuctionCoordinatorUriStrategyFactoryMock;
 
     @Rule(order = 11)
     public final SupportedByConditionRule webViewSupportsJSSandbox =
@@ -470,8 +474,6 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                 .when(mAppImportanceFilterMock)
                 .assertCallerIsInForeground(anyInt(), anyInt(), any());
         mockCreateDevContextForDevOptionsDisabled();
-        mMultiCloudSupportStrategy =
-                MultiCloudTestStrategyFactory.getDisabledTestStrategy(mObliviousHttpEncryptor);
         mRetryStrategyFactory = RetryStrategyFactory.createInstanceForTesting();
     }
 
@@ -555,14 +557,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -671,14 +674,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -799,14 +803,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -915,14 +920,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1024,14 +1030,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1140,14 +1147,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1255,14 +1263,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1386,14 +1395,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1518,14 +1528,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1638,14 +1649,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1765,14 +1777,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         /* shouldUseUnifiedTables= */ true,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -1892,14 +1905,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         /* shouldUseUnifiedTables= */ true,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2020,14 +2034,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         /* shouldUseUnifiedTables= */ true,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2142,14 +2157,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         /* shouldUseUnifiedTables= */ true,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2255,14 +2271,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         /* shouldUseUnifiedTables= */ true,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2362,14 +2379,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         /* shouldUseUnifiedTables= */ true,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2468,14 +2486,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         /* shouldUseUnifiedTables= */ true,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2578,14 +2597,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         /* shouldUseUnifiedTables= */ true,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2688,14 +2708,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2813,14 +2834,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -2935,14 +2957,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -3063,14 +3086,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -3231,14 +3255,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -3377,14 +3402,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -3541,14 +3567,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -3710,14 +3737,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -3870,14 +3898,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -4019,14 +4048,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -4166,14 +4196,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -4328,14 +4359,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -4498,14 +4530,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -4644,14 +4677,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -4752,14 +4786,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -4859,14 +4894,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -4970,14 +5006,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -5078,14 +5115,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -5181,14 +5219,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput request =
                 new ReportImpressionInput.Builder()
@@ -5283,14 +5322,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput request =
                 new ReportImpressionInput.Builder()
@@ -5386,14 +5426,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput request =
                 new ReportImpressionInput.Builder()
@@ -5504,14 +5545,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
                         .setAdSelectionId(AD_SELECTION_ID)
@@ -5648,14 +5690,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
                         .setAdSelectionId(AD_SELECTION_ID)
@@ -5744,14 +5787,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -5806,14 +5850,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -5866,14 +5911,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -5929,14 +5975,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -6001,14 +6048,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -6071,14 +6119,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -6143,14 +6192,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -6215,14 +6265,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig1 = mAdSelectionConfigBuilder.build();
         AdSelectionConfig adSelectionConfig2 =
@@ -6329,14 +6380,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig1 = mAdSelectionConfigBuilder.build();
         AdSelectionConfig adSelectionConfig2 =
@@ -6445,14 +6497,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig1 = mAdSelectionConfigBuilder.build();
         AdSelectionConfig adSelectionConfig2 =
@@ -6559,14 +6612,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig1 = mAdSelectionConfigBuilder.build();
         AdSelectionConfig adSelectionConfig2 =
@@ -6671,14 +6725,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         adSelectionService.destroy();
         verify(jsScriptEngineMock).shutdown();
@@ -6712,14 +6767,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         adSelectionService.destroy();
         verify(jsScriptEngineMock, never()).shutdown();
@@ -6767,14 +6823,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput request =
                 new ReportImpressionInput.Builder()
@@ -6834,14 +6891,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -6902,14 +6960,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -6961,14 +7020,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -7022,14 +7082,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionConfig adSelectionConfig = mAdSelectionConfigBuilder.build();
 
@@ -7077,14 +7138,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionOverrideTestCallback callback = callResetAllOverrides(adSelectionService);
 
@@ -7136,14 +7198,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionOverrideTestCallback callback = callResetAllOverrides(adSelectionService);
 
@@ -7239,14 +7302,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -7359,14 +7423,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -7480,14 +7545,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -7603,14 +7669,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -7710,14 +7777,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
         ReportImpressionInput request =
                 new ReportImpressionInput.Builder()
                         .setAdSelectionId(INCORRECT_AD_SELECTION_ID)
@@ -7820,14 +7888,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -7956,14 +8025,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -8071,14 +8141,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -8188,14 +8259,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -8327,14 +8399,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -8460,14 +8533,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -8577,14 +8651,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -8642,14 +8717,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionFromOutcomesConfig config =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -8706,14 +8782,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionFromOutcomesConfig config =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -8768,14 +8845,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionFromOutcomesConfig config =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -8832,14 +8910,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionFromOutcomesConfig config =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -8908,14 +8987,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionFromOutcomesConfig config =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -8982,14 +9062,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionFromOutcomesConfig config =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -9055,14 +9136,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionFromOutcomesConfig config =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -9128,14 +9210,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionFromOutcomesConfig config1 =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -9250,14 +9333,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionFromOutcomesConfig config1 =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -9370,14 +9454,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionFromOutcomesConfig config1 =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -9490,14 +9575,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionFromOutcomesConfig config1 =
                 AdSelectionFromOutcomesConfigFixture.anAdSelectionFromOutcomesConfig();
@@ -9628,14 +9714,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         AdSelectionOverrideTestCallback overridesCallback =
                 callAddOverrideForSelectAds(
@@ -10230,14 +10317,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -10286,14 +10374,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -10344,14 +10433,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactoryMock);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()
@@ -10404,14 +10494,15 @@ public final class AdSelectionServiceImplTest extends AdServicesExtendedMockitoT
                 mAdSelectionServiceFilterMock,
                 mAdFilteringFeatureFactory,
                 mConsentManagerMock,
-                mMultiCloudSupportStrategy,
+                mObliviousHttpEncryptor,
                 mAdSelectionDebugReportDao,
                 mAdIdFetcher,
                 mUnusedKAnonSignJoinFactory,
                 false,
                 mRetryStrategyFactory,
                 CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                mAuctionServerDebugConfigurationGenerator);
+                mAuctionServerDebugConfigurationGenerator,
+                mServerAuctionCoordinatorUriStrategyFactoryMock);
     }
 
     private void persistAdSelectionEntryDaoResults(Map<Long, Double> adSelectionIdToBidMap) {

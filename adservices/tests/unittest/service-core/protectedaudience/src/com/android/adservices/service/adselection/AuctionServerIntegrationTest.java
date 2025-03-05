@@ -44,7 +44,6 @@ import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_S
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_KEY_FETCH_METRICS_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_KILL_SWITCH;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_MEDIA_TYPE_CHANGE_ENABLED;
-import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_MULTI_CLOUD_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_OMIT_ADS_ENABLED;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_OVERALL_TIMEOUT_MS;
 import static com.android.adservices.service.FlagsConstants.KEY_FLEDGE_AUCTION_SERVER_PAYLOAD_FORMAT_VERSION;
@@ -104,7 +103,6 @@ import android.adservices.adselection.AuctionEncryptionKeyFixture;
 import android.adservices.adselection.GetAdSelectionDataCallback;
 import android.adservices.adselection.GetAdSelectionDataInput;
 import android.adservices.adselection.GetAdSelectionDataResponse;
-import android.adservices.adselection.ObliviousHttpEncryptorWithSeedImpl;
 import android.adservices.adselection.PersistAdSelectionResultCallback;
 import android.adservices.adselection.PersistAdSelectionResultInput;
 import android.adservices.adselection.PersistAdSelectionResultResponse;
@@ -155,10 +153,8 @@ import com.android.adservices.data.adselection.AdSelectionEntryDao;
 import com.android.adservices.data.adselection.AdSelectionServerDatabase;
 import com.android.adservices.data.adselection.AppInstallDao;
 import com.android.adservices.data.adselection.ConsentedDebugConfigurationDao;
-import com.android.adservices.data.adselection.DBEncryptionKey;
 import com.android.adservices.data.adselection.DBProtectedServersEncryptionConfig;
 import com.android.adservices.data.adselection.EncryptionContextDao;
-import com.android.adservices.data.adselection.EncryptionKeyDao;
 import com.android.adservices.data.adselection.FrequencyCapDao;
 import com.android.adservices.data.adselection.ProtectedServersEncryptionConfigDao;
 import com.android.adservices.data.adselection.SharedStorageDatabase;
@@ -182,10 +178,10 @@ import com.android.adservices.service.adid.AdIdCacheManager;
 import com.android.adservices.service.adselection.debug.AuctionServerDebugConfigurationGenerator;
 import com.android.adservices.service.adselection.debug.ConsentedDebugConfigurationGeneratorFactory;
 import com.android.adservices.service.adselection.encryption.AdSelectionEncryptionKey;
-import com.android.adservices.service.adselection.encryption.AdSelectionEncryptionKeyManager;
 import com.android.adservices.service.adselection.encryption.ObliviousHttpEncryptor;
 import com.android.adservices.service.adselection.encryption.ObliviousHttpEncryptorImpl;
 import com.android.adservices.service.adselection.encryption.ProtectedServersEncryptionConfigManager;
+import com.android.adservices.service.adselection.encryption.ServerAuctionCoordinatorUriStrategyFactory;
 import com.android.adservices.service.common.AdSelectionServiceFilter;
 import com.android.adservices.service.common.AppImportanceFilter;
 import com.android.adservices.service.common.FledgeAuthorizationFilter;
@@ -197,6 +193,8 @@ import com.android.adservices.service.common.httpclient.AdServicesHttpsClient;
 import com.android.adservices.service.consent.ConsentManager;
 import com.android.adservices.service.devapi.DevContext;
 import com.android.adservices.service.devapi.DevContextFilter;
+import com.android.adservices.service.devapi.DevSession;
+import com.android.adservices.service.devapi.DevSessionState;
 import com.android.adservices.service.exception.FilterException;
 import com.android.adservices.service.kanon.KAnonSignJoinFactory;
 import com.android.adservices.service.proto.bidding_auction_servers.BiddingAuctionServers.AuctionResult;
@@ -278,8 +276,6 @@ import java.util.stream.Collectors;
 @SetFlagFalse(KEY_FLEDGE_AUCTION_SERVER_KILL_SWITCH)
 @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_ENABLED_FOR_REPORT_IMPRESSION)
 @SetFlagFalse(KEY_FLEDGE_AUCTION_SERVER_ENABLE_DEBUG_REPORTING)
-@SetLongFlag(name = KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS, value = 20)
-@SetFlagFalse(KEY_FLEDGE_AUCTION_SERVER_MULTI_CLOUD_ENABLED)
 @SetFlagFalse(KEY_FLEDGE_AUCTION_SERVER_OMIT_ADS_ENABLED)
 @SetFlagTrue(KEY_PROTECTED_SIGNALS_PERIODIC_ENCODING_ENABLED)
 @SetFlagFalse(KEY_FLEDGE_AUCTION_SERVER_REFRESH_EXPIRED_KEYS_DURING_AUCTION)
@@ -366,6 +362,8 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                     .setIsChaff(false)
                     .setWinReportingUrls(WIN_REPORTING_URLS)
                     .build();
+    private static final AuctionResult AUCTION_RESULT_CHAFF =
+            AuctionResult.newBuilder().setIsChaff(true).build();
     private static final int NUM_BUYERS = 2;
 
     private static final long AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS = 20;
@@ -396,7 +394,6 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
     private AppInstallDao mAppInstallDao;
     private FrequencyCapDao mFrequencyCapDaoSpy;
     private com.android.adservices.data.encryptionkey.EncryptionKeyDao mEncryptionKeyDao;
-    private EncryptionKeyDao mAuctionServerEncryptionKeyDao;
     private ProtectedServersEncryptionConfigDao mProtectedServersEncryptionConfigDao;
     private EnrollmentDao mEnrollmentDao;
     private EncryptionContextDao mEncryptionContextDao;
@@ -409,18 +406,22 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
     private AdSelectionDebugReportDao mAdSelectionDebugReportDaoSpy;
     private AdIdFetcher mAdIdFetcher;
     private MockAdIdWorker mMockAdIdWorker;
-    private MultiCloudSupportStrategy mMultiCloudSupportStrategy;
     @Mock private KAnonSignJoinFactory mUnusedKAnonSignJoinFactory;
     @Mock private AdServicesHttpsClient mMockHttpClient;
     private RetryStrategyFactory mRetryStrategyFactory;
     private AuctionServerDebugConfigurationGenerator mAuctionServerDebugConfigurationGenerator;
     @Mock private DatastoreManager mDatastoreManager;
+    private ServerAuctionCoordinatorUriStrategyFactory mServerAuctionCoordinatorUriStrategyFactory;
+    @Mock DevContext mDevContextMock;
 
     @Before
     public void setUp() {
         // NOTE: not using annotation to set string flags below because the constants are private
         flags.setFlag(KEY_FLEDGE_AUCTION_SERVER_COORDINATOR_URL_ALLOWLIST, COORDINATOR_ALLOWLIST);
         flags.setFlag(KEY_FLEDGE_AUCTION_SERVER_AUCTION_KEY_FETCH_URI, DEFAULT_FETCH_URI);
+        flags.setFlag(
+                KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS,
+                AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS);
 
         mLightweightExecutorService = AdServicesExecutors.getLightWeightExecutor();
         mBackgroundExecutorService = AdServicesExecutors.getBackgroundExecutor();
@@ -458,7 +459,6 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
         mEncryptionKeyDao =
                 com.android.adservices.data.encryptionkey.EncryptionKeyDao.getInstance();
         mEnrollmentDao = EnrollmentDao.getInstance();
-        mAuctionServerEncryptionKeyDao = serverDb.encryptionKeyDao();
         mProtectedServersEncryptionConfigDao = serverDb.protectedServersEncryptionConfigDao();
         mEncryptionContextDao = serverDb.encryptionContextDao();
         mAdFilteringFeatureFactory =
@@ -482,8 +482,6 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
         mAdIdFetcher =
                 new AdIdFetcher(
                         mContext, mMockAdIdWorker, mLightweightExecutorService, mScheduledExecutor);
-        mMultiCloudSupportStrategy =
-                MultiCloudTestStrategyFactory.getDisabledTestStrategy(mObliviousHttpEncryptorMock);
         mRetryStrategyFactory = RetryStrategyFactory.createInstanceForTesting();
         ConsentedDebugConfigurationDao consentedDebugConfigurationDao =
                 Room.inMemoryDatabaseBuilder(mContext, AdSelectionDatabase.class)
@@ -502,6 +500,11 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                         mAdIdFetcher,
                         consentedDebugConfigurationGeneratorFactory.create(),
                         mLightweightExecutorService);
+
+        mServerAuctionCoordinatorUriStrategyFactory =
+                new ServerAuctionCoordinatorUriStrategyFactory(
+                        mFakeFlags.getFledgeAuctionServerCoordinatorUrlAllowlist());
+
         mAdSelectionService = createAdSelectionService();
 
         mPayloadFormatter =
@@ -530,7 +533,8 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                         mFrequencyCapDaoSpy,
                         mProtectedSignalsDao,
                         mEncodedPayloadDaoSpy,
-                        mDatastoreManager);
+                        mDatastoreManager,
+                        mProtectedServersEncryptionConfigDao);
 
         mServerAuctionTestHelper =
                 ServerAuctionTestHelper.getDefaultInstance(mAdServicesLoggerMock);
@@ -546,9 +550,6 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
 
     @Test
     @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_KILL_SWITCH)
-    @SetLongFlag(
-            name = KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS,
-            value = AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS)
     @ExpectErrorLogUtilCall(
             errorCode =
                     AD_SERVICES_ERROR_REPORTED__ERROR_CODE__AD_SELECTION_SERVICE_AUCTION_SERVER_API_NOT_AVAILABLE,
@@ -670,62 +671,13 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
     }
 
     @Test
-    public void testGetAdSelectionData_withoutEncrypt_validRequest_success() throws Exception {
-        Map<String, AdTechIdentifier> nameAndBuyersMap =
-                Map.of(
-                        "Shoes CA of Buyer 1", WINNER_BUYER,
-                        "Shirts CA of Buyer 1", WINNER_BUYER,
-                        "Shoes CA Of Buyer 2", DIFFERENT_BUYER);
-        Set<AdTechIdentifier> buyers = new HashSet<>(nameAndBuyersMap.values());
-        Map<String, DBCustomAudience> namesAndCustomAudiences =
-                createAndPersistDBCustomAudiences(nameAndBuyersMap);
-
-        when(mObliviousHttpEncryptorMock.encryptBytes(
-                        any(byte[].class), anyLong(), anyLong(), any(), any()))
-                .thenAnswer(
-                        invocation ->
-                                FluentFuture.from(immediateFuture(invocation.getArgument(0))));
-
-        GetAdSelectionDataInput input =
-                new GetAdSelectionDataInput.Builder()
-                        .setSeller(SELLER)
-                        .setCallerPackageName(CALLER_PACKAGE_NAME)
-                        .build();
-
-        GetAdSelectionDataTestCallback callback =
-                invokeGetAdSelectionData(mAdSelectionService, input);
-
-        assertTrue(callback.mIsSuccess);
-        Assert.assertNotNull(callback.mGetAdSelectionDataResponse);
-        Assert.assertNotNull(callback.mGetAdSelectionDataResponse.getAdSelectionData());
-
-        byte[] encryptedBytes = callback.mGetAdSelectionDataResponse.getAdSelectionData();
-        // Since encryption is mocked to do nothing then just passing encrypted byte[]
-        Map<AdTechIdentifier, BuyerInput> buyerInputMap =
-                getBuyerInputMapFromDecryptedBytes(encryptedBytes);
-        Assert.assertEquals(buyers, buyerInputMap.keySet());
-        for (AdTechIdentifier buyer : buyerInputMap.keySet()) {
-            BuyerInput buyerInput = buyerInputMap.get(buyer);
-            for (BuyerInput.CustomAudience buyerInputsCA : buyerInput.getCustomAudiencesList()) {
-                String buyerInputsCAName = buyerInputsCA.getName();
-                assertTrue(namesAndCustomAudiences.containsKey(buyerInputsCAName));
-                DBCustomAudience deviceCA = namesAndCustomAudiences.get(buyerInputsCAName);
-                Assert.assertEquals(deviceCA.getName(), buyerInputsCAName);
-                Assert.assertEquals(deviceCA.getBuyer(), buyer);
-                assertCasEquals(buyerInputsCA, deviceCA);
-            }
-        }
-    }
-
-    @Test
     public void testAuctionServerFlow_withoutEncrypt_validRequest_BothFiltersEnabled()
             throws Exception {
         setFlagsWithBothFiltersEnabled();
-        AdFilteringFeatureFactory adFilteringFeatureFactory =
+        mAdFilteringFeatureFactory =
                 new AdFilteringFeatureFactory(mAppInstallDao, mFrequencyCapDaoSpy, mFakeFlags);
         // Create the service again with new flags and new feature factory
-        AdSelectionService adSelectionService =
-                createAdSelectionService(mFakeFlags, adFilteringFeatureFactory);
+        AdSelectionService adSelectionService = createAdSelectionService();
 
         when(mObliviousHttpEncryptorMock.encryptBytes(
                         any(byte[].class), anyLong(), anyLong(), any(), any()))
@@ -840,8 +792,7 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
             throws Exception {
         setComponentAdsEnabled();
         // Create the service again with new flags
-        AdSelectionService adSelectionService =
-                createAdSelectionService(mFakeFlags, mAdFilteringFeatureFactory);
+        AdSelectionService adSelectionService = createAdSelectionService();
 
         when(mObliviousHttpEncryptorMock.encryptBytes(
                         any(byte[].class), anyLong(), anyLong(), any(), any()))
@@ -929,11 +880,10 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
         // Enabling both filters to start so setAppInstallAdvertisers and updateAdCounterHistogram
         // can be called as part of test setup
         setFlagsWithBothFiltersEnabled();
-        AdFilteringFeatureFactory adFilteringFeatureFactory =
+        mAdFilteringFeatureFactory =
                 new AdFilteringFeatureFactory(mAppInstallDao, mFrequencyCapDaoSpy, mFakeFlags);
         // create the service again with new flags and new feature factory
-        AdSelectionService adSelectionService =
-                createAdSelectionService(mFakeFlags, adFilteringFeatureFactory);
+        AdSelectionService adSelectionService = createAdSelectionService();
         when(mObliviousHttpEncryptorMock.encryptBytes(
                         any(byte[].class), anyLong(), anyLong(), any(), any()))
                 .thenAnswer(
@@ -1013,10 +963,10 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
 
         flags.setFlag(KEY_FLEDGE_APP_INSTALL_FILTERING_ENABLED, false);
 
-        adFilteringFeatureFactory =
+        mAdFilteringFeatureFactory =
                 new AdFilteringFeatureFactory(mAppInstallDao, mFrequencyCapDaoSpy, mFakeFlags);
         // Create the service again with new flags and new feature factory
-        adSelectionService = createAdSelectionService(mFakeFlags, adFilteringFeatureFactory);
+        adSelectionService = createAdSelectionService();
 
         // Collect device data again and expect one less ads due to FCap filter
         GetAdSelectionDataInput input2 =
@@ -1048,11 +998,10 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
         // Enabling both filters to start so setAppInstallAdvertisers and updateAdCounterHistogram
         // can be called as part of test setup
         setFlagsWithBothFiltersEnabled();
-        AdFilteringFeatureFactory adFilteringFeatureFactory =
+        mAdFilteringFeatureFactory =
                 new AdFilteringFeatureFactory(mAppInstallDao, mFrequencyCapDaoSpy, mFakeFlags);
         // Create the service again with new flags and new feature factory
-        AdSelectionService adSelectionService =
-                createAdSelectionService(mFakeFlags, adFilteringFeatureFactory);
+        AdSelectionService adSelectionService = createAdSelectionService();
 
         when(mObliviousHttpEncryptorMock.encryptBytes(
                         any(byte[].class), anyLong(), anyLong(), any(), any()))
@@ -1132,12 +1081,10 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
         setAppInstallAdvertisers(ImmutableSet.of(WINNER_BUYER), adSelectionService);
 
         flags.setFlag(KEY_FLEDGE_FREQUENCY_CAP_FILTERING_ENABLED, false);
-        adFilteringFeatureFactory =
+        mAdFilteringFeatureFactory =
                 new AdFilteringFeatureFactory(mAppInstallDao, mFrequencyCapDaoSpy, mFakeFlags);
         adSelectionService =
-                createAdSelectionService(
-                        mFakeFlags,
-                        adFilteringFeatureFactory); // create the service again with new flags and
+                createAdSelectionService(); // create the service again with new flags and
         // new feature factory
 
         // Collect device data again and expect one less ads due to app install filter
@@ -1303,9 +1250,7 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                 .logGetAdSelectionDataBuyerInputGeneratedStats(any());
 
         AdSelectionService adSelectionService =
-                createAdSelectionService(
-                        mFakeFlags,
-                        mAdFilteringFeatureFactory); // create the service again with new flags
+                createAdSelectionService(); // create the service again with new flags
 
         Map<String, AdTechIdentifier> nameAndBuyersMap =
                 Map.of(
@@ -1407,13 +1352,11 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
     public void
             testGetAdSelectionData_withoutEncrypt_validRequest_WithSellerConfigurationSellerMaxEnabled()
                     throws Exception {
-        AdFilteringFeatureFactory adFilteringFeatureFactory =
+        mAdFilteringFeatureFactory =
                 new AdFilteringFeatureFactory(mAppInstallDao, mFrequencyCapDaoSpy, mFakeFlags);
 
         AdSelectionService adSelectionService =
-                createAdSelectionService(
-                        mFakeFlags,
-                        adFilteringFeatureFactory); // create the service again with new flags
+                createAdSelectionService(); // create the service again with new flags
 
         List<AdTechIdentifier> buyersList = ImmutableList.of(BUYER_1, BUYER_2);
 
@@ -1500,12 +1443,11 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
     public void
             testGetAdSelectionData_withoutEncrypt_validRequest_WithSellerConfigurationPerBuyerLimitsGreedyEnabled()
                     throws Exception {
-        AdFilteringFeatureFactory adFilteringFeatureFactory =
+        mAdFilteringFeatureFactory =
                 new AdFilteringFeatureFactory(mAppInstallDao, mFrequencyCapDaoSpy, mFakeFlags);
 
         // Create the service again with new flags
-        AdSelectionService adSelectionService =
-                createAdSelectionService(mFakeFlags, adFilteringFeatureFactory);
+        AdSelectionService adSelectionService = createAdSelectionService();
         List<AdTechIdentifier> buyersList = ImmutableList.of(BUYER_1, BUYER_2);
 
         // Init with 100 CAs, which by compressing everything is larger than 4Kb
@@ -1893,26 +1835,21 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
     }
 
     @Test
-    public void testGetAdSelectionData_withEncrypt_validRequest_success() throws Exception {
-        prepareDataAndRunServerAuction(mFakeFlags);
-    }
-
-    @Test
     public void testGetAdSelectionData_withEncrypt_validRequestInDevMode_dataIsCleared()
             throws Exception {
         mDevSessionHelper.startDevSession();
-        AdSelectionService service = createAdSelectionServiceWithEncryption(mFakeFlags);
-        prepareDataAndRunServerAuction(mFakeFlags);
+        prepareDataAndRunServerAuction();
 
         // Exit the dev session, clearing the database.
         mDevSessionHelper.endDevSession();
 
         GetAdSelectionDataTestCallback callback =
                 invokeGetAdSelectionData(
-                        service,
+                        mAdSelectionService,
                         new GetAdSelectionDataInput.Builder()
                                 .setSeller(SELLER)
                                 .setCallerPackageName(CALLER_PACKAGE_NAME)
+                                .setCoordinatorOriginUri(Uri.parse(COORDINATOR_HOST))
                                 .build());
         assertThat(mCustomAudienceDaoSpy.getCustomAudienceCount()).isEqualTo(0);
         assertThat(mProtectedSignalsDao.getSignalsByBuyer(WINNER_BUYER)).isEmpty();
@@ -1924,18 +1861,18 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
     @Test
     public void testGetAdSelectionData_withEncrypt_validRequestBeforeDevMode_dataIsCleared()
             throws Exception {
-        AdSelectionService service = createAdSelectionServiceWithEncryption(mFakeFlags);
-        prepareDataAndRunServerAuction(mFakeFlags);
+        prepareDataAndRunServerAuction();
 
         // Exit the dev session, clearing the database.
         mDevSessionHelper.startDevSession();
 
         GetAdSelectionDataTestCallback callback =
                 invokeGetAdSelectionData(
-                        service,
+                        mAdSelectionService,
                         new GetAdSelectionDataInput.Builder()
                                 .setSeller(SELLER)
                                 .setCallerPackageName(CALLER_PACKAGE_NAME)
+                                .setCoordinatorOriginUri(Uri.parse(COORDINATOR_HOST))
                                 .build());
         assertThat(mCustomAudienceDaoSpy.getCustomAudienceCount()).isEqualTo(0);
         assertThat(mProtectedSignalsDao.getSignalsByBuyer(WINNER_BUYER)).isEmpty();
@@ -1946,36 +1883,27 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
 
     @Test
     @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_ENABLE_DEBUG_REPORTING)
-    @SetLongFlag(
-            name = KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS,
-            value = AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS)
     public void testGetAdSelectionData_withEncrypt_validRequest_DebugReportingFlagEnabled()
             throws Exception {
-        prepareDataAndRunServerAuction(mFakeFlags);
+        prepareDataAndRunServerAuction();
     }
 
     @Test
     @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_ENABLE_DEBUG_REPORTING)
-    @SetLongFlag(
-            name = KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS,
-            value = AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS)
     public void testGetAdSelectionData_withEncrypt_validRequest_LatDisabled() throws Exception {
         mMockAdIdWorker.setResult(MockAdIdWorker.MOCK_AD_ID, false);
 
-        prepareDataAndRunServerAuction(mFakeFlags);
+        prepareDataAndRunServerAuction();
     }
 
     @Test
     @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_ENABLE_DEBUG_REPORTING)
-    @SetLongFlag(
-            name = KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS,
-            value = AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS)
     public void testGetAdSelectionData_withEncrypt_validRequest_GetAdIdTimeoutException()
             throws Exception {
         mMockAdIdWorker.setResult(MockAdIdWorker.MOCK_AD_ID, false);
         mMockAdIdWorker.setDelay(AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS * 2);
 
-        prepareDataAndRunServerAuction(mFakeFlags);
+        prepareDataAndRunServerAuction();
     }
 
     @Test
@@ -2043,47 +1971,14 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
 
     @Test
     @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_OMIT_ADS_ENABLED)
-    public void testPersistAdSelectionResult_withoutDecrypt_validRequest_successOmitAdsEnabled()
-            throws Exception {
-        when(mObliviousHttpEncryptorMock.encryptBytes(
-                        any(byte[].class), anyLong(), anyLong(), any(), any()))
-                .thenAnswer(
-                        invocation ->
-                                FluentFuture.from(immediateFuture(invocation.getArgument(0))));
-        when(mObliviousHttpEncryptorMock.decryptBytes(any(byte[].class), anyLong()))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-        AdSelectionService adSelectionService =
-                new AdSelectionServiceImpl(
-                        mAdSelectionEntryDao,
-                        mAppInstallDao,
-                        mCustomAudienceDaoSpy,
-                        mEncodedPayloadDaoSpy,
-                        mFrequencyCapDaoSpy,
-                        mEncryptionKeyDao,
-                        mEnrollmentDao,
-                        mAdServicesHttpsClientSpy,
-                        mDevContextFilterMock,
-                        mLightweightExecutorService,
-                        mBackgroundExecutorService,
-                        mScheduledExecutor,
-                        mContext,
-                        mAdServicesLoggerMock,
-                        mFakeFlags,
-                        mFakeDebugFlags,
-                        CallingAppUidSupplierProcessImpl.create(),
-                        mFledgeAuthorizationFilterMock,
-                        mAdSelectionServiceFilterMock,
-                        mAdFilteringFeatureFactory,
-                        mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
-                        mAdSelectionDebugReportDaoSpy,
-                        mAdIdFetcher,
-                        mUnusedKAnonSignJoinFactory,
-                        false,
-                        mRetryStrategyFactory,
-                        CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+    public void testPersistAdSelectionResult_omitAdsEnabled_success() throws Exception {
+        AdServicesHttpClientResponse httpClientResponse =
+                mServerAuctionTestHelper.getPublicAuctionKeyHttpResponse();
+        when(mMockHttpClient.fetchPayloadWithLogging(
+                        eq(Uri.parse(COORDINATOR_URL)),
+                        eq(DevContext.createForDevOptionsDisabled()),
+                        any(FetchProcessLogger.class)))
+                .thenReturn(Futures.immediateFuture(httpClientResponse));
 
         mCustomAudienceDaoSpy.insertOrOverwriteCustomAudience(
                 DBCustomAudienceFixture.getValidBuilderByBuyerWithAdRenderId(
@@ -2099,49 +1994,64 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                 false,
                 List.of());
 
+        AdSelectionService adSelectionService = createServiceWithMockHttpClient();
+
         GetAdSelectionDataInput input =
                 new GetAdSelectionDataInput.Builder()
                         .setSeller(SELLER)
                         .setCallerPackageName(CALLER_PACKAGE_NAME)
+                        .setCoordinatorOriginUri(Uri.parse(COORDINATOR_HOST))
                         .build();
 
-        GetAdSelectionDataTestCallback getAdSelectionDataTestCallback =
+        GetAdSelectionDataTestCallback callback =
                 invokeGetAdSelectionData(adSelectionService, input);
 
-        byte[] encryptedBytes =
-                getAdSelectionDataTestCallback.mGetAdSelectionDataResponse.getAdSelectionData();
+        assertTrue(callback.mIsSuccess);
+        long adSelectionId = callback.mGetAdSelectionDataResponse.getAdSelectionId();
+        Assert.assertNotNull(
+                mEncryptionContextDao.getEncryptionContext(
+                        adSelectionId, ENCRYPTION_KEY_TYPE_AUCTION));
 
-        // Since encryption is mocked to do nothing then just passing encrypted byte[]
-        Map<AdTechIdentifier, BuyerInput> buyerInputMap =
-                getBuyerInputMapFromDecryptedBytes(encryptedBytes);
+        ProtectedAuctionInput protectedAuctionInput =
+                mServerAuctionTestHelper.decryptGetAdSelectionDataResponse(
+                        callback.mGetAdSelectionDataResponse);
+
+        Map<String, BuyerInput> buyerInputs =
+                mServerAuctionTestHelper.getDecompressedBuyerInputs(protectedAuctionInput);
+
+        Assert.assertEquals(1, buyerInputs.size());
+        assertTrue(buyerInputs.containsKey(WINNER_BUYER.toString()));
 
         // Assert that ads were omitted in buyer input
-        BuyerInput buyerInput = buyerInputMap.get(WINNER_BUYER);
-        assertThat(buyerInput.getCustomAudiences(0).getAdRenderIdsCount()).isEqualTo(0);
+        Assert.assertEquals(
+                0,
+                buyerInputs
+                        .get(WINNER_BUYER.toString())
+                        .getCustomAudiences(0)
+                        .getAdRenderIdsCount());
 
-        long adSelectionId =
-                getAdSelectionDataTestCallback.mGetAdSelectionDataResponse.getAdSelectionId();
-
+        byte[] encryptedServerResponse =
+                mServerAuctionTestHelper.encryptServerAuctionResult(
+                        callback.mGetAdSelectionDataResponse, AUCTION_RESULT);
         PersistAdSelectionResultInput persistAdSelectionResultInput =
                 new PersistAdSelectionResultInput.Builder()
                         .setAdSelectionId(adSelectionId)
                         .setSeller(SELLER)
-                        .setAdSelectionResult(prepareAuctionResultBytes())
+                        .setAdSelectionResult(encryptedServerResponse)
                         .setCallerPackageName(CALLER_PACKAGE_NAME)
                         .build();
-
         PersistAdSelectionResultTestCallback persistAdSelectionResultTestCallback =
                 invokePersistAdSelectionResult(adSelectionService, persistAdSelectionResultInput);
 
         assertTrue(persistAdSelectionResultTestCallback.mIsSuccess);
         Assert.assertEquals(
-                WINNER_AD_RENDER_URI,
-                persistAdSelectionResultTestCallback.mPersistAdSelectionResultResponse
-                        .getAdRenderUri());
-        Assert.assertEquals(
                 adSelectionId,
                 persistAdSelectionResultTestCallback.mPersistAdSelectionResultResponse
                         .getAdSelectionId());
+        Assert.assertEquals(
+                WINNER_AD_RENDER_URI,
+                persistAdSelectionResultTestCallback.mPersistAdSelectionResultResponse
+                        .getAdRenderUri());
         ReportingData reportingData =
                 mAdSelectionEntryDao.getReportingDataForId(adSelectionId, false);
         Assert.assertEquals(
@@ -2266,101 +2176,45 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
             errorCode =
                     AD_SERVICES_ERROR_REPORTED__ERROR_CODE__PERSIST_AD_SELECTION_RESULT_RUNNER_RESULT_IS_CHAFF,
             ppapiName = AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__PERSIST_AD_SELECTION_RESULT)
-    public void testPersistAdSelectionResult_withDecrypt_validRequest_successEmptyUri()
+    public void testPersistAdSelectionResult_withChaffAuctionResult_successEmptyUri()
             throws Exception {
-        DBEncryptionKey dbEncryptionKey =
-                DBEncryptionKey.builder()
-                        .setPublicKey("bSHP4J++pRIvnrwusqafzE8GQIzVSqyTTwEudvzc72I=")
-                        .setKeyIdentifier("050bed24-c62f-46e0-a1ad-211361ad771a")
-                        .setEncryptionKeyType(ENCRYPTION_KEY_TYPE_AUCTION)
-                        .setExpiryTtlSeconds(TimeUnit.DAYS.toSeconds(7))
-                        .build();
-        mAuctionServerEncryptionKeyDao.insertAllKeys(ImmutableList.of(dbEncryptionKey));
-        String seed = "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww";
-        byte[] seedBytes = seed.getBytes(StandardCharsets.US_ASCII);
+        AdServicesHttpClientResponse httpClientResponse =
+                mServerAuctionTestHelper.getPublicAuctionKeyHttpResponse();
+        when(mMockHttpClient.fetchPayloadWithLogging(
+                        eq(Uri.parse(COORDINATOR_URL)),
+                        eq(DevContext.createForDevOptionsDisabled()),
+                        any(FetchProcessLogger.class)))
+                .thenReturn(Futures.immediateFuture(httpClientResponse));
 
-        AdSelectionService service =
-                new AdSelectionServiceImpl(
-                        mAdSelectionEntryDao,
-                        mAppInstallDao,
-                        mCustomAudienceDaoSpy,
-                        mEncodedPayloadDaoSpy,
-                        mFrequencyCapDaoSpy,
-                        mEncryptionKeyDao,
-                        mEnrollmentDao,
-                        mAdServicesHttpsClientSpy,
-                        mDevContextFilterMock,
-                        mLightweightExecutorService,
-                        mBackgroundExecutorService,
-                        mScheduledExecutor,
-                        mContext,
-                        mAdServicesLoggerMock,
-                        mFakeFlags,
-                        mFakeDebugFlags,
-                        CallingAppUidSupplierProcessImpl.create(),
-                        mFledgeAuthorizationFilterMock,
-                        mAdSelectionServiceFilterMock,
-                        mAdFilteringFeatureFactory,
-                        mConsentManagerMock,
-                        MultiCloudTestStrategyFactory.getDisabledTestStrategy(
-                                new ObliviousHttpEncryptorWithSeedImpl(
-                                        new AdSelectionEncryptionKeyManager(
-                                                mAuctionServerEncryptionKeyDao,
-                                                mFakeFlags,
-                                                mAdServicesHttpsClientSpy,
-                                                mLightweightExecutorService,
-                                                mAdServicesLoggerMock),
-                                        mEncryptionContextDao,
-                                        seedBytes,
-                                        mLightweightExecutorService)),
-                        mAdSelectionDebugReportDaoSpy,
-                        mAdIdFetcher,
-                        mUnusedKAnonSignJoinFactory,
-                        false,
-                        mRetryStrategyFactory,
-                        CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+        AdSelectionService service = createServiceWithMockHttpClient();
 
         GetAdSelectionDataInput input =
                 new GetAdSelectionDataInput.Builder()
                         .setSeller(SELLER)
                         .setCallerPackageName(CALLER_PACKAGE_NAME)
+                        .setCoordinatorOriginUri(Uri.parse(COORDINATOR_HOST))
                         .build();
 
-        GetAdSelectionDataTestCallback getAdSelectionDataTestCallback =
-                invokeGetAdSelectionData(service, input);
+        GetAdSelectionDataTestCallback callback = invokeGetAdSelectionData(service, input);
 
-        long adSelectionId =
-                getAdSelectionDataTestCallback.mGetAdSelectionDataResponse.getAdSelectionId();
-        byte[] encryptedBytes =
-                getAdSelectionDataTestCallback.mGetAdSelectionDataResponse.getAdSelectionData();
+        assertTrue(callback.mIsSuccess);
+        long adSelectionId = callback.mGetAdSelectionDataResponse.getAdSelectionId();
+        byte[] encryptedBytes = callback.mGetAdSelectionDataResponse.getAdSelectionData();
 
         Assert.assertNotNull(encryptedBytes);
         Assert.assertNotNull(
                 mEncryptionContextDao.getEncryptionContext(
                         adSelectionId, ENCRYPTION_KEY_TYPE_AUCTION));
 
-        String cipherText =
-                "Lu9TKo4rvstPJt98F1IrLiVUeczFzKuBEJ8jFe1BNXfNImu/lQR0CB8/B1Kur0n1Fxcz"
-                        + "ZQs28dZO2b3jwOaKk5qJgIlcY8Zd1n0Tb/M9vQXcs+d2QbeykmoffEb9kf76zebKDd1"
-                        + "Slb0psgEFtATuqaxaPd9ErumVWXdvD9QuvB6p+URWN+uIv2VhFwmjtf+QE/HZBD6EE+"
-                        + "Ft8ipPiNkNysa7TyL3FLgXO3HGZ2FlQX4GvE5R3br3hPkceY+cplv7ZZDSmc/vfO+7N"
-                        + "4S1XkZ/y0KYuQHXF24ejJ4xmwrJ5L22V3LhTm5euppXerNtUkIqaaYRE3lQ+Glh1rph"
-                        + "dFYZqyoXLhFp6ABzk72lnjMzqdL2hYAVc7agowS29jz6Wo6Tw/pglfls8l1yLntocNE"
-                        + "hEUUvCDl+MQJqrY9gwmbEzrvhwgfl3MbEcShXib3qny+b8/cGEJdQ8sDft1xglbe0a1"
-                        + "rGHZbNgLiprEtVYKyD4dGMcNT7L/RqmygoLRgYzmCBBD7dLgEdYMpRrYh5kmopx4lZJ"
-                        + "6HkltqP0f+OzDLzgA7JCiPsCgiZG7Sx4iRR8p2iwfhKBVZPX1fPORdkRhzjIbhdWxCA"
-                        + "2+GuafjfdY5FBX2F719z0SbkJeaxxrrjKMmpXLzgVT12vVMsDbuFDFhi4i4buI3gMns"
-                        + "g0r4+eeQ+KX1UOMaM6OsGkdt5/aTSsBYTTv8Ikp2ufUEFDnAK4nuoTJlp+gEN3l0K07"
-                        + "/U3b7R4TI=";
-
-        byte[] responseBytes = BaseEncoding.base64().decode(cipherText);
+        byte[] encryptedServerResponse =
+                mServerAuctionTestHelper.encryptServerAuctionResult(
+                        callback.mGetAdSelectionDataResponse, AUCTION_RESULT_CHAFF);
 
         PersistAdSelectionResultInput persistAdSelectionResultInput =
                 new PersistAdSelectionResultInput.Builder()
                         .setSeller(SELLER)
                         .setAdSelectionId(adSelectionId)
-                        .setAdSelectionResult(responseBytes)
+                        .setAdSelectionResult(encryptedServerResponse)
                         .setCallerPackageName(CALLER_PACKAGE_NAME)
                         .build();
 
@@ -2403,14 +2257,15 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptorMock,
                         mAdSelectionDebugReportDaoSpy,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         /* shouldUseUnifiedTables= */ false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactory);
 
         Assume.assumeTrue(WebViewSupportUtil.isJSSandboxAvailable(mContext));
         mocker.mockGetFlags(new LegacyAuctionServerE2ETestFlags());
@@ -2585,14 +2440,15 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                         mAdSelectionServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptorMock,
                         mAdSelectionDebugReportDaoSpy,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         /* shouldUseUnifiedTables= */ true,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactory);
 
         Assume.assumeTrue(WebViewSupportUtil.isJSSandboxAvailable(mContext));
         mocker.mockGetFlags(new LegacyAuctionServerE2ETestFlags());
@@ -3122,214 +2978,12 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
     }
 
     @Test
-    public void testGetAdSelectionData_withOhttpGatewayDecryption() throws Exception {
-        String winnerBuyerCaOneName = "Shoes CA of Buyer 1";
-        String winnerBuyerCaTwoName = "Shirts CA of Buyer 1";
-        String differentBuyerCaOneName = "Shoes CA Of Buyer 2";
-
-        Map<String, AdTechIdentifier> nameAndBuyersMap =
-                Map.of(
-                        winnerBuyerCaOneName, WINNER_BUYER,
-                        winnerBuyerCaTwoName, WINNER_BUYER,
-                        differentBuyerCaOneName, DIFFERENT_BUYER);
-        createAndPersistDBCustomAudiences(nameAndBuyersMap);
-
-        String privateKeyHex = "e7b292f49df28b8065992cdeadbc9d032a0e09e8476cb6d8d507212e7be3b9b4";
-        OhttpGatewayPrivateKey privKey =
-                OhttpGatewayPrivateKey.create(
-                        BaseEncoding.base16().lowerCase().decode(privateKeyHex));
-        DBEncryptionKey dbEncryptionKey =
-                DBEncryptionKey.builder()
-                        .setPublicKey("87ey8XZPXAd+/+ytKv2GFUWW5j9zdepSJ2G4gebDwyM=")
-                        .setKeyIdentifier("400bed24-c62f-46e0-a1ad-211361ad771a")
-                        .setEncryptionKeyType(ENCRYPTION_KEY_TYPE_AUCTION)
-                        .setExpiryTtlSeconds(TimeUnit.DAYS.toSeconds(7))
-                        .build();
-        mAuctionServerEncryptionKeyDao.insertAllKeys(ImmutableList.of(dbEncryptionKey));
-
-        String seed = "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww";
-        byte[] seedBytes = seed.getBytes(StandardCharsets.US_ASCII);
-        AdSelectionService service =
-                new AdSelectionServiceImpl(
-                        mAdSelectionEntryDao,
-                        mAppInstallDao,
-                        mCustomAudienceDaoSpy,
-                        mEncodedPayloadDaoSpy,
-                        mFrequencyCapDaoSpy,
-                        mEncryptionKeyDao,
-                        mEnrollmentDao,
-                        mAdServicesHttpsClientSpy,
-                        mDevContextFilterMock,
-                        mLightweightExecutorService,
-                        mBackgroundExecutorService,
-                        mScheduledExecutor,
-                        mContext,
-                        mAdServicesLoggerMock,
-                        mFakeFlags,
-                        mFakeDebugFlags,
-                        CallingAppUidSupplierProcessImpl.create(),
-                        mFledgeAuthorizationFilterMock,
-                        mAdSelectionServiceFilterMock,
-                        mAdFilteringFeatureFactory,
-                        mConsentManagerMock,
-                        MultiCloudTestStrategyFactory.getDisabledTestStrategy(
-                                new ObliviousHttpEncryptorWithSeedImpl(
-                                        new AdSelectionEncryptionKeyManager(
-                                                mAuctionServerEncryptionKeyDao,
-                                                mFakeFlags,
-                                                mAdServicesHttpsClientSpy,
-                                                mLightweightExecutorService,
-                                                mAdServicesLoggerMock),
-                                        mEncryptionContextDao,
-                                        seedBytes,
-                                        mLightweightExecutorService)),
-                        mAdSelectionDebugReportDaoSpy,
-                        mAdIdFetcher,
-                        mUnusedKAnonSignJoinFactory,
-                        false,
-                        mRetryStrategyFactory,
-                        CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
-
-        GetAdSelectionDataInput input =
-                new GetAdSelectionDataInput.Builder()
-                        .setSeller(SELLER)
-                        .setCallerPackageName(CALLER_PACKAGE_NAME)
-                        .build();
-
-        GetAdSelectionDataTestCallback callback = invokeGetAdSelectionData(service, input);
-        assertTrue(callback.mIsSuccess);
-        byte[] adSelectionResponse = callback.mGetAdSelectionDataResponse.getAdSelectionData();
-
-        ProtectedAuctionInput protectedAuctionInput =
-                getProtectedAuctionInputFromCipherText(adSelectionResponse, privKey);
-
-        Map<String, BuyerInput> buyerInputs = getDecompressedBuyerInputs(protectedAuctionInput);
-
-        Assert.assertEquals(CALLER_PACKAGE_NAME, protectedAuctionInput.getPublisherName());
-        Assert.assertEquals(2, buyerInputs.size());
-        assertTrue(buyerInputs.containsKey(DIFFERENT_BUYER.toString()));
-        assertTrue(buyerInputs.containsKey(WINNER_BUYER.toString()));
-        Assert.assertEquals(
-                1, buyerInputs.get(DIFFERENT_BUYER.toString()).getCustomAudiencesList().size());
-        Assert.assertEquals(
-                2, buyerInputs.get(WINNER_BUYER.toString()).getCustomAudiencesList().size());
-
-        List<String> actual =
-                Arrays.asList(
-                        buyerInputs.get(WINNER_BUYER.toString()).getCustomAudiences(0).getName(),
-                        buyerInputs.get(WINNER_BUYER.toString()).getCustomAudiences(1).getName());
-        List<String> expected = Arrays.asList(winnerBuyerCaOneName, winnerBuyerCaTwoName);
-        assertTrue(expected.containsAll(actual));
-    }
-
-    @Test
     @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_MEDIA_TYPE_CHANGE_ENABLED)
-    public void
-            testGetAdSelectionData_withOhttpGatewayDecryption_withServerAuctionMediaTypeChanged()
-                    throws Exception {
-        String winnerBuyerCaOneName = "Shoes CA of Buyer 1";
-        String winnerBuyerCaTwoName = "Shirts CA of Buyer 1";
-        String differentBuyerCaOneName = "Shoes CA Of Buyer 2";
-
-        Map<String, AdTechIdentifier> nameAndBuyersMap =
-                Map.of(
-                        winnerBuyerCaOneName, WINNER_BUYER,
-                        winnerBuyerCaTwoName, WINNER_BUYER,
-                        differentBuyerCaOneName, DIFFERENT_BUYER);
-        createAndPersistDBCustomAudiences(nameAndBuyersMap);
-
-        String privateKeyHex = "e7b292f49df28b8065992cdeadbc9d032a0e09e8476cb6d8d507212e7be3b9b4";
-        OhttpGatewayPrivateKey privKey =
-                OhttpGatewayPrivateKey.create(
-                        BaseEncoding.base16().lowerCase().decode(privateKeyHex));
-        DBEncryptionKey dbEncryptionKey =
-                DBEncryptionKey.builder()
-                        .setPublicKey("87ey8XZPXAd+/+ytKv2GFUWW5j9zdepSJ2G4gebDwyM=")
-                        .setKeyIdentifier("400bed24-c62f-46e0-a1ad-211361ad771a")
-                        .setEncryptionKeyType(ENCRYPTION_KEY_TYPE_AUCTION)
-                        .setExpiryTtlSeconds(TimeUnit.DAYS.toSeconds(7))
-                        .build();
-        mAuctionServerEncryptionKeyDao.insertAllKeys(ImmutableList.of(dbEncryptionKey));
-
-        AdSelectionService service =
-                new AdSelectionServiceImpl(
-                        mAdSelectionEntryDao,
-                        mAppInstallDao,
-                        mCustomAudienceDaoSpy,
-                        mEncodedPayloadDaoSpy,
-                        mFrequencyCapDaoSpy,
-                        mEncryptionKeyDao,
-                        mEnrollmentDao,
-                        mAdServicesHttpsClientSpy,
-                        mDevContextFilterMock,
-                        mLightweightExecutorService,
-                        mBackgroundExecutorService,
-                        mScheduledExecutor,
-                        mContext,
-                        mAdServicesLoggerMock,
-                        mFakeFlags,
-                        mFakeDebugFlags,
-                        CallingAppUidSupplierProcessImpl.create(),
-                        mFledgeAuthorizationFilterMock,
-                        mAdSelectionServiceFilterMock,
-                        mAdFilteringFeatureFactory,
-                        mConsentManagerMock,
-                        MultiCloudTestStrategyFactory.getDisabledTestStrategy(
-                                new ObliviousHttpEncryptorImpl(
-                                        new AdSelectionEncryptionKeyManager(
-                                                mAuctionServerEncryptionKeyDao,
-                                                mFakeFlags,
-                                                mAdServicesHttpsClientSpy,
-                                                mLightweightExecutorService,
-                                                mAdServicesLoggerMock),
-                                        mEncryptionContextDao,
-                                        mLightweightExecutorService)),
-                        mAdSelectionDebugReportDaoSpy,
-                        mAdIdFetcher,
-                        mUnusedKAnonSignJoinFactory,
-                        false,
-                        mRetryStrategyFactory,
-                        CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
-
-        GetAdSelectionDataInput input =
-                new GetAdSelectionDataInput.Builder()
-                        .setSeller(SELLER)
-                        .setCallerPackageName(CALLER_PACKAGE_NAME)
-                        .build();
-
-        GetAdSelectionDataTestCallback callback = invokeGetAdSelectionData(service, input);
-        assertTrue(callback.mIsSuccess);
-        byte[] adSelectionResponse = callback.mGetAdSelectionDataResponse.getAdSelectionData();
-
-        ProtectedAuctionInput protectedAuctionInput =
-                getProtectedAuctionInputFromCipherText(adSelectionResponse, privKey);
-
-        Map<String, BuyerInput> buyerInputs = getDecompressedBuyerInputs(protectedAuctionInput);
-
-        Assert.assertEquals(CALLER_PACKAGE_NAME, protectedAuctionInput.getPublisherName());
-        Assert.assertEquals(2, buyerInputs.size());
-        assertTrue(buyerInputs.containsKey(DIFFERENT_BUYER.toString()));
-        assertTrue(buyerInputs.containsKey(WINNER_BUYER.toString()));
-        Assert.assertEquals(
-                1, buyerInputs.get(DIFFERENT_BUYER.toString()).getCustomAudiencesList().size());
-        Assert.assertEquals(
-                2, buyerInputs.get(WINNER_BUYER.toString()).getCustomAudiencesList().size());
-
-        List<String> actual =
-                Arrays.asList(
-                        buyerInputs.get(WINNER_BUYER.toString()).getCustomAudiences(0).getName(),
-                        buyerInputs.get(WINNER_BUYER.toString()).getCustomAudiences(1).getName());
-        List<String> expected = Arrays.asList(winnerBuyerCaOneName, winnerBuyerCaTwoName);
-        assertTrue(expected.containsAll(actual));
+    public void testGetAdSelectionData_withServerAuctionMediaTypeChanged() throws Exception {
+        testPersistAdselectionResult_withCompleteAuction_success();
     }
 
     @Test
-    @SetLongFlag(
-            name = KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS,
-            value = AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS)
-    @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_MULTI_CLOUD_ENABLED)
     public void testGetAdSelectionData_shellCommand_success() throws Exception {
         String privateKeyHex = "e7b292f49df28b8065992cdeadbc9d032a0e09e8476cb6d8d507212e7be3b9b4";
         OhttpGatewayPrivateKey privKey =
@@ -3359,19 +3013,7 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                 Uri.EMPTY,
                 false,
                 List.of());
-        AdSelectionService service =
-                getService(
-                        MultiCloudTestStrategyFactory.getEnabledTestStrategy(
-                                new ObliviousHttpEncryptorImpl(
-                                        new ProtectedServersEncryptionConfigManager(
-                                                mProtectedServersEncryptionConfigDao,
-                                                mFakeFlags,
-                                                mMockHttpClient,
-                                                mLightweightExecutorService,
-                                                mAdServicesLoggerMock),
-                                        mEncryptionContextDao,
-                                        mLightweightExecutorService),
-                                COORDINATOR_ALLOWLIST));
+        AdSelectionService service = createServiceWithMockHttpClient();
         GetAdSelectionDataInput input =
                 new GetAdSelectionDataInput.Builder()
                         .setSeller(SELLER)
@@ -3381,9 +3023,6 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
 
         GetAdSelectionDataTestCallback callback = invokeGetAdSelectionData(service, input);
         long adSelectionId = callback.mGetAdSelectionDataResponse.getAdSelectionId();
-        ProtectedAuctionInput protectedAuctionInput =
-                getProtectedAuctionInputFromCipherText(
-                        callback.mGetAdSelectionDataResponse.getAdSelectionData(), privKey);
 
         // assert that we can decrypt server's response as well even when using non-default
         // coordinator
@@ -3424,11 +3063,7 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
     }
 
     @Test
-    @SetLongFlag(
-            name = KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS,
-            value = AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS)
-    @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_MULTI_CLOUD_ENABLED)
-    public void testGetAdSelectionData_multiCloudOn_success() throws Exception {
+    public void testPersistAdselectionResult_withCompleteAuction_success() throws Exception {
 
         AdServicesHttpClientResponse httpClientResponse =
                 mServerAuctionTestHelper.getPublicAuctionKeyHttpResponse();
@@ -3451,19 +3086,7 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                 false,
                 List.of());
 
-        AdSelectionService service =
-                getService(
-                        MultiCloudTestStrategyFactory.getEnabledTestStrategy(
-                                new ObliviousHttpEncryptorImpl(
-                                        new ProtectedServersEncryptionConfigManager(
-                                                mProtectedServersEncryptionConfigDao,
-                                                mFakeFlags,
-                                                mMockHttpClient,
-                                                mLightweightExecutorService,
-                                                mAdServicesLoggerMock),
-                                        mEncryptionContextDao,
-                                        mLightweightExecutorService),
-                                COORDINATOR_ALLOWLIST));
+        AdSelectionService service = createServiceWithMockHttpClient();
 
         GetAdSelectionDataInput input =
                 new GetAdSelectionDataInput.Builder()
@@ -3520,15 +3143,17 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                 WINNER_AD_RENDER_URI,
                 persistAdSelectionResultTestCallback.mPersistAdSelectionResultResponse
                         .getAdRenderUri());
+        ReportingData reportingData =
+                mAdSelectionEntryDao.getReportingDataForId(adSelectionId, false);
+        Assert.assertEquals(
+                BUYER_REPORTING_URI, reportingData.getBuyerWinReportingUri().toString());
+        Assert.assertEquals(
+                SELLER_REPORTING_URI, reportingData.getSellerWinReportingUri().toString());
     }
 
     @Test
-    @SetLongFlag(
-            name = KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS,
-            value = AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS)
-    @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_MULTI_CLOUD_ENABLED)
     @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_REFRESH_EXPIRED_KEYS_DURING_AUCTION)
-    public void testGetAdSelectionData_multiCloudOn_refreshFlagOn_fetchesNewKey() throws Exception {
+    public void testGetAdSelectionData_refreshFlagOn_fetchesNewKey() throws Exception {
         String liveKeyId = "400bed24-c62f-46e0-a1ad-211361ad771a";
         String privateKeyHex = "e7b292f49df28b8065992cdeadbc9d032a0e09e8476cb6d8d507212e7be3b9b4";
         OhttpGatewayPrivateKey privKey =
@@ -3581,19 +3206,7 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                 false,
                 List.of());
 
-        AdSelectionService service =
-                getService(
-                        MultiCloudTestStrategyFactory.getEnabledTestStrategy(
-                                new ObliviousHttpEncryptorImpl(
-                                        new ProtectedServersEncryptionConfigManager(
-                                                mProtectedServersEncryptionConfigDao,
-                                                mFakeFlags,
-                                                mMockHttpClient,
-                                                mLightweightExecutorService,
-                                                mAdServicesLoggerMock),
-                                        mEncryptionContextDao,
-                                        mLightweightExecutorService),
-                                COORDINATOR_ALLOWLIST));
+        AdSelectionService service = createServiceWithMockHttpClient();
 
         GetAdSelectionDataInput input =
                 new GetAdSelectionDataInput.Builder()
@@ -3652,12 +3265,7 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
     }
 
     @Test
-    @SetLongFlag(
-            name = KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS,
-            value = AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS)
-    @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_MULTI_CLOUD_ENABLED)
-    public void testGetAdSelectionData_multiCloudOn_refreshFlagOff_noNetworkCall()
-            throws Exception {
+    public void testGetAdSelectionData_refreshFlagOff_noNetworkCall() throws Exception {
         String liveKeyId = "400bed24-c62f-46e0-a1ad-211361ad771a";
         String privateKeyHex = "e7b292f49df28b8065992cdeadbc9d032a0e09e8476cb6d8d507212e7be3b9b4";
         OhttpGatewayPrivateKey privKey =
@@ -3715,19 +3323,7 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                 false,
                 List.of());
 
-        AdSelectionService service =
-                getService(
-                        MultiCloudTestStrategyFactory.getEnabledTestStrategy(
-                                new ObliviousHttpEncryptorImpl(
-                                        new ProtectedServersEncryptionConfigManager(
-                                                mProtectedServersEncryptionConfigDao,
-                                                mFakeFlags,
-                                                mMockHttpClient,
-                                                mLightweightExecutorService,
-                                                mAdServicesLoggerMock),
-                                        mEncryptionContextDao,
-                                        mLightweightExecutorService),
-                                COORDINATOR_ALLOWLIST));
+        AdSelectionService service = createServiceWithMockHttpClient();
 
         GetAdSelectionDataInput input =
                 new GetAdSelectionDataInput.Builder()
@@ -3777,244 +3373,7 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
     }
 
     @Test
-    @SetLongFlag(
-            name = KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS,
-            value = AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS)
-    @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_REFRESH_EXPIRED_KEYS_DURING_AUCTION)
-    public void testGetAdSelectionData_multiCloudOff_refreshFlagOn_fetchesNewKey()
-            throws Exception {
-        String liveKeyId = "000bed24-c62f-46e0-a1ad-211361ad771a";
-        String privateKeyHex = "e7b292f49df28b8065992cdeadbc9d032a0e09e8476cb6d8d507212e7be3b9b4";
-        OhttpGatewayPrivateKey privKey =
-                OhttpGatewayPrivateKey.create(
-                        BaseEncoding.base16().lowerCase().decode(privateKeyHex));
-        AuctionEncryptionKeyFixture.AuctionKey auctionKey =
-                AuctionEncryptionKeyFixture.AuctionKey.builder()
-                        .setKeyId(liveKeyId)
-                        .setPublicKey("87ey8XZPXAd+/+ytKv2GFUWW5j9zdepSJ2G4gebDwyM=")
-                        .build();
-
-        AdServicesHttpClientResponse httpClientResponse =
-                AuctionEncryptionKeyFixture.mockAuctionKeyFetchResponseWithGivenKey(auctionKey);
-        when(mMockHttpClient.fetchPayloadWithLogging(
-                        eq(Uri.parse(DEFAULT_FETCH_URI)),
-                        eq(DevContext.createForDevOptionsDisabled()),
-                        any(FetchProcessLogger.class)))
-                .thenReturn(Futures.immediateFuture(httpClientResponse));
-
-        String expiredKeyId = "400bed24-c62f-46e0-a1ad-211361ad771a";
-        DBEncryptionKey dbEncryptionKey =
-                DBEncryptionKey.builder()
-                        .setPublicKey("87ey8XZPXAd+/+ytKv2GFUWW5j9zdepSJ2G4gebDwyM=")
-                        .setKeyIdentifier(expiredKeyId)
-                        .setEncryptionKeyType(ENCRYPTION_KEY_TYPE_AUCTION)
-                        .setExpiryTtlSeconds(-1L)
-                        .build();
-        mAuctionServerEncryptionKeyDao.insertAllKeys(ImmutableList.of(dbEncryptionKey));
-
-        List<DBEncryptionKey> encryptionConfigs =
-                mAuctionServerEncryptionKeyDao.getLatestExpiryNKeysOfType(
-                        AdSelectionEncryptionKey.AdSelectionEncryptionKeyType.AUCTION, 100);
-        Assert.assertEquals(1, encryptionConfigs.size());
-        Assert.assertEquals(expiredKeyId, encryptionConfigs.get(0).getKeyIdentifier());
-
-        mCustomAudienceDaoSpy.insertOrOverwriteCustomAudience(
-                DBCustomAudienceFixture.getValidBuilderByBuyerWithAdRenderId(
-                                WINNER_BUYER,
-                                WINNING_CUSTOM_AUDIENCE_NAME,
-                                WINNING_CUSTOM_AUDIENCE_OWNER)
-                        .setAds(
-                                DBAdDataFixture.getValidDbAdDataListByBuyerWithAdRenderId(
-                                        WINNER_BUYER))
-                        .build(),
-                Uri.EMPTY,
-                false,
-                List.of());
-
-        AdSelectionService service =
-                getService(
-                        MultiCloudTestStrategyFactory.getDisabledTestStrategy(
-                                new ObliviousHttpEncryptorImpl(
-                                        new AdSelectionEncryptionKeyManager(
-                                                mAuctionServerEncryptionKeyDao,
-                                                mFakeFlags,
-                                                mMockHttpClient,
-                                                mLightweightExecutorService,
-                                                mAdServicesLoggerMock),
-                                        mEncryptionContextDao,
-                                        mLightweightExecutorService)));
-
-        GetAdSelectionDataInput input =
-                new GetAdSelectionDataInput.Builder()
-                        .setSeller(SELLER)
-                        .setCallerPackageName(CALLER_PACKAGE_NAME)
-                        .setCoordinatorOriginUri(Uri.parse(COORDINATOR_HOST))
-                        .build();
-
-        GetAdSelectionDataTestCallback callback = invokeGetAdSelectionData(service, input);
-
-        Assert.assertTrue(callback.mIsSuccess);
-
-        encryptionConfigs =
-                mAuctionServerEncryptionKeyDao.getLatestExpiryNKeysOfType(
-                        AdSelectionEncryptionKey.AdSelectionEncryptionKeyType.AUCTION, 100);
-
-        // assert that the DB now contains the new keys when refresh refresh flag is on
-        Assert.assertEquals(1, encryptionConfigs.size());
-        Assert.assertEquals(liveKeyId, encryptionConfigs.get(0).getKeyIdentifier());
-        verify(mMockHttpClient)
-                .fetchPayloadWithLogging(
-                        eq(Uri.parse(DEFAULT_FETCH_URI)),
-                        eq(DevContext.createForDevOptionsDisabled()),
-                        any(FetchProcessLogger.class));
-
-        long adSelectionId = callback.mGetAdSelectionDataResponse.getAdSelectionId();
-
-        // assert that we can decrypt server's response as well even when using non-default
-        // coordinator
-        byte[] encryptedServerResponse =
-                ObliviousHttpGateway.encrypt(
-                        privKey,
-                        callback.mGetAdSelectionDataResponse.getAdSelectionData(),
-                        prepareAuctionResultBytes());
-        PersistAdSelectionResultInput persistAdSelectionResultInput =
-                new PersistAdSelectionResultInput.Builder()
-                        .setAdSelectionId(adSelectionId)
-                        .setSeller(SELLER)
-                        .setAdSelectionResult(encryptedServerResponse)
-                        .setCallerPackageName(CALLER_PACKAGE_NAME)
-                        .build();
-        PersistAdSelectionResultTestCallback persistAdSelectionResultTestCallback =
-                invokePersistAdSelectionResult(service, persistAdSelectionResultInput);
-
-        Assert.assertEquals(
-                WINNER_AD_RENDER_URI,
-                persistAdSelectionResultTestCallback.mPersistAdSelectionResultResponse
-                        .getAdRenderUri());
-    }
-
-    @Test
-    @SetLongFlag(
-            name = KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS,
-            value = AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS)
-    public void testGetAdSelectionData_multiCloudOff_refreshFlagOff_noNetworkCall()
-            throws Exception {
-        String liveKeyId = "400bed24-c62f-46e0-a1ad-211361ad771a";
-        String privateKeyHex = "e7b292f49df28b8065992cdeadbc9d032a0e09e8476cb6d8d507212e7be3b9b4";
-        OhttpGatewayPrivateKey privKey =
-                OhttpGatewayPrivateKey.create(
-                        BaseEncoding.base16().lowerCase().decode(privateKeyHex));
-        AuctionEncryptionKeyFixture.AuctionKey auctionKey =
-                AuctionEncryptionKeyFixture.AuctionKey.builder()
-                        .setKeyId(liveKeyId)
-                        .setPublicKey("87ey8XZPXAd+/+ytKv2GFUWW5j9zdepSJ2G4gebDwyM=")
-                        .build();
-
-        AdServicesHttpClientResponse httpClientResponse =
-                AuctionEncryptionKeyFixture.mockAuctionKeyFetchResponseWithGivenKey(auctionKey);
-        when(mMockHttpClient.fetchPayloadWithLogging(
-                        eq(Uri.parse(COORDINATOR_URL)),
-                        eq(DevContext.createForDevOptionsDisabled()),
-                        any(FetchProcessLogger.class)))
-                .thenReturn(Futures.immediateFuture(httpClientResponse));
-
-        String expiredKeyId = "000bed24-c62f-46e0-a1ad-211361ad771a";
-        DBEncryptionKey dbEncryptionKey =
-                DBEncryptionKey.builder()
-                        .setPublicKey("87ey8XZPXAd+/+ytKv2GFUWW5j9zdepSJ2G4gebDwyM=")
-                        .setKeyIdentifier(expiredKeyId)
-                        .setEncryptionKeyType(ENCRYPTION_KEY_TYPE_AUCTION)
-                        .setExpiryTtlSeconds(-1L)
-                        .build();
-        mAuctionServerEncryptionKeyDao.insertAllKeys(ImmutableList.of(dbEncryptionKey));
-
-        List<DBEncryptionKey> encryptionConfigs =
-                mAuctionServerEncryptionKeyDao.getLatestExpiryNKeysOfType(
-                        AdSelectionEncryptionKey.AdSelectionEncryptionKeyType.AUCTION, 100);
-        Assert.assertEquals(1, encryptionConfigs.size());
-        Assert.assertEquals(expiredKeyId, encryptionConfigs.get(0).getKeyIdentifier());
-
-        mCustomAudienceDaoSpy.insertOrOverwriteCustomAudience(
-                DBCustomAudienceFixture.getValidBuilderByBuyerWithAdRenderId(
-                                WINNER_BUYER,
-                                WINNING_CUSTOM_AUDIENCE_NAME,
-                                WINNING_CUSTOM_AUDIENCE_OWNER)
-                        .setAds(
-                                DBAdDataFixture.getValidDbAdDataListByBuyerWithAdRenderId(
-                                        WINNER_BUYER))
-                        .build(),
-                Uri.EMPTY,
-                false,
-                List.of());
-
-        AdSelectionService service =
-                getService(
-                        MultiCloudTestStrategyFactory.getDisabledTestStrategy(
-                                new ObliviousHttpEncryptorImpl(
-                                        new AdSelectionEncryptionKeyManager(
-                                                mAuctionServerEncryptionKeyDao,
-                                                mFakeFlags,
-                                                mMockHttpClient,
-                                                mLightweightExecutorService,
-                                                mAdServicesLoggerMock),
-                                        mEncryptionContextDao,
-                                        mLightweightExecutorService)));
-
-        GetAdSelectionDataInput input =
-                new GetAdSelectionDataInput.Builder()
-                        .setSeller(SELLER)
-                        .setCallerPackageName(CALLER_PACKAGE_NAME)
-                        .setCoordinatorOriginUri(Uri.parse(COORDINATOR_HOST))
-                        .build();
-
-        GetAdSelectionDataTestCallback callback = invokeGetAdSelectionData(service, input);
-
-        Assert.assertTrue(callback.mIsSuccess);
-
-        encryptionConfigs =
-                mAuctionServerEncryptionKeyDao.getLatestExpiryNKeysOfType(
-                        AdSelectionEncryptionKey.AdSelectionEncryptionKeyType.AUCTION, 100);
-
-        // assert that the DB now contains the new keys when refresh refresh flag is on
-        Assert.assertEquals(1, encryptionConfigs.size());
-        Assert.assertEquals(expiredKeyId, encryptionConfigs.get(0).getKeyIdentifier());
-        verify(mMockHttpClient, never())
-                .fetchPayloadWithLogging(
-                        eq(Uri.parse(DEFAULT_FETCH_URI)),
-                        eq(DevContext.createForDevOptionsDisabled()),
-                        any(FetchProcessLogger.class));
-
-        long adSelectionId = callback.mGetAdSelectionDataResponse.getAdSelectionId();
-
-        // assert that we can decrypt server's response as well even when using non-default
-        // coordinator
-        byte[] encryptedServerResponse =
-                ObliviousHttpGateway.encrypt(
-                        privKey,
-                        callback.mGetAdSelectionDataResponse.getAdSelectionData(),
-                        prepareAuctionResultBytes());
-        PersistAdSelectionResultInput persistAdSelectionResultInput =
-                new PersistAdSelectionResultInput.Builder()
-                        .setAdSelectionId(adSelectionId)
-                        .setSeller(SELLER)
-                        .setAdSelectionResult(encryptedServerResponse)
-                        .setCallerPackageName(CALLER_PACKAGE_NAME)
-                        .build();
-        PersistAdSelectionResultTestCallback persistAdSelectionResultTestCallback =
-                invokePersistAdSelectionResult(service, persistAdSelectionResultInput);
-
-        Assert.assertEquals(
-                WINNER_AD_RENDER_URI,
-                persistAdSelectionResultTestCallback.mPersistAdSelectionResultResponse
-                        .getAdRenderUri());
-    }
-
-    @Test
-    @SetLongFlag(
-            name = KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS,
-            value = AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS)
-    @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_MULTI_CLOUD_ENABLED)
-    public void testGetAdSelectionData_multiCloudOn_nullCoordinator_success() throws Exception {
+    public void testGetAdSelectionData_nullCoordinator_success() throws Exception {
         AuctionEncryptionKeyFixture.AuctionKey auctionKey =
                 AuctionEncryptionKeyFixture.AuctionKey.builder()
                         .setKeyId("400bed24-c62f-46e0-a1ad-211361ad771a")
@@ -4036,19 +3395,7 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                         "Shoes CA Of Buyer 2", DIFFERENT_BUYER);
         createAndPersistDBCustomAudiences(nameAndBuyersMap);
 
-        AdSelectionService service =
-                getService(
-                        MultiCloudTestStrategyFactory.getEnabledTestStrategy(
-                                new ObliviousHttpEncryptorImpl(
-                                        new ProtectedServersEncryptionConfigManager(
-                                                mProtectedServersEncryptionConfigDao,
-                                                mFakeFlags,
-                                                mMockHttpClient,
-                                                mLightweightExecutorService,
-                                                mAdServicesLoggerMock),
-                                        mEncryptionContextDao,
-                                        mLightweightExecutorService),
-                                COORDINATOR_ALLOWLIST));
+        AdSelectionService service = createServiceWithMockHttpClient();
 
         GetAdSelectionDataInput input =
                 new GetAdSelectionDataInput.Builder()
@@ -4070,15 +3417,11 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
     }
 
     @Test
-    @SetLongFlag(
-            name = KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS,
-            value = AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS)
-    @SetFlagTrue(KEY_FLEDGE_AUCTION_SERVER_MULTI_CLOUD_ENABLED)
     @ExpectErrorLogUtilCall(
             errorCode =
                     AD_SERVICES_ERROR_REPORTED__ERROR_CODE__GET_AD_SELECTION_DATA_RUNNER_NOTIFY_FAILURE_INVALID_ARGUMENT,
             ppapiName = AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__GET_AD_SELECTION_DATA)
-    public void testGetAdSelectionData_multiCloudOn_inValidCoordinator_fails() throws Exception {
+    public void testGetAdSelectionData_invalidCoordinator_fails() throws Exception {
         AuctionEncryptionKeyFixture.AuctionKey auctionKey =
                 AuctionEncryptionKeyFixture.AuctionKey.builder()
                         .setKeyId("400bed24-c62f-46e0-a1ad-211361ad771a")
@@ -4100,19 +3443,7 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                         "Shoes CA Of Buyer 2", DIFFERENT_BUYER);
         createAndPersistDBCustomAudiences(nameAndBuyersMap);
 
-        AdSelectionService service =
-                getService(
-                        MultiCloudTestStrategyFactory.getEnabledTestStrategy(
-                                new ObliviousHttpEncryptorImpl(
-                                        new ProtectedServersEncryptionConfigManager(
-                                                mProtectedServersEncryptionConfigDao,
-                                                mFakeFlags,
-                                                mMockHttpClient,
-                                                mLightweightExecutorService,
-                                                mAdServicesLoggerMock),
-                                        mEncryptionContextDao,
-                                        mLightweightExecutorService),
-                                COORDINATOR_ALLOWLIST));
+        AdSelectionService service = createServiceWithMockHttpClient();
 
         GetAdSelectionDataInput input =
                 new GetAdSelectionDataInput.Builder()
@@ -4125,65 +3456,6 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
 
         Assert.assertFalse(callback.mIsSuccess);
         Assert.assertEquals(STATUS_INVALID_ARGUMENT, callback.mFledgeErrorResponse.getStatusCode());
-    }
-
-    @Test
-    @SetLongFlag(
-            name = KEY_FLEDGE_AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS,
-            value = AUCTION_SERVER_AD_ID_FETCHER_TIMEOUT_MS)
-    public void testGetAdSelectionData_multiCloudOff_nullCoordinator_success() throws Exception {
-        AuctionEncryptionKeyFixture.AuctionKey auctionKey =
-                AuctionEncryptionKeyFixture.AuctionKey.builder()
-                        .setKeyId("400bed24-c62f-46e0-a1ad-211361ad771a")
-                        .setPublicKey("87ey8XZPXAd+/+ytKv2GFUWW5j9zdepSJ2G4gebDwyM=")
-                        .build();
-
-        AdServicesHttpClientResponse httpClientResponse =
-                AuctionEncryptionKeyFixture.mockAuctionKeyFetchResponseWithGivenKey(auctionKey);
-        when(mMockHttpClient.fetchPayloadWithLogging(
-                        eq(Uri.parse(DEFAULT_FETCH_URI)),
-                        eq(DevContext.createForDevOptionsDisabled()),
-                        any(FetchProcessLogger.class)))
-                .thenReturn(Futures.immediateFuture(httpClientResponse));
-
-        Map<String, AdTechIdentifier> nameAndBuyersMap =
-                Map.of(
-                        "Shoes CA of Buyer 1", WINNER_BUYER,
-                        "Shirts CA of Buyer 1", WINNER_BUYER,
-                        "Shoes CA Of Buyer 2", DIFFERENT_BUYER);
-        createAndPersistDBCustomAudiences(nameAndBuyersMap);
-
-        AdSelectionService service =
-                getService(
-                        MultiCloudTestStrategyFactory.getDisabledTestStrategy(
-                                (new ObliviousHttpEncryptorImpl(
-                                        new AdSelectionEncryptionKeyManager(
-                                                mAuctionServerEncryptionKeyDao,
-                                                mFakeFlags,
-                                                mMockHttpClient,
-                                                mLightweightExecutorService,
-                                                mAdServicesLoggerMock),
-                                        mEncryptionContextDao,
-                                        mLightweightExecutorService))));
-
-        GetAdSelectionDataInput input =
-                new GetAdSelectionDataInput.Builder()
-                        .setSeller(SELLER)
-                        .setCallerPackageName(CALLER_PACKAGE_NAME)
-                        .setCoordinatorOriginUri(Uri.parse(COORDINATOR_HOST))
-                        .build();
-
-        GetAdSelectionDataTestCallback callback = invokeGetAdSelectionData(service, input);
-
-        Assert.assertTrue(callback.mIsSuccess);
-        Assert.assertNotNull(callback.mGetAdSelectionDataResponse);
-        Assert.assertNotNull(callback.mGetAdSelectionDataResponse.getAdSelectionData());
-        long adSelectionId = callback.mGetAdSelectionDataResponse.getAdSelectionId();
-        byte[] encryptedBytes = callback.mGetAdSelectionDataResponse.getAdSelectionData();
-        Assert.assertNotNull(encryptedBytes);
-        Assert.assertNotNull(
-                mEncryptionContextDao.getEncryptionContext(
-                        adSelectionId, ENCRYPTION_KEY_TYPE_AUCTION));
     }
 
     @Test
@@ -4275,7 +3547,83 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                 SELLER_REPORTING_URI, reportingData.getSellerWinReportingUri().toString());
     }
 
-    private AdSelectionServiceImpl getService(MultiCloudSupportStrategy multiCloudSupportStrategy) {
+    @Test
+    public void testGetAdSelectionData_withTestCoordinatorUriStrategy_uriNotInAllowlist_success()
+            throws Exception {
+        Uri invalidCoordinator = Uri.parse("ex.com/testKeys");
+
+        AdServicesHttpClientResponse httpClientResponse =
+                mServerAuctionTestHelper.getPublicAuctionKeyHttpResponse();
+
+        when(mMockHttpClient.fetchPayloadWithLogging(
+                        eq(invalidCoordinator), eq(mDevContextMock), any(FetchProcessLogger.class)))
+                .thenReturn(Futures.immediateFuture(httpClientResponse));
+
+        mCustomAudienceDaoSpy.insertOrOverwriteCustomAudience(
+                DBCustomAudienceFixture.getValidBuilderByBuyerWithAdRenderId(
+                                WINNER_BUYER,
+                                WINNING_CUSTOM_AUDIENCE_NAME,
+                                WINNING_CUSTOM_AUDIENCE_OWNER)
+                        .setAds(
+                                DBAdDataFixture.getValidDbAdDataListByBuyerWithAdRenderId(
+                                        WINNER_BUYER))
+                        .build(),
+                Uri.EMPTY,
+                false,
+                List.of());
+
+        DevSession devSession =
+                DevSession.builder()
+                        .setState(DevSessionState.IN_DEV)
+                        .setServerAuctionTestKeysEnabled(true)
+                        .build();
+
+        when(mDevContextFilterMock.createDevContext()).thenReturn(mDevContextMock);
+        when(mDevContextMock.getDevSession()).thenReturn(devSession);
+
+        AdSelectionService service = createServiceWithMockHttpClient();
+
+        GetAdSelectionDataInput input =
+                new GetAdSelectionDataInput.Builder()
+                        .setSeller(SELLER)
+                        .setCallerPackageName(CALLER_PACKAGE_NAME)
+                        .setCoordinatorOriginUri(invalidCoordinator)
+                        .build();
+
+        GetAdSelectionDataTestCallback callback = invokeGetAdSelectionData(service, input);
+
+        verify(mMockHttpClient)
+                .fetchPayloadWithLogging(
+                        eq(invalidCoordinator), eq(mDevContextMock), any(FetchProcessLogger.class));
+
+        assertThat(callback.mIsSuccess).isTrue();
+        assertThat(callback.mGetAdSelectionDataResponse).isNotNull();
+        assertThat(callback.mGetAdSelectionDataResponse.getAdSelectionData()).isNotNull();
+
+        long adSelectionId = callback.mGetAdSelectionDataResponse.getAdSelectionId();
+        assertThat(
+                        mEncryptionContextDao.getEncryptionContext(
+                                adSelectionId, ENCRYPTION_KEY_TYPE_AUCTION))
+                .isNotNull();
+
+        ProtectedAuctionInput protectedAuctionInput =
+                mServerAuctionTestHelper.decryptGetAdSelectionDataResponse(
+                        callback.mGetAdSelectionDataResponse);
+
+        Map<String, BuyerInput> buyerInputs =
+                mServerAuctionTestHelper.getDecompressedBuyerInputs(protectedAuctionInput);
+
+        Assert.assertEquals(CALLER_PACKAGE_NAME, protectedAuctionInput.getPublisherName());
+        Assert.assertEquals(1, buyerInputs.size());
+        assertTrue(buyerInputs.containsKey(WINNER_BUYER.toString()));
+        Assert.assertEquals(
+                1, buyerInputs.get(WINNER_BUYER.toString()).getCustomAudiencesList().size());
+        Assert.assertEquals(
+                WINNING_CUSTOM_AUDIENCE_NAME,
+                buyerInputs.get(WINNER_BUYER.toString()).getCustomAudiences(0).getName());
+    }
+
+    private AdSelectionServiceImpl createServiceWithMockHttpClient() {
         return new AdSelectionServiceImpl(
                 mAdSelectionEntryDao,
                 mAppInstallDao,
@@ -4298,45 +3646,24 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                 mAdSelectionServiceFilterMock,
                 mAdFilteringFeatureFactory,
                 mConsentManagerMock,
-                multiCloudSupportStrategy,
+                new ObliviousHttpEncryptorImpl(
+                        new ProtectedServersEncryptionConfigManager(
+                                mProtectedServersEncryptionConfigDao,
+                                mFakeFlags,
+                                mMockHttpClient,
+                                mLightweightExecutorService,
+                                mAdServicesLoggerMock,
+                                mServerAuctionCoordinatorUriStrategyFactory),
+                        mEncryptionContextDao,
+                        mLightweightExecutorService),
                 mAdSelectionDebugReportDaoSpy,
                 mAdIdFetcher,
                 mUnusedKAnonSignJoinFactory,
                 false,
                 mRetryStrategyFactory,
                 CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                mAuctionServerDebugConfigurationGenerator);
-    }
-
-    private ProtectedAuctionInput getProtectedAuctionInputFromCipherText(
-            byte[] adSelectionResponse, OhttpGatewayPrivateKey privKey) throws Exception {
-        byte[] decrypted = ObliviousHttpGateway.decrypt(privKey, adSelectionResponse);
-        AuctionServerPayloadExtractor extractor =
-                AuctionServerPayloadFormatterFactory.createPayloadExtractor(
-                        AuctionServerPayloadFormatterV0.VERSION, mAdServicesLoggerMock);
-        AuctionServerPayloadUnformattedData unformatted =
-                extractor.extract(AuctionServerPayloadFormattedData.create(decrypted));
-        return ProtectedAuctionInput.parseFrom(unformatted.getData());
-    }
-
-    private Map<String, BuyerInput> getDecompressedBuyerInputs(
-            ProtectedAuctionInput protectedAuctionInput) throws Exception {
-        Map<String, BuyerInput> decompressedBuyerInputs = new HashMap<>();
-        for (Map.Entry<String, ByteString> entry :
-                protectedAuctionInput.getBuyerInputMap().entrySet()) {
-            byte[] buyerInputBytes = entry.getValue().toByteArray();
-            AuctionServerDataCompressor compressor =
-                    AuctionServerDataCompressorFactory.getDataCompressor(
-                            AuctionServerDataCompressorGzip.VERSION);
-            byte[] decompressed =
-                    compressor
-                            .decompress(
-                                    AuctionServerDataCompressor.CompressedData.create(
-                                            buyerInputBytes))
-                            .getData();
-            decompressedBuyerInputs.put(entry.getKey(), BuyerInput.parseFrom(decompressed));
-        }
-        return decompressedBuyerInputs;
+                mAuctionServerDebugConfigurationGenerator,
+                mServerAuctionCoordinatorUriStrategyFactory);
     }
 
     private void setAppInstallAdvertisers(
@@ -4365,82 +3692,40 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
         return appInstallCallback;
     }
 
-    private AdSelectionService createAdSelectionServiceWithEncryption(Flags flags) {
-        String seed = "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww";
-        byte[] seedBytes = seed.getBytes(StandardCharsets.US_ASCII);
-        return new AdSelectionServiceImpl(
-                mAdSelectionEntryDao,
-                mAppInstallDao,
-                mCustomAudienceDaoSpy,
-                mEncodedPayloadDaoSpy,
-                mFrequencyCapDaoSpy,
-                mEncryptionKeyDao,
-                mEnrollmentDao,
-                mAdServicesHttpsClientSpy,
-                mDevContextFilterMock,
-                mLightweightExecutorService,
-                mBackgroundExecutorService,
-                mScheduledExecutor,
-                mContext,
-                mAdServicesLoggerMock,
-                flags,
-                mFakeDebugFlags,
-                CallingAppUidSupplierProcessImpl.create(),
-                mFledgeAuthorizationFilterMock,
-                mAdSelectionServiceFilterMock,
-                mAdFilteringFeatureFactory,
-                mConsentManagerMock,
-                MultiCloudTestStrategyFactory.getDisabledTestStrategy(
-                        new ObliviousHttpEncryptorWithSeedImpl(
-                                new AdSelectionEncryptionKeyManager(
-                                        mAuctionServerEncryptionKeyDao,
-                                        mFakeFlags,
-                                        mAdServicesHttpsClientSpy,
-                                        mLightweightExecutorService,
-                                        mAdServicesLoggerMock),
-                                mEncryptionContextDao,
-                                seedBytes,
-                                mLightweightExecutorService)),
-                mAdSelectionDebugReportDaoSpy,
-                mAdIdFetcher,
-                mUnusedKAnonSignJoinFactory,
+    private void prepareDataAndRunServerAuction() throws Exception {
+        AdServicesHttpClientResponse httpClientResponse =
+                mServerAuctionTestHelper.getPublicAuctionKeyHttpResponse();
+
+        when(mMockHttpClient.fetchPayloadWithLogging(
+                        eq(Uri.parse(COORDINATOR_URL)),
+                        eq(DevContext.createForDevOptionsDisabled()),
+                        any(FetchProcessLogger.class)))
+                .thenReturn(Futures.immediateFuture(httpClientResponse));
+
+        mCustomAudienceDaoSpy.insertOrOverwriteCustomAudience(
+                DBCustomAudienceFixture.getValidBuilderByBuyerWithAdRenderId(
+                                WINNER_BUYER,
+                                WINNING_CUSTOM_AUDIENCE_NAME,
+                                WINNING_CUSTOM_AUDIENCE_OWNER)
+                        .setAds(
+                                DBAdDataFixture.getValidDbAdDataListByBuyerWithAdRenderId(
+                                        WINNER_BUYER))
+                        .build(),
+                Uri.EMPTY,
                 false,
-                mRetryStrategyFactory,
-                CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                mAuctionServerDebugConfigurationGenerator);
-    }
+                List.of());
 
-    private void prepareDataAndRunServerAuction(Flags flags) throws Exception {
-        mocker.mockGetFlags(flags);
-
-        Map<String, AdTechIdentifier> nameAndBuyersMap =
-                Map.of(
-                        "Shoes CA of Buyer 1", WINNER_BUYER,
-                        "Shirts CA of Buyer 1", WINNER_BUYER,
-                        "Shoes CA Of Buyer 2", DIFFERENT_BUYER);
-        createAndPersistDBCustomAudiences(nameAndBuyersMap);
-
-        byte[] encodedSignals = new byte[] {2, 3, 5, 7, 11, 13, 17, 19};
-        createAndPersistEncodedSignals(WINNER_BUYER, encodedSignals);
-
-        DBEncryptionKey dbEncryptionKey =
-                DBEncryptionKey.builder()
-                        .setPublicKey("bSHP4J++pRIvnrwusqafzE8GQIzVSqyTTwEudvzc72I=")
-                        .setKeyIdentifier("050bed24-c62f-46e0-a1ad-211361ad771a")
-                        .setEncryptionKeyType(ENCRYPTION_KEY_TYPE_AUCTION)
-                        .setExpiryTtlSeconds(TimeUnit.DAYS.toSeconds(7))
-                        .build();
-        mAuctionServerEncryptionKeyDao.insertAllKeys(ImmutableList.of(dbEncryptionKey));
-
-        AdSelectionService service = createAdSelectionServiceWithEncryption(flags);
+        mAdSelectionService = createServiceWithMockHttpClient();
 
         GetAdSelectionDataInput input =
                 new GetAdSelectionDataInput.Builder()
                         .setSeller(SELLER)
                         .setCallerPackageName(CALLER_PACKAGE_NAME)
+                        .setCoordinatorOriginUri(Uri.parse(COORDINATOR_HOST))
                         .build();
 
-        GetAdSelectionDataTestCallback callback = invokeGetAdSelectionData(service, input);
+        GetAdSelectionDataTestCallback callback =
+                invokeGetAdSelectionData(mAdSelectionService, input);
 
         assertTrue(callback.mIsSuccess);
         Assert.assertNotNull(callback.mGetAdSelectionDataResponse);
@@ -4493,48 +3778,15 @@ public final class AuctionServerIntegrationTest extends AdServicesExtendedMockit
                 mAdSelectionServiceFilterMock,
                 mAdFilteringFeatureFactory,
                 mConsentManagerMock,
-                mMultiCloudSupportStrategy,
+                mObliviousHttpEncryptorMock,
                 mAdSelectionDebugReportDaoSpy,
                 mAdIdFetcher,
                 mUnusedKAnonSignJoinFactory,
                 false,
                 mRetryStrategyFactory,
                 CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                mAuctionServerDebugConfigurationGenerator);
-    }
-
-    private AdSelectionService createAdSelectionService(
-            Flags flags, AdFilteringFeatureFactory filteringFeatureFactory) {
-        return new AdSelectionServiceImpl(
-                mAdSelectionEntryDao,
-                mAppInstallDao,
-                mCustomAudienceDaoSpy,
-                mEncodedPayloadDaoSpy,
-                mFrequencyCapDaoSpy,
-                mEncryptionKeyDao,
-                mEnrollmentDao,
-                mAdServicesHttpsClientSpy,
-                mDevContextFilterMock,
-                mLightweightExecutorService,
-                mBackgroundExecutorService,
-                mScheduledExecutor,
-                mContext,
-                mAdServicesLoggerMock,
-                flags,
-                mFakeDebugFlags,
-                CallingAppUidSupplierProcessImpl.create(),
-                mFledgeAuthorizationFilterMock,
-                mAdSelectionServiceFilterMock,
-                filteringFeatureFactory,
-                mConsentManagerMock,
-                mMultiCloudSupportStrategy,
-                mAdSelectionDebugReportDaoSpy,
-                mAdIdFetcher,
-                mUnusedKAnonSignJoinFactory,
-                false,
-                mRetryStrategyFactory,
-                CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                mAuctionServerDebugConfigurationGenerator);
+                mAuctionServerDebugConfigurationGenerator,
+                mServerAuctionCoordinatorUriStrategyFactory);
     }
 
     private Map<AdTechIdentifier, BuyerInput> getBuyerInputMapFromDecryptedBytes(
