@@ -21,6 +21,7 @@ import static com.android.adservices.service.Flags.APPSEARCH_ONLY;
 import static com.android.adservices.service.Flags.COBALT__IGNORED_REPORT_ID_LIST;
 import static com.android.adservices.service.Flags.COMPONENT_AD_RENDER_ID_MAX_LENGTH_BYTES;
 import static com.android.adservices.service.Flags.DEFAULT_ADID_CACHE_TTL_MS;
+import static com.android.adservices.service.Flags.DEFAULT_AD_SERVICES_CEL_SAMPLING_CONFIG;
 import static com.android.adservices.service.Flags.DEFAULT_AD_SERVICES_JOB_EXECUTION_SAMPLING_CONFIG;
 import static com.android.adservices.service.Flags.DEFAULT_AD_SERVICES_JOB_SCHEDULING_SAMPLING_CONFIG;
 import static com.android.adservices.service.Flags.DEFAULT_BLOCKED_TOPICS_SOURCE_OF_TRUTH;
@@ -29,7 +30,11 @@ import static com.android.adservices.service.Flags.DEFAULT_ENABLE_LOG_SAMPLING_I
 import static com.android.adservices.service.Flags.DEFAULT_JOB_SCHEDULING_LOGGING_SAMPLING_RATE;
 import static com.android.adservices.service.Flags.DEFAULT_MDD_PACKAGE_DENY_REGISTRY_MANIFEST_FILE_URL;
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_AD_IDS_PER_DEVICE_PER_WINDOW_PERIOD_MS;
+import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_COUNT_UNIQUE_APP_ALLOWLIST;
+import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_COUNT_UNIQUE_REPORTING_JOB_PERIOD_MS;
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_ENABLE_AD_IDS_PER_DEVICE_PER_WINDOW;
+import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_ENABLE_COUNT_UNIQUE_REPORTING_JOB;
+import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_ENABLE_COUNT_UNIQUE_SERVICE;
 import static com.android.adservices.service.Flags.DEFAULT_MEASUREMENT_ENABLE_PACKAGE_NAME_UID_CHECK;
 import static com.android.adservices.service.Flags.DEFAULT_MSMT_REGISTER_SOURCE_PACKAGE_DENY_LIST;
 import static com.android.adservices.service.Flags.DEFAULT_PACKAGE_DENY_BACKGROUND_JOB_PERIOD_MILLIS;
@@ -1123,6 +1128,38 @@ public final class FlagsTest extends AdServicesUnitTestCase {
     }
 
     @Test
+    public void testGetMeasurementEnableCountUniqueService() {
+        testFlag(
+                "getMeasurementEnableCountUniqueService",
+                DEFAULT_MEASUREMENT_ENABLE_COUNT_UNIQUE_SERVICE,
+                Flags::getMeasurementEnableCountUniqueService);
+    }
+
+    @Test
+    public void testGetMeasurementEnableCountUniqueReportingJob() {
+        testFlag(
+                "getMeasurementEnableCountUniqueReportingJob",
+                DEFAULT_MEASUREMENT_ENABLE_COUNT_UNIQUE_REPORTING_JOB,
+                Flags::getMeasurementEnableCountUniqueReportingJob);
+    }
+
+    @Test
+    public void testGetMeasurementCountUniqueReportingJobPeriodMs() {
+        testFlag(
+                "getMeasurementCountUniqueReportingJobPeriodMs",
+                DEFAULT_MEASUREMENT_COUNT_UNIQUE_REPORTING_JOB_PERIOD_MS,
+                Flags::getMeasurementCountUniqueReportingJobPeriodMs);
+    }
+
+    @Test
+    public void testGetMeasurementCountUniqueAppAllowlist() {
+        testFlag(
+                "getMeasurementCountUniqueAppAllowlist",
+                DEFAULT_MEASUREMENT_COUNT_UNIQUE_APP_ALLOWLIST,
+                Flags::getMeasurementCountUniqueAppAllowlist);
+    }
+
+    @Test
     public void testGetFledgeEnableScheduleCustomAudienceUpdateAdditionalScheduleRequests() {
         testFeatureFlag(
                 "FLEDGE_ENABLE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ADDITIONAL_SCHEDULE_REQUESTS",
@@ -1421,6 +1458,14 @@ public final class FlagsTest extends AdServicesUnitTestCase {
                 "getAdServicesJobSchedulingSamplingConfig",
                 DEFAULT_AD_SERVICES_JOB_SCHEDULING_SAMPLING_CONFIG,
                 Flags::getAdServicesJobSchedulingSamplingConfig);
+    }
+
+    @Test
+    public void testGetAdServicesCelSamplingConfig() {
+        testFlag(
+                "getAdServicesCelSamplingConfig",
+                DEFAULT_AD_SERVICES_CEL_SAMPLING_CONFIG,
+                Flags::getAdServicesCelSamplingConfig);
     }
 
     private boolean hasAnnotation(Field field, Class<? extends Annotation> annotationClass) {

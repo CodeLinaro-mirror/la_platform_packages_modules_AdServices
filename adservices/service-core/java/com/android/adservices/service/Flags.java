@@ -3850,6 +3850,41 @@ public interface Flags extends ModuleSharedFlags {
         return DEFAULT_MEASUREMENT_AD_IDS_PER_DEVICE_PER_WINDOW_PERIOD_MS;
     }
 
+    /** Default value for enabling the Count Unique service. */
+    @FeatureFlag boolean DEFAULT_MEASUREMENT_ENABLE_COUNT_UNIQUE_SERVICE = false;
+
+    /** Returns true if the Count Unique service is enabled. */
+    default boolean getMeasurementEnableCountUniqueService() {
+        return DEFAULT_MEASUREMENT_ENABLE_COUNT_UNIQUE_SERVICE;
+    }
+
+    /** Default value for enabling the Count Unique reporting job. */
+    @FeatureFlag boolean DEFAULT_MEASUREMENT_ENABLE_COUNT_UNIQUE_REPORTING_JOB = false;
+
+    /** Returns true if the Count Unique reporting job is enabled. */
+    default boolean getMeasurementEnableCountUniqueReportingJob() {
+        return DEFAULT_MEASUREMENT_ENABLE_COUNT_UNIQUE_REPORTING_JOB;
+    }
+
+    /** Default min time period between each execution of the Count Unique reporting job. */
+    @ConfigFlag
+    long DEFAULT_MEASUREMENT_COUNT_UNIQUE_REPORTING_JOB_PERIOD_MS = TimeUnit.HOURS.toMillis(2);
+
+    /**
+     * Returns the default min time period between each execution of the Count Unique reporting job.
+     */
+    default long getMeasurementCountUniqueReportingJobPeriodMs() {
+        return DEFAULT_MEASUREMENT_COUNT_UNIQUE_REPORTING_JOB_PERIOD_MS;
+    }
+
+    /** Default allow list for apps to allow count unique registrations. */
+    @ConfigFlag String DEFAULT_MEASUREMENT_COUNT_UNIQUE_APP_ALLOWLIST = "";
+
+    /** Returns the allowlist of apps that allow count unique registrations. */
+    default String getMeasurementCountUniqueAppAllowlist() {
+        return DEFAULT_MEASUREMENT_COUNT_UNIQUE_APP_ALLOWLIST;
+    }
+
     /** Kill switch to guard backward-compatible logging. See go/rbc-ww-logging */
     @SuppressWarnings("AvoidKillSwitchFlagUsage") // Legacy kill switch flag
     boolean COMPAT_LOGGING_KILL_SWITCH = false;
@@ -6154,6 +6189,17 @@ public interface Flags extends ModuleSharedFlags {
     /** Returns the base64 encoded LogSamplingConfig for AdServices job scheduling. */
     default String getAdServicesJobSchedulingSamplingConfig() {
         return DEFAULT_AD_SERVICES_JOB_SCHEDULING_SAMPLING_CONFIG;
+    }
+
+    /**
+     * Default value for the base64 encoded LogSamplingConfig proto for AdServices client error
+     * logging.
+     */
+    @ConfigFlag String DEFAULT_AD_SERVICES_CEL_SAMPLING_CONFIG = "";
+
+    /** Returns the base64 encoded LogSamplingConfig for AdServices client error logging. */
+    default String getAdServicesCelSamplingConfig() {
+        return DEFAULT_AD_SERVICES_CEL_SAMPLING_CONFIG;
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////

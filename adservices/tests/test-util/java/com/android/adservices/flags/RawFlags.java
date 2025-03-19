@@ -3620,6 +3620,12 @@ abstract class RawFlags<FB extends FlagsBackend> implements Flags {
     }
 
     @Override
+    public String getAdServicesCelSamplingConfig() {
+        return mBackend.getFlag(
+                KEY_AD_SERVICES_CEL_SAMPLING_CONFIG, DEFAULT_AD_SERVICES_CEL_SAMPLING_CONFIG);
+    }
+
+    @Override
     public boolean getMeasurementEnableAdIdsPerDevicePerWindow() {
         return mBackend.getFlag(
                 KEY_MEASUREMENT_ENABLE_AD_IDS_PER_DEVICE_PER_WINDOW,
@@ -3631,5 +3637,33 @@ abstract class RawFlags<FB extends FlagsBackend> implements Flags {
         return mBackend.getFlag(
                 KEY_MEASUREMENT_AD_IDS_PER_DEVICE_PER_WINDOW_PERIOD_MS,
                 DEFAULT_MEASUREMENT_AD_IDS_PER_DEVICE_PER_WINDOW_PERIOD_MS);
+    }
+
+    @Override
+    public boolean getMeasurementEnableCountUniqueService() {
+        return mBackend.getFlag(
+                KEY_MEASUREMENT_ENABLE_COUNT_UNIQUE_SERVICE,
+                DEFAULT_MEASUREMENT_ENABLE_COUNT_UNIQUE_SERVICE);
+    }
+
+    @Override
+    public boolean getMeasurementEnableCountUniqueReportingJob() {
+        return mBackend.getFlag(
+                KEY_MEASUREMENT_ENABLE_COUNT_UNIQUE_REPORTING_JOB,
+                DEFAULT_MEASUREMENT_ENABLE_COUNT_UNIQUE_REPORTING_JOB);
+    }
+
+    @Override
+    public long getMeasurementCountUniqueReportingJobPeriodMs() {
+        return mBackend.getFlag(
+                KEY_MEASUREMENT_COUNT_UNIQUE_REPORTING_JOB_PERIOD_MS,
+                DEFAULT_MEASUREMENT_COUNT_UNIQUE_REPORTING_JOB_PERIOD_MS);
+    }
+
+    @Override
+    public String getMeasurementCountUniqueAppAllowlist() {
+        return mBackend.getFlag(
+                KEY_MEASUREMENT_COUNT_UNIQUE_APP_ALLOWLIST,
+                DEFAULT_MEASUREMENT_COUNT_UNIQUE_APP_ALLOWLIST);
     }
 }

@@ -18,6 +18,7 @@ package com.android.adservices.service;
 
 import static com.android.adservices.service.DeviceConfigFlagsHelper.getDeviceConfigFlag;
 import static com.android.adservices.service.FlagsConstants.KEY_ADSERVICES_CONSENT_BUSINESS_LOGIC_MIGRATION_ENABLED;
+import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_CEL_SAMPLING_CONFIG;
 import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_JOB_EXECUTION_SAMPLING_CONFIG;
 import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_JOB_SCHEDULING_SAMPLING_CONFIG;
 import static com.android.adservices.service.FlagsConstants.KEY_AD_SERVICES_JS_SCRIPT_ENGINE_MAX_RETRY_ATTEMPTS;
@@ -3930,6 +3931,34 @@ public final class PhFlags implements Flags {
     }
 
     @Override
+    public boolean getMeasurementEnableCountUniqueService() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_MEASUREMENT_ENABLE_COUNT_UNIQUE_SERVICE,
+                DEFAULT_MEASUREMENT_ENABLE_COUNT_UNIQUE_SERVICE);
+    }
+
+    @Override
+    public boolean getMeasurementEnableCountUniqueReportingJob() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_MEASUREMENT_ENABLE_COUNT_UNIQUE_REPORTING_JOB,
+                DEFAULT_MEASUREMENT_ENABLE_COUNT_UNIQUE_REPORTING_JOB);
+    }
+
+    @Override
+    public long getMeasurementCountUniqueReportingJobPeriodMs() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_MEASUREMENT_COUNT_UNIQUE_REPORTING_JOB_PERIOD_MS,
+                DEFAULT_MEASUREMENT_COUNT_UNIQUE_REPORTING_JOB_PERIOD_MS);
+    }
+
+    @Override
+    public String getMeasurementCountUniqueAppAllowlist() {
+        return getDeviceConfigFlag(
+                FlagsConstants.KEY_MEASUREMENT_COUNT_UNIQUE_APP_ALLOWLIST,
+                DEFAULT_MEASUREMENT_COUNT_UNIQUE_APP_ALLOWLIST);
+    }
+
+    @Override
     public boolean getNotificationDismissedOnClick() {
         return getDeviceConfigFlag(
                 FlagsConstants.KEY_NOTIFICATION_DISMISSED_ON_CLICK,
@@ -5209,5 +5238,11 @@ public final class PhFlags implements Flags {
         return getDeviceConfigFlag(
                 KEY_AD_SERVICES_JOB_SCHEDULING_SAMPLING_CONFIG,
                 DEFAULT_AD_SERVICES_JOB_SCHEDULING_SAMPLING_CONFIG);
+    }
+
+    @Override
+    public String getAdServicesCelSamplingConfig() {
+        return getDeviceConfigFlag(
+                KEY_AD_SERVICES_CEL_SAMPLING_CONFIG, DEFAULT_AD_SERVICES_CEL_SAMPLING_CONFIG);
     }
 }
