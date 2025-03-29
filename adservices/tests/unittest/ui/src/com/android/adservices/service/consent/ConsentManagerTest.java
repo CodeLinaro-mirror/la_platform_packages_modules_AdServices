@@ -93,7 +93,6 @@ import static com.android.dx.mockito.inline.extended.ExtendedMockito.spy;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.times;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.verify;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.verifyNoMoreInteractions;
-import static com.android.dx.mockito.inline.extended.ExtendedMockito.verifyZeroInteractions;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.when;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -184,6 +183,7 @@ import com.android.adservices.service.ui.util.EnrollmentData;
 import com.android.adservices.service.ui.ux.collection.PrivacySandboxUxCollection;
 import com.android.adservices.shared.errorlogging.AdServicesErrorLogger;
 import com.android.adservices.shared.storage.AtomicFileDatastore;
+import com.android.adservices.shared.util.Clock;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.modules.utils.testing.ExtendedMockitoRule.MockStatic;
@@ -274,6 +274,7 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
     @Mock private UxStatesDao mUxStatesDaoMock;
     @Mock private StatsdAdServicesLogger mStatsdAdServicesLoggerMock;
     @Mock private AdServicesErrorLogger mMockAdServicesErrorLogger;
+    @Mock private Clock mMockClock;
     @Mock private Supplier<TopicsWorker> mTopicsWorksSupplierMock;
     @Mock private Supplier<AppConsentDao> mAppConsentDaoSupplierMock;
     @Mock private Supplier<EnrollmentDao> mEnrollmentDaoSupplierMock;
@@ -303,7 +304,10 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         mEnrollmentDaoSpy =
                 spy(
                         new EnrollmentDao(
-                                mSpyContext, DbTestUtil.getSharedDbHelperForTest(), mMockFlags));
+                                mSpyContext,
+                                DbTestUtil.getSharedDbHelperForTest(),
+                                mMockFlags,
+                                mMockClock));
         mAdServicesManager = new AdServicesManager(mMockIAdServicesManager);
         doReturn(mAdServicesManager).when(mSpyContext).getSystemService(AdServicesManager.class);
 
@@ -854,9 +858,9 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         verify(mCustomAudienceDaoMock)
                 .deleteAllCustomAudienceData(/* scheduleCustomAudienceEnabled= */ true);
         verify(mAppInstallDaoMock).deleteAllAppInstallData();
-        verifyZeroInteractions(mProtectedSignalsDaoMock);
+        verifyNoMoreInteractions(mProtectedSignalsDaoMock);
         verify(mFrequencyCapDaoMock).deleteAllHistogramData();
-        verifyZeroInteractions(mEncodedPayloadDaoMock);
+        verifyNoMoreInteractions(mEncodedPayloadDaoMock);
         verify(mUserProfileIdManagerMock).deleteId();
     }
 
@@ -876,7 +880,7 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         verify(mMeasurementImplMock).deleteAllMeasurementData(any());
         verify(mCustomAudienceDaoMock)
                 .deleteAllCustomAudienceData(/* scheduleCustomAudienceEnabled= */ true);
-        verifyZeroInteractions(mFrequencyCapDaoMock);
+        verifyNoMoreInteractions(mFrequencyCapDaoMock);
         verify(mAppInstallDaoMock).deleteAllAppInstallData();
         verify(mProtectedSignalsDaoMock).deleteAllSignals();
         verify(mEncodedPayloadDaoMock).deleteAllEncodedPayloads();
@@ -899,7 +903,7 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         verify(mCustomAudienceDaoMock)
                 .deleteAllCustomAudienceData(/* scheduleCustomAudienceEnabled= */ true);
         verify(mFrequencyCapDaoMock).deleteAllHistogramData();
-        verifyZeroInteractions(mAppInstallDaoMock);
+        verifyNoMoreInteractions(mAppInstallDaoMock);
         verify(mProtectedSignalsDaoMock).deleteAllSignals();
         verify(mEncodedPayloadDaoMock).deleteAllEncodedPayloads();
         verify(mUserProfileIdManagerMock).deleteId();
@@ -940,7 +944,7 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         verify(mMeasurementImplMock).deleteAllMeasurementData(any());
         verify(mCustomAudienceDaoMock)
                 .deleteAllCustomAudienceData(/* scheduleCustomAudienceEnabled= */ true);
-        verifyZeroInteractions(mFrequencyCapDaoMock);
+        verifyNoMoreInteractions(mFrequencyCapDaoMock);
         verify(mAppInstallDaoMock).deleteAllAppInstallData();
         verify(mUserProfileIdManagerMock).deleteId();
         verify(mUserProfileIdManagerMock).getOrCreateId();
@@ -961,7 +965,7 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         verify(mCustomAudienceDaoMock)
                 .deleteAllCustomAudienceData(/* scheduleCustomAudienceEnabled= */ true);
         verify(mFrequencyCapDaoMock).deleteAllHistogramData();
-        verifyZeroInteractions(mAppInstallDaoMock);
+        verifyNoMoreInteractions(mAppInstallDaoMock);
         verify(mUserProfileIdManagerMock).deleteId();
         verify(mUserProfileIdManagerMock).getOrCreateId();
     }
@@ -981,9 +985,9 @@ public final class ConsentManagerTest extends AdServicesExtendedMockitoTestCase 
         verify(mCustomAudienceDaoMock)
                 .deleteAllCustomAudienceData(/* scheduleCustomAudienceEnabled= */ true);
         verify(mAppInstallDaoMock).deleteAllAppInstallData();
-        verifyZeroInteractions(mProtectedSignalsDaoMock);
+        verifyNoMoreInteractions(mProtectedSignalsDaoMock);
         verify(mFrequencyCapDaoMock).deleteAllHistogramData();
-        verifyZeroInteractions(mEncodedPayloadDaoMock);
+        verifyNoMoreInteractions(mEncodedPayloadDaoMock);
         verify(mUserProfileIdManagerMock).deleteId();
         verify(mUserProfileIdManagerMock).getOrCreateId();
     }
