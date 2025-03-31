@@ -38,7 +38,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import android.adservices.common.AdTechIdentifier;
@@ -60,6 +60,7 @@ import com.android.adservices.service.enrollment.EnrollmentStatus;
 import com.android.adservices.service.enrollment.EnrollmentUtil;
 import com.android.adservices.service.proto.PrivacySandboxApi;
 import com.android.adservices.service.stats.AdServicesLogger;
+import com.android.adservices.shared.util.Clock;
 
 import com.google.common.collect.ImmutableList;
 
@@ -81,6 +82,7 @@ public final class EnrollmentDaoTest extends AdServicesExtendedMockitoTestCase {
     @Mock private AdServicesLogger mLogger;
     @Mock private EnrollmentUtil mEnrollmentUtil;
     @Mock private SharedDbHelper mMockDbHelper;
+    @Mock private Clock mMockClock;
 
     public static final EnrollmentData ENROLLMENT_DATA1 =
             new EnrollmentData.Builder()
@@ -255,6 +257,7 @@ public final class EnrollmentDaoTest extends AdServicesExtendedMockitoTestCase {
                         mContext,
                         mDbHelper,
                         mMockFlags,
+                        mMockClock,
                         mMockFlags.isEnableEnrollmentTestSeed(),
                         mLogger,
                         mEnrollmentUtil);
@@ -282,6 +285,7 @@ public final class EnrollmentDaoTest extends AdServicesExtendedMockitoTestCase {
                                 mContext,
                                 mDbHelper,
                                 mMockFlags,
+                                mMockClock,
                                 mMockFlags.isEnableEnrollmentTestSeed(),
                                 mLogger,
                                 mEnrollmentUtil));
@@ -386,6 +390,7 @@ public final class EnrollmentDaoTest extends AdServicesExtendedMockitoTestCase {
                         mContext,
                         helper,
                         mMockFlags,
+                        mMockClock,
                         mMockFlags.isEnableEnrollmentTestSeed(),
                         mLogger,
                         mEnrollmentUtil);
@@ -453,6 +458,7 @@ public final class EnrollmentDaoTest extends AdServicesExtendedMockitoTestCase {
                         mContext,
                         mDbHelper,
                         mMockFlags,
+                        mMockClock,
                         mMockFlags.isEnableEnrollmentTestSeed(),
                         mLogger,
                         mEnrollmentUtil);
@@ -960,7 +966,7 @@ public final class EnrollmentDaoTest extends AdServicesExtendedMockitoTestCase {
                 mEnrollmentDao.getEnrollmentDataFromMeasurementUrl(
                         Uri.parse("https://4test.invalid"));
         assertThat(e).isNull();
-        verifyZeroInteractions(mLogger);
+        verifyNoMoreInteractions(mLogger);
 
         EnrollmentData enrollmentData =
                 new EnrollmentData.Builder()
@@ -986,7 +992,7 @@ public final class EnrollmentDaoTest extends AdServicesExtendedMockitoTestCase {
                 mEnrollmentDao.getEnrollmentDataFromMeasurementUrl(
                         Uri.parse("https://4test.invalid"));
         assertThat(e1).isNull();
-        verifyZeroInteractions(mLogger);
+        verifyNoMoreInteractions(mLogger);
     }
 
     @Test
@@ -1059,7 +1065,7 @@ public final class EnrollmentDaoTest extends AdServicesExtendedMockitoTestCase {
         assertWithMessage("Returned enrollment pair")
                 .that(mEnrollmentDao.getEnrollmentDataForFledgeByMatchingAdTechIdentifier(null))
                 .isNull();
-        verifyZeroInteractions(mLogger);
+        verifyNoMoreInteractions(mLogger);
     }
 
     @Test
@@ -1069,7 +1075,7 @@ public final class EnrollmentDaoTest extends AdServicesExtendedMockitoTestCase {
                         mEnrollmentDao.getEnrollmentDataForFledgeByMatchingAdTechIdentifier(
                                 Uri.EMPTY))
                 .isNull();
-        verifyZeroInteractions(mLogger);
+        verifyNoMoreInteractions(mLogger);
     }
 
     @Test
@@ -1313,6 +1319,7 @@ public final class EnrollmentDaoTest extends AdServicesExtendedMockitoTestCase {
                         mContext,
                         mMockDbHelper,
                         mMockFlags,
+                        mMockClock,
                         mMockFlags.isEnableEnrollmentTestSeed(),
                         mLogger,
                         mEnrollmentUtil);
