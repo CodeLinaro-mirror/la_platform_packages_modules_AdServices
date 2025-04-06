@@ -1,0 +1,160 @@
+/*
+ * Copyright (C) 2023 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.android.adservices.service.signals.updateprocessors.updateencoder;
+
+import static com.android.adservices.service.signals.SignalsFixture.DEV_CONTEXT;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+import android.adservices.common.AdTechIdentifier;
+import android.adservices.common.CommonFixture;
+import android.net.Uri;
+
+import com.android.adservices.common.AdServicesMockitoTestCase;
+import com.android.adservices.data.signals.DBEncoderEndpoint;
+import com.android.adservices.data.signals.EncoderEndpointsDao;
+import com.android.adservices.data.signals.EncoderLogicHandler;
+import com.android.adservices.service.devapi.DevContext;
+import com.android.adservices.service.signals.ForcedEncoder;
+import com.android.adservices.shared.testing.annotations.RequiresSdkLevelAtLeastT;
+
+import com.google.common.util.concurrent.FluentFuture;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.MoreExecutors;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.Mock;
+
+import java.time.Instant;
+
+@RequiresSdkLevelAtLeastT(reason = "PAS is only supported on T+")
+public class UpdateEncoderEventHandlerTest extends AdServicesMockitoTestCase {
+    @Mock private EncoderEndpointsDao mEncoderEndpointsDaoMock;
+
+    @Mock private EncoderLogicHandler mEncoderLogicHandlerMock;
+    @Mock private ForcedEncoder mForcedEncoderMock;
+    @Captor private ArgumentCaptor<DBEncoderEndpoint> mEndpointCaptor;
+
+    private UpdateEncoderEventHandler mHandler;
+
+    @Before
+    public void setup() {
+        mHandler =
+                new UpdateEncoderEventHandler(
+                        mEncoderEndpointsDaoMock,
+                        mEncoderLogicHandlerMock,
+                        mMockContext,
+                        MoreExecutors.newDirectExecutorService(),
+                        false,
+                        mForcedEncoderMock,
+                        false);
+    }
+
+    @Test
+    public void testNullEventUpdate() {
+        AdTechIdentifier buyer = CommonFixture.VALID_BUYER_1;
+        assertThrows(
+                NullPointerException.class,
+                () -> {
+                    mHandler.handle(buyer, null, DEV_CONTEXT);
+                });
+        verifyNoMoreInteractions(
+                mEncoderEndpointsDaoMock, mEncoderLogicHandlerMock, mForcedEncoderMock);
+    }
+
+    @Test
+    public void testUpdateEventRegister() {
+        AdTechIdentifier buyer = CommonFixture.VALID_BUYER_1;
+        Uri uri = CommonFixture.getUri(buyer, "/encoder");
+        when(mEncoderEndpointsDaoMock.getEndpoint(buyer)).thenReturn(null);
+        when(mEncoderLogicHandlerMock.downloadAndUpdate(
+                        buyer, DevContext.createForDevOptionsDisabled()))
+                .thenReturn(FluentFuture.from(Futures.immediateFuture(true)));
+        when(mForcedEncoderMock.forceEncodingAndUpdateEncoderForBuyer(buyer))
+                .thenReturn(FluentFuture.from(Futures.immediateFuture(true)));
+        mHandler.handle(
+                buyer,
+                UpdateEncoderEvent.builder()
+                        .setUpdateType(UpdateEncoderEvent.UpdateType.REGISTER)
+                        .setEncoderEndpointUri(uri)
+                        .build(),
+                DevContext.createForDevOptionsDisabled());
+        verify(mEncoderEndpointsDaoMock).registerEndpoint(mEndpointCaptor.capture());
+        verify(mEncoderLogicHandlerMock)
+                .downloadAndUpdate(buyer, DevContext.createForDevOptionsDisabled());
+        verify(mForcedEncoderMock).forceEncodingAndUpdateEncoderForBuyer(buyer);
+        // Verify no broadcasts were sent since broadcast flags are disabled
+        verify(mMockContext, never()).sendBroadcast(any());
+        assertEquals(uri, mEndpointCaptor.getValue().getDownloadUri());
+        assertEquals(buyer, mEndpointCaptor.getValue().getBuyer());
+    }
+
+    @Test
+    public void testUpdateEventRegisterSkipsNonFirstUpdate() {
+        AdTechIdentifier buyer = CommonFixture.VALID_BUYER_1;
+        Uri uri = CommonFixture.getUri(buyer, "/encoder");
+        when(mEncoderEndpointsDaoMock.getEndpoint(buyer))
+                .thenReturn(
+                        DBEncoderEndpoint.builder()
+                                .setDownloadUri(uri)
+                                .setCreationTime(Instant.now())
+                                .setBuyer(buyer)
+                                .build());
+        when(mForcedEncoderMock.forceEncodingAndUpdateEncoderForBuyer(buyer))
+                .thenReturn(FluentFuture.from(Futures.immediateFuture(true)));
+        mHandler.handle(
+                buyer,
+                UpdateEncoderEvent.builder()
+                        .setUpdateType(UpdateEncoderEvent.UpdateType.REGISTER)
+                        .setEncoderEndpointUri(uri)
+                        .build(),
+                DEV_CONTEXT);
+        verify(mEncoderEndpointsDaoMock).registerEndpoint(mEndpointCaptor.capture());
+        verify(mForcedEncoderMock).forceEncodingAndUpdateEncoderForBuyer(buyer);
+        // Verify no broadcasts were sent since broadcast flags are disabled
+        verify(mMockContext, never()).sendBroadcast(any());
+        assertEquals(uri, mEndpointCaptor.getValue().getDownloadUri());
+        assertEquals(buyer, mEndpointCaptor.getValue().getBuyer());
+        verifyNoMoreInteractions(mEncoderLogicHandlerMock);
+    }
+
+    @Test
+    public void testUpdateEventRegisterNullUri() {
+        AdTechIdentifier buyer = CommonFixture.VALID_BUYER_1;
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                    mHandler.handle(
+                            buyer,
+                            UpdateEncoderEvent.builder()
+                                    .setUpdateType(UpdateEncoderEvent.UpdateType.REGISTER)
+                                    .build(),
+                            DEV_CONTEXT);
+                });
+        verifyNoMoreInteractions(
+                mEncoderEndpointsDaoMock, mEncoderLogicHandlerMock, mForcedEncoderMock);
+    }
+}

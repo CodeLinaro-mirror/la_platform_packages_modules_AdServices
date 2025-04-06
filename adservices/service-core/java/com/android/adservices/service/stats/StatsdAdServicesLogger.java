@@ -237,7 +237,8 @@ public class StatsdAdServicesLogger implements AdServicesLogger {
                 stats.getNumDeletedEntities(),
                 stats.isEventLevelEpsilonEnabled(),
                 stats.isTriggerAggregatableValueFiltersConfigured(),
-                stats.isTriggerFilteringIdConfigured());
+                stats.isTriggerFilteringIdConfigured(),
+                stats.isTriggerContextIdConfigured());
     }
 
     @Override
@@ -574,7 +575,8 @@ public class StatsdAdServicesLogger implements AdServicesLogger {
                 stats.queryResultCount(),
                 stats.dataSourceRecordCountPre(),
                 stats.dataSourceRecordCountPost(),
-                stats.enrollmentFileBuildId());
+                stats.enrollmentFileBuildId(),
+                stats.latencyMs());
     }
 
     /** Logs encryption key fetch stats. */

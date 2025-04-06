@@ -57,7 +57,7 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import android.adservices.adid.AdId;
 import android.adservices.adselection.AdSelectionConfigFixture;
@@ -129,14 +129,13 @@ import com.android.adservices.service.adselection.AuctionServerPayloadFormatter;
 import com.android.adservices.service.adselection.AuctionServerPayloadFormatterFactory;
 import com.android.adservices.service.adselection.AuctionServerPayloadUnformattedData;
 import com.android.adservices.service.adselection.MockAdIdWorker;
-import com.android.adservices.service.adselection.MultiCloudSupportStrategy;
-import com.android.adservices.service.adselection.MultiCloudTestStrategyFactory;
 import com.android.adservices.service.adselection.debug.AuctionServerDebugConfigurationGenerator;
 import com.android.adservices.service.adselection.debug.ConsentedDebugConfigurationGeneratorFactory;
 import com.android.adservices.service.adselection.encryption.AdSelectionEncryptionKeyManager;
 import com.android.adservices.service.adselection.encryption.KAnonObliviousHttpEncryptorImpl;
 import com.android.adservices.service.adselection.encryption.ObliviousHttpEncryptor;
 import com.android.adservices.service.adselection.encryption.ObliviousHttpEncryptorFactory;
+import com.android.adservices.service.adselection.encryption.ServerAuctionCoordinatorUriStrategyFactory;
 import com.android.adservices.service.common.AdSelectionServiceFilter;
 import com.android.adservices.service.common.AppImportanceFilter;
 import com.android.adservices.service.common.FledgeAuthorizationFilter;
@@ -342,7 +341,6 @@ public final class KAnonE2ETest extends AdServicesExtendedMockitoTestCase {
     private AdSelectionDebugReportDao mAdSelectionDebugReportDaoSpy;
     private AdIdFetcher mAdIdFetcher;
     private MockAdIdWorker mMockAdIdWorker;
-    private MultiCloudSupportStrategy mMultiCloudSupportStrategy;
 
     private ClientParametersDao mClientParametersDao;
     private ServerParametersDao mServerParametersDao;
@@ -376,6 +374,7 @@ public final class KAnonE2ETest extends AdServicesExtendedMockitoTestCase {
     private Instant FIXED_INSTANT = Instant.now();
     private RetryStrategyFactory mRetryStrategyFactory;
     private AuctionServerDebugConfigurationGenerator mAuctionServerDebugConfigurationGenerator;
+    private ServerAuctionCoordinatorUriStrategyFactory mServerAuctionCoordinatorUriStrategyFactory;
 
     @Before
     public void setUp() throws Exception {
@@ -428,8 +427,6 @@ public final class KAnonE2ETest extends AdServicesExtendedMockitoTestCase {
         mAdIdFetcher =
                 new AdIdFetcher(
                         mContext, mMockAdIdWorker, mLightweightExecutorService, mScheduledExecutor);
-        mMultiCloudSupportStrategy =
-                MultiCloudTestStrategyFactory.getDisabledTestStrategy(mObliviousHttpEncryptorMock);
         mPayloadFormatter =
                 AuctionServerPayloadFormatterFactory.createPayloadFormatter(
                         mFakeFlags.getFledgeAuctionServerPayloadFormatVersion(),
@@ -484,6 +481,9 @@ public final class KAnonE2ETest extends AdServicesExtendedMockitoTestCase {
                         mAdIdFetcher,
                         consentedDebugConfigurationGeneratorFactory.create(),
                         mLightweightExecutorService);
+        mServerAuctionCoordinatorUriStrategyFactory =
+                new ServerAuctionCoordinatorUriStrategyFactory(
+                        mFakeFlags.getFledgeAuctionServerCoordinatorUrlAllowlist());
     }
 
     @After
@@ -612,8 +612,8 @@ public final class KAnonE2ETest extends AdServicesExtendedMockitoTestCase {
                                 .getAdSelectionId());
         assertThat(kAnonMessageEntityList.get(0).getStatus())
                 .isEqualTo(KAnonMessageEntity.KanonMessageEntityStatus.JOINED);
-        verifyZeroInteractions(mockKeyAttestation);
-        verifyZeroInteractions(mockKeyAttestationCertificate);
+        verifyNoMoreInteractions(mockKeyAttestation);
+        verifyNoMoreInteractions(mockKeyAttestationCertificate);
     }
 
     @Test
@@ -1753,14 +1753,15 @@ public final class KAnonE2ETest extends AdServicesExtendedMockitoTestCase {
                 mAdSelectionServiceFilterMock,
                 mAdFilteringFeatureFactory,
                 mConsentManagerMock,
-                mMultiCloudSupportStrategy,
+                mObliviousHttpEncryptorMock,
                 mAdSelectionDebugReportDaoSpy,
                 mAdIdFetcher,
                 mKAnonSignJoinFactoryMock,
                 false,
                 mRetryStrategyFactory,
                 CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                mAuctionServerDebugConfigurationGenerator);
+                mAuctionServerDebugConfigurationGenerator,
+                mServerAuctionCoordinatorUriStrategyFactory);
     }
 
     public PersistAdSelectionResultTestCallback invokePersistAdSelectionResult(

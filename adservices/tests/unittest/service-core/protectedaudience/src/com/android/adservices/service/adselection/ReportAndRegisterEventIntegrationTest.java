@@ -101,6 +101,7 @@ import com.android.adservices.service.FlagsFactory;
 import com.android.adservices.service.adselection.debug.AuctionServerDebugConfigurationGenerator;
 import com.android.adservices.service.adselection.debug.ConsentedDebugConfigurationGeneratorFactory;
 import com.android.adservices.service.adselection.encryption.ObliviousHttpEncryptor;
+import com.android.adservices.service.adselection.encryption.ServerAuctionCoordinatorUriStrategyFactory;
 import com.android.adservices.service.common.AdSelectionServiceFilter;
 import com.android.adservices.service.common.AllowLists;
 import com.android.adservices.service.common.AppImportanceFilter;
@@ -118,6 +119,7 @@ import com.android.adservices.service.devapi.DevContextFilter;
 import com.android.adservices.service.enrollment.EnrollmentData;
 import com.android.adservices.service.kanon.KAnonSignJoinFactory;
 import com.android.adservices.service.measurement.MeasurementImpl;
+import com.android.adservices.service.measurement.countunique.CountUniqueRegistrar;
 import com.android.adservices.service.measurement.inputverification.ClickVerifier;
 import com.android.adservices.service.measurement.noising.SourceNoiseHandler;
 import com.android.adservices.service.measurement.ondevicepersonalization.IOdpDelegationWrapper;
@@ -207,8 +209,6 @@ public final class ReportAndRegisterEventIntegrationTest extends AdServicesExten
     private AdFilteringFeatureFactory mAdFilteringFeatureFactory;
     @Mock private AdSelectionServiceFilter mAdSelectionServiceFilterMock;
     @Mock private ObliviousHttpEncryptor mObliviousHttpEncryptor;
-    private MultiCloudSupportStrategy mMultiCloudSupportStrategy =
-            MultiCloudTestStrategyFactory.getDisabledTestStrategy(mObliviousHttpEncryptor);
     @Mock private AdSelectionDebugReportDao mAdSelectionDebugReportDaoMock;
     @Mock private AdIdFetcher mAdIdFetcher;
     @Mock private KAnonSignJoinFactory mUnusedKAnonSignJoinFactory;
@@ -273,12 +273,15 @@ public final class ReportAndRegisterEventIntegrationTest extends AdServicesExten
     @Mock private AggregateDebugReportApi mAdrApiMock;
     @Mock private DebugReportApi mDebugReportApiMock;
 
+    @Mock private CountUniqueRegistrar mCountUniqueMock;
+
     @Spy
     private AsyncSourceFetcher mAsyncSourceFetcherSpy =
             new AsyncSourceFetcher(
                     mContext,
                     mEnrollmentDaoMock,
                     mFakeFlags,
+                    mCountUniqueMock,
                     mDatastoreManagerSpy,
                     mDebugReportApiMock);
 
@@ -295,6 +298,7 @@ public final class ReportAndRegisterEventIntegrationTest extends AdServicesExten
     @Mock private SourceNoiseHandler mSourceNoiseHandlerMock;
     private RetryStrategyFactory mRetryStrategyFactory;
     private AuctionServerDebugConfigurationGenerator mAuctionServerDebugConfigurationGenerator;
+    private ServerAuctionCoordinatorUriStrategyFactory mServerAuctionCoordinatorUriStrategyFactory;
 
     @Before
     public void setup() throws Exception {
@@ -365,6 +369,9 @@ public final class ReportAndRegisterEventIntegrationTest extends AdServicesExten
                         mAdIdFetcher,
                         consentedDebugConfigurationGeneratorFactory.create(),
                         mLightweightExecutorService);
+        mServerAuctionCoordinatorUriStrategyFactory =
+                new ServerAuctionCoordinatorUriStrategyFactory(
+                        mFakeFlags.getFledgeAuctionServerCoordinatorUrlAllowlist());
 
         mAdSelectionService = getAdSelectionServiceImpl(mFakeFlags);
 
@@ -1000,14 +1007,15 @@ public final class ReportAndRegisterEventIntegrationTest extends AdServicesExten
                 mAdSelectionServiceFilterMock,
                 mAdFilteringFeatureFactory,
                 mConsentManagerMock,
-                mMultiCloudSupportStrategy,
+                mObliviousHttpEncryptor,
                 mAdSelectionDebugReportDaoMock,
                 mAdIdFetcher,
                 mUnusedKAnonSignJoinFactory,
                 false,
                 mRetryStrategyFactory,
                 CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                mAuctionServerDebugConfigurationGenerator);
+                mAuctionServerDebugConfigurationGenerator,
+                mServerAuctionCoordinatorUriStrategyFactory);
     }
 
     private void initializeReportingArtifacts() throws JSONException {

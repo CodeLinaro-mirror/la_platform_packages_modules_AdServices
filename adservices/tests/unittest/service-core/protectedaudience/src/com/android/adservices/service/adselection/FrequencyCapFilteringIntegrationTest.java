@@ -83,6 +83,7 @@ import com.android.adservices.service.adselection.UpdateAdCounterHistogramWorker
 import com.android.adservices.service.adselection.debug.AuctionServerDebugConfigurationGenerator;
 import com.android.adservices.service.adselection.debug.ConsentedDebugConfigurationGeneratorFactory;
 import com.android.adservices.service.adselection.encryption.ObliviousHttpEncryptor;
+import com.android.adservices.service.adselection.encryption.ServerAuctionCoordinatorUriStrategyFactory;
 import com.android.adservices.service.common.AdSelectionServiceFilter;
 import com.android.adservices.service.common.AppImportanceFilter;
 import com.android.adservices.service.common.FledgeAllowListsFilter;
@@ -204,6 +205,7 @@ public final class FrequencyCapFilteringIntegrationTest extends AdServicesExtend
     @Mock private AppImportanceFilter mAppImportanceFilterMock;
     @Mock private FledgeAllowListsFilter mFledgeAllowListsFilterMock;
     @Mock private KAnonSignJoinFactory mUnusedKAnonSignJoinFactory;
+    @Mock private Clock mMockClock;
     private AdSelectionEntryDao mAdSelectionEntryDao;
     private CustomAudienceDao mCustomAudienceDao;
     private EncodedPayloadDao mEncodedPayloadDao;
@@ -221,12 +223,11 @@ public final class FrequencyCapFilteringIntegrationTest extends AdServicesExtend
     private AdSelectionServiceImpl mAdSelectionServiceImpl;
     private UpdateAdCounterHistogramInput mInputParams;
     @Mock private ObliviousHttpEncryptor mObliviousHttpEncryptor;
-    private MultiCloudSupportStrategy mMultiCloudSupportStrategy =
-            MultiCloudTestStrategyFactory.getDisabledTestStrategy(mObliviousHttpEncryptor);
     @Mock private AdSelectionDebugReportDao mAdSelectionDebugReportDao;
     @Mock private AdIdFetcher mAdIdFetcher;
     private RetryStrategyFactory mRetryStrategyFactory;
     private AuctionServerDebugConfigurationGenerator mAuctionServerDebugConfigurationGenerator;
+    private ServerAuctionCoordinatorUriStrategyFactory mServerAuctionCoordinatorUriStrategyFactory;
 
     @Before
     public void setup() {
@@ -268,7 +269,8 @@ public final class FrequencyCapFilteringIntegrationTest extends AdServicesExtend
                                 new EnrollmentDao(
                                         mSpyContext,
                                         DbTestUtil.getSharedDbHelperForTest(),
-                                        mFakeFlags),
+                                        mFakeFlags,
+                                        mMockClock),
                                 mAdServicesLoggerMock));
 
         mAdFilteringFeatureFactory =
@@ -292,6 +294,9 @@ public final class FrequencyCapFilteringIntegrationTest extends AdServicesExtend
                         mAdIdFetcher,
                         consentedDebugConfigurationGeneratorFactory.create(),
                         mLightweightExecutorService);
+        mServerAuctionCoordinatorUriStrategyFactory =
+                new ServerAuctionCoordinatorUriStrategyFactory(
+                        mFakeFlags.getFledgeAuctionServerCoordinatorUrlAllowlist());
         mAdSelectionServiceImpl =
                 new AdSelectionServiceImpl(
                         mAdSelectionEntryDao,
@@ -315,14 +320,15 @@ public final class FrequencyCapFilteringIntegrationTest extends AdServicesExtend
                         mServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactory);
 
         mInputParams =
                 new UpdateAdCounterHistogramInput.Builder(
@@ -481,14 +487,15 @@ public final class FrequencyCapFilteringIntegrationTest extends AdServicesExtend
                         mServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactory);
 
         UpdateAdCounterHistogramTestCallback callback = callUpdateAdCounterHistogram(mInputParams);
 
@@ -555,14 +562,15 @@ public final class FrequencyCapFilteringIntegrationTest extends AdServicesExtend
                                         mAdServicesLoggerMock)),
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactory);
 
         UpdateAdCounterHistogramTestCallback callback = callUpdateAdCounterHistogram(mInputParams);
 
@@ -790,14 +798,15 @@ public final class FrequencyCapFilteringIntegrationTest extends AdServicesExtend
                         mServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactory);
 
         // Persist ad selections
         mAdSelectionEntryDao.persistAdSelection(EXISTING_PREVIOUS_AD_SELECTION_BUYER_1);
@@ -894,14 +903,15 @@ public final class FrequencyCapFilteringIntegrationTest extends AdServicesExtend
                         mServiceFilterMock,
                         mAdFilteringFeatureFactory,
                         mConsentManagerMock,
-                        mMultiCloudSupportStrategy,
+                        mObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactory);
 
         // Persist ad selections
         mAdSelectionEntryDao.persistAdSelection(EXISTING_PREVIOUS_AD_SELECTION_BUYER_1);

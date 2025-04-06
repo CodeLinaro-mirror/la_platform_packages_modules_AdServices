@@ -244,6 +244,9 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_ATTRIBUTION_JOB_TRIGGERING_DELAY_MS =
             "measurement_attribution_job_triggering_delay_ms";
 
+    public static final String KEY_MEASUREMENT_ATTRIBUTION_JOB_TRIGGERING_MAX_DELAY_MS =
+            "Measurement__attribution_job_triggering_max_delay_ms";
+
     public static final String KEY_MEASUREMENT_MAX_ATTRIBUTIONS_PER_INVOCATION =
             "measurement_max_attributions_per_invocation";
 
@@ -607,6 +610,10 @@ public final class FlagsConstants {
     public static final String
             KEY_PROTECTED_SIGNALS_MAX_SIGNAL_SIZE_PER_BUYER_WITH_OVERSUBSCIPTION_BYTES =
                     "Fledge__protected_signals_raw_signals_max_oversubscribed_size_per_buyer_bytes";
+    public static final String KEY_PROTECTED_SIGNALS_ENABLE_PRIORITIZED_EVICTION =
+            "ProtectedSignals__enable_prioritized_eviction";
+    public static final String KEY_PROTECTED_SIGNALS_UPDATE_SCHEMA_VERSION =
+            "ProtectedSignals__update_schema_version";
 
     public static final String KEY_FLEDGE_ENABLE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE =
             "Fledge__enable_forced_encoding_after_signals_update";
@@ -680,6 +687,9 @@ public final class FlagsConstants {
             "fledge_schedule_custom_audience_update_min_delay_mins_override";
     public static final String KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_MAX_BYTES =
             "Fledge__schedule_custom_audience_update_max_bytes";
+    public static final String
+            KEY_FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_BACKGROUND_JOB_NETWORK_TYPE =
+                    "Fledge__schedule_custom_audience_update_background_job_network_type";
 
     // FLEDGE Ad Counter Histogram keys
     public static final String KEY_FLEDGE_AD_COUNTER_HISTOGRAM_ABSOLUTE_MAX_TOTAL_EVENT_COUNT =
@@ -809,9 +819,6 @@ public final class FlagsConstants {
             "fledge_auction_server_omit_ads_enabled";
     public static final String KEY_FLEDGE_AUCTION_SERVER_REQUEST_FLAGS_ENABLED =
             "fledge_auction_server_request_flags_enabled";
-
-    public static final String KEY_FLEDGE_AUCTION_SERVER_MULTI_CLOUD_ENABLED =
-            "fledge_auction_server_multi_cloud_enabled";
 
     public static final String KEY_FLEDGE_AUCTION_SERVER_COORDINATOR_URL_ALLOWLIST =
             "fledge_auction_server_coordinator_url_allowlist";
@@ -1485,6 +1492,9 @@ public final class FlagsConstants {
     public static final String KEY_MEASUREMENT_COUNT_UNIQUE_APP_ALLOWLIST =
             "MeasurementCountUnique__app_allowlist";
 
+    public static final String KEY_MEASUREMENT_COUNT_UNIQUE_APP_SIGNATURE_ALLOWLIST =
+            "MeasurementCountUnique__app_signature_allowlist";
+
     // Database Schema Version Flags
     public static final String KEY_ENABLE_DATABASE_SCHEMA_VERSION_8 =
             "enable_database_schema_version_8";
@@ -1759,7 +1769,7 @@ public final class FlagsConstants {
             "Fledge__enable_prod_debug_in_auction_server";
 
     /** Key to enable the AdServices latency metrics {@code RbATrace}. */
-    public static final String KEY_ENABLE_RB_ATRACE = "enable_rb_atrace";
+    public static final String KEY_ENABLE_RB_ATRACE = "CrystalballMetrics__enable_rb_atrace";
 
     /** Key to enable the package deny list for source registration */
     public static final String KEY_MSMT_REGISTER_SOURCE_PACKAGE_DENY_LIST =
@@ -1780,4 +1790,19 @@ public final class FlagsConstants {
     /** Key for AdServices' Client error logging sampling config. */
     public static final String KEY_AD_SERVICES_CEL_SAMPLING_CONFIG =
             "ClientErrorLogging__ad_services_cel_sampling_config";
+
+    /** Key to enable debug join keys to all adtechs instead of through allow list. */
+    public static final String KEY_MEASUREMENT_ENABLE_DEBUG_JOIN_KEYS_OPEN_ACCESS =
+            "Measurement__enable_debug_join_keys_open_access";
+
+    /** Key for all noncompilant adtechs that misuse debug join keys. */
+    public static final String KEY_MEASUREMENT_DEBUG_JOIN_KEYS_NONCOMPLIANT_ADTECHS =
+            "Measurement__debug_join_keys_noncompilant_adtechs";
+
+    /** Key debug join keys sample rate. */
+    public static final String KEY_MEASUREMENT_DEBUG_JOIN_KEYS_NONCOMPLIANT_ADTECHS_SAMPLE_RATE =
+            "Measurement__debug_join_keys_noncompliant_adtechs_sample_rate";
+
+    public static final String KEY_ENABLE_GET_BINDING_UID_IMPORTANCE =
+            "CommonInfra__enable_get_binding_uid_importance";
 }

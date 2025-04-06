@@ -533,8 +533,8 @@ public interface Flags extends ModuleSharedFlags {
 
     /** Measurement manifest file url, used for MDD download. */
     String MEASUREMENT_MANIFEST_FILE_URL =
-            "https://www.gstatic.com/mdi-serving/rubidium-adservices-adtech-enrollment/4503"
-                    + "/fecd522d3dcfbe1b3b1f1054947be8528be43e97";
+            "https://www.gstatic.com/mdi-serving/rubidium-adservices-adtech-enrollment/8409"
+                    + "/61e771d6656d87e705d99f3e80d95011ae295d82"; // Generated on 2025-01-07
 
     /** Measurement manifest file url. */
     default String getMeasurementManifestFileUrl() {
@@ -639,13 +639,6 @@ public interface Flags extends ModuleSharedFlags {
      */
     default long getMeasurementAsyncRegistrationJobTriggerMaxDelayMs() {
         return DEFAULT_MEASUREMENT_ASYNC_REGISTRATION_JOB_TRIGGER_MAX_DELAY_MS;
-    }
-
-    long DEFAULT_MEASUREMENT_ATTRIBUTION_JOB_TRIGGERING_DELAY_MS = TimeUnit.MINUTES.toMillis(2);
-
-    /** Delay from trigger registration to attribution job triggering */
-    default long getMeasurementAttributionJobTriggerDelayMs() {
-        return DEFAULT_MEASUREMENT_ATTRIBUTION_JOB_TRIGGERING_DELAY_MS;
     }
 
     int DEFAULT_MEASUREMENT_MAX_ATTRIBUTIONS_PER_INVOCATION = 100;
@@ -1347,6 +1340,20 @@ public interface Flags extends ModuleSharedFlags {
         return PROTECTED_SIGNALS_MAX_SIGNAL_SIZE_PER_BUYER_WITH_OVERSUBSCIPTION_BYTES;
     }
 
+    @FeatureFlag boolean PROTECTED_SIGNALS_ENABLE_PRIORITIZED_EVICTION = false;
+
+    /** Returns {@code true} feature flag if Protected Signals `prioritized` eviction is enabled. */
+    default boolean getProtectedSignalsEnablePrioritizedEviction() {
+        return PROTECTED_SIGNALS_ENABLE_PRIORITIZED_EVICTION;
+    }
+
+    @ConfigFlag int PROTECTED_SIGNALS_UPDATE_SCHEMA_VERSION = 0;
+
+    /** Returns the update schema version to request when downloading signal updates. */
+    default int getProtectedSignalsUpdateSchemaVersion() {
+        return PROTECTED_SIGNALS_UPDATE_SCHEMA_VERSION;
+    }
+
     @FeatureFlag boolean FLEDGE_ENABLE_FORCED_ENCODING_AFTER_SIGNALS_UPDATE = false;
 
     @ConfigFlag
@@ -1597,6 +1604,14 @@ public interface Flags extends ModuleSharedFlags {
     int FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_MIN_DELAY_MINS_OVERRIDE = 30;
 
     @ConfigFlag int FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_MAX_BYTES = 100 * 1024;
+
+    @ConfigFlag
+    int FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_BACKGROUND_JOB_REQUIRED_NETWORK_TYPE =
+            JobInfo.NETWORK_TYPE_UNMETERED;
+
+    default int getFledgeScheduleCustomAudienceUpdateBackgroundJobRequiredNetworkType() {
+        return FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_BACKGROUND_JOB_REQUIRED_NETWORK_TYPE;
+    }
 
     default boolean getFledgeScheduleCustomAudienceUpdateEnabled() {
         return !getGlobalKillSwitch() && FLEDGE_SCHEDULE_CUSTOM_AUDIENCE_UPDATE_ENABLED;
@@ -2032,16 +2047,11 @@ public interface Flags extends ModuleSharedFlags {
         return FLEDGE_AUCTION_SERVER_OMIT_ADS_ENABLED;
     }
 
-    boolean FLEDGE_AUCTION_SERVER_MULTI_CLOUD_ENABLED = false;
-
-    default boolean getFledgeAuctionServerMultiCloudEnabled() {
-        return FLEDGE_AUCTION_SERVER_MULTI_CLOUD_ENABLED;
-    }
-
     String FLEDGE_AUCTION_SERVER_COORDINATOR_URL_ALLOWLIST =
-            "https://publickeyservice-v150"
-                    + ".coordinator-a.bas-gcp.pstest.dev/"
-                    + ".well-known/protected-auction/v1/public-keys";
+            "https://publickeyservice.pa.gcp.privacysandboxservices.com/.well-known/"
+                    + "protected-auction/v1/public-keys,"
+                    + "https://publickeyservice.pa.aws.privacysandboxservices.com/.well-known/"
+                    + "protected-auction/v1/public-keys";
 
     default String getFledgeAuctionServerCoordinatorUrlAllowlist() {
         return FLEDGE_AUCTION_SERVER_COORDINATOR_URL_ALLOWLIST;
@@ -3363,6 +3373,12 @@ public interface Flags extends ModuleSharedFlags {
     @ConfigFlag boolean ENFORCE_FOREGROUND_STATUS_SCHEDULE_CUSTOM_AUDIENCE = true;
     boolean ENFORCE_FOREGROUND_STATUS_TOPICS = true;
     boolean ENFORCE_FOREGROUND_STATUS_SIGNALS = true;
+    @FeatureFlag boolean ENABLE_GET_BINDING_UID_IMPORTANCE = false;
+
+    /** Returns if the feature to use {@code ActivityManager.getBindingUidImportance} is enabled. */
+    default boolean getEnableGetBindingUidImportance() {
+        return ENABLE_GET_BINDING_UID_IMPORTANCE;
+    }
 
     /**
      * Returns true if FLEDGE runAdSelection API should require that the caller is running in
@@ -3883,6 +3899,14 @@ public interface Flags extends ModuleSharedFlags {
     /** Returns the allowlist of apps that allow count unique registrations. */
     default String getMeasurementCountUniqueAppAllowlist() {
         return DEFAULT_MEASUREMENT_COUNT_UNIQUE_APP_ALLOWLIST;
+    }
+
+    /** Default allow list for app signatures to allow count unique registrations. */
+    @ConfigFlag String DEFAULT_MEASUREMENT_COUNT_UNIQUE_APP_SIGNATURE_ALLOWLIST = "";
+
+    /** Returns the allowlist of app signatures that allow count unique registrations. */
+    default String getMeasurementCountUniqueAppSignatureAllowlist() {
+        return DEFAULT_MEASUREMENT_COUNT_UNIQUE_APP_SIGNATURE_ALLOWLIST;
     }
 
     /** Kill switch to guard backward-compatible logging. See go/rbc-ww-logging */
@@ -4444,9 +4468,17 @@ public interface Flags extends ModuleSharedFlags {
 
     long MEASUREMENT_ATTRIBUTION_JOB_TRIGGERING_DELAY_MS = TimeUnit.MINUTES.toMillis(2);
 
-    /** Delay for attribution job triggering. */
+    /** Minimum delay for attribution job triggering. */
     default long getMeasurementAttributionJobTriggeringDelayMs() {
         return MEASUREMENT_ATTRIBUTION_JOB_TRIGGERING_DELAY_MS;
+    }
+
+    @ConfigFlag
+    long MEASUREMENT_ATTRIBUTION_JOB_TRIGGERING_MAX_DELAY_MS = TimeUnit.MINUTES.toMillis(5);
+
+    /** Maximum delay for attribution job triggering. */
+    default long getMeasurementAttributionJobTriggeringMaxDelayMs() {
+        return MEASUREMENT_ATTRIBUTION_JOB_TRIGGERING_MAX_DELAY_MS;
     }
 
     boolean MEASUREMENT_ATTRIBUTION_FALLBACK_JOB_PERSISTED = true;
@@ -5248,6 +5280,33 @@ public interface Flags extends ModuleSharedFlags {
     /** Returns whether measurement debug keys privacy enforcement is enabled. */
     default boolean getMeasurementEnableBothSideDebugKeysInReports() {
         return MEASUREMENT_ENABLE_BOTH_SIDE_DEBUG_KEYS_IN_REPORTS;
+    }
+
+    /** Flag to enable open access for adtechs to use debug_join_key . */
+    @FeatureFlag boolean MEASUREMENT_ENABLE_DEBUG_JOIN_KEYS_OPEN_ACCESS = false;
+
+    /** Returns whether open access for adtechs to use debug_join_key is enabled */
+    default boolean getMeasurementEnableDebugJoinKeysOpenAccess() {
+        return MEASUREMENT_ENABLE_DEBUG_JOIN_KEYS_OPEN_ACCESS;
+    }
+
+    /**
+     * List noncompiliant adtechs using debug_join_keys during open access. Example:
+     * "adtech_1,adtech_2"
+     */
+    @ConfigFlag String MEASUREMENT_DEBUG_JOIN_KEYS_NONCOMPLIANT_ADTECHS = "";
+
+    /** Returns list noncompiliant adtechs using debug_join_keys during open access.. */
+    default String getMeasurementDebugJoinKeysNoncompliantAdtechs() {
+        return MEASUREMENT_DEBUG_JOIN_KEYS_NONCOMPLIANT_ADTECHS;
+    }
+
+    /* Sample rate used to set debug_join_keys if Trigger side adtech is non-compliant. */
+    @ConfigFlag float MEASUREMENT_DEBUG_JOIN_KEYS_NONCOMPLIANT_ADTECHS_SAMPLE_RATE = 1.0f;
+
+    /** Returns sample rate to set debug_join_keys on non-compliant adtechs. */
+    default float getMeasurementDebugJoinKeysNoncompliantAdtechsSampleRate() {
+        return MEASUREMENT_DEBUG_JOIN_KEYS_NONCOMPLIANT_ADTECHS_SAMPLE_RATE;
     }
 
     /**

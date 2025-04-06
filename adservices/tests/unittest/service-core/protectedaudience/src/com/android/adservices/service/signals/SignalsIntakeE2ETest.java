@@ -27,7 +27,8 @@ import static com.android.adservices.service.signals.SignalsFixture.intToBytes;
 import static com.android.adservices.service.signals.UpdateProcessingOrchestrator.COLLISION_ERROR;
 import static com.android.adservices.service.signals.UpdatesDownloader.CONVERSION_ERROR_MSG;
 import static com.android.adservices.service.signals.UpdatesDownloader.PACKAGE_NAME_HEADER;
-import static com.android.adservices.service.signals.updateprocessors.Append.TOO_MANY_SIGNALS_ERROR;
+import static com.android.adservices.service.signals.UpdatesDownloader.UPDATE_SCHEMA_VERSION_HEADER;
+import static com.android.adservices.service.signals.updateprocessors.append.AppendV0.TOO_MANY_SIGNALS_ERROR;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.any;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.when;
@@ -56,6 +57,8 @@ import com.android.adservices.common.AdServicesExtendedMockitoTestCase;
 import com.android.adservices.common.DbTestUtil;
 import com.android.adservices.common.annotations.SetPasAppAllowList;
 import com.android.adservices.concurrency.AdServicesExecutors;
+import com.android.adservices.data.adselection.AdSelectionServerDatabase;
+import com.android.adservices.data.adselection.ProtectedServersEncryptionConfigDao;
 import com.android.adservices.data.adselection.SharedStorageDatabase;
 import com.android.adservices.data.customaudience.CustomAudienceDao;
 import com.android.adservices.data.customaudience.CustomAudienceDatabase;
@@ -88,13 +91,14 @@ import com.android.adservices.service.devapi.DevContext;
 import com.android.adservices.service.devapi.DevContextFilter;
 import com.android.adservices.service.enrollment.EnrollmentData;
 import com.android.adservices.service.signals.evict.SignalEvictionController;
-import com.android.adservices.service.signals.updateprocessors.UpdateEncoderEventHandler;
 import com.android.adservices.service.signals.updateprocessors.UpdateProcessorSelector;
+import com.android.adservices.service.signals.updateprocessors.updateencoder.UpdateEncoderEventHandler;
 import com.android.adservices.service.stats.AdServicesLogger;
 import com.android.adservices.service.stats.AdServicesLoggerImpl;
 import com.android.adservices.service.stats.pas.UpdateSignalsProcessReportedLogger;
 import com.android.adservices.shared.testing.SkipLoggingUsageRule;
 import com.android.adservices.shared.testing.annotations.RequiresSdkLevelAtLeastT;
+import com.android.adservices.shared.util.Clock;
 import com.android.adservices.testutils.DevSessionHelper;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.modules.utils.testing.ExtendedMockitoRule.MockStatic;
@@ -151,6 +155,7 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
     @Mock private DevContextFilter mDevContextFilterMock;
     @Mock private UpdateSignalsProcessReportedLogger mUpdateSignalsProcessReportedLoggerMock;
     @Mock private DatastoreManager mDatastoreManager;
+    @Mock private Clock mMockClock;
 
     @Spy
     private FledgeAllowListsFilter mFledgeAllowListsFilterSpy =
@@ -175,6 +180,7 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
     private ListeningExecutorService mBackgroundExecutorService;
     private EnrollmentDao mEnrollmentDao;
     private ForcedEncoder mForcedEncoder;
+    private ProtectedServersEncryptionConfigDao mProtectedServersEncryptionConfigDao;
 
     @Before
     public void setup() {
@@ -196,7 +202,8 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
                         .build()
                         .getEncodedPayloadDao();
         mEnrollmentDao =
-                new EnrollmentDao(mSpyContext, DbTestUtil.getSharedDbHelperForTest(), mFakeFlags);
+                new EnrollmentDao(
+                        mSpyContext, DbTestUtil.getSharedDbHelperForTest(), mFakeFlags, mMockClock);
         mEnrollmentDao.insert(
                 new EnrollmentData.Builder()
                         .setEnrollmentId("123")
@@ -260,6 +267,11 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
                         .customAudienceDao();
         SharedStorageDatabase sharedStorageDatabase =
                 Room.inMemoryDatabaseBuilder(mSpyContext, SharedStorageDatabase.class).build();
+
+        mProtectedServersEncryptionConfigDao =
+                Room.inMemoryDatabaseBuilder(mContext, AdSelectionServerDatabase.class)
+                        .build()
+                        .protectedServersEncryptionConfigDao();
         mDevSessionHelper =
                 new DevSessionHelper(
                         customAudienceDao,
@@ -267,7 +279,8 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
                         sharedStorageDatabase.frequencyCapDao(),
                         mSignalsDao,
                         encodedPayloadDao,
-                        mDatastoreManager);
+                        mDatastoreManager,
+                        mProtectedServersEncryptionConfigDao);
         mProtectedSignalsServiceFilter =
                 new ProtectedSignalsServiceFilter(
                         mSpyContext,
@@ -291,14 +304,18 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
     private void setupService(boolean mockHttpClient) {
         if (mockHttpClient) {
             mUpdatesDownloader =
-                    new UpdatesDownloader(mLightweightExecutorService, mAdServicesHttpsClientMock);
+                    new UpdatesDownloader(
+                            mLightweightExecutorService,
+                            mAdServicesHttpsClientMock,
+                            mFakeFlags.getProtectedSignalsUpdateSchemaVersion());
         } else {
             // Shorter timeouts so the test fails quickly if there are issues
             mUpdatesDownloader =
                     new UpdatesDownloader(
                             mLightweightExecutorService,
                             new AdServicesHttpsClient(
-                                    mBackgroundExecutorService, 2000, 2000, 10000));
+                                    mBackgroundExecutorService, 2000, 2000, 10000),
+                            mFakeFlags.getProtectedSignalsUpdateSchemaVersion());
         }
         mUpdateSignalsOrchestrator =
                 new UpdateSignalsOrchestrator(
@@ -817,7 +834,11 @@ public final class SignalsIntakeE2ETest extends AdServicesExtendedMockitoTestCas
 
     private void setupAndRunUpdateSignals(String json) throws Exception {
         ImmutableMap<String, String> requestProperties =
-                ImmutableMap.of(PACKAGE_NAME_HEADER, CommonFixture.TEST_PACKAGE_NAME);
+                ImmutableMap.of(
+                        PACKAGE_NAME_HEADER,
+                        CommonFixture.TEST_PACKAGE_NAME,
+                        UPDATE_SCHEMA_VERSION_HEADER,
+                        String.valueOf(mFakeFlags.getProtectedSignalsUpdateSchemaVersion()));
         AdServicesHttpClientRequest expected =
                 AdServicesHttpClientRequest.builder()
                         .setRequestProperties(requestProperties)

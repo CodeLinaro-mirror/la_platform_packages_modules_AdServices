@@ -94,6 +94,7 @@ import com.android.adservices.service.adid.AdIdCacheManager;
 import com.android.adservices.service.adselection.debug.AuctionServerDebugConfigurationGenerator;
 import com.android.adservices.service.adselection.debug.ConsentedDebugConfigurationGeneratorFactory;
 import com.android.adservices.service.adselection.encryption.ObliviousHttpEncryptor;
+import com.android.adservices.service.adselection.encryption.ServerAuctionCoordinatorUriStrategyFactory;
 import com.android.adservices.service.common.AdSelectionServiceFilter;
 import com.android.adservices.service.common.FledgeAuthorizationFilter;
 import com.android.adservices.service.common.RetryStrategyFactory;
@@ -221,6 +222,7 @@ public final class OnDeviceAdSelectionFailureIntegrationTest
     @Mock private KAnonSignJoinFactory mMockUnusedKAnonSignJoinFactory;
     @Mock private AdSelectionServiceFilter mMockAdSelectionServiceFilter;
     @Mock private ObliviousHttpEncryptor mMockObliviousHttpEncryptor;
+    @Mock private com.android.adservices.shared.util.Clock mMockClock;
 
     private Flags mLegacyFakeFlags;
     private FledgeAuthorizationFilter mFledgeAuthorizationFilter;
@@ -239,12 +241,12 @@ public final class OnDeviceAdSelectionFailureIntegrationTest
     private AdSelectionConfig mAdSelectionConfig;
     private Dispatcher mDispatcher;
     private AdFilteringFeatureFactory mAdFilteringFeatureFactory;
-    private MultiCloudSupportStrategy mMultiCloudSupportStrategy;
     private AdSelectionDebugReportDao mAdSelectionDebugReportDao;
     private AdIdFetcher mAdIdFetcher;
     private RetryStrategyFactory mRetryStrategyFactory;
     private AdTechIdentifier mBuyer;
     private AuctionServerDebugConfigurationGenerator mAuctionServerDebugConfigurationGenerator;
+    private ServerAuctionCoordinatorUriStrategyFactory mServerAuctionCoordinatorUriStrategyFactory;
 
     @Before
     public void setUp() throws Exception {
@@ -285,14 +287,12 @@ public final class OnDeviceAdSelectionFailureIntegrationTest
 
         SharedDbHelper dbHelper = DbTestUtil.getSharedDbHelperForTest();
         mEncryptionKeyDao = new EncryptionKeyDao(dbHelper, mAdServicesLogger);
-        mEnrollmentDao = new EnrollmentDao(mSpyContext, dbHelper, mLegacyFakeFlags);
+        mEnrollmentDao = new EnrollmentDao(mSpyContext, dbHelper, mLegacyFakeFlags, mMockClock);
         mFledgeAuthorizationFilter =
                 new FledgeAuthorizationFilter(
                         mSpyContext.getPackageManager(), mEnrollmentDao, mAdServicesLogger);
         mAdFilteringFeatureFactory =
                 new AdFilteringFeatureFactory(mAppInstallDao, mFrequencyCapDao, mLegacyFakeFlags);
-        mMultiCloudSupportStrategy =
-                MultiCloudTestStrategyFactory.getDisabledTestStrategy(mMockObliviousHttpEncryptor);
 
         // Initialize dependencies for the AdSelectionService
         mLightweightExecutorService = AdServicesExecutors.getLightWeightExecutor();
@@ -418,6 +418,10 @@ public final class OnDeviceAdSelectionFailureIntegrationTest
                         Throttler.ApiKey.FLEDGE_API_SELECT_ADS,
                         DevContext.createForDevOptionsDisabled());
         mockAdIdWorker.setResult(AdId.ZERO_OUT, true);
+
+        mServerAuctionCoordinatorUriStrategyFactory =
+                new ServerAuctionCoordinatorUriStrategyFactory(
+                        mFakeFlags.getFledgeAuctionServerCoordinatorUrlAllowlist());
     }
 
     @Test
@@ -447,14 +451,15 @@ public final class OnDeviceAdSelectionFailureIntegrationTest
                         mMockAdSelectionServiceFilter,
                         mAdFilteringFeatureFactory,
                         mMockConsentManager,
-                        mMultiCloudSupportStrategy,
+                        mMockObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mMockUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactory);
 
         mMockWebServerRule.startMockWebServer(mDispatcher);
         List<Double> bidsForBuyer1 = ImmutableList.of(1.1, 2.2);
@@ -539,14 +544,15 @@ public final class OnDeviceAdSelectionFailureIntegrationTest
                         mMockAdSelectionServiceFilter,
                         mAdFilteringFeatureFactory,
                         mMockConsentManager,
-                        mMultiCloudSupportStrategy,
+                        mMockObliviousHttpEncryptor,
                         mAdSelectionDebugReportDao,
                         mAdIdFetcher,
                         mMockUnusedKAnonSignJoinFactory,
                         false,
                         mRetryStrategyFactory,
                         CONSOLE_MESSAGE_IN_LOGS_ENABLED,
-                        mAuctionServerDebugConfigurationGenerator);
+                        mAuctionServerDebugConfigurationGenerator,
+                        mServerAuctionCoordinatorUriStrategyFactory);
 
         ReportImpressionInput input =
                 new ReportImpressionInput.Builder()

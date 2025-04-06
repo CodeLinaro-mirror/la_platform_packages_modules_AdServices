@@ -32,11 +32,10 @@ import static com.android.dx.mockito.inline.extended.ExtendedMockito.verify;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyListOf;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import android.app.job.JobInfo;
@@ -111,7 +110,7 @@ public final class AdServicesBackCompatInitTest extends AdServicesExtendedMockit
 
         mSpyCompatInit.initializeComponents();
 
-        verifyZeroInteractions(mMockFlags, mPackageManager, mJobScheduler);
+        verifyNoMoreInteractions(mMockFlags, mPackageManager, mJobScheduler);
     }
 
     @Test
@@ -120,7 +119,7 @@ public final class AdServicesBackCompatInitTest extends AdServicesExtendedMockit
 
         mSpyCompatInit.initializeComponents();
 
-        verifyZeroInteractions(mMockFlags, mPackageManager, mJobScheduler);
+        verifyNoMoreInteractions(mMockFlags, mPackageManager, mJobScheduler);
     }
 
     @Test
@@ -163,7 +162,7 @@ public final class AdServicesBackCompatInitTest extends AdServicesExtendedMockit
 
         mSpyCompatInit.initializeComponents();
 
-        verifyZeroInteractions(mPackageManager, mJobScheduler);
+        verifyNoMoreInteractions(mPackageManager, mJobScheduler);
     }
 
     @Test
@@ -217,7 +216,7 @@ public final class AdServicesBackCompatInitTest extends AdServicesExtendedMockit
     public void testInitializeComponents_updateComponentsThrowsException_celLogged() {
         doThrow(IllegalArgumentException.class)
                 .when(mSpyCompatInit)
-                .updateComponents(anyListOf(String.class), anyBoolean());
+                .updateComponents(anyList(), anyBoolean());
         mocker.mockIsAtLeastT(false);
         mockAdServicesFlags(true);
         mockPackageName(TEST_PACKAGE_NAME);

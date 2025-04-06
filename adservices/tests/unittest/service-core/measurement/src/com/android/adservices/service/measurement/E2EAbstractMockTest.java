@@ -71,6 +71,7 @@ import com.android.adservices.service.measurement.aggregation.AggregateCryptoFix
 import com.android.adservices.service.measurement.aggregation.AggregateReport;
 import com.android.adservices.service.measurement.attribution.AttributionJobHandlerWrapper;
 import com.android.adservices.service.measurement.attribution.TriggerContentProvider;
+import com.android.adservices.service.measurement.countunique.CountUniqueRegistrar;
 import com.android.adservices.service.measurement.inputverification.ClickVerifier;
 import com.android.adservices.service.measurement.noising.ImpressionNoiseUtil;
 import com.android.adservices.service.measurement.noising.SourceNoiseHandler;
@@ -88,6 +89,7 @@ import com.android.adservices.service.measurement.reporting.EventReportingJobHan
 import com.android.adservices.service.measurement.util.UnsignedLong;
 import com.android.adservices.service.stats.NoOpLoggerImpl;
 import com.android.adservices.shared.errorlogging.AdServicesErrorLogger;
+import com.android.adservices.shared.util.Clock;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -145,6 +147,7 @@ public abstract class E2EAbstractMockTest extends E2EAbstractTest {
 
     EnrollmentDao mEnrollmentDao;
     DatastoreManager mDatastoreManager;
+    CountUniqueRegistrar mCountUniqueRegistrar;
 
     ContentResolver mMockContentResolver;
     ContentProviderClient mMockContentProviderClient;
@@ -206,12 +209,13 @@ public abstract class E2EAbstractMockTest extends E2EAbstractTest {
                 new SQLDatastoreManager(DbTestUtil.getMeasurementDbHelperForTest(), mErrorLogger);
         extendedMockito = E2EMockStatic.newE2EMockStaticRule(paramsProvider);
         mMeasurementDataDeleter = spy(new MeasurementDataDeleter(mDatastoreManager, mFlags));
-
+        Clock mMockClock = mock(Clock.class);
         mEnrollmentDao =
                 new EnrollmentDao(
                         ApplicationProvider.getApplicationContext(),
                         DbTestUtil.getSharedDbHelperForTest(),
                         mFlags,
+                        mMockClock,
                         /* enable seed */ true,
                         new NoOpLoggerImpl(),
                         EnrollmentUtil.getInstance());
@@ -231,12 +235,15 @@ public abstract class E2EAbstractMockTest extends E2EAbstractTest {
                         new EventReportWindowCalcDelegate(mFlags),
                         mImpressionNoiseUtil));
 
+        mCountUniqueRegistrar = new CountUniqueRegistrar(mDatastoreManager);
+
         mAsyncSourceFetcher =
                 spy(
                         new AsyncSourceFetcher(
                                 sContext,
                                 mEnrollmentDao,
                                 mFlags,
+                                mCountUniqueRegistrar,
                                 mDatastoreManager,
                                 mDebugReportApi));
         mAsyncTriggerFetcher =
