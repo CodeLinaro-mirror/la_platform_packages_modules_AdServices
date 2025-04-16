@@ -4246,6 +4246,7 @@ class MeasurementDao implements IMeasurementDao {
         values.put(CountUniqueReportingContract.API_VERSION, report.getApiVersion());
         values.put(CountUniqueReportingContract.DEBUG_KEY, report.getDebugKey());
         values.put(CountUniqueReportingContract.CONTEXT_ID, report.getContextId());
+        values.put(CountUniqueReportingContract.REGISTRANT, report.getRegistrant().toString());
         long rowId =
                 mSQLTransaction
                         .getDatabase()
@@ -4274,6 +4275,9 @@ class MeasurementDao implements IMeasurementDao {
         values.put(
                 MeasurementTables.CountUniqueMetadataContract.EXPIRATION_TIME,
                 metadata.getExpirationTime());
+        values.put(
+                MeasurementTables.CountUniqueMetadataContract.REGISTRANT,
+                metadata.getRegistrant().toString());
         mSQLTransaction
                 .getDatabase()
                 .insertWithOnConflict(
@@ -4331,6 +4335,18 @@ class MeasurementDao implements IMeasurementDao {
         }
         LoggerFactory.getMeasurementLogger()
                 .d("MeasurementDao: CountUniqueMetadata: row deleted: " + rows);
+    }
+
+    @Override
+    public void deleteCountUniqueUninstall(Uri uri) throws DatastoreException {
+        deleteRecordsColumnBased(
+                List.of(uri.toString()),
+                CountUniqueReportingContract.TABLE,
+                CountUniqueReportingContract.REGISTRANT);
+        deleteRecordsColumnBased(
+                List.of(uri.toString()),
+                MeasurementTables.CountUniqueMetadataContract.TABLE,
+                MeasurementTables.CountUniqueMetadataContract.REGISTRANT);
     }
 
     @Override
