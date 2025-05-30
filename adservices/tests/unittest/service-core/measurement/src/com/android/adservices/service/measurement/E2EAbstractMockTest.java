@@ -43,6 +43,7 @@ import androidx.test.core.app.ApplicationProvider;
 
 import com.android.adservices.common.DbTestUtil;
 import com.android.adservices.common.WebUtil;
+import com.android.adservices.data.configdelivery.ArgonConfigurationManager;
 import com.android.adservices.data.enrollment.EnrollmentDao;
 import com.android.adservices.data.measurement.DatastoreManager;
 import com.android.adservices.data.measurement.SQLDatastoreManager;
@@ -75,7 +76,7 @@ import com.android.adservices.service.measurement.countunique.CountUniqueRegistr
 import com.android.adservices.service.measurement.inputverification.ClickVerifier;
 import com.android.adservices.service.measurement.noising.ImpressionNoiseUtil;
 import com.android.adservices.service.measurement.noising.SourceNoiseHandler;
-import com.android.adservices.service.measurement.ondevicepersonalization.NoOdpDelegationWrapper;
+import com.android.adservices.service.measurement.ondevicepersonalization.OdpDelegationWrapperFactory;
 import com.android.adservices.service.measurement.registration.AsyncRegistrationContentProvider;
 import com.android.adservices.service.measurement.registration.AsyncRegistrationQueueRunner;
 import com.android.adservices.service.measurement.registration.AsyncSourceFetcher;
@@ -155,6 +156,7 @@ public abstract class E2EAbstractMockTest extends E2EAbstractTest {
     private final Map<String, String> mUriToEnrollmentId = new HashMap<>();
     protected DebugReportApi mDebugReportApi;
     protected AggregateDebugReportApi mAggregateDebugReportApi;
+    protected OdpDelegationWrapperFactory mOdpDelegationWrapperFactory;
 
     @Rule(order = 11)
     public final AdServicesExtendedMockitoRule extendedMockito;
@@ -209,6 +211,7 @@ public abstract class E2EAbstractMockTest extends E2EAbstractTest {
                 new SQLDatastoreManager(DbTestUtil.getMeasurementDbHelperForTest(), mErrorLogger);
         extendedMockito = E2EMockStatic.newE2EMockStaticRule(paramsProvider);
         mMeasurementDataDeleter = spy(new MeasurementDataDeleter(mDatastoreManager, mFlags));
+        doReturn(false).when(mFlags).getConfigDeliveryEnableEnrollmentConfigV3DataDownload();
         Clock mMockClock = mock(Clock.class);
         mEnrollmentDao =
                 new EnrollmentDao(
@@ -218,7 +221,8 @@ public abstract class E2EAbstractMockTest extends E2EAbstractTest {
                         mMockClock,
                         /* enable seed */ true,
                         new NoOpLoggerImpl(),
-                        EnrollmentUtil.getInstance());
+                        mock(EnrollmentUtil.class),
+                        mock(ArgonConfigurationManager.class));
         mDebugReportApi =
                 new DebugReportApi(
                         ApplicationProvider.getApplicationContext(),
@@ -252,9 +256,9 @@ public abstract class E2EAbstractMockTest extends E2EAbstractTest {
                                 sContext,
                                 mEnrollmentDao,
                                 mFlags,
-                                new NoOdpDelegationWrapper(),
                                 mDatastoreManager,
-                                mDebugReportApi));
+                                mDebugReportApi,
+                                mOdpDelegationWrapperFactory));
         mMockContentResolver = mock(ContentResolver.class);
         mMockContentProviderClient = mock(ContentProviderClient.class);
 
