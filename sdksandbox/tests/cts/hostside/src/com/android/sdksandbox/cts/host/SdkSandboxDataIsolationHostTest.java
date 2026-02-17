@@ -16,6 +16,7 @@
 
 package com.android.sdksandbox.cts.host;
 
+import static android.app.sdksandbox.flags.Flags.FLAG_SDK_SANDBOX_NO_OP_IMPL;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -25,6 +26,9 @@ import android.app.sdksandbox.hosttestutils.AdoptableStorageUtils;
 import android.app.sdksandbox.hosttestutils.SdkSandboxDeviceSupportedHostRule;
 import android.app.sdksandbox.hosttestutils.SecondaryUserUtils;
 import android.platform.test.annotations.LargeTest;
+import android.platform.test.annotations.RequiresFlagsDisabled;
+import android.platform.test.flag.junit.CheckFlagsRule;
+import android.platform.test.flag.junit.host.HostFlagsValueProvider;
 
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
@@ -37,11 +41,16 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
+@RequiresFlagsDisabled(FLAG_SDK_SANDBOX_NO_OP_IMPL)
 public class SdkSandboxDataIsolationHostTest extends BaseHostJUnit4Test {
 
     @Rule(order = 0)
     public final SdkSandboxDeviceSupportedHostRule deviceSupportRule =
             new SdkSandboxDeviceSupportedHostRule(this);
+
+    @Rule
+    public final CheckFlagsRule mCheckFlagRule =
+            HostFlagsValueProvider.createCheckFlagsRule(this::getDevice);
 
     private static final String APP_PACKAGE = "com.android.sdksandbox.cts.app";
     private static final String APP_APK = "CtsSdkSandboxHostTestApp.apk";
