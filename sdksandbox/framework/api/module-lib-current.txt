@@ -1,5 +1,4 @@
-// Signature format: 6.0
-// - style=java
+// Signature format: 2.0
 package android.app.sdksandbox {
 
   @Deprecated @FlaggedApi("android.app.sdksandbox.flags.sdk_sandbox_api_deprecation") public final class SdkSandboxManager {
